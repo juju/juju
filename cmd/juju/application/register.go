@@ -29,14 +29,21 @@ type metricRegistrationPost struct {
 type RegisterMeteredCharm struct {
 	Plan           string
 	IncreaseBudget int
-	RegisterURL    string
-	QueryURL       string
+	RegisterPath   string
+	QueryPath      string
+	PlanURL        string
 	credentials    []byte
 }
 
+// SetFlags implements DeployStep.
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&r.IncreaseBudget, "increase-budget", 0, "increase model budget allocation by this amount")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
+}
+
+// SetPlanURL implements DeployStep.
+func (r *RegisterMeteredCharm) SetPlanURL(planURL string) {
+	r.PlanURL = planURL
 }
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
@@ -143,11 +150,10 @@ func isNoDefaultPlanError(e error) bool {
 }
 
 func (r *RegisterMeteredCharm) getDefaultPlan(client *httpbakery.Client, cURL string) (string, error) {
-	if r.QueryURL == "" {
+	if r.PlanURL == "" {
 		return "", errors.Errorf("no plan query url specified")
 	}
-
-	qURL, err := url.Parse(r.QueryURL + "/default")
+	qURL, err := url.Parse(r.PlanURL + r.QueryPath + "/default")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -186,10 +192,10 @@ func (r *RegisterMeteredCharm) getDefaultPlan(client *httpbakery.Client, cURL st
 }
 
 func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL string) ([]string, error) {
-	if r.QueryURL == "" {
+	if r.PlanURL == "" {
 		return nil, errors.Errorf("no plan query url specified")
 	}
-	qURL, err := url.Parse(r.QueryURL)
+	qURL, err := url.Parse(r.PlanURL + r.QueryPath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -229,10 +235,10 @@ func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL str
 }
 
 func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, applicationName string, client *httpbakery.Client) ([]byte, error) {
-	if r.RegisterURL == "" {
-		return nil, errors.Errorf("no metric registration url is specified")
+	if r.PlanURL == "" {
+		return nil, errors.Errorf("no plan query url specified")
 	}
-	registerURL, err := url.Parse(r.RegisterURL)
+	registerURL, err := url.Parse(r.PlanURL + r.RegisterPath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

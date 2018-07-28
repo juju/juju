@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
@@ -42,8 +43,6 @@ import (
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
-
-var planURL = "https://api.jujucharms.com/omnibus/v2"
 
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
@@ -101,6 +100,9 @@ type DeployAPI interface {
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
 	WatchAll() (*api.AllWatcher, error)
+
+	// PlanURL returns the configured URL prefix for the metering plan API.
+	PlanURL() string
 }
 
 // The following structs exist purely because Go cannot create a
@@ -138,8 +140,16 @@ type annotationsClient struct {
 	*annotations.Client
 }
 
+type plansClient struct {
+	planURL string
+}
+
 func (a *charmstoreClient) AuthorizeCharmstoreEntity(url *charm.URL) (*macaroon.Macaroon, error) {
 	return authorizeCharmStoreEntity(a.Client, url)
+}
+
+func (c *plansClient) PlanURL() string {
+	return c.planURL
 }
 
 type deployAPIAdapter struct {
@@ -151,6 +161,7 @@ type deployAPIAdapter struct {
 	*charmRepoClient
 	*charmstoreClient
 	*annotationsClient
+	*plansClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -217,6 +228,10 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 			return &deployAPIAdapter{
@@ -228,6 +243,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
 	}
@@ -238,8 +254,9 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 func NewDeployCommand() modelcmd.ModelCommand {
 	steps := []DeployStep{
 		&RegisterMeteredCharm{
-			RegisterURL: planURL + "/plan/authorize",
-			QueryURL:    planURL + "/charm",
+			PlanURL:      romulus.DefaultAPIRoot,
+			RegisterPath: "/plan/authorize",
+			QueryPath:    "/charm",
 		},
 	}
 	deployCmd := &DeployCommand{
@@ -259,6 +276,10 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		bakeryClient, err := deployCmd.BakeryClient()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -274,6 +295,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			plansClient:       &plansClient{planURL: mURL},
 		}, nil
 	}
 
@@ -541,8 +563,11 @@ See also:
 // DeployStep is an action that needs to be taken during charm deployment.
 type DeployStep interface {
 
-	// Set flags necessary for the deploy step.
+	// SetFlags sets flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
+
+	// SetPlanURL sets the plan URL prefix.
+	SetPlanURL(planURL string)
 
 	// RunPre runs before the call is made to add the charm to the environment.
 	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
@@ -998,6 +1023,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiRoot.Close()
 
+	for _, step := range c.Steps {
+		step.SetPlanURL(apiRoot.PlanURL())
+	}
+
 	deploy, err := findDeployerFIFO(
 		c.maybeReadLocalBundle,
 		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
@@ -1301,6 +1330,15 @@ func (c *DeployCommand) getCharmStoreAPIURL(controllerAPIRoot api.Connection) (s
 		return "", errors.Trace(err)
 	}
 	return controllerCfg.CharmStoreURL(), nil
+}
+
+func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (string, error) {
+	controllerAPI := controller.NewClient(controllerAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerCfg.MeteringURL(), nil
 }
 
 func (c *DeployCommand) charmStoreCharm() (deployFn, error) {

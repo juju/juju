@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -78,25 +79,20 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
-	stub := &testing.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: stub}
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-plans-1", "wordpress-with-plans")
 
 	deploy := NewDeployCommandForTest(
 		nil,
-		[]DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		[]DeployStep{&RegisterMeteredCharm{PlanURL: s.server.URL, RegisterPath: "", QueryPath: ""}},
 	)
 	_, err := cmdtesting.RunCommand(c, deploy, "bundle/wordpress-with-plans")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The order of calls here does not matter and is, in fact, not guaranteed.
 	// All we care about here is that the calls exist.
-	stub.CheckCallsUnordered(c, []testing.StubCall{{
+	s.stub.CheckCallsUnordered(c, []testing.StubCall{{
 		FuncName: "DefaultPlan",
 		Args:     []interface{}{"cs:wordpress"},
 	}, {
@@ -571,6 +567,9 @@ func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceapplication
 
 type BundleDeployCharmStoreSuite struct {
 	charmStoreSuite
+
+	stub   *testing.Stub
+	server *httptest.Server
 }
 
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
@@ -581,8 +580,24 @@ func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	s.stub = &testing.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: s.stub}
+	s.server = httptest.NewServer(handler)
+	// Set metering URL config so the config is set during bootstrap
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs[controller.MeteringURL] = s.server.URL
+
 	s.charmStoreSuite.SetUpTest(c)
 	logger.SetLogLevel(loggo.TRACE)
+}
+
+func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
+	if s.server != nil {
+		s.server.Close()
+	}
+	s.charmStoreSuite.TearDownTest(c)
 }
 
 func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
