@@ -21,14 +21,18 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// Non standard json Format
+const FormatCertFilename jsonschema.Format = "cert-filename"
+
 // Pollster is used to ask multiple questions of the user using a standard
 // formatting.
 type Pollster struct {
-	VerifyURLs VerifyFunc
-	scanner    *bufio.Scanner
-	out        io.Writer
-	errOut     io.Writer
-	in         io.Reader
+	VerifyURLs     VerifyFunc
+	VerifyCertFile VerifyFunc
+	scanner        *bufio.Scanner
+	out            io.Writer
+	errOut         io.Writer
+	in             io.Reader
 }
 
 // New returns a Pollster that wraps the given reader and writer.
@@ -408,7 +412,7 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 			return errors.Trace(err)
 		}
 		vals[name] = v
-		more, err := p.YN("Enter another "+schema.Singular, true)
+		more, err := p.YN("Enter another "+schema.Singular, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -448,6 +452,10 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 		} else {
 			verify = uriVerify
 		}
+	case FormatCertFilename:
+		if p.VerifyCertFile != nil {
+			verify = p.VerifyCertFile
+		}
 	default:
 		// TODO(natefinch): support more formats
 		return nil, errors.Errorf("unsupported format type: %q", schema.Format)
@@ -464,20 +472,34 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 	var def string
 	if schema.PromptDefault != nil {
 		def = fmt.Sprintf("%v", schema.PromptDefault)
-	} else {
+	}
+	var defFromEnvVar string
+	if len(schema.EnvVars) > 0 {
+		for _, envVar := range schema.EnvVars {
+			value := os.Getenv(envVar)
+			if value != "" {
+				defFromEnvVar = value
+				def = defFromEnvVar
+				break
+			}
+		}
+	}
+	if def == "" {
 		def = fmt.Sprintf("%v", schema.Default)
 	}
+
 	a, err := p.EnterVerifyDefault(schema.Singular, verify, def)
-
-	// If we set a prompt default, that'll get returned as the value,
-	// but it's not the actual value that is the default, so fix that.
-	if err == nil && a == def && schema.PromptDefault != nil {
-		a = fmt.Sprintf("%v", schema.Default)
-	}
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// If we set a prompt default, that'll get returned as the value,
+	// but it's not the actual value that is the default, so fix that,
+	// if an environment variable wasn't used.
+	if a == def && schema.PromptDefault != nil && a != defFromEnvVar {
+		a = fmt.Sprintf("%v", schema.Default)
+	}
+
 	return convert(a, schema.Type[0])
 }
 

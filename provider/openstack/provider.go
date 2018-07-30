@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -83,12 +84,22 @@ var providerInstance *EnvironProvider = &EnvironProvider{
 var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
 	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
-	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Order:    []string{cloud.EndpointKey, cloud.CertFilenameKey, cloud.AuthTypesKey, cloud.RegionsKey},
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
 			Singular: "the API endpoint url for the cloud",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
+			Default:  "",
+			EnvVars:  []string{"OS_AUTH_URL"},
+		},
+		cloud.CertFilenameKey: {
+			Singular:      "a path to the CA certificate for your cloud if one is required to access it. (optional)",
+			Type:          []jsonschema.Type{jsonschema.StringType},
+			Format:        interact.FormatCertFilename,
+			Default:       "",
+			PromptDefault: "none",
+			EnvVars:       []string{"OS_CACERT"},
 		},
 		cloud.AuthTypesKey: {
 			Singular:    "auth type",
@@ -109,6 +120,10 @@ var cloudSchema = &jsonschema.Schema{
 			Type:     []jsonschema.Type{jsonschema.ObjectType},
 			Singular: "region",
 			Plural:   "regions",
+			Default:  "",
+			// TODO (hml) 2018-08-02
+			// It'd be nice to have the EnvVars work with ObjectTypes, like they do for StringType.
+			// EnvVars:  []string{"OS_REGION_NAME"},
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
 				Required:      []string{cloud.EndpointKey},

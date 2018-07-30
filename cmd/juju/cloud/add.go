@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 )
 
 type CloudMetadataStore interface {
@@ -203,10 +205,26 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		ctxt.Infof("Cloud credential is not accepted by cloud provider: %v", reason)
 		return nil
 	}
-	pollster.VerifyURLs = func(s string) (ok bool, msg string, err error) {
-		err = c.Ping(provider, s)
+
+	// VerifyURLs will return true if a schema format type jsonschema.FormatURI is used
+	// and the value will Ping().
+	pollster.VerifyURLs = func(s string) (bool, string, error) {
+		err := c.Ping(provider, s)
 		if err != nil {
 			return false, "Can't validate endpoint: " + err.Error(), nil
+		}
+		return true, "", nil
+	}
+
+	// VerifyCertFile will return true if the schema format type "cert-filename" is used
+	// and the value is readable and a valid cert file.
+	pollster.VerifyCertFile = func(s string) (bool, string, error) {
+		out, err := ioutil.ReadFile(s)
+		if err != nil {
+			return false, "Can't validate CA Certificate file: " + err.Error(), nil
+		}
+		if _, err := cert.ParseCert(string(out)); err != nil {
+			return false, fmt.Sprintf("Can't validate CA Certificate %s: %s", s, err.Error()), nil
 		}
 		return true, "", nil
 	}
@@ -219,6 +237,17 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	filename, alt, err := addCertificate(b)
+	switch {
+	case errors.IsNotFound(err):
+	case err != nil:
+		return errors.Annotate(err, "CA Certificate")
+	default:
+		ctxt.Infof("Successfully read CA Certificate from %s", filename)
+		b = alt
+	}
+
 	newCloud, err := c.cloudMetadataStore.ParseOneCloud(b)
 	if err != nil {
 		return errors.Trace(err)
@@ -233,6 +262,50 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	ctxt.Infof("Then you can bootstrap with 'juju bootstrap %s'", name)
 
 	return nil
+}
+
+// addCertificate reads the cloud certificate file if available and adds the contents
+// to the byte slice with the appropriate key.  A NotFound error is returned if
+// a cloud.CertFilenameKey is not contained in the data, or the value is empty, this is
+// not a fatal error.
+func addCertificate(data []byte) (string, []byte, error) {
+	vals, err := ensureStringMaps(string(data))
+	if err != nil {
+		return "", nil, err
+	}
+	name, ok := vals[cloud.CertFilenameKey]
+	if !ok {
+		return "", nil, errors.NotFoundf("yaml has no certificate file")
+	}
+	filename := name.(string)
+	if ok && filename != "" {
+		out, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return filename, nil, err
+		}
+		certificate := string(out)
+		if _, err := cert.ParseCert(certificate); err != nil {
+			return filename, nil, errors.Annotate(err, "bad cloud CA certificate")
+		}
+		vals["ca-certificates"] = []string{certificate}
+
+	} else {
+		return filename, nil, errors.NotFoundf("yaml has no certificate file")
+	}
+	alt, err := yaml.Marshal(vals)
+	return filename, alt, err
+}
+
+func ensureStringMaps(in string) (map[string]interface{}, error) {
+	userDataMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(in), &userDataMap); err != nil {
+		return nil, errors.Annotate(err, "must be valid YAML")
+	}
+	out, err := utils.ConformYAML(userDataMap)
+	if err != nil {
+		return nil, err
+	}
+	return out.(map[string]interface{}), nil
 }
 
 func queryName(
