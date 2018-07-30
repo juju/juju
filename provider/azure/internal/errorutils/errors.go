@@ -43,13 +43,13 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 // If it is, the credential is invalidated.
 // Original error is returned untouched.
 func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
-	HasCredentialError(err, ctx)
+	MaybeHandleCredentialError(err, ctx)
 	return err
 }
 
-// HasCredentialError determines if given error has authorisation denial codes embedded.
+// MaybeHandleCredentialError determines if given error has authorisation denial codes embedded.
 // If a code related to an invalid credential is found, the credential is invalidated as well.
-func HasCredentialError(err error, ctx context.ProviderCallContext) bool {
+func MaybeHandleCredentialError(err error, ctx context.ProviderCallContext) bool {
 	if ctx == nil {
 		return false
 	}
