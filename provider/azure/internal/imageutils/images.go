@@ -17,8 +17,10 @@ import (
 	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure")
@@ -46,6 +48,7 @@ const (
 // For Ubuntu, we query the SKUs to determine the most recent point release
 // for a series.
 func SeriesImage(
+	ctx context.ProviderCallContext,
 	series, stream, location string,
 	client compute.VirtualMachineImagesClient,
 ) (*instances.Image, error) {
@@ -59,7 +62,7 @@ func SeriesImage(
 	case os.Ubuntu:
 		publisher = ubuntuPublisher
 		offering = ubuntuOffering
-		sku, err = ubuntuSKU(series, stream, location, client)
+		sku, err = ubuntuSKU(ctx, series, stream, location, client)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", series)
 		}
@@ -110,7 +113,7 @@ func SeriesImage(
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
-func ubuntuSKU(series, stream, location string, client compute.VirtualMachineImagesClient) (string, error) {
+func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client compute.VirtualMachineImagesClient) (string, error) {
 	seriesVersion, err := jujuseries.SeriesVersion(series)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -118,7 +121,7 @@ func ubuntuSKU(series, stream, location string, client compute.VirtualMachineIma
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, ubuntuOffering)
 	result, err := client.ListSkus(location, ubuntuPublisher, ubuntuOffering)
 	if err != nil {
-		return "", errors.Annotate(err, "listing Ubuntu SKUs")
+		return "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
 	if result.Value == nil || len(*result.Value) == 0 {
 		return "", errors.NotFoundf("Ubuntu SKUs")

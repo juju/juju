@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
@@ -40,7 +41,7 @@ func (commonDeploymentUpgradeStep) Description() string {
 // Run is part of the environs.UpgradeStep interface.
 func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	env := step.env
-	isControllerEnviron, err := isControllerEnviron(env)
+	isControllerEnviron, err := isControllerEnviron(env, ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -75,19 +76,19 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 	env.mu.Lock()
 	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
-	return env.createCommonResourceDeployment(nil, rules, storageAccountTemplateResource(
+	return env.createCommonResourceDeployment(ctx, nil, rules, storageAccountTemplateResource(
 		env.location, nil,
 		env.storageAccountName,
 		storageAccountType,
 	))
 }
 
-func isControllerEnviron(env *azureEnviron) (bool, error) {
+func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
 	result, err := client.List(env.resourceGroup)
 	if err != nil {
-		return false, errors.Annotate(err, "listing virtual machines")
+		return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 	}
 
 	if result.Value == nil {

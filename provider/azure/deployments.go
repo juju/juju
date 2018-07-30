@@ -7,10 +7,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 func createDeployment(
+	ctx context.ProviderCallContext,
 	client resources.DeploymentsClient,
 	resourceGroup string,
 	deploymentName string,
@@ -33,7 +36,7 @@ func createDeployment(
 		nil, // abort channel
 	)
 	if err := <-errChan; err != nil {
-		return errors.Annotatef(err, "creating deployment %q", deploymentName)
+		return errorutils.HandleCredentialError(errors.Annotatef(err, "creating deployment %q", deploymentName), ctx)
 	}
 	return nil
 }

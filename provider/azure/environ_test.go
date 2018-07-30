@@ -116,7 +116,8 @@ type environSuite struct {
 	sshPublicKeys      []compute.SSHPublicKey
 	linuxOsProfile     compute.OSProfile
 
-	callCtx context.ProviderCallContext
+	callCtx               *context.CloudCallContext
+	invalidatedCredential bool
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -239,7 +240,18 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
-	s.callCtx = context.NewCloudCallContext()
+
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidatedCredential = true
+			return nil
+		},
+	}
+}
+
+func (s *environSuite) TearDownTest(c *gc.C) {
+	s.invalidatedCredential = false
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
@@ -492,6 +504,18 @@ func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
 	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
 }
 
+func (s *environSuite) TestCloudEndpointManagementURIWithCredentialError(c *gc.C) {
+	env := s.openEnviron(c)
+	s.createSenderWithUnauthorisedStatusCode(c)
+	s.requests = nil
+
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	env.AllInstances(s.callCtx) // trigger a query
+	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
+}
+
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	s.assertStartInstance(c, nil)
 }
@@ -568,6 +592,28 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
 	})
+}
+
+func (s *environSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
+	mockSender := mocks.NewSender()
+	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
+	s.sender = azuretesting.Senders{mockSender}
+}
+
+func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c)
+	cfg, err := env.Config().Remove([]string{"authorized-keys"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createSenderWithUnauthorisedStatusCode(c)
+	s.requests = nil
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *environSuite) TestStartInstanceWindowsMinRootDisk(c *gc.C) {
@@ -1143,6 +1189,32 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	})
 }
 
+func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+
+	s.createSenderWithUnauthorisedStatusCode(c)
+	s.sender = append(s.sender, s.startInstanceSenders(true)...)
+	s.requests = nil
+
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	_, err := env.Bootstrap(
+		ctx, s.callCtx, environs.BootstrapParams{
+			ControllerConfig:     testing.FakeControllerConfig(),
+			AvailableTools:       makeToolsList("quantal"),
+			BootstrapSeries:      "quantal",
+			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		},
+	)
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
+
+	// Successful bootstrap expects 4 but we expecte to bail out after getting an authorised error.
+	c.Assert(len(s.requests), gc.Equals, 1)
+}
+
 func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bootstrap not supported on Windows")
@@ -1277,6 +1349,21 @@ func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	s.sender = azuretesting.Senders{sender0, sender1}
 	err := env.StopInstances(s.callCtx, "a", "b")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environSuite) TestStopInstancesInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c)
+	s.createSenderWithUnauthorisedStatusCode(c)
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	err := env.StopInstances(s.callCtx, "a", "b")
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	// This call is expected to have made 2 calls. Although we do undersntad that we could have gotten
+	// an invalid credential for one of the instances, the actual stop command to cloud api is done
+	// in a separate go routine for each instance. These goroutine do not really communicate with each other.
+	// There will be as many routines as there are instances and only once they all complete, will we have a chance to
+	// stop proceeding.
+	c.Assert(s.requests, gc.HasLen, 2)
 }
 
 func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
@@ -1498,6 +1585,17 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
 }
 
+func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
+	s.createSenderWithUnauthorisedStatusCode(c)
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	err := env.Destroy(s.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
+}
+
 func (s *environSuite) TestDestroyController(c *gc.C) {
 	groups := []resources.Group{{
 		Name: to.StringPtr("group1"),
@@ -1530,6 +1628,23 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		path.Base(s.requests[2].URL.Path),
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+}
+
+func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c)
+	s.createSenderWithUnauthorisedStatusCode(c)
+
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
+
+	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+		"tagname eq 'juju-controller-uuid' and tagvalue eq '%s'",
+		testing.ControllerTag.Id(),
+	))
 }
 
 func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
@@ -1588,6 +1703,16 @@ func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	types, err = env.InstanceTypes(s.callCtx, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 2)
+}
+
+func (s *environSuite) TestInstanceInformationWithInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c)
+	s.createSenderWithUnauthorisedStatusCode(c)
+
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	_, err := env.InstanceTypes(s.callCtx, constraints.Value{})
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {
@@ -1787,6 +1912,16 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
 	c.Assert(s.requests, gc.HasLen, 4)
+}
+
+func (s *environSuite) TestAdoptResourcesWithInvalidCredential(c *gc.C) {
+	env := s.openEnviron(c)
+	s.createSenderWithUnauthorisedStatusCode(c)
+
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {

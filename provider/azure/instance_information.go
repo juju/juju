@@ -16,7 +16,7 @@ var _ environs.InstanceTypesFetcher = (*azureEnviron)(nil)
 
 // InstanceTypes implements InstanceTypesFetcher
 func (env *azureEnviron) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	types, err := env.getInstanceTypes()
+	types, err := env.getInstanceTypes(ctx)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
