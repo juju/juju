@@ -166,12 +166,13 @@ func (s *resolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
 }
 
-func (s *resolverSuite) TestUpgradeSeriesCompleteStatusChanged(c *gc.C) {
+func (s *resolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
 		UpgradeSeriesCompleteStatus: model.UnitNotStarted,
+		//		UpgradeSeriesPrepareStatus:  model.UnitCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -179,7 +180,8 @@ func (s *resolverSuite) TestUpgradeSeriesCompleteStatusChanged(c *gc.C) {
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitStarted
+	s.remoteState.UpgradeSeriesCompleteStatus = model.UnitStarted
+	//	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitCompleted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")

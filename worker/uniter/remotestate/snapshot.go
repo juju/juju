@@ -75,6 +75,9 @@ type Snapshot struct {
 
 	// UpgradeSeriesPrepareStatus is the preparation status of any currently running series upgrade
 	UpgradeSeriesPrepareStatus model.UnitSeriesUpgradeStatus
+
+	// UpgradeSeriesCompleteStatus is the completion status of any currently running series upgrade
+	UpgradeSeriesCompleteStatus model.UnitSeriesUpgradeStatus
 }
 
 type RelationSnapshot struct {

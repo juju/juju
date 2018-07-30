@@ -228,7 +228,8 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		Series:                "",
-		UpgradeSeriesPrepareStatus: "",
+		UpgradeSeriesPrepareStatus:  "",
+		UpgradeSeriesCompleteStatus: "",
 	})
 }
 
