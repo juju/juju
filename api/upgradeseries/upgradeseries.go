@@ -11,7 +11,7 @@ import (
 
 const upgradeSeriesFacade = "UpgradeSeries"
 
-// State provides access to the UpgradeSeries  API facade.
+// State provides access to the UpgradeSeries API facade.
 type State struct {
 	*common.UpgradeSeriesAPI
 
