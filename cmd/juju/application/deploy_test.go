@@ -1099,6 +1099,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	}
 	meteredURL := charm.MustParseURL("cs:quantal/metered-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI.planURL = server.URL
 	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil, nil)
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
@@ -1112,7 +1113,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	setMetricCredentialsCall := fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
 	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
@@ -1149,6 +1150,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	}
 	meteredURL := charm.MustParseURL("cs:quantal/metered-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI.planURL = server.URL
 	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil, nil)
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
@@ -1159,7 +1161,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	setMetricCredentialsCall := fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
 	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
@@ -1248,7 +1250,7 @@ summary: summary
 	server := httptest.NewServer(handler)
 	defer server.Close()
 	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
@@ -1275,24 +1277,26 @@ summary: summary
 `
 	url, ch := testcharms.UploadCharmWithMeta(c, s.client, "cs:~user/quantal/metered", meteredMetaYAML, metricsYAML, 1)
 
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
 	cfgAttrs := map[string]interface{}{
 		"name": "name",
 		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type": "foo",
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI.planURL = server.URL
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, url, cfg)
 	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1, nil, nil)
 
-	stub := &jujutesting.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: stub}
-	server := httptest.NewServer(handler)
-	defer server.Close()
 	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
@@ -1357,6 +1361,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 		"type": "foo",
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI.planURL = server.URL
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1370,7 +1375,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	fakeAPI.Call("SetMetricCredentials", meteredCharmURL.Name, creds).Returns(errors.New("IsMetered"))
 
 	deploy := &DeployCommand{
-		Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+		Steps: []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}},
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
@@ -1759,6 +1764,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
 type fakeDeployAPI struct {
 	DeployAPI
 	*jujutesting.CallMocker
+	planURL string
 }
 
 func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
@@ -1919,6 +1925,10 @@ func (f *fakeDeployAPI) SetConstraints(application string, constraints constrain
 func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	results := f.MethodCall(f, "AddMachines", machineParams)
 	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
+}
+
+func (f *fakeDeployAPI) PlanURL() string {
+	return f.planURL
 }
 
 func stringToInterface(args []string) []interface{} {
