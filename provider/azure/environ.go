@@ -1237,13 +1237,20 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// TODO(axw) delete resources concurrently.
 
+	invalidatedCredential := func(credentialErr error, msg string) error {
+		return errors.Annotate(credentialErr, msg)
+	}
+
 	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
 	vmResultCh, errCh := vmClient.Delete(env.resourceGroup, vmName, nil)
 	if result, err := <-vmResultCh, <-errCh; err != nil {
-		errorutils.HandleCredentialError(err, ctx)
+		msg := "deleting virtual machine"
+		if errorutils.MaybeInvalidateCredential(err, ctx) {
+			return invalidatedCredential(err, msg)
+		}
 		if !isNotFoundResponse(result.Response) {
-			return errors.Annotate(err, "deleting virtual machine")
+			return errors.Annotate(err, msg)
 		}
 	}
 
@@ -1253,15 +1260,21 @@ func (env *azureEnviron) deleteVirtualMachine(
 		vhdContainer := blobClient.GetContainerReference(osDiskVHDContainer)
 		vhdBlob := vhdContainer.Blob(vmName)
 		_, err := vhdBlob.DeleteIfExists(nil)
-		return errorutils.HandleCredentialError(errors.Annotate(err, "deleting OS VHD"), ctx)
+		if errorutils.MaybeInvalidateCredential(err, ctx) {
+			return invalidatedCredential(err, "deleting OS VHD")
+		}
+		return errors.Annotate(err, "deleting OS VHD")
 	} else {
 		// Delete the managed OS disk.
 		logger.Debugf("- deleting OS disk (%s)", vmName)
 		resultCh, errCh := diskClient.Delete(env.resourceGroup, vmName, nil)
 		if result, err := <-resultCh, <-errCh; err != nil {
-			errorutils.HandleCredentialError(err, ctx)
+			msg := "deleting OS disk"
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, msg)
+			}
 			if !isNotFoundResponse(result.Response) {
-				return errors.Annotate(err, "deleting OS disk")
+				return errors.Annotate(err, msg)
 			}
 		}
 	}
@@ -1281,9 +1294,12 @@ func (env *azureEnviron) deleteVirtualMachine(
 		logger.Tracef("deleting NIC %q", nicName)
 		resultCh, errCh := nicClient.Delete(env.resourceGroup, nicName, nil)
 		if result, err := <-resultCh, <-errCh; err != nil {
-			errorutils.HandleCredentialError(err, ctx)
+			msg := "deleting NIC"
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, msg)
+			}
 			if !isNotFoundResponse(result) {
-				return errors.Annotate(err, "deleting NIC")
+				return errors.Annotate(err, msg)
 			}
 		}
 	}
@@ -1294,9 +1310,12 @@ func (env *azureEnviron) deleteVirtualMachine(
 		logger.Tracef("deleting public IP %q", pipName)
 		resultCh, errCh := pipClient.Delete(env.resourceGroup, pipName, nil)
 		if result, err := <-resultCh, <-errCh; err != nil {
-			errorutils.HandleCredentialError(err, ctx)
+			msg := "deleting public IP"
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, msg)
+			}
 			if !isNotFoundResponse(result) {
-				return errors.Annotate(err, "deleting public IP")
+				return errors.Annotate(err, msg)
 			}
 		}
 	}
@@ -1305,9 +1324,12 @@ func (env *azureEnviron) deleteVirtualMachine(
 	logger.Debugf("- deleting deployment (%s)", vmName)
 	resultCh, errCh := deploymentsClient.Delete(env.resourceGroup, vmName, nil)
 	if result, err := <-resultCh, <-errCh; err != nil {
-		errorutils.HandleCredentialError(err, ctx)
+		msg := "deleting deployment"
+		if errorutils.MaybeInvalidateCredential(err, ctx) {
+			return invalidatedCredential(err, msg)
+		}
 		if !isNotFoundResponse(result) {
-			return errors.Annotate(err, "deleting deployment")
+			return errors.Annotate(err, msg)
 		}
 	}
 	return nil

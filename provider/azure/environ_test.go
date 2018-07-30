@@ -1196,7 +1196,6 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.createSenderWithUnauthorisedStatusCode(c)
-	// s.sender = append(s.sender,s.initResourceGroupSenders())
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
 

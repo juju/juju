@@ -43,13 +43,13 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 // If it is, the credential is invalidated.
 // Original error is returned untouched.
 func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
-	MaybeHandleCredentialError(err, ctx)
+	MaybeInvalidateCredential(err, ctx)
 	return err
 }
 
-// MaybeHandleCredentialError determines if given error has authorisation denial codes embedded.
-// If a code related to an invalid credential is found, the credential is invalidated as well.
-func MaybeHandleCredentialError(err error, ctx context.ProviderCallContext) bool {
+// MaybeInvalidateCredential determines if given error is related to authentication/authorisation failures.
+// If an error is related to an invalid credential, then this call will try to invalidate that credential as well.
+func MaybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool {
 	if ctx == nil {
 		return false
 	}
@@ -59,7 +59,7 @@ func MaybeHandleCredentialError(err error, ctx context.ProviderCallContext) bool
 
 	invalidateErr := ctx.InvalidateCredential("azure cloud denied access")
 	if invalidateErr != nil {
-		logger.Infof("could not invalidate stored azure cloud credential on the controller")
+		logger.Warningf("could not invalidate stored azure cloud credential on the controller: %v", invalidateErr)
 	}
 	return true
 }

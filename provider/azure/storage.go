@@ -807,7 +807,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			nil, // abort channel
 		)
 		if err := <-errCh; err != nil {
-			if errorutils.MaybeHandleCredentialError(err, ctx) {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
 				return nil, errors.Trace(err)
 			}
 			results[i] = err

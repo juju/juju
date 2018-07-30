@@ -35,7 +35,7 @@ func (s *ErrorSuite) TestNilContext(c *gc.C) {
 	err := errorutils.HandleCredentialError(s.azureError, nil)
 	c.Assert(err, gc.DeepEquals, s.azureError)
 
-	invalidated := errorutils.MaybeHandleCredentialError(s.azureError, nil)
+	invalidated := errorutils.MaybeInvalidateCredential(s.azureError, nil)
 	c.Assert(invalidated, jc.IsFalse)
 
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
@@ -46,7 +46,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		return errors.New("kaboom")
 	}
-	errorutils.MaybeHandleCredentialError(s.azureError, ctx)
+	errorutils.MaybeInvalidateCredential(s.azureError, ctx)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored azure cloud credential on the controller")
 }
 
