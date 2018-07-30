@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/bundlechanges"
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -209,6 +210,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	if len(model.Applications()) == 0 {
 		return &charm.BundleData{}, errors.Errorf("nothing to export as there are no applications")
 	}
+	machineIds := make(set.Strings)
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
 		if application.Subordinate() {
@@ -224,7 +226,16 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		} else {
 			ut := []string{}
 			for _, unit := range application.Units() {
-				ut = append(ut, unit.Machine().Id())
+				machineID := unit.Machine().Id()
+				unitMachine := unit.Machine()
+				if names.IsContainerMachine(machineID) {
+					machineIds.Add(unitMachine.Parent().Id())
+					id := unitMachine.ContainerType() + ":" + unitMachine.Parent().Id()
+					ut = append(ut, id)
+				} else {
+					machineIds.Add(unitMachine.Id())
+					ut = append(ut, unitMachine.Id())
+				}
 			}
 
 			newApplication = &charm.ApplicationSpec{
@@ -244,6 +255,9 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	for _, machine := range model.Machines() {
+		if !machineIds.Contains(machine.Tag().Id()) {
+			continue
+		}
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),
 			Series:      machine.Series(),
