@@ -72,7 +72,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesSta
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		//TODO (externalreality) The code to convert api errors (with
+		//[TODO](externalreality): The code to convert api errors (with
 		//error codes) back to normal Go errors is in bad spot and
 		//causes import cycles which is why we don't use it here and may
 		//be the reason why it has few uses despite being useful.

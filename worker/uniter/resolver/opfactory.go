@@ -130,6 +130,13 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 			// indicate completion. We sync the states here.
 			s.LocalState.UpgradeSeriesPrepareStatus = s.RemoteState.UpgradeSeriesPrepareStatus
 		}}
+	case hooks.PostSeriesUpgrade:
+		op = onPrepareWrapper{op, func() {
+			s.LocalState.UpgradeSeriesCompleteStatus = s.RemoteState.UpgradeSeriesCompleteStatus
+		}}
+		op = onCommitWrapper{op, func() {
+			s.LocalState.UpgradeSeriesPrepareStatus = s.RemoteState.UpgradeSeriesPrepareStatus
+		}}
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
 		series := s.RemoteState.Series
