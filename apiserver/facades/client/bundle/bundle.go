@@ -218,7 +218,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Options:     application.CharmConfig(),
 				Annotations: application.Annotations(),
 			}
-			if result := b.machineConstraints(application.Constraints()); len(result) != 0 {
+			if result := b.constraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
 		} else {
@@ -235,7 +235,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Options:     application.CharmConfig(),
 				Annotations: application.Annotations(),
 			}
-			if result := b.machineConstraints(application.Constraints()); len(result) != 0 {
+			if result := b.constraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
 		}
@@ -252,7 +252,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		if result := b.hardwareConstraints(machine.Instance()); len(result) != 0 {
 			newMachine.Constraints = strings.Join(result, " ")
 		} else {
-			if result = b.machineConstraints(machine.Constraints()); len(result) != 0 {
+			if result = b.constraints(machine.Constraints()); len(result) != 0 {
 				newMachine.Constraints = strings.Join(result, " ")
 			}
 		}
@@ -301,7 +301,7 @@ func (b *BundleAPI) hardwareConstraints(instance description.CloudInstance) []st
 	return constraints
 }
 
-func (b *BundleAPI) machineConstraints(cons description.Constraints) []string {
+func (b *BundleAPI) constraints(cons description.Constraints) []string {
 	if cons == nil {
 		return []string{}
 	}

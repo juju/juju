@@ -32,11 +32,6 @@ func (m *stateShim) GetExportConfig() state.ExportConfig {
 	return cfg
 }
 
-// Machine returns machine with given id.
-func (m *stateShim) Machine(id string) (*state.Machine, error) {
-	return m.State.Machine(id)
-}
-
 // NewStateShim creates new state shim to be used by bundle Facade.
 func NewStateShim(st *state.State) Backend {
 	return &stateShim{st}
