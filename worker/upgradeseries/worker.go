@@ -8,22 +8,16 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"gopkg.in/juju/worker.v1"
 )
 
-// Facade exposes functionality required by a Worker to handle parts of the
-// upgrade series functionality.
-type Facade interface {
-	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
-}
-
-// Logger represents the logging methods called.
+// Logger represents the methods required to emit log messages.
+//go:generate mockgen -package upgradeseries_test -destination logger_mock_test.go github.com/juju/juju/worker/upgradeseries Logger
 type Logger interface {
+	Logf(level loggo.Level, message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
-	Logf(level loggo.Level, message string, args ...interface{})
 }
 
 type Config struct {
@@ -32,19 +26,24 @@ type Config struct {
 	// Logger is the logger for this worker.
 	Logger Logger
 
-	// Tag is the current machine tag
+	// Tag is the current machine tag.
 	Tag names.Tag
 }
 
-// Validate validates the upgradeseries worker configuration.
+// TODO (manadart 2018-07-30) Relocate this somewhere more central?
+//go:generate mockgen -package upgradeseries_test -destination worker_mock_test.go gopkg.in/juju/worker.v1 Worker
+
+// Validate validates the upgrade-series worker configuration.
 func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	// TODO: (hml) 2018-07-17
-	// validate it's a machine tag
 	if config.Tag == nil {
 		return errors.NotValidf("nil machine tag")
+	}
+	k := config.Tag.Kind()
+	if k != names.MachineTagKind {
+		return errors.NotValidf("%q tag kind", k)
 	}
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
@@ -52,22 +51,24 @@ func (config Config) Validate() error {
 	return nil
 }
 
+// NewWorker creates, starts and returns a new upgrade-series worker based on
+// the input configuration.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	u := &upgradeSeriesWorker{
+	w := &upgradeSeriesWorker{
 		Facade: config.Facade,
 		logger: config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
-		Site: &u.catacomb,
-		Work: u.loop,
+		Site: &w.catacomb,
+		Work: w.loop,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return u, nil
+	return w, nil
 }
 
 // upgradeSeriesWorker is responsible for machine and unit agent requirements
@@ -110,7 +111,7 @@ func (w *upgradeSeriesWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Stop stops the upgradeseriesworker and returns any
+// Stop stops the upgrade-series worker and returns any
 // error it encountered when running.
 func (w *upgradeSeriesWorker) Stop() error {
 	w.Kill()
