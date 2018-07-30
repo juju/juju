@@ -4,10 +4,18 @@
 package errorutils
 
 import (
+	"net/http"
+
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/environs/context"
 )
+
+var logger = loggo.GetLogger("juju.provider.azure")
 
 // ServiceError returns the *azure.ServiceError underlying the
 // supplied error, if any, and a bool indicating whether one
@@ -21,4 +29,51 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 		return r.ServiceError, true
 	}
 	return nil, false
+}
+
+// AuthorisationFailureStatusCodes contains http status code that signify authorisation difficulties.
+var AuthorisationFailureStatusCodes = set.NewInts(
+	http.StatusUnauthorized,
+	http.StatusPaymentRequired,
+	http.StatusForbidden,
+	http.StatusProxyAuthRequired,
+)
+
+// HandleCredentialError determines if given error relates to invalid credential.
+// If it is, the credential is invalidated.
+// Original error is returned untouched.
+func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
+	HasCredentialError(err, ctx)
+	return err
+}
+
+// HasCredentialError determines if given error has authorisation denial codes embedded.
+// If a code related to an invalid credential is found, the credential is invalidated as well.
+func HasCredentialError(err error, ctx context.ProviderCallContext) bool {
+	if ctx == nil {
+		return false
+	}
+	if !hasDenialStatusCode(err) {
+		return false
+	}
+
+	invalidateErr := ctx.InvalidateCredential("azure cloud denied access")
+	if invalidateErr != nil {
+		logger.Infof("could not invalidate stored azure cloud credential on the controller")
+	}
+	return true
+}
+
+func hasDenialStatusCode(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if d, ok := errors.Cause(err).(autorest.DetailedError); ok {
+		if d.Response != nil {
+			return AuthorisationFailureStatusCodes.Contains(d.Response.StatusCode)
+		}
+		return AuthorisationFailureStatusCodes.Contains(d.StatusCode.(int))
+	}
+	return false
 }

@@ -35,7 +35,8 @@ type instanceSuite struct {
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
 
-	callCtx context.ProviderCallContext
+	callCtx             *context.CloudCallContext
+	invalidteCredential bool
 }
 
 var _ = gc.Suite(&instanceSuite{})
@@ -58,7 +59,12 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		makeDeployment("machine-0"),
 		makeDeployment("machine-1"),
 	}
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidteCredential = true
+			return nil
+		},
+	}
 }
 
 func makeDeployment(name string) resources.DeploymentExtended {

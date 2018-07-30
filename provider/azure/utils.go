@@ -13,6 +13,9 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 const (
@@ -61,13 +64,13 @@ func isNotFoundResponse(resp autorest.Response) bool {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(ctx context.ProviderCallContext, client resources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
 	var res resources.ProviderListResult
 	res, err := client.List(nil, "")
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	for res.Value != nil {
 		for _, provider := range *res.Value {
@@ -86,7 +89,7 @@ func collectAPIVersions(client resources.ProvidersClient) (map[string]string, er
 		}
 		res, err = client.ListNextResults(res)
 		if err != nil {
-			return map[string]string{}, errors.Trace(err)
+			return map[string]string{}, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 		}
 	}
 	return result, nil
