@@ -591,6 +591,68 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
+func (s *bundleSuite) addMinimalMachinewithHardwareConstraints(model description.Model, id string) {
+	m := model.AddMachine(description.MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	args := description.ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * 1024,
+		RootDisk:     40 * 1024,
+	}
+	m.SetConstraints(args)
+	instanceArgs := description.CloudInstanceArgs{
+		Architecture: "amd64",
+		Memory:       4 * 1024,
+		RootDisk:     16 * 1024,
+	}
+	m.SetInstance(instanceArgs)
+	m.SetStatus(minimalStatusArgs())
+}
+
+func (s *bundleSuite) TestExportBundleModelWithHardwareConstraints(c *gc.C) {
+	model := s.newModel("mediawiki", "mysql")
+
+	s.addMinimalMachinewithHardwareConstraints(model, "0")
+	s.addMinimalMachinewithHardwareConstraints(model, "1")
+
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mediawiki:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 2\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    - \"1\"\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"machines:\n" +
+		"  \"0\":\n" +
+		"    constraints: arch=amd64 mem=4096 root-disk=16384\n" +
+		"    series: zesty\n" +
+		"  \"1\":\n" +
+		"    constraints: arch=amd64 mem=4096 root-disk=16384\n" +
+		"    series: zesty\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- - mediawiki:db\n" +
+		"  - mysql:mysql\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
 func (s *bundleSuite) addMinimalMachinewithannotations(model description.Model, id string) {
 	m := model.AddMachine(description.MachineArgs{
 		Id:           names.NewMachineTag(id),
