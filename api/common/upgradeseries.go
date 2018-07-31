@@ -4,10 +4,11 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"fmt"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
