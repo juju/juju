@@ -345,7 +345,7 @@ func (s *agentConfSuite) assertServiceSymLinks(c *gc.C) {
 		svcFileName := svcName + ".service"
 		result, err := os.Readlink(path.Join(s.systemdDir, svcFileName))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.Equals, path.Join(s.systemdDataDir, svcName, svcFileName))
+		c.Assert(result, gc.Equals, path.Join(service.SystemdDataDir, svcName, svcFileName))
 	}
 }
 

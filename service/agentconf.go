@@ -11,6 +11,9 @@
 // These routines can be used by any tools/cmds trying to implement the above
 // functionality as part of the process, eg. juju-updateseries command.
 
+// TODO (manadart 2018-07-31) This module is specific to systemd and should
+// reside in the service/systemd package.
+
 package service
 
 import (
@@ -114,7 +117,6 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 func (s *systemdServiceManager) WriteSystemdAgents(
 	machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir, series string,
 ) ([]string, []string, []string, error) {
-
 	var (
 		startedSysServiceNames []string
 		startedSymServiceNames []string
@@ -141,7 +143,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 		if !ok {
 			initName, err := VersionInitSystem(series)
 			if err != nil {
-				return nil, nil, nil, errors.Trace(errors.Annotate(err, "nor is service an UpgradableService"))
+				return nil, nil, nil, errors.Annotate(err, "service not of type UpgradableService")
 			}
 			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", initName)
 		}
@@ -158,22 +160,24 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 		running, err := s.isRunning()
 		switch {
 		case err != nil:
-			return nil, nil, nil, errors.Errorf("failure attempting to determine if systemd is running: %#v\n", err)
+			return nil, nil, nil, errors.Errorf("failed to determine if systemd is running: %#v\n", err)
 		case running:
-			// Links for manual and automatic use of the service
-			// have been written, move to the next.
+			// If systemd is the running init system on this host, then the
+			// call to DBusAPI.LinkUnitFiles in WriteService above will have
+			// automatically updated sym-links for the file. We are done.
 			startedSysServiceNames = append(startedSysServiceNames, svcName)
 			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 			continue
 		}
 
+		// Otherwise we need to manually ensure the service unit links.
 		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(dataDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(SystemdDataDir, svcName, svcFileName),
 			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
 		}
 
-		if err = os.Symlink(path.Join(dataDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(SystemdDataDir, svcName, svcFileName),
 			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
 		}
