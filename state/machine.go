@@ -2221,8 +2221,8 @@ func (m *Machine) CompleteUpgradeSeries() error {
 	return nil
 }
 
-// UpgradeSeriesStatus returns the status of a series upgrade.
-func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
+// UpgradeSeriesPrepareStatus returns the status of a series upgrade.
+func (m *Machine) UpgradeSeriesStatus(unitName string, statusType model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2235,7 +2235,15 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 		return "", errors.Trace(err)
 	}
 
-	for _, unit := range lock.PrepareUnits {
+	var lockUnits []unitStatus
+	switch statusType {
+	case model.PrepareStatus:
+		lockUnits = lock.PrepareUnits
+	case model.CompleteStatus:
+		lockUnits = lock.CompleteUnits
+	}
+
+	for _, unit := range lockUnits {
 		if unit.Id == unitName {
 			return unit.Status, nil
 		}
@@ -2245,7 +2253,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus) error {
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2259,7 +2267,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, bson.Now()), nil
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, statusType, bson.Now()), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2368,22 +2376,32 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, timestamp time.Time) []txn.Op {
-	unitStatusField := fmt.Sprintf("prepare-units.%d.status", unitIndex)
-	unitIdField := fmt.Sprintf("prepare-units.%d.id", unitIndex)
-	unitTimestampField := fmt.Sprintf("prepare-units.%d.timestamp", unitIndex)
+// [TODO](externalreality): move some/all of these parameters into an argument structure.
+func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType, timestamp time.Time) []txn.Op {
+	var statusField string
+	switch statusType {
+	case model.PrepareStatus:
+		statusField = "prepare-units"
+	case model.CompleteStatus:
+		statusField = "complete-units"
+	}
+
+	unitStatusField := fmt.Sprintf("%s.%d.status", statusField, unitIndex)
+	unitIDField := fmt.Sprintf("%s.%d.id", statusField, unitIndex)
+	unitTimestampField := fmt.Sprintf("%s.%d.timestamp", statusField, unitIndex)
+
 	return []txn.Op{
 		{
 			C:      machinesC,
-			Id:     machineDocId,
+			Id:     machineDocID,
 			Assert: isAliveDoc,
 		},
 		{
 			C:  machineUpgradeSeriesLocksC,
-			Id: machineDocId,
+			Id: machineDocID,
 			Assert: bson.D{{"$and", []bson.D{
-				{{"prepare-units", bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
-				{{unitIdField, unitName}},                      // assert the unit id points to the correct unit (and not to some other unit)
+				{{statusField, bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
+				{{unitIDField, unitName}},                  // assert the unit id points to the correct unit (and not to some other unit)
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
 				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}}},

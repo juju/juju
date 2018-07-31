@@ -47,26 +47,26 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) AssignedMachineId() *gomock.Call {
 }
 
 // SetUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus) error {
-	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0)
+func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus, arg1 model.UpgradeSeriesStatusType) error {
+	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus
-func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).SetUpgradeSeriesStatus), arg0)
+func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).SetUpgradeSeriesStatus), arg0, arg1)
 }
 
 // UpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
-	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
+func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus(arg0 model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
+	ret := m.ctrl.Call(m, "UpgradeSeriesStatus", arg0)
 	ret0, _ := ret[0].(model.UnitSeriesUpgradeStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus
-func (mr *MockUpgradeSeriesUnitMockRecorder) UpgradeSeriesStatus() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).UpgradeSeriesStatus))
+func (mr *MockUpgradeSeriesUnitMockRecorder) UpgradeSeriesStatus(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).UpgradeSeriesStatus), arg0)
 }

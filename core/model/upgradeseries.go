@@ -7,6 +7,16 @@ import (
 	"github.com/juju/errors"
 )
 
+// The Statuses, at least for units, appy to both the "Prepare" and "Complete"
+// phases of a managed series upgrade. This type can be used to distinguish
+// between those phases when working with the state of an upgraded.
+type UpgradeSeriesStatusType string
+
+const (
+	PrepareStatus  UpgradeSeriesStatusType = "Prepare"
+	CompleteStatus UpgradeSeriesStatusType = "Complete"
+)
+
 //MachineSeriesUpgradeStatus is the current status a machine series upgrade
 type MachineSeriesUpgradeStatus string
 
@@ -29,7 +39,7 @@ const (
 	UnitCompleted  UnitSeriesUpgradeStatus = "Completed"
 )
 
-// Validates a string returning an UpgradeSeriesStatus, if valid, or an error.
+// Validates a string returning an UpgradeSeriesPrepareStatus, if valid, or an error.
 func ValidateUnitSeriesUpgradeStatus(series string) (UnitSeriesUpgradeStatus, error) {
 	unCheckedStatus := UnitSeriesUpgradeStatus(series)
 	switch unCheckedStatus {
