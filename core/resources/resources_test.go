@@ -17,7 +17,7 @@ type ResourceSuite struct{}
 var _ = gc.Suite(&ResourceSuite{})
 
 func (s *ResourceSuite) TestValidRegistryPath(c *gc.C) {
-	err := resources.ValidateDockerRegistryPath("registry.hub.docker.com/me/awesomeimage@sha256:deedbeaf")
+	err := resources.ValidateDockerRegistryPath("registry.hub.docker.io/me/awesomeimage@sha256:deedbeaf")
 	c.Assert(err, jc.ErrorIsNil)
 	err = resources.ValidateDockerRegistryPath("docker.io/me/mygitlab:latest")
 	c.Assert(err, jc.ErrorIsNil)
