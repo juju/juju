@@ -26,10 +26,10 @@ func (s *MachineInternalSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&MachineInternalSuite{})
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc.C) {
-	arbitraryID := "1"
+	arbitraryId := "1"
 	arbitraryData := &upgradeSeriesLockDoc{}
 	var found bool
-	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryID, arbitraryData) {
+	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData) {
 		assertVal, ok := op.Assert.(bson.D)
 		if op.C == machinesC && ok && assertVal.Map()["life"] == Alive {
 			found = true
@@ -40,26 +40,26 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc
 }
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *gc.C) {
-	arbitraryID := "1"
+	arbitraryId := "1"
 	arbitraryData := &upgradeSeriesLockDoc{}
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
-		Id:     arbitraryID,
+		Id:     arbitraryId,
 		Assert: txn.DocMissing,
 		Insert: arbitraryData,
 	}
-	assertConstainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryID, arbitraryData))
+	assertConstainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData))
 }
 
 func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C) {
-	arbitraryID := "1"
+	arbitraryId := "1"
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
-		Id:     arbitraryID,
+		Id:     arbitraryId,
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryID))
+	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
 }
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
