@@ -2241,6 +2241,8 @@ func (m *Machine) UpgradeSeriesStatus(unitName string, statusType model.UpgradeS
 		lockUnits = lock.PrepareUnits
 	case model.CompleteStatus:
 		lockUnits = lock.CompleteUnits
+	default:
+		return "", fmt.Errorf("encountered invalid upgrade series type %q", statusType)
 	}
 
 	for _, unit := range lockUnits {
@@ -2267,7 +2269,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, statusType, bson.Now()), nil
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, statusType, bson.Now())
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2377,13 +2379,15 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
-func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType, timestamp time.Time) []txn.Op {
+func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType, timestamp time.Time) ([]txn.Op, error) {
 	var statusField string
 	switch statusType {
 	case model.PrepareStatus:
 		statusField = "prepare-units"
 	case model.CompleteStatus:
 		statusField = "complete-units"
+	default:
+		return nil, fmt.Errorf("encountered invalid upgrade series type %q", statusType)
 	}
 
 	unitStatusField := fmt.Sprintf("%s.%d.status", statusField, unitIndex)
@@ -2406,7 +2410,7 @@ func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status
 			Update: bson.D{
 				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}}},
 		},
-	}
+	}, nil
 }
 
 // IsLocked determines if a machine is locked for upgrade series.

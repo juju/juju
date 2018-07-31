@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"fmt"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -62,6 +63,8 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesSta
 		err = u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
 	case model.CompleteStatus:
 		err = u.facade.FacadeCall("UpgradeSeriesCompleteStatus", args, &results)
+	default:
+		err = fmt.Errorf("encountered invalid upgrade series type %q", statusType)
 	}
 
 	if err != nil {
@@ -85,7 +88,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesSta
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string, statusType model.UpgradeSeriesStatusType) error {
 	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
 		[]params.SetUpgradeSeriesStatusParam{{
@@ -93,7 +96,15 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
 			Status: status,
 		}},
 	}
-	err := u.facade.FacadeCall("SetUpgradeSeriesPrepareStatus", args, &results)
+	var err error
+	switch statusType {
+	case model.PrepareStatus:
+		err = u.facade.FacadeCall("SetUpgradeSeriesPrepareStatus", args, &results)
+	case model.CompleteStatus:
+		err = u.facade.FacadeCall("SetUpgradeSeriesCompleteStatus", args, &results)
+	default:
+		err = fmt.Errorf("encountered invalid upgrade series type %q", statusType)
+	}
 	if err != nil {
 		return err
 	}

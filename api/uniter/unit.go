@@ -655,8 +655,8 @@ func (u *Unit) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (st
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(status string) error {
-	return u.st.SetUpgradeSeriesStatus(status)
+func (u *Unit) SetUpgradeSeriesStatus(status string, statusType model.UpgradeSeriesStatusType) error {
+	return u.st.SetUpgradeSeriesStatus(status, statusType)
 }
 
 // RequestReboot sets the reboot flag for its machine agent

@@ -170,7 +170,7 @@ type Callbacks interface {
 	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
 	// upgrade the status of a running series upgrade after upgrade series
 	// hook code completes.
-	SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error
+	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage
