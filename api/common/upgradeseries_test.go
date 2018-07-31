@@ -171,7 +171,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored))
+	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -191,7 +191,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored))
+	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -213,6 +213,6 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored))
+	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
 	c.Assert(err, gc.ErrorMatches, "error in call")
 }
