@@ -25,7 +25,7 @@ var (
 	renderer = shell.BashRenderer{}
 )
 
-// These are the names of the init systems regognized by juju.
+// These are the names of the init systems recognized by juju.
 const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"

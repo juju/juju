@@ -1,13 +1,18 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// This file has routines which can be used for agent specific functionalities related to service files:
+// This file has routines which can be used for agent specific functionality
+// related to service files:
 //	- finding all agents in the machine
 //	- create conf file using the machine details
 // 	- write systemd service file and setting links
 // 	- copy all tools and related to agents and setup the links
 // 	- start all the agents
-// These routines can be used by any tools/cmds trying to implement the above functionality as part of the process, eg. juju-updateseries command.
+// These routines can be used by any tools/cmds trying to implement the above
+// functionality as part of the process, eg. juju-updateseries command.
+
+// TODO (manadart 2018-07-31) This module is specific to systemd and should
+// reside in the service/systemd package.
 
 package service
 
@@ -36,17 +41,22 @@ type SystemdServiceManager interface {
 	// FindAgents finds all the agents available in the machine.
 	FindAgents(dataDir string) (string, []string, []string, error)
 
-	// WriteSystemdAgents creates systemd files and create symlinks for the list of machine and units passed in the standard filepath.
-	WriteSystemdAgents(machineAgent string, unitAgents []string, dataDir string, symLinkSystemdDir string, symLinkSystemdMultiUserDir string, series string) ([]string, []string, []string, error)
+	// WriteSystemdAgents creates systemd files and create symlinks for the
+	// list of machine and units passed in the standard filepath.
+	WriteSystemdAgents(
+		machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir, series string,
+	) ([]string, []string, []string, error)
 
-	//CreateAgentConf creates the configfile for specified agent running on a host with specified series.
+	//CreateAgentConf creates the configfile for specified agent running on a
+	// host with specified series.
 	CreateAgentConf(agentName string, dataDir string, series string) (common.Conf, error)
 
 	// CopyAgentBinary copies all the tools into the path specified for each agent.
-	CopyAgentBinary(machineAgent string, unitAgents []string, dataDir string, toSeries string, fromSeries string, jujuVersion version.Number) error
+	CopyAgentBinary(
+		machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number) error
 
 	// StartAllAgents starts all the agents in the machine with specified series.
-	StartAllAgents(machineAgent string, unitAgents []string, dataDir string, series string) (string, []string, error)
+	StartAllAgents(machineAgent string, unitAgents []string, dataDir, series string) (string, []string, error)
 
 	// WriteServiceFile writes the service file in '/lib/systemd/system' path.
 	// this is done as part of upgrade step.
@@ -101,9 +111,12 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 	return machineAgent, unitAgents, errAgentNames, nil
 }
 
-// WriteSystemdAgents creates systemd files and create symlinks for the list of machine and units passed in the standard filepath '/var/lib/juju' during the upgrade process.
-func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgents []string, dataDir string, symLinkSystemdDir string, symLinkSystemdMultiUserDir string, series string) ([]string, []string, []string, error) {
-
+// WriteSystemdAgents creates systemd files and create symlinks for the list of
+// machine and units passed in the standard filepath '/var/lib/juju' during the
+// upgrade process.
+func (s *systemdServiceManager) WriteSystemdAgents(
+	machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir, series string,
+) ([]string, []string, []string, error) {
 	var (
 		startedSysServiceNames []string
 		startedSymServiceNames []string
@@ -130,7 +143,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgen
 		if !ok {
 			initName, err := VersionInitSystem(series)
 			if err != nil {
-				return nil, nil, nil, errors.Trace(errors.Annotate(err, "nor is service an UpgradableService"))
+				return nil, nil, nil, errors.Annotate(err, "service not of type UpgradableService")
 			}
 			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", initName)
 		}
@@ -147,22 +160,24 @@ func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgen
 		running, err := s.isRunning()
 		switch {
 		case err != nil:
-			return nil, nil, nil, errors.Errorf("failure attempting to determine if systemd is running: %#v\n", err)
+			return nil, nil, nil, errors.Errorf("failed to determine if systemd is running: %#v\n", err)
 		case running:
-			// Links for manual and automatic use of the service
-			// have been written, move to the next.
+			// If systemd is the running init system on this host, then the
+			// call to DBusAPI.LinkUnitFiles in WriteService above will have
+			// automatically updated sym-links for the file. We are done.
 			startedSysServiceNames = append(startedSysServiceNames, svcName)
 			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 			continue
 		}
 
+		// Otherwise we need to manually ensure the service unit links.
 		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(dataDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(SystemdDataDir, svcName, svcFileName),
 			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
 		}
 
-		if err = os.Symlink(path.Join(dataDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(SystemdDataDir, svcName, svcFileName),
 			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
 		}
@@ -219,8 +234,7 @@ func (s *systemdServiceManager) CopyAgentBinary(machineAgent string, unitAgents 
 		}
 	}()
 
-	// Setup new and old version.Binarys with only the series
-	// different.
+	// Setup new and old version.Binary instances with different series.
 	fromVers := version.Binary{
 		Number: jujuVersion,
 		Arch:   arch.HostArch(),

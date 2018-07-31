@@ -100,11 +100,8 @@ func (c *UpdateSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
-
-	var (
-		err              error
-		failedAgentNames []string
-	)
+	var err error
+	var failedAgentNames []string
 
 	if c.machineAgent, c.unitAgents, failedAgentNames, err = c.manager.FindAgents(c.dataDir); err != nil {
 		return err
@@ -163,7 +160,7 @@ func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
 		startedSysdServiceNames, startedSymServiceNames, failedAgentNames, err := c.manager.WriteSystemdAgents(
 			c.machineAgent,
 			c.unitAgents,
-			service.SystemdDataDir,
+			c.dataDir,
 			systemdDir,
 			systemdMultiUserDir,
 			c.toSeries,
