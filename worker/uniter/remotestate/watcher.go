@@ -571,13 +571,18 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	defer w.mu.Unlock()
 
 	status, err := w.upgradeSeriesStatus(model.PrepareStatus)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
 	w.current.UpgradeSeriesPrepareStatus = status
 
 	status, err = w.upgradeSeriesStatus(model.CompleteStatus)
-	w.current.UpgradeSeriesPrepareStatus = status
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -588,9 +593,6 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 
 func (w *RemoteStateWatcher) upgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
 	rawStatus, err := w.unit.UpgradeSeriesStatus(statusType)
-	if errors.IsNotFound(err) {
-		return "", err
-	}
 	if err != nil {
 		return "", err
 	}
