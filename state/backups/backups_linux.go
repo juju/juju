@@ -178,6 +178,13 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Annotate(err, "cannot produce dial information")
 	}
 
+	// For the unresponsive controller case the oldAgentConfig and agentConfig
+	// have different certificates. MongoDB has been already started with a
+	// new certificate. Therefore all clients that would like to communicate
+	// with mongo should use the new certificate otherwise the
+	// "TLS handshake error" occurs. To avoid this error the old certificate
+	// should be replaced by the new one.
+	oldAgentConfig.SetCACert(agentConfig.CACert())
 	oldDialInfo, err := newDialInfo(args.PrivateAddress, oldAgentConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot produce dial information for existing mongo")
