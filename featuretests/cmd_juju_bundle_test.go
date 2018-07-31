@@ -66,13 +66,28 @@ func (s *CmdExportBundleSuite) TestExportBundle(c *gc.C) {
 		"|\n"+
 		"  applications:\n"+
 		"    logging:\n"+
-		"      charm: cs:quantal/logging-122\n"+
+		"      charm: cs:quantal/logging-128\n"+
+		"      series: quantal\n"+
+		"      bindings:\n"+
+		"        info: \"\"\n"+
+		"        logging-client: \"\"\n"+
+		"        logging-directory: \"\"\n"+
 		"    wordpress:\n"+
-		"      charm: cs:quantal/wordpress-120\n"+
+		"      charm: cs:quantal/wordpress-126\n"+
+		"      series: quantal\n"+
+		"      bindings:\n"+
+		"        admin-api: \"\"\n"+
+		"        cache: \"\"\n"+
+		"        db: \"\"\n"+
+		"        db-client: \"\"\n"+
+		"        foo-bar: \"\"\n"+
+		"        logging-dir: \"\"\n"+
+		"        monitoring-port: \"\"\n"+
+		"        url: \"\"\n"+
 		"  series: xenial\n"+
 		"  relations:\n"+
 		"  - - wordpress:juju-info\n"+
 		"    - logging:info\n"+
-		"  - - wordpress:logging-dir\n"+
+		"    - wordpress:logging-dir\n"+
 		"    - logging:logging-directory\n")
 }
