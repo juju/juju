@@ -5,13 +5,13 @@ package common
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
-	"github.com/juju/loggo"
 )
 
 //go:generate mockgen -package mocks -destination mocks/mock_backend.go github.com/juju/juju/apiserver/common UpgradeSeriesBackend
@@ -23,13 +23,34 @@ type UpgradeSeriesBackend interface {
 //go:generate mockgen -package mocks -destination mocks/mock_machine.go github.com/juju/juju/apiserver/common UpgradeSeriesMachine
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
+	Units() ([]UpgradeSeriesUnit, error)
 }
 
 //go:generate mockgen -package mocks -destination mocks/mock_unit.go github.com/juju/juju/apiserver/common UpgradeSeriesUnit
 type UpgradeSeriesUnit interface {
+	Tag() names.Tag
 	AssignedMachineId() (string, error)
 	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error)
 	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
+}
+
+type upgradeSeriesMachine struct {
+	*state.Machine
+}
+
+// Units maintains the UpgradeSeriesMachine indirection by wrapping the call to
+// state.Machine.Units().
+func (m *upgradeSeriesMachine) Units() ([]UpgradeSeriesUnit, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	wrapped := make([]UpgradeSeriesUnit, len(units))
+	for i, u := range units {
+		wrapped[i] = u
+	}
+	return wrapped, nil
 }
 
 type UpgradeSeriesAPI struct {
@@ -224,16 +245,39 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 		}
 		switch tag.Kind() {
 		case names.MachineTagKind:
-			result.Results = append(
-				result.Results,
-				params.UpgradeSeriesStatusResult{Error: ServerError(errors.NotImplementedf("machine status"))},
-			)
+			// TODO (manadart 2018-08-01) If multiple machine entities are
+			// passed in the call, the return will not distinguish between
+			// What unit status results belong to which machine.
+			// At this stage we do not anticipate this, so... YAGNI.
+			result.Results = append(result.Results, u.upgradeSeriesMachineStatus(tag, statusType)...)
 		case names.UnitTagKind:
 			result.Results = append(result.Results, u.upgradeSeriesUnitStatus(tag, statusType))
 		}
 	}
 
 	return result, nil
+}
+
+// upgradeSeriesMachineStatus returns a result containing the upgrade-series
+// status of all units managed buy the input machine, for the input status type.
+func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(
+	machineTag names.Tag, statusType model.UpgradeSeriesStatusType,
+) []params.UpgradeSeriesStatusResult {
+	machine, err := u.getMachine(machineTag)
+	if err != nil {
+		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
+	}
+
+	units, err := machine.Units()
+	if err != nil {
+		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
+	}
+
+	results := make([]params.UpgradeSeriesStatusResult, len(units))
+	for i, unit := range units {
+		results[i] = u.upgradeSeriesUnitStatus(unit.Tag(), statusType)
+	}
+	return results
 }
 
 // upgradeSeriesUnitStatus returns a result containing the upgrade-series
@@ -264,7 +308,8 @@ type backendShim struct {
 }
 
 func (shim backendShim) Machine(id string) (UpgradeSeriesMachine, error) {
-	return shim.st.Machine(id)
+	m, err := shim.st.Machine(id)
+	return &upgradeSeriesMachine{m}, err
 }
 
 func (shim backendShim) Unit(id string) (UpgradeSeriesUnit, error) {
