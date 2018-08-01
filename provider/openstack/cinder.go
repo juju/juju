@@ -116,8 +116,20 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 		logger.Debugf("volume URL: %v", url)
 	}
 
+	cinderCl := cinderClient{cinder.Basic(env.volumeURL, client.TenantId(), client.Token)}
+
+	cloudSpec := env.cloud
+	if len(cloudSpec.CACertificates) > 0 {
+		cinderCl = cinderClient{cinder.BasicTLSConfig(
+			env.volumeURL,
+			client.TenantId(),
+			client.Token,
+			tlsConfig(cloudSpec.CACertificates)),
+		}
+	}
+
 	return &openstackStorageAdapter{
-		cinderClient{cinder.Basic(env.volumeURL, client.TenantId(), client.Token)},
+		cinderCl,
 		novaClient{env.novaUnlocked},
 	}, nil
 }
