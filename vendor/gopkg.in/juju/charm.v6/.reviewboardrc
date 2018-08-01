@@ -1,0 +1,4 @@
+REVIEWBOARD_URL = "https://reviews.vapour.ws/"
+REPOSITORY = "juju-charm"
+BRANCH = "master"
+TRACKING_BRANCH = "origin/master"

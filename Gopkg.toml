@@ -1,0 +1,190 @@
+# Gopkg.toml example
+#
+# Refer to https://golang.github.io/dep/docs/Gopkg.toml.html
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#   name = "github.com/x/y"
+#   version = "2.4.0"
+#
+# [prune]
+#   non-go = false
+#   go-tests = true
+#   unused-packages = true
+
+
+[[constraint]]
+  name = "github.com/Azure/go-autorest"
+  version = "8.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/EvilSuperstars/go-cidrman"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/altoros/gosigma"
+
+[[constraint]]
+  name = "github.com/coreos/go-systemd"
+  version = "5.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/gosuri/uitable"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hashicorp/go-msgpack"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hashicorp/raft-boltdb"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/bundlechanges"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/description"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/gnuflag"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/gojsonschema"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/gomaasapi"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/jsonschema"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/mutex"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/naturalsort"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/os"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/packaging"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/proxy"
+
+[[constraint]]
+  name = "github.com/juju/ratelimit"
+  version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/replicaset"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/rfc"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/romulus"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/testing"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/utils"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/juju/webbrowser"
+
+[[constraint]]
+  name = "github.com/lxc/lxd"
+  version = "lxd-3.1"
+
+[[constraint]]
+  name = "github.com/oracle/oci-go-sdk"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "v3"
+  name = "gopkg.in/amz.v3"
+
+[[constraint]]
+  name = "gopkg.in/ini.v1"
+  version = "1.10.1"
+
+[[constraint]]
+  branch = "v2"
+  name = "gopkg.in/juju/blobstore.v2"
+
+[[constraint]]
+  branch = "v6"
+  name = "gopkg.in/juju/charm.v6"
+
+[[constraint]]
+  branch = "v3"
+  name = "gopkg.in/juju/charmrepo.v3"
+
+[[constraint]]
+  branch = "v1"
+  name = "gopkg.in/juju/environschema.v1"
+
+[[constraint]]
+  branch = "v2"
+  name = "gopkg.in/juju/names.v2"
+
+[[constraint]]
+  branch = "v2"
+  name = "gopkg.in/natefinch/npipe.v2"
+
+[[constraint]]
+  name = "gopkg.in/retry.v1"
+  version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "k8s.io/api"
+
+[[constraint]]
+  branch = "master"
+  name = "k8s.io/apimachinery"
+
+[prune]
+  go-tests = true
+  unused-packages = true
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  revision = "a01914bc74d2605fef74a0248d2eec998f0bb093"
+
+[[constraint]]
+  name = "cloud.google.com/go"
+  revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"

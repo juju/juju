@@ -1,0 +1,6 @@
+language: go
+go_import_path: gopkg.in/retry.v1
+go:
+  - 1.5.x
+  - 1.x
+  - master

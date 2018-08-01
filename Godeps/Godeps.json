@@ -1,0 +1,562 @@
+{
+	"ImportPath": "github.com/juju/juju",
+	"GoVersion": "go1.10",
+	"GodepVersion": "v80",
+	"Deps": [{
+			"ImportPath": "cloud.google.com/go",
+			"Rev": "3b1ae45394a234c385be014e9a488f2bb6eef821"
+		},
+		{
+			"ImportPath": "github.com/Azure/azure-sdk-for-go",
+			"Rev": "03719f665513a71a89cf687d260c39a120ac00e7"
+		},
+		{
+			"ImportPath": "github.com/Azure/go-autorest",
+			"Rev": "10cfe58defab0c9a33be1f7b3ee656857670b509"
+		},
+		{
+			"ImportPath": "github.com/EvilSuperstars/go-cidrman",
+			"Rev": "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
+		},
+		{
+			"ImportPath": "github.com/ajstarks/svgo",
+			"Rev": "89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518"
+		},
+		{
+			"ImportPath": "github.com/altoros/gosigma",
+			"Rev": "31228935eec685587914528585da4eb9b073c76d"
+		},
+		{
+			"ImportPath": "github.com/armon/go-metrics",
+			"Rev": "93f237eba9b0602f3e73710416558854a81d9337"
+		},
+		{
+			"ImportPath": "github.com/beorn7/perks",
+			"Rev": "3ac7bf7a47d159a033b107610db8a1b6575507a4"
+		},
+		{
+			"ImportPath": "github.com/bmizerany/pat",
+			"Rev": "c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c"
+		},
+		{
+			"ImportPath": "github.com/boltdb/bolt",
+			"Rev": "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd"
+		},
+		{
+			"ImportPath": "github.com/cloud-green/monitoring",
+			"Rev": "666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-systemd",
+			"Rev": "7b2428fec40033549c68f54e26e89e7ca9a9ce31"
+		},
+		{
+			"ImportPath": "github.com/dgrijalva/jwt-go",
+			"Rev": "01aeca54ebda6e0fbfafd0a524d234159c05ec20"
+		},
+		{
+			"ImportPath": "github.com/dustin/go-humanize",
+			"Rev": "145fabdb1ab757076a70a886d092a3af27f66f4c"
+		},
+		{
+			"ImportPath": "k8s.io/apiextensions-apiserver",
+			"Rev": "bbc7cdef4bf8da668090a3e2719849c5c4e4af3a"
+		},
+		{
+			"ImportPath": "github.com/godbus/dbus",
+			"Rev": "32c6cc29c14570de4cf6d7e7737d68fb2d01ad15"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+		},
+		{
+			"ImportPath": "github.com/golang/mock",
+			"Rev": "69521b3833175dfcfb1cc1fdb0c9be92e66faa81"
+		},
+		{
+			"ImportPath": "github.com/golang/protobuf",
+			"Rev": "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+		},
+		{
+			"ImportPath": "github.com/google/go-querystring",
+			"Rev": "9235644dd9e52eeae6fa48efd539fdc351a0af53"
+		},
+		{
+			"ImportPath": "github.com/google/gofuzz",
+			"Rev": "44d81051d367757e1c7c6a5a86423ece9afcf63c"
+		},
+		{
+			"ImportPath": "github.com/gorilla/handlers",
+			"Rev": "13d73096a474cac93275c679c7b8a2dc17ddba82"
+		},
+		{
+			"ImportPath": "github.com/gorilla/schema",
+			"Rev": "08023a0215e7fc27a9aecd8b8c50913c40019478"
+		},
+		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "804cb600d06b10672f2fbc0a336a7bee507a428e"
+		},
+		{
+			"ImportPath": "github.com/gosuri/uitable",
+			"Rev": "36ee7e946282a3fb1cfecd476ddc9b35d8847e42"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/go-msgpack",
+			"Rev": "fa3f63826f7c23912c15263591e65d54d080b458"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/raft",
+			"Rev": "077966dbc90f342107eb723ec52fdb0463ec789b"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/raft-boltdb",
+			"Rev": "6e5ba93211eaf8d9a2ad7e41ffad8c6f160f9fe3"
+		},
+		{
+			"ImportPath": "github.com/joyent/gocommon",
+			"Rev": "ade826b8b54e81a779ccb29d358a45ba24b7809c"
+		},
+		{
+			"ImportPath": "github.com/joyent/gosdc",
+			"Rev": "2f11feadd2d9891e92296a1077c3e2e56939547d"
+		},
+		{
+			"ImportPath": "github.com/joyent/gosign",
+			"Rev": "0da0d5f1342065321c97812b1f4ac0c2b0bab56c"
+		},
+		{
+			"ImportPath": "github.com/juju/ansiterm",
+			"Rev": "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
+		},
+		{
+			"ImportPath": "github.com/juju/bundlechanges",
+			"Rev": "bc5b7e5db16683db8ddffa7eef67b53706a4618a"
+		},
+		{
+			"ImportPath": "github.com/juju/cmd",
+			"Rev": "e74f39857ca013cf63947ba2843806f7afdd380d"
+		},
+		{
+			"ImportPath": "github.com/juju/collections",
+			"Rev": "90152009b5f349bb218a9bf4a6034dd8437c031b"
+		},
+		{
+			"ImportPath": "github.com/juju/description",
+			"Rev": "25349c35a6b1c9244c24045c9b5faab5932eae63"
+		},
+		{
+			"ImportPath": "github.com/juju/errors",
+			"Rev": "1b5e39b83d1835fa480e0c2ddefb040ee82d58b3"
+		},
+		{
+			"ImportPath": "github.com/juju/gnuflag",
+			"Rev": "2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65"
+		},
+		{
+			"ImportPath": "github.com/juju/go-oracle-cloud",
+			"Rev": "932a8cea00a1cd5cba3829a672c823955db674ae"
+		},
+		{
+			"ImportPath": "github.com/juju/go4",
+			"Rev": "40d72ab9641a2a8c36a9c46a51e28367115c8e59"
+		},
+		{
+			"ImportPath": "github.com/juju/gojsonpointer",
+			"Rev": "afe8b77aa08f272b49e01b82de78510c11f61500"
+		},
+		{
+			"ImportPath": "github.com/juju/gojsonreference",
+			"Rev": "f0d24ac5ee330baa21721cdff56d45e4ee42628e"
+		},
+		{
+			"ImportPath": "github.com/juju/gojsonschema",
+			"Rev": "e1ad140384f254c82f89450d9a7c8dd38a632838"
+		},
+		{
+			"ImportPath": "github.com/juju/gomaasapi",
+			"Rev": "abe11904dd8cd40f0777b7704ae60348a876542e"
+		},
+		{
+			"ImportPath": "github.com/juju/httpprof",
+			"Rev": "14bf14c307672fd2456bdbf35d19cf0ccd3cf565"
+		},
+		{
+			"ImportPath": "github.com/juju/httprequest",
+			"Rev": "266fd1e9debf09c037a63f074d099a2da4559ece"
+		},
+		{
+			"ImportPath": "github.com/juju/idmclient",
+			"Rev": "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
+		},
+		{
+			"ImportPath": "github.com/juju/jsonschema",
+			"Rev": "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
+		},
+		{
+			"ImportPath": "github.com/juju/loggo",
+			"Rev": "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
+		},
+		{
+			"ImportPath": "github.com/juju/mempool",
+			"Rev": "24974d6c264fe5a29716e7d56ea24c4bd904b7cc"
+		},
+		{
+			"ImportPath": "github.com/juju/mutex",
+			"Rev": "d21b13acf4bfd8a8b0482a3a78e44d98880b40d3"
+		},
+		{
+			"ImportPath": "github.com/juju/naturalsort",
+			"Rev": "5b81707e882b8293e6cf77854b4cd49f29776e11"
+		},
+		{
+			"ImportPath": "github.com/juju/os",
+			"Rev": "325989f58c78b64db349b60742495b48e5468ec1"
+		},
+		{
+			"ImportPath": "github.com/juju/packaging",
+			"Rev": "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
+		},
+		{
+			"ImportPath": "github.com/juju/persistent-cookiejar",
+			"Rev": "d67418f14c93a698e37b52468958d5d4dcf8a7dd"
+		},
+		{
+			"ImportPath": "github.com/juju/proxy",
+			"Rev": "5f8741c297b47cba29f747c67f2e31e7c2a36ecb"
+		},
+		{
+			"ImportPath": "github.com/juju/pubsub",
+			"Rev": "091412f84753115324ce870066ffbb6bb55c4ef4"
+		},
+		{
+			"ImportPath": "github.com/juju/ratelimit",
+			"Rev": "5b9ff866471762aa2ab2dced63c9fb6f53921342"
+		},
+		{
+			"ImportPath": "github.com/juju/replicaset",
+			"Rev": "86037679224858cd82666e4877a8ac4c42cbda8b"
+		},
+		{
+			"ImportPath": "github.com/juju/retry",
+			"Rev": "62c62032529169c7ec02fa48f93349604c345e1f"
+		},
+		{
+			"ImportPath": "github.com/juju/rfc",
+			"Rev": "b058ad085c9480f110200bfe2309189aff5780b8"
+		},
+		{
+			"ImportPath": "github.com/juju/romulus",
+			"Rev": "958d8b71e5ffa51212133b12a998ddf8362739df"
+		},
+		{
+			"ImportPath": "github.com/juju/schema",
+			"Rev": "075de04f9b7d7580d60a1e12a0b3f50bb18e6998"
+		},
+		{
+			"ImportPath": "github.com/juju/terms-client",
+			"Rev": "9b925afd677234e4146dde3cb1a11e187cbed64e"
+		},
+		{
+			"ImportPath": "github.com/juju/testing",
+			"Rev": "72703b1e95eb8ce4737fd8a3d8496c6b0be280a6"
+		},
+		{
+			"ImportPath": "github.com/juju/txn",
+			"Rev": "f50b17d1ff3c31b7ea1c70e0d38a83f19af6d334"
+		},
+		{
+			"ImportPath": "github.com/juju/usso",
+			"Rev": "68a59c96c178fbbad65926e7f93db50a2cd14f33"
+		},
+		{
+			"ImportPath": "github.com/juju/utils",
+			"Rev": "c746c6e86f4fb2a04bc08d66b7a0f7e900d9cbab"
+		},
+		{
+			"ImportPath": "github.com/juju/version",
+			"Rev": "1f41e27e54f21acccf9b2dddae063a782a8a7ceb"
+		},
+		{
+			"ImportPath": "github.com/juju/webbrowser",
+			"Rev": "54b8c57083b4afb7dc75da7f13e2967b2606a507"
+		},
+		{
+			"ImportPath": "github.com/juju/xml",
+			"Rev": "eb759a627588d35166bc505fceb51b88500e291e"
+		},
+		{
+			"ImportPath": "github.com/juju/zip",
+			"Rev": "f6b1e93fa2e29a1d7d49b566b2b51efb060c982a"
+		},
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Rev": "77a895ad01ebc98a4dc95d8355bc825ce80a56f6"
+		},
+		{
+			"ImportPath": "github.com/kr/pretty",
+			"Rev": "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
+		},
+		{
+			"ImportPath": "github.com/kr/text",
+			"Rev": "7cafcd837844e784b526369c9bce262804aebc60"
+		},
+		{
+			"ImportPath": "github.com/lestrrat/go-jspointer",
+			"Rev": "f4881e611bdbe9fb413a7780721ef8400a1f2341"
+		},
+		{
+			"ImportPath": "github.com/lestrrat/go-jsref",
+			"Rev": "e452c7b5801d1c6494c9e7e0cbc7498c0f88dfd1"
+		},
+		{
+			"ImportPath": "github.com/lestrrat/go-jsschema",
+			"Rev": "b09d7650b822d2ea3dc83d5091a5e2acd8330051"
+		},
+		{
+			"ImportPath": "github.com/lestrrat/go-jsval",
+			"Rev": "b1258a10419fe0693f7b35ad65cd5074bc0ba1e5"
+		},
+		{
+			"ImportPath": "github.com/lestrrat/go-pdebug",
+			"Rev": "2e6eaaa5717f81bda41d27070d3c966f40a1e75f"
+		},
+		{
+			"ImportPath": "github.com/lestrrat/go-structinfo",
+			"Rev": "f74c056fe41f860aa6264478c664a6fff8a64298"
+		},
+		{
+			"ImportPath": "github.com/lunixbochs/vtclean",
+			"Rev": "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
+		},
+		{
+			"ImportPath": "github.com/lxc/lxd",
+			"Rev": "d0d66b4842f459c6c3e039a9e2f25eff02174ab1"
+		},
+		{
+			"ImportPath": "github.com/masterzen/azure-sdk-for-go",
+			"Rev": "ee4f0065d00cd12b542f18f5bc45799e88163b12"
+		},
+		{
+			"ImportPath": "github.com/masterzen/simplexml",
+			"Rev": "4572e39b1ab9fe03ee513ce6fc7e289e98482190"
+		},
+		{
+			"ImportPath": "github.com/masterzen/winrm",
+			"Rev": "7a535cd943fccaeed196718896beec3fb51aff41"
+		},
+		{
+			"ImportPath": "github.com/masterzen/xmlpath",
+			"Rev": "13f4951698adc0fa9c1dda3e275d489a24201161"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-colorable",
+			"Rev": "ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Rev": "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-runewidth",
+			"Rev": "d96d1bd051f2bd9e7e43d602782b37b93b1b5666"
+		},
+		{
+			"ImportPath": "github.com/matttproud/golang_protobuf_extensions",
+			"Rev": "c12348ce28de40eed0136aa2b644d0ee0650e56c"
+		},
+		{
+			"ImportPath": "github.com/nu7hatch/gouuid",
+			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
+		},
+		{
+			"ImportPath": "github.com/oracle/oci-go-sdk",
+			"Rev": "ad5c34ed0cf8169d6817e2a37ec3e4521f856368"
+		},
+		{
+			"ImportPath": "github.com/pkg/errors",
+			"Rev": "839d9e913e063e28dfd0e6c7b7512793e0a48be9"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang",
+			"Rev": "575f371f7862609249a1be4c9145f429fe065e32"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_model",
+			"Rev": "fa8ad6fec33561be4280a8f0514318c79d7f6cb6"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common",
+			"Rev": "dd586c1c5abb0be59e60f942c22af711a2008cb4"
+		},
+		{
+			"ImportPath": "github.com/prometheus/procfs",
+			"Rev": "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
+		},
+		{
+			"ImportPath": "github.com/rogpeppe/fastuuid",
+			"Rev": "6724a57986aff9bff1a1770e9347036def7c89f6"
+		},
+		{
+			"ImportPath": "github.com/satori/uuid",
+			"Rev": "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
+		},
+		{
+			"ImportPath": "github.com/vmware/govmomi",
+			"Rev": "05504416e95561e1478196d7058721c827a7bb8c"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto",
+			"Rev": "49796115aa4b964c318aad4f3084fdb41e9aa067"
+		},
+		{
+			"ImportPath": "golang.org/x/net",
+			"Rev": "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2",
+			"Rev": "a6bd8cefa1811bd24b86f8902872e4e8225f74c4"
+		},
+		{
+			"ImportPath": "golang.org/x/sys",
+			"Rev": "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+		},
+		{
+			"ImportPath": "golang.org/x/text",
+			"Rev": "b19bf474d317b857955b12035d2c5acb57ce8b01"
+		},
+		{
+			"ImportPath": "google.golang.org/api",
+			"Rev": "ed10e890a8366167a7ce33fac2b12447987bcb1c"
+		},
+		{
+			"ImportPath": "google.golang.org/cloud",
+			"Rev": "f20d6dcccb44ed49de45ae3703312cb46e627db1"
+		},
+		{
+			"ImportPath": "gopkg.in/amz.v3",
+			"Rev": "8c3190dff075bf5442c9eedbf8f8ed6144a099e7"
+		},
+		{
+			"ImportPath": "gopkg.in/check.v1",
+			"Rev": "4f90aeace3a26ad7021961c297b22c42160c7b25"
+		},
+		{
+			"ImportPath": "gopkg.in/errgo.v1",
+			"Rev": "442357a80af5c6bf9b6d51ae791a39c3421004f3"
+		},
+		{
+			"ImportPath": "gopkg.in/goose.v2",
+			"Rev": "ea50808b6d33ccddc3e5646e2b1a54474519c922"
+		},
+		{
+			"ImportPath": "gopkg.in/httprequest.v1",
+			"Rev": "1a21782420ea13c3c6fb1d03578f446b3248edb1"
+		},
+		{
+			"ImportPath": "gopkg.in/ini.v1",
+			"Rev": "776aa739ce9373377cd16f526cdf06cb4c89b40f"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/blobstore.v2",
+			"Rev": "51fa6e26128d74e445c72d3a91af555151cc3654"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/charm.v6",
+			"Rev": "52d8af8e45d911a36f072826d1229d83ecdb958d"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/charmrepo.v2",
+			"Rev": "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/charmrepo.v3",
+			"Rev": "8bb46aa94f3c679069e80fe35aac6d0581096d65"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/charmstore.v5",
+			"Rev": "d93d0fd2b81b8230bdf9b1be91b50538dd8782fa"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/environschema.v1",
+			"Rev": "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/jujusvg.v3",
+			"Rev": "1ebf5c5481e815de683e57e0f46705ac567e4e58"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/names.v2",
+			"Rev": "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
+		},
+		{
+			"ImportPath": "gopkg.in/juju/worker.v1",
+			"Rev": "6965b9d826717287bb002e02d1fd4d079978083e"
+		},
+		{
+			"ImportPath": "gopkg.in/macaroon-bakery.v1",
+			"Rev": "469b44e6f1f9479e115c8ae879ef80695be624d5"
+		},
+		{
+			"ImportPath": "gopkg.in/macaroon-bakery.v2",
+			"Rev": "ec9d2ad6796100720c154f614b6dea8798ec1181"
+		},
+		{
+			"ImportPath": "gopkg.in/macaroon-bakery.v2-unstable",
+			"Rev": "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
+		},
+		{
+			"ImportPath": "gopkg.in/macaroon.v1",
+			"Rev": "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
+		},
+		{
+			"ImportPath": "gopkg.in/macaroon.v2",
+			"Rev": "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
+		},
+		{
+			"ImportPath": "gopkg.in/macaroon.v2-unstable",
+			"Rev": "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
+		},
+		{
+			"ImportPath": "gopkg.in/mgo.v2",
+			"Rev": "f2b6f6c918c452ad107eec89615f074e3bd80e33"
+		},
+		{
+			"ImportPath": "gopkg.in/natefinch/lumberjack.v2",
+			"Rev": "df99d62fd42d8b3752c8a42c6723555372c02a03"
+		},
+		{
+			"ImportPath": "gopkg.in/natefinch/npipe.v2",
+			"Rev": "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"
+		},
+		{
+			"ImportPath": "gopkg.in/retry.v1",
+			"Rev": "2d7c7c65cc71d024968d9ff4385d5e7ad3a83fcc"
+		},
+		{
+			"ImportPath": "gopkg.in/tomb.v1",
+			"Rev": "dd632973f1e7218eb1089048e0798ec9ae7dceb8"
+		},
+		{
+			"ImportPath": "gopkg.in/tomb.v2",
+			"Rev": "14b3d72120e8d10ea6e6b7f87f7175734b1faab8"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "1be3d31502d6eabc0dd7ce5b0daab022e14a5538"
+		},
+		{
+			"ImportPath": "k8s.io/api",
+			"Rev": "183f3326a9353bd6d41430fc80f96259331d029c"
+		},
+		{
+			"ImportPath": "k8s.io/apimachinery",
+			"Rev": "cbafd24d5796966031ae904aa88e2436a619ae8a"
+		},
+		{
+			"ImportPath": "k8s.io/client-go",
+			"Rev": "3db81bdd128696db1c2fcba8a426ed0a3993824d"
+		}
+	]
+}
