@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/utils/proxy"
@@ -93,6 +94,11 @@ type ManifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+
+	// MachineLock is a central source for acquiring the machine lock.
+	// This is used by a number of workers to ensure serialisation of actions
+	// across the machine.
+	MachineLock machinelock.Lock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -296,10 +302,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			MachineLockName: coreagent.MachineLockName,
-			Clock:           clock.WallClock,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			MachineLock:   config.MachineLock,
+			Clock:         clock.WallClock,
 			LeadershipTrackerName: leadershipTrackerName,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
@@ -324,7 +330,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		meterStatusName: ifNotMigrating(meterstatus.Manifold(meterstatus.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			MachineLockName:          coreagent.MachineLockName,
+			MachineLock:              config.MachineLock,
 			Clock:                    clock.WallClock,
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,

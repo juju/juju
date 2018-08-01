@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -113,16 +114,41 @@ func newInsertResourceOps(stored storedResource) []txn.Op {
 	}}
 }
 
+func resourceDocToUpdateOp(doc *resourceDoc) bson.M {
+	// Note (jam 2018-07-12): What are we actually allowed to update?
+	// The old code was trying to delete the doc and replace it entirely, so for now we'll just set everything except
+	// the doc's own id, which is clearly not allowed to change.
+	return bson.M{"$set": bson.M{
+		"resource-id":                doc.ID,
+		"pending-id":                 doc.PendingID,
+		"application-id":             doc.ApplicationID,
+		"unit-id":                    doc.UnitID,
+		"name":                       doc.Name,
+		"type":                       doc.Type,
+		"path":                       doc.Path,
+		"description":                doc.Description,
+		"origin":                     doc.Origin,
+		"revision":                   doc.Revision,
+		"fingerprint":                doc.Fingerprint,
+		"size":                       doc.Size,
+		"username":                   doc.Username,
+		"timestamp-when-added":       doc.Timestamp,
+		"storage-path":               doc.StoragePath,
+		"download-progress":          doc.DownloadProgress,
+		"timestamp-when-last-polled": doc.LastPolled,
+	}}
+}
+
 func newUpdateResourceOps(stored storedResource) []txn.Op {
 	doc := newResourceDoc(stored)
 
-	// TODO(ericsnow) Using "update" doesn't work right...
-	return append([]txn.Op{{
+	logger.Tracef("updating resource %s to %# v", stored.ID, pretty.Formatter(doc))
+	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
-		Remove: true,
-	}}, newInsertResourceOps(stored)...)
+		Update: resourceDocToUpdateOp(doc),
+	}}
 }
 
 func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
@@ -139,13 +165,13 @@ func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	doc := newCharmStoreResourceDoc(res)
 
-	// TODO(ericsnow) Using "update" doesn't work right...
-	return append([]txn.Op{{
+	logger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
+	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
-		Remove: true,
-	}}, newInsertCharmStoreResourceOps(res)...)
+		Update: resourceDocToUpdateOp(doc),
+	}}
 }
 
 func newInsertUnitResourceOps(unitID string, stored storedResource, progress *int64) []txn.Op {
@@ -164,13 +190,13 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *in
 	doc := newUnitResourceDoc(unitID, stored)
 	doc.DownloadProgress = progress
 
-	// TODO(ericsnow) Using "update" doesn't work right...
-	return append([]txn.Op{{
+	logger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
+	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}, newInsertUnitResourceOps(unitID, stored, progress)...)
+		Assert: txn.DocExists, // feels like we need more
+		Update: resourceDocToUpdateOp(doc),
+	}}
 }
 
 func newRemoveResourcesOps(docs []resourceDoc) []txn.Op {

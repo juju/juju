@@ -402,18 +402,15 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, "applications:\n  " +
-		"ubuntu:\n    " +
-		"charm: cs:trusty/ubuntu\n    " +
-		"series: trusty\n    " +
-		"num_units: 1\n    " +
-		"to:\n    " +
-		"- \"0\"\n    " +
-		"options:\n      " +
-		"key: value\n" +
-		"series: xenial\n" +
-		"relations:\n" +
-		"- []\n"}
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  ubuntu:\n" +
+		"    charm: cs:trusty/ubuntu\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    options:\n" +
+		"      key: value\n" +
+		"series: xenial\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -566,16 +563,17 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 		"    num_units: 2\n" +
 		"    to:\n" +
 		"    - \"0\"\n" +
-		"    - \"1\"\nmachines:\n" +
+		"    - \"1\"\n" +
+		"machines:\n" +
 		"  \"0\": {}\n" +
 		"  \"1\": {}\n" +
 		"series: xenial\n" +
 		"relations:\n" +
 		"- - wordpress:db\n" +
 		"  - mysql:mysql\n" +
-		"  - wordpress:logging\n" +
+		"- - wordpress:logging\n" +
 		"  - logging:logging\n" +
-		"  - mysql:logging\n" +
+		"- - mysql:logging\n" +
 		"  - logging:logging\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -624,15 +622,63 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	expectedResult := params.StringResult{nil, "applications:\n" +
 		"  magic:\n" +
 		"    charm: cs:zesty/magic\n" +
-		"    series: zesty\n" +
 		"    expose: true\n" +
 		"    options:\n" +
 		"      key: value\n" +
-		"    bindings:\n" +
-		"      rel-name: some-space\n" +
-		"series: xenial\n" +
-		"relations:\n" +
-		"- []\n"}
+		"series: xenial\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	application := s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:                  names.NewApplicationTag("magic"),
+		Series:               "zesty",
+		Subordinate:          true,
+		CharmURL:             "cs:zesty/magic",
+		Channel:              "stable",
+		CharmModifiedVersion: 1,
+		ForceCharm:           true,
+		Exposed:              true,
+		EndpointBindings: map[string]string{
+			"rel-name": "some-space",
+		},
+		ApplicationConfig: map[string]interface{}{
+			"config key": "config value",
+		},
+		CharmConfig: map[string]interface{}{
+			"key": "value",
+		},
+		Leader: "magic/1",
+		LeadershipSettings: map[string]interface{}{
+			"leader": true,
+		},
+		MetricsCredentials: []byte("sekrit"),
+		PasswordHash:       "passwordhash",
+		PodSpec:            "podspec",
+	})
+	application.SetStatus(minimalStatusArgs())
+
+	s.addMinimalMachinewithconstraints(s.st.model, "0")
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  magic:\n" +
+		"    charm: cs:zesty/magic\n" +
+		"    expose: true\n" +
+		"    options:\n" +
+		"      key: value\n" +
+		"series: xenial\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -683,6 +729,68 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 		"    series: zesty\n" +
 		"  \"1\":\n" +
 		"    constraints: arch=amd64 mem=8192 root-disk=40960\n" +
+		"    series: zesty\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- - mediawiki:db\n" +
+		"  - mysql:mysql\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) addMinimalMachinewithHardwareConstraints(model description.Model, id string) {
+	m := model.AddMachine(description.MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	args := description.ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * 1024,
+		RootDisk:     40 * 1024,
+	}
+	m.SetConstraints(args)
+	instanceArgs := description.CloudInstanceArgs{
+		Architecture: "amd64",
+		Memory:       4 * 1024,
+		RootDisk:     16 * 1024,
+	}
+	m.SetInstance(instanceArgs)
+	m.SetStatus(minimalStatusArgs())
+}
+
+func (s *bundleSuite) TestExportBundleModelWithHardwareConstraints(c *gc.C) {
+	model := s.newModel("mediawiki", "mysql")
+
+	s.addMinimalMachinewithHardwareConstraints(model, "0")
+	s.addMinimalMachinewithHardwareConstraints(model, "1")
+
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mediawiki:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 2\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    - \"1\"\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"machines:\n" +
+		"  \"0\":\n" +
+		"    constraints: arch=amd64 mem=4096 root-disk=16384\n" +
+		"    series: zesty\n" +
+		"  \"1\":\n" +
+		"    constraints: arch=amd64 mem=4096 root-disk=16384\n" +
 		"    series: zesty\n" +
 		"series: xenial\n" +
 		"relations:\n" +
@@ -746,6 +854,79 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 		"relations:\n" +
 		"- - wordpress:db\n" +
 		"  - mysql:mysql\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	application0 := s.st.model.AddApplication(description.ApplicationArgs{
+		Tag: names.NewApplicationTag("wordpress"),
+	})
+	application0.SetStatus(minimalStatusArgs())
+
+	m0 := s.st.model.AddMachine(description.MachineArgs{
+		Id: names.NewMachineTag("0"),
+	})
+	args := description.ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * 1024,
+		RootDisk:     40 * 1024,
+	}
+	m0.SetConstraints(args)
+	ut0 := application0.AddUnit(description.UnitArgs{
+		Tag:     names.NewUnitTag("wordpress/0"),
+		Machine: names.NewMachineTag("0"),
+	})
+	ut0.SetAgentStatus(minimalStatusArgs())
+
+	application1 := s.st.model.AddApplication(description.ApplicationArgs{
+		Tag: names.NewApplicationTag("mysql"),
+	})
+	application1.SetStatus(minimalStatusArgs())
+
+	m1 := s.st.model.AddMachine(description.MachineArgs{
+		Id: names.NewMachineTag("1"),
+	})
+	args = description.ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * 1024,
+		RootDisk:     40 * 1024,
+	}
+	m1.SetConstraints(args)
+
+	ut := application1.AddUnit(description.UnitArgs{
+		Tag:     names.NewUnitTag("mysql/1"),
+		Machine: names.NewMachineTag("1/lxd/0"),
+	})
+	ut.SetAgentStatus(minimalStatusArgs())
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - lxd:1\n" +
+		"  wordpress:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"machines:\n" +
+		"  \"0\":\n" +
+		"    constraints: arch=amd64 mem=8192 root-disk=40960\n" +
+		"  \"1\":\n" +
+		"    constraints: arch=amd64 mem=8192 root-disk=40960\n" +
+		"series: xenial\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())

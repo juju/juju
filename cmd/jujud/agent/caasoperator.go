@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,6 +22,7 @@ import (
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/machinelock"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -47,6 +49,7 @@ type CaasOperatorAgent struct {
 	ctx             *cmd.Context
 	dead            chan struct{}
 	errReason       error
+	machineLock     machinelock.Lock
 
 	upgradeComplete gate.Lock
 
@@ -126,6 +129,18 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	agentConfig := op.CurrentConfig()
+	machineLock, err := machinelock.New(machinelock.Config{
+		AgentName:   op.Tag().String(),
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.machinelock"),
+		LogFilename: agent.MachineLockLogFilename(agentConfig),
+	})
+	// There will only be an error if the required configuration
+	// values are not passed in.
+	if err != nil {
+		return errors.Trace(err)
+	}
+	op.machineLock = machineLock
 	op.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
 	logger.Infof("caas operator %v start (%s [%s])", op.Tag().String(), jujuversion.Current, runtime.Compiler)
@@ -147,6 +162,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		LeadershipGuarantee:  30 * time.Second,
 		UpgradeStepsLock:     op.upgradeComplete,
 		ValidateMigration:    op.validateMigration,
+		MachineLock:          op.machineLock,
 	})
 
 	config := dependency.EngineConfig{
@@ -168,6 +184,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	if err := startIntrospection(introspectionConfig{
 		Agent:              op,
 		Engine:             engine,
+		MachineLock:        op.machineLock,
 		NewSocketName:      DefaultIntrospectionSocketName,
 		PrometheusGatherer: op.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,

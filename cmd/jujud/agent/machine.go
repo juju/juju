@@ -50,6 +50,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -341,6 +342,7 @@ type MachineAgent struct {
 	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
+	machineLock      machinelock.Lock
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -457,6 +459,18 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	}
 
 	agentConfig := a.CurrentConfig()
+	machineLock, err := machinelock.New(machinelock.Config{
+		AgentName:   a.Tag().String(),
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.machinelock"),
+		LogFilename: agent.MachineLockLogFilename(agentConfig),
+	})
+	// There will only be an error if the required configuration
+	// values are not passed in.
+	if err != nil {
+		return errors.Trace(err)
+	}
+	a.machineLock = machineLock
 	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
@@ -560,6 +574,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			ControllerLeaseDuration:           time.Minute,
 			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
+			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
@@ -576,6 +591,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			Engine:             engine,
 			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,
+			MachineLock:        a.machineLock,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			PresenceRecorder:   presenceRecorder,
@@ -863,7 +879,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
-		InitLockName:        agent.MachineLockName,
+		MachineLock:         a.machineLock,
 		CredentialAPI:       credentialAPI,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)

@@ -70,7 +70,9 @@ func (n *LegacyNovaNetworking) ResolveNetwork(name string, external bool) (strin
 		return "", err
 	}
 	for _, network := range networks {
-		if network.Label == name {
+		// Assuming a positive match on "" makes this behave the same as the
+		// server-side filtering in Neutron networking.
+		if name == "" || network.Label == name {
 			networkIds = append(networkIds, network.Id)
 		}
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/caasoperator"
@@ -57,6 +58,11 @@ type ManifoldsConfig struct {
 	// coordinate workers that shouldn't do anything until the
 	// upgrade-steps worker is done.
 	UpgradeStepsLock gate.Lock
+
+	// MachineLock is a central source for acquiring the machine lock.
+	// This is used by a number of workers to ensure serialisation of actions
+	// across the machine.
+	MachineLock machinelock.Lock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -141,7 +147,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:             agentName,
 			APICallerName:         apiCallerName,
 			ClockName:             clockName,
-			MachineLockName:       coreagent.MachineLockName,
+			MachineLock:           config.MachineLock,
 			LeadershipGuarantee:   config.LeadershipGuarantee,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,

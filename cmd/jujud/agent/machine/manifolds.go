@@ -26,6 +26,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
@@ -219,6 +220,11 @@ type ManifoldsConfig struct {
 	// not the controller model, represented by the given *state.State,
 	// supports network spaces.
 	ControllerSupportsSpaces func(*state.State) (bool, error)
+
+	// MachineLock is a central source for acquiring the machine lock.
+	// This is used by a number of workers to ensure serialisation of actions
+	// across the machine.
+	MachineLock machinelock.Lock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -518,10 +524,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// machine when requested. It needs an API connection and
 		// waits for upgrades to be complete.
 		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			MachineLockName: coreagent.MachineLockName,
-			Clock:           config.Clock,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			MachineLock:   config.MachineLock,
+			Clock:         config.Clock,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
