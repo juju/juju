@@ -50,6 +50,9 @@ __all__ = [
 # <https://msdn.microsoft.com/ms740668#WSANO_DATA>
 WSANO_DATA = 11004
 
+TEST_MODEL = 'test-tmp-env'
+
+log = logging.getLogger("utility")
 
 class PortTimeoutError(Exception):
     pass
@@ -420,3 +423,46 @@ def assert_dict_is_subset(sub_dict, super_dict):
         raise JujuAssertionError(
             'Found: {} \nExpected: {}'.format(super_dict, sub_dict))
     return True
+
+def add_model(client):
+    """Adds a model to the current juju environment then destroys it.
+
+    Will raise an exception if the Juju does not deselect the current model.
+    :param client: Jujupy ModelClient object
+    """
+    log.info('Adding model "{}" to current controller'.format(TEST_MODEL))
+    new_client = client.add_model(TEST_MODEL)
+    new_model = get_current_model(new_client)
+    if new_model == TEST_MODEL:
+        log.info('Current model and newly added model match')
+    else:
+        error = ('Juju failed to switch to new model after creation. '
+                 'Expected {} got {}'.format(TEST_MODEL, new_model))
+        raise JujuAssertionError(error)
+    return new_client
+
+def get_current_model(client):
+    """Gets the current model from Juju's list-models command.
+
+    :param client: Jujupy ModelClient object
+    :return: String name of current model
+    """
+    raw = list_models(client)
+    try:
+        return raw['current-model']
+    except KeyError:
+        log.warning('No model is currently selected.')
+        return None
+
+def list_models(client):
+    """List models.
+    :param client: Jujupy ModelClient object
+    :return: Dict of list-models command
+    """
+    try:
+        raw = client.get_juju_output('list-models', '--format', 'json',
+                                     include_e=False).decode('utf-8')
+    except subprocess.CalledProcessError as e:
+        log.error('Failed to list current models due to error: {}'.format(e))
+        raise e
+    return json.loads(raw)

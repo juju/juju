@@ -16,6 +16,8 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
+    add_model,
+    get_current_model,
     )
 
 
@@ -49,25 +51,6 @@ def assess_destroy_model(client):
     switch_model(client, current_model, controller)
 
     log.info('SUCCESS')
-
-
-def add_model(client):
-    """Adds a model to the current juju environment then destroys it.
-
-    Will raise an exception if the Juju does not deselect the current model.
-
-    :param client: Jujupy ModelClient object
-    """
-    log.info('Adding model "{}" to current controller'.format(TEST_MODEL))
-    new_client = client.add_model(TEST_MODEL)
-    new_model = get_current_model(new_client)
-    if new_model == TEST_MODEL:
-        log.info('Current model and newly added model match')
-    else:
-        error = ('Juju failed to switch to new model after creation. '
-                 'Expected {} got {}'.format(TEST_MODEL, new_model))
-        raise JujuAssertionError(error)
-    return new_client
 
 
 def destroy_model(client, new_client):
@@ -105,41 +88,6 @@ def get_current_controller(client):
     raw = client.get_juju_output('switch', include_e=False).decode('utf-8')
     raw = raw.split(':')[0]
     return raw
-
-
-def get_current_model(client):
-    """Gets the current model from Juju's list-models command.
-
-    :param client: Jujupy ModelClient object
-    :return: String name of current model
-    """
-    raw = list_models(client)
-    try:
-        return raw['current-model']
-    except KeyError:
-        log.warning('No model is currently selected.')
-        return None
-
-
-def list_models(client):
-    """Helper function to get the output of juju's list-models command.
-
-    Instead of using 'juju switch' or client.backend.get_active_model() we use
-    list-models because that was what the bug report this test was generated
-    around used. It also allows for flexiblity in the future to get more
-    detailed information about the models that Juju thinks it has
-    if we need it.
-
-    :param client: Jujupy ModelClient object
-    :return: Dict of list-models command
-    """
-    try:
-        raw = client.get_juju_output('list-models', '--format', 'json',
-                                     include_e=False).decode('utf-8')
-    except subprocess.CalledProcessError as e:
-        log.error('Failed to list current models due to error: {}'.format(e))
-        raise e
-    return json.loads(raw)
 
 
 def parse_args(argv):
