@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/bundlechanges"
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -283,33 +284,44 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	if len(model.Applications()) == 0 {
 		return &charm.BundleData{}, errors.Errorf("nothing to export as there are no applications")
 	}
-
+	machineIds := make(set.Strings)
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
-				Charm:            application.CharmURL(),
-				Series:           application.Series(),
-				Expose:           application.Exposed(),
-				Options:          application.CharmConfig(),
-				Annotations:      application.Annotations(),
-				EndpointBindings: application.EndpointBindings(),
+				Charm:       application.CharmURL(),
+				Expose:      application.Exposed(),
+				Options:     application.CharmConfig(),
+				Annotations: application.Annotations(),
+			}
+			if result := b.constraints(application.Constraints()); len(result) != 0 {
+				newApplication.Constraints = strings.Join(result, " ")
 			}
 		} else {
 			ut := []string{}
 			for _, unit := range application.Units() {
-				ut = append(ut, unit.Machine().Id())
+				machineID := unit.Machine().Id()
+				unitMachine := unit.Machine()
+				if names.IsContainerMachine(machineID) {
+					machineIds.Add(unitMachine.Parent().Id())
+					id := unitMachine.ContainerType() + ":" + unitMachine.Parent().Id()
+					ut = append(ut, id)
+				} else {
+					machineIds.Add(unitMachine.Id())
+					ut = append(ut, unitMachine.Id())
+				}
 			}
 
 			newApplication = &charm.ApplicationSpec{
-				Charm:            application.CharmURL(),
-				Series:           application.Series(),
-				NumUnits:         len(application.Units()),
-				To:               ut,
-				Expose:           application.Exposed(),
-				Options:          application.CharmConfig(),
-				Annotations:      application.Annotations(),
-				EndpointBindings: application.EndpointBindings(),
+				Charm:       application.CharmURL(),
+				NumUnits:    len(application.Units()),
+				To:          ut,
+				Expose:      application.Exposed(),
+				Options:     application.CharmConfig(),
+				Annotations: application.Annotations(),
+			}
+			if result := b.constraints(application.Constraints()); len(result) != 0 {
+				newApplication.Constraints = strings.Join(result, " ")
 			}
 		}
 
@@ -317,19 +329,27 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	for _, machine := range model.Machines() {
+		if !machineIds.Contains(machine.Tag().Id()) {
+			continue
+		}
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),
 			Series:      machine.Series(),
 		}
-		if result := b.constraints(machine.Constraints()); len(result) != 0 {
+
+		if result := b.hardwareConstraints(machine.Instance()); len(result) != 0 {
 			newMachine.Constraints = strings.Join(result, " ")
+		} else {
+			if result = b.constraints(machine.Constraints()); len(result) != 0 {
+				newMachine.Constraints = strings.Join(result, " ")
+			}
 		}
 
 		data.Machines[machine.Id()] = newMachine
 	}
 
-	endpointRelation := []string{}
 	for _, relation := range model.Relations() {
+		endpointRelation := []string{}
 		for _, endpoint := range relation.Endpoints() {
 			// skipping the 'peer' role which is not of concern in exporting the current model configuration.
 			if endpoint.Role() == "peer" {
@@ -337,10 +357,36 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			}
 			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
 		}
+		if len(endpointRelation) != 0 {
+			data.Relations = append(data.Relations, endpointRelation)
+		}
 	}
-	data.Relations = append(data.Relations, endpointRelation)
 
 	return data, nil
+}
+
+func (b *BundleAPI) hardwareConstraints(instance description.CloudInstance) []string {
+	if instance == nil {
+		return []string{}
+	}
+
+	var constraints []string
+	if arch := instance.Architecture(); arch != "" {
+		constraints = append(constraints, "arch="+(arch))
+	}
+	if cores := instance.CpuCores(); cores != 0 {
+		constraints = append(constraints, "cpu-cores="+strconv.Itoa(int(cores)))
+	}
+	if power := instance.CpuPower(); power != 0 {
+		constraints = append(constraints, "cpu-power="+strconv.Itoa(int(power)))
+	}
+	if mem := instance.Memory(); mem != 0 {
+		constraints = append(constraints, "mem="+strconv.Itoa(int(mem)))
+	}
+	if disk := instance.RootDisk(); disk != 0 {
+		constraints = append(constraints, "root-disk="+strconv.Itoa(int(disk)))
+	}
+	return constraints
 }
 
 func (b *BundleAPI) constraints(cons description.Constraints) []string {

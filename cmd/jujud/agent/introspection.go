@@ -14,6 +14,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
@@ -34,6 +35,7 @@ type introspectionConfig struct {
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.IntrospectionReporter
 	PubSubReporter     introspection.IntrospectionReporter
+	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	PresenceRecorder   presence.Recorder
 	NewSocketName      func(names.Tag) string
@@ -58,6 +60,7 @@ func startIntrospection(cfg introspectionConfig) error {
 		DepEngine:          cfg.Engine,
 		StatePool:          cfg.StatePoolReporter,
 		PubSub:             cfg.PubSubReporter,
+		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 		Presence:           cfg.PresenceRecorder,
 	})

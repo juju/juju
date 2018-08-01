@@ -6,7 +6,6 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -32,8 +31,7 @@ type PrepareAPI interface {
 type HostPreparerParams struct {
 	API                PrepareAPI
 	ObserveNetworkFunc func() ([]params.NetworkConfig, error)
-	LockName           string
-	AcquireLockFunc    func(<-chan struct{}) (mutex.Releaser, error)
+	AcquireLockFunc    func(string, <-chan struct{}) (func(), error)
 	CreateBridger      func() (network.Bridger, error)
 	AbortChan          <-chan struct{}
 	MachineTag         names.MachineTag
@@ -45,8 +43,7 @@ type HostPreparerParams struct {
 type HostPreparer struct {
 	api                PrepareAPI
 	observeNetworkFunc func() ([]params.NetworkConfig, error)
-	lockName           string
-	acquireLockFunc    func(<-chan struct{}) (mutex.Releaser, error)
+	acquireLockFunc    func(string, <-chan struct{}) (func(), error)
 	createBridger      func() (network.Bridger, error)
 	abortChan          <-chan struct{}
 	machineTag         names.MachineTag
@@ -58,7 +55,6 @@ func NewHostPreparer(params HostPreparerParams) *HostPreparer {
 	return &HostPreparer{
 		api:                params.API,
 		observeNetworkFunc: params.ObserveNetworkFunc,
-		lockName:           params.LockName,
 		acquireLockFunc:    params.AcquireLockFunc,
 		createBridger:      params.CreateBridger,
 		abortChan:          params.AbortChan,
@@ -85,14 +81,13 @@ func (hp *HostPreparer) Prepare(containerTag names.MachineTag) error {
 		return errors.Trace(err)
 	}
 
-	hp.logger.Debugf("bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
-		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay, hp.lockName)
-	releaser, err := hp.acquireLockFunc(hp.abortChan)
+	hp.logger.Debugf("bridging %+v devices on host %q for container %q with delay=%v",
+		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay)
+	releaser, err := hp.acquireLockFunc("bridging devices", hp.abortChan)
 	if err != nil {
-		return errors.Annotatef(err, "failed to acquire lock %q for bridging", hp.lockName)
+		return errors.Annotatef(err, "failed to acquire machine lock for bridging")
 	}
-	defer hp.logger.Debugf("releasing lock %q for bridging machine %q for container %q", hp.lockName, hp.machineTag.String(), containerTag.String())
-	defer releaser.Release()
+	defer releaser()
 	// TODO(jam): 2017-02-15 bridger.Bridge should probably also take AbortChan
 	// if it is going to have reconfigureDelay
 	err = bridger.Bridge(devicesToBridge, reconfigureDelay)

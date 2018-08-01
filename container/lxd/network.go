@@ -210,7 +210,7 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 			continue
 		}
 
-		logger.Infof("found usable network device %q with parent %q", name, netName)
+		logger.Tracef("found usable network device %q with parent %q", name, netName)
 		s.localBridgeName = netName
 		return nil
 	}

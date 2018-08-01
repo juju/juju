@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -83,7 +82,7 @@ type Uniter struct {
 	leadershipTracker leadership.Tracker
 	charmDirGuard     fortress.Guard
 
-	hookLockName string
+	hookLock machinelock.Lock
 
 	// TODO(axw) move the runListener and run-command code outside of the
 	// uniter, and introduce a separate worker. Each worker would feed
@@ -119,7 +118,7 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	Downloader           charm.Downloader
-	MachineLockName      string
+	MachineLock          machinelock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   remotestate.UpdateStatusTimerFunc
 	HookRetryStrategy    params.RetryStrategy
@@ -133,7 +132,7 @@ type UniterParams struct {
 	Observer UniterExecutionObserver
 }
 
-type NewExecutorFunc func(string, operation.State, func() (mutex.Releaser, error)) (operation.Executor, error)
+type NewExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -162,7 +161,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLockName:         uniterParams.MachineLockName,
+		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
@@ -627,21 +626,18 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 // acquireExecutionLock acquires the machine-level execution lock, and
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
-func (u *Uniter) acquireExecutionLock() (mutex.Releaser, error) {
+func (u *Uniter) acquireExecutionLock(action string) (func(), error) {
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's catacomb into account.
-	spec := mutex.Spec{
-		Name:   u.hookLockName,
-		Clock:  u.clock,
-		Delay:  250 * time.Millisecond,
-		Cancel: u.catacomb.Dying(),
+	spec := machinelock.Spec{
+		Cancel:  u.catacomb.Dying(),
+		Worker:  "uniter",
+		Comment: action,
 	}
-	logger.Debugf("acquire lock %q for uniter hook execution", u.hookLockName)
-	releaser, err := mutex.Acquire(spec)
+	releaser, err := u.hookLock.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("lock %q acquired", u.hookLockName)
 	return releaser, nil
 }
 
