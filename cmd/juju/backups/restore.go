@@ -69,7 +69,7 @@ environment to match the restored database, e.g. no units, relations, nor
 machines will be added or removed during the restore process.
 
 Note: Extra care is needed to restore in an HA environment, please see
-https://docs.jujucharms.com/devel/en/controllers-backup for more information.
+https://docs.jujucharms.com/stable/controllers-backup for more information.
 
 If the provided state cannot be restored, this command will fail with
 an explanation.
@@ -166,7 +166,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	activeCount, _ := controller.ControllerMachineCounts(controllerModelUUID, modelStatus)
 	if activeCount > 1 {
-		return errors.Errorf("unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/devel/en/controllers-backup")
+		return errors.Errorf("unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/stable/controllers-backup")
 	}
 
 	var archive ArchiveReader

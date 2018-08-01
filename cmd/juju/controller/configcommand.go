@@ -50,7 +50,7 @@ file containing key values. Not all keys can be updated after
 bootstrap time.
 
 Available keys and values can be found here:
-https://jujucharms.com/docs/stable/controllers-config
+https://jujucharms.com/stable/controllers-config
 
 Examples:
 
