@@ -85,6 +85,17 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Check(result.Finalize, gc.NotNil)
 }
 
+func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	params := environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	}
+	_, err := s.Env.Bootstrap(envtesting.BootstrapContext(c), s.CallCtx, params)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
 func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
 	config := testing.FakeControllerConfig()
 	s.checkAPIPorts(c, config, []int{config.APIPort()})
@@ -138,6 +149,22 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 			"params": params,
 		},
 	}})
+}
+
+func (s *environSuite) TestCreateInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	err := s.Env.Create(s.CallCtx, environs.CreateParams{})
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
+func (s *environSuite) TestDestroyInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	err := s.Env.Destroy(s.CallCtx)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {

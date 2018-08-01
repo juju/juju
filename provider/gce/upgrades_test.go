@@ -22,6 +22,15 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
 	c.Assert(s.Env, gc.Implements, new(environs.Upgrader))
 }
 
+func (s *environUpgradeSuite) TestEnvironUpgradeOperationsInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	ops := s.Env.UpgradeOperations(s.CallCtx, environs.UpgradeOperationsParams{})
+	err := ops[0].Steps[0].Run(s.CallCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	ops := s.Env.UpgradeOperations(s.CallCtx, environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)

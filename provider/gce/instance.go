@@ -77,7 +77,7 @@ func (inst *environInstance) OpenPorts(ctx context.ProviderCallContext, machineI
 		return errors.Trace(err)
 	}
 	err = inst.env.gce.OpenPorts(name, rules...)
-	return errors.Trace(err)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // ClosePorts closes the given ports on the instance, which
@@ -88,7 +88,7 @@ func (inst *environInstance) ClosePorts(ctx context.ProviderCallContext, machine
 		return errors.Trace(err)
 	}
 	err = inst.env.gce.ClosePorts(name, rules...)
-	return errors.Trace(err)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // IngressRules returns the set of ingress rules applicable to the instance, which
@@ -100,5 +100,5 @@ func (inst *environInstance) IngressRules(ctx context.ProviderCallContext, machi
 		return nil, errors.Trace(err)
 	}
 	ports, err := inst.env.gce.IngressRules(name)
-	return ports, errors.Trace(err)
+	return ports, google.HandleCredentialError(errors.Trace(err), ctx)
 }

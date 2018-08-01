@@ -18,7 +18,7 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+	if _, err := env.instancePlacementZone(ctx, args.Placement, volumeAttachmentsZone); err != nil {
 		return errors.Trace(err)
 	}
 

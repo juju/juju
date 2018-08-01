@@ -77,6 +77,14 @@ func (s *environNetSuite) cannedData() {
 	}}
 }
 
+func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	_, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
 func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	s.cannedData()
 
@@ -211,6 +219,32 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		ConfigType:        network.ConfigDHCP,
 		Address:           network.NewScopedAddress("10.0.10.3", network.ScopeCloudLocal),
 	}})
+}
+
+func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	s.cannedData()
+	baseInst := s.NewBaseInstance(c, "moana")
+	// This isn't possible in GCE at the moment, but we don't want to
+	// break when it is.
+	summary := &baseInst.InstanceSummary
+	summary.NetworkInterfaces = append(summary.NetworkInterfaces, &compute.NetworkInterface{
+		Name:       "othernetif",
+		NetworkIP:  "10.0.20.3",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
+		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
+		AccessConfigs: []*compute.AccessConfig{{
+			Type:  "ONE_TO_ONE_NAT",
+			Name:  "ExternalNAT",
+			NatIP: "25.185.142.227",
+		}},
+	})
+	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+
+	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
