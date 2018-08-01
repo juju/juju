@@ -6,14 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/loggo"
 	"golang.org/x/net/context"
 	"gopkg.in/errgo.v1"
 
 	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 )
-
-var logger = loggo.GetLogger("bakery")
 
 // LocalThirdPartyCaveat returns a third-party caveat that, when added
 // to a macaroon with AddCaveat, results in a caveat
@@ -121,7 +118,6 @@ func Discharge(ctx context.Context, p DischargeParams) (*Macaroon, error) {
 		return nil, errgo.Notef(err, "discharger cannot decode caveat id")
 	}
 	cavInfo.Id = p.Id
-	logger.Infof("decoded discharge caveat %x as version %v", p.Caveat, cavInfo.Version)
 	// Note that we don't check the error - we allow the
 	// third party checker to see even caveats that we can't
 	// understand.

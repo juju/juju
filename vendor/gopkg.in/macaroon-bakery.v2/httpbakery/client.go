@@ -8,8 +8,8 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"time"
 
-	"github.com/juju/loggo"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 	"golang.org/x/net/publicsuffix"
@@ -20,8 +20,6 @@ import (
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 )
-
-var logger = loggo.GetLogger("httpbakery")
 
 var unmarshalError = httprequest.ErrorUnmarshaler(&Error{})
 
@@ -96,7 +94,7 @@ func NewHTTPClient() *http.Client {
 	if err != nil {
 		panic(err)
 	}
-	c.Jar = &cookieLogger{jar}
+	c.Jar = jar
 	return &c
 }
 
@@ -121,6 +119,10 @@ type Client struct {
 	// "local" by using this key. See bakery.DischargeAllWithKey and
 	// bakery.LocalThirdPartyCaveat for more information
 	Key *bakery.KeyPair
+
+	// Logger is used to log information about client activities.
+	// If it is nil, bakery.DefaultLogger("httpbakery") will be used.
+	Logger bakery.Logger
 }
 
 // An Interactor represents a way of persuading a discharger
@@ -251,9 +253,9 @@ func (c *Client) DoWithCustomError(req *http.Request, getError func(resp *http.R
 }
 
 func (c *Client) do(ctx context.Context, req *http.Request, getError func(resp *http.Response) error) (*http.Response, error) {
-	logger.Debugf("client do %s %s {", req.Method, req.URL)
+	c.logDebugf(ctx, "client do %s %s {", req.Method, req.URL)
 	resp, err := c.do1(ctx, req, getError)
-	logger.Debugf("} -> error %#v", err)
+	c.logDebugf(ctx, "} -> error %#v", err)
 	return resp, err
 }
 
@@ -264,7 +266,7 @@ func (c *Client) do1(ctx context.Context, req *http.Request, getError func(resp 
 	if c.Client.Jar == nil {
 		return nil, errgo.New("no cookie jar supplied in HTTP client")
 	}
-	rreq, ok := newRetryableRequest(req)
+	rreq, ok := newRetryableRequest(c.Client, req)
 	if !ok {
 		return nil, fmt.Errorf("request body is not seekable")
 	}
@@ -288,21 +290,18 @@ func (c *Client) do1(ctx context.Context, req *http.Request, getError func(resp 
 		if err1 := c.HandleError(ctx, req.URL, err); err1 != nil {
 			return nil, errgo.Mask(err1, errgo.Any)
 		}
-		logger.Debugf("discharge succeeded; retry %d", retry)
+		c.logDebugf(ctx, "discharge succeeded; retry %d", retry)
 	}
 }
 
-func (c *Client) do2(ctx context.Context, req *retryableRequest, getError func(resp *http.Response) error) (*http.Response, error) {
-	if err := req.try(); err != nil {
-		return nil, errgo.Mask(err)
-	}
-	httpResp, err := ctxhttp.Do(ctx, c.Client, req.req)
+func (c *Client) do2(ctx context.Context, rreq *retryableRequest, getError func(resp *http.Response) error) (*http.Response, error) {
+	httpResp, err := rreq.do(ctx)
 	if err != nil {
 		return nil, errgo.Mask(err, errgo.Any)
 	}
 	err = getError(httpResp)
 	if err == nil {
-		logger.Infof("HTTP response OK (status %v)", httpResp.Status)
+		c.logInfof(ctx, "HTTP response OK (status %v)", httpResp.Status)
 		return httpResp, nil
 	}
 	httpResp.Body.Close()
@@ -338,7 +337,7 @@ func (c *Client) HandleError(ctx context.Context, reqURL *url.URL, err error) er
 	if path := respErr.Info.MacaroonPath; path != "" {
 		relURL, err := parseURLPath(path)
 		if err != nil {
-			logger.Warningf("ignoring invalid path in discharge-required response: %v", err)
+			c.logInfof(ctx, "ignoring invalid path in discharge-required response: %v", err)
 		} else {
 			cookiePath = reqURL.ResolveReference(relURL).Path
 		}
@@ -391,6 +390,11 @@ func parseURLPath(path string) (*url.URL, error) {
 	return u, nil
 }
 
+// PermanentExpiryDuration holds the length of time a cookie
+// holding a macaroon with no time-before caveat will be
+// stored.
+const PermanentExpiryDuration = 100 * 365 * 24 * time.Hour
+
 // NewCookie takes a slice of macaroons and returns them
 // encoded as a cookie. The slice should contain a single primary
 // macaroon in its first element, and any discharges after that.
@@ -410,7 +414,18 @@ func NewCookie(ns *checkers.Namespace, ms macaroon.Slice) (*http.Cookie, error) 
 		Name:  fmt.Sprintf("macaroon-%x", ms[0].Signature()),
 		Value: base64.StdEncoding.EncodeToString(data),
 	}
-	cookie.Expires, _ = checkers.MacaroonsExpiryTime(ns, ms)
+	expires, found := checkers.MacaroonsExpiryTime(ns, ms)
+	if !found {
+		// The macaroon doesn't expire - use a very long expiry
+		// time for the cookie.
+		expires = time.Now().Add(PermanentExpiryDuration)
+	} else if expires.Sub(time.Now()) < time.Minute {
+		// The macaroon might have expired already, or it's
+		// got a short duration, so treat it as a session cookie
+		// by setting Expires to the zero time.
+		expires = time.Time{}
+	}
+	cookie.Expires = expires
 	// TODO(rog) other fields.
 	return cookie, nil
 }
@@ -526,9 +541,9 @@ func (c *Client) interact(ctx context.Context, location string, irErr *Error, pa
 		return nil, m, nil
 	}
 	for _, interactor := range c.InteractionMethods {
-		logger.Infof("checking interaction method %q", interactor.Kind())
+		c.logDebugf(ctx, "checking interaction method %q", interactor.Kind())
 		if _, ok := irErr.Info.InteractionMethods[interactor.Kind()]; ok {
-			logger.Infof("found possible interaction method %q", interactor.Kind())
+			c.logDebugf(ctx, "found possible interaction method %q", interactor.Kind())
 			token, err := interactor.Interact(ctx, c, location, irErr)
 			if err != nil {
 				if errgo.Cause(err) == ErrInteractionMethodNotFound {
@@ -541,7 +556,7 @@ func (c *Client) interact(ctx context.Context, location string, irErr *Error, pa
 			}
 			return token, nil, nil
 		} else {
-			logger.Infof("interaction method %q not found in %#v", interactor.Kind(), irErr.Info.InteractionMethods)
+			c.logDebugf(ctx, "interaction method %q not found in %#v", interactor.Kind(), irErr.Info.InteractionMethods)
 		}
 	}
 	return nil, nil, &InteractionError{
@@ -564,7 +579,7 @@ func (c *Client) legacyInteract(ctx context.Context, location string, irErr *Err
 	if len(c.InteractionMethods) > 1 || c.InteractionMethods[0].Kind() != WebBrowserInteractionKind {
 		// We have several possible methods or we only support a non-window
 		// method, so we need to fetch the possible methods supported by the discharger.
-		methodURLs = legacyGetInteractionMethods(ctx, c, visitURL)
+		methodURLs = legacyGetInteractionMethods(ctx, c.logger(), c, visitURL)
 	}
 	for _, interactor := range c.InteractionMethods {
 		kind := interactor.Kind()
@@ -595,6 +610,21 @@ func (c *Client) legacyInteract(ctx context.Context, location string, irErr *Err
 	return nil, &InteractionError{
 		Reason: errgo.Newf("no methods supported"),
 	}
+}
+
+func (c *Client) logDebugf(ctx context.Context, f string, a ...interface{}) {
+	c.logger().Debugf(ctx, f, a...)
+}
+
+func (c *Client) logInfof(ctx context.Context, f string, a ...interface{}) {
+	c.logger().Infof(ctx, f, a...)
+}
+
+func (c *Client) logger() bakery.Logger {
+	if c.Logger != nil {
+		return c.Logger
+	}
+	return bakery.DefaultLogger("httpbakery")
 }
 
 // waitForMacaroon returns a macaroon from a legacy wait endpoint.
@@ -651,10 +681,10 @@ func RequestMacaroons(req *http.Request) []macaroon.Slice {
 	for _, h := range req.Header[MacaroonsHeader] {
 		ms, err := decodeMacaroonSlice(h)
 		if err != nil {
-			logger.Errorf("cannot retrieve macaroons from header: %v", err)
-		} else {
-			mss = append(mss, ms)
+			// Ignore invalid macaroons.
+			continue
 		}
+		mss = append(mss, ms)
 	}
 	return mss
 }
@@ -669,7 +699,7 @@ func cookiesToMacaroons(cookies []*http.Cookie) []macaroon.Slice {
 		}
 		ms, err := decodeMacaroonSlice(cookie.Value)
 		if err != nil {
-			logger.Errorf("cannot retrieve macaroons from cookie: %v", err)
+			// Ignore invalid macaroons.
 			continue
 		}
 		mss = append(mss, ms)
@@ -690,16 +720,4 @@ func decodeMacaroonSlice(value string) (macaroon.Slice, error) {
 		return nil, errgo.NoteMask(err, "cannot unmarshal macaroons")
 	}
 	return ms, nil
-}
-
-type cookieLogger struct {
-	http.CookieJar
-}
-
-func (j *cookieLogger) SetCookies(u *url.URL, cookies []*http.Cookie) {
-	logger.Debugf("%p setting %d cookies for %s", j.CookieJar, len(cookies), u)
-	for i, c := range cookies {
-		logger.Debugf("\t%d. path %s; name %s", i, c.Path, c.Name)
-	}
-	j.CookieJar.SetCookies(u, cookies)
 }

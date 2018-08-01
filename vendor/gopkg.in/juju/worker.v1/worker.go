@@ -17,7 +17,6 @@ var logger = loggo.GetLogger("juju.worker")
 //
 // Worker implementations must be goroutine-safe.
 type Worker interface {
-
 	// Kill asks the worker to stop and returns immediately.
 	Kill()
 

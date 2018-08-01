@@ -2,6 +2,7 @@ github.com/ajstarks/svgo	git	89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518	2014-10-04
 github.com/beorn7/perks	git	3ac7bf7a47d159a033b107610db8a1b6575507a4	2016-02-29T21:34:45Z
 github.com/cloud-green/monitoring	git	8f8e14f05a36c83d87f8ec4467b0198094ec11ab	2016-09-21T12:18:12Z
 github.com/golang/protobuf	git	34a5f244f1c01cdfee8e60324258cfbb97a42aec	2015-05-26T01:21:09Z
+github.com/juju/collections	git	90152009b5f349bb218a9bf4a6034dd8437c031b	2018-05-16T02:26:42Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
@@ -32,7 +33,7 @@ golang.org/x/sys	git	7a6e5648d140666db5d920909e082ca00a87ba2c	2017-02-01T05:12:4
 gopkg.in/check.v1	git	4f90aeace3a26ad7021961c297b22c42160c7b25	2016-01-05T16:49:36Z
 gopkg.in/errgo.v1	git	442357a80af5c6bf9b6d51ae791a39c3421004f3	2016-12-22T12:58:16Z
 gopkg.in/goose.v2	git	455416024500800de8dadbcacfa22681b6bb818d	2017-09-04T09:17:38Z
-gopkg.in/juju/charm.v6	git	e03b52c17fcc23dd3154fdda6cbd357c6ded1f01	2017-11-14T08:45:40Z
+gopkg.in/juju/charm.v6	git	0f7685c8057defe2282747a237e119d18fcf8e20	2018-06-27T22:14:11Z
 gopkg.in/juju/charmstore.v5	git	e9330efa55be5d28a0ef7988454320e73e53f46b	2017-11-14T18:14:02Z
 gopkg.in/juju/jujusvg.v3	git	6f7342099e20c84f560bd9fc8afe96ff7486613e	2017-11-14T17:07:01Z
 gopkg.in/juju/names.v2	git	e38bc90539f22af61a9c656d35068bd5f0a5b30a	2016-05-25T23:07:23Z

@@ -77,7 +77,6 @@ func (oven *Oven) Error(ctx context.Context, req *http.Request, err error) error
 	if err != nil {
 		return errgo.Notef(err, "cannot mint new macaroon")
 	}
-	logger.Infof("Oven.Error, id %q; cookieName: %q; ops: %#v", m.M().Id(), cookieName, derr.Ops)
 	if err := m.AddCaveat(ctx, checkers.TimeBeforeCaveat(time.Now().Add(expiryDuration)), nil, nil); err != nil {
 		return errgo.Notef(err, "cannot add time-before caveat")
 	}

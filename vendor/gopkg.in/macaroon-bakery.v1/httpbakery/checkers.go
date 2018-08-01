@@ -48,7 +48,10 @@ func (c httpContext) clientIPAddr(_, addr string) error {
 // clientOrigin implements the Origin header checker
 // for an HTTP request.
 func (c httpContext) clientOrigin(_, origin string) error {
-	if reqOrigin := c.req.Header.Get("Origin"); reqOrigin != origin {
+	// Note that web browsers may not provide the origin header when it's
+	// not a cross-site request with a GET method. There's nothing we
+	// can do about that, so just allow all requests with an empty origin.
+	if reqOrigin := c.req.Header.Get("Origin"); reqOrigin != "" && reqOrigin != origin {
 		return errgo.Newf("request has invalid Origin header; got %q", reqOrigin)
 	}
 	return nil

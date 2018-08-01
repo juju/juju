@@ -8,12 +8,16 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"golang.org/x/net/context"
+	"golang.org/x/net/context/ctxhttp"
 	errgo "gopkg.in/errgo.v1"
 )
 
 // newRetrableRequest wraps an HTTP request so that it can
 // be retried without incurring race conditions and reports
 // whether the request can be retried.
+// The client instance will be used to make the request
+// when the do method is called.
 //
 // Because http.NewRequest often wraps its request bodies
 // with ioutil.NopCloser, which hides whether the body is
@@ -25,66 +29,96 @@ import (
 // been closed by Client.Do.
 //
 // The returned value should be closed after use.
-func newRetryableRequest(req *http.Request) (*retryableRequest, bool) {
+func newRetryableRequest(client *http.Client, req *http.Request) (*retryableRequest, bool) {
 	if req.Body == nil {
 		return &retryableRequest{
-			ref: 1,
-			req: req,
+			client:     client,
+			ref:        1,
+			req:        req,
+			origCookie: req.Header.Get("Cookie"),
 		}, true
 	}
 	body := seekerFromBody(req.Body)
 	if body == nil {
 		return nil, false
 	}
-	rreq := &retryableRequest{
-		ref:      1,
-		req:      req,
-		origBody: req.Body,
-		body:     body,
-	}
-	req.Body = nil
-	return rreq, true
+	return &retryableRequest{
+		client:     client,
+		ref:        1,
+		req:        req,
+		body:       body,
+		origCookie: req.Header.Get("Cookie"),
+	}, true
 }
 
 type retryableRequest struct {
-	ref      int32
-	origBody io.ReadCloser
-	body     io.ReadSeeker
-	req      *http.Request
+	client      *http.Client
+	ref         int32
+	origCookie  string
+	body        readSeekCloser
+	readStopper *readStopper
+	req         *http.Request
 }
 
-// try should be called just before invoking http.Client.Do.
-func (req *retryableRequest) try() error {
-	if req.body == nil {
-		return nil
+// do performs the HTTP request.
+func (rreq *retryableRequest) do(ctx context.Context) (*http.Response, error) {
+	req, err := rreq.prepare()
+	if err != nil {
+		return nil, errgo.Mask(err)
 	}
-	if req.req.Body != nil {
-		// Close the old readStopper.
-		req.req.Body.Close()
-		if _, err := req.body.Seek(0, 0); err != nil {
-			return errgo.Notef(err, "cannot seek to start of request body")
+	return ctxhttp.Do(ctx, rreq.client, req)
+}
+
+// prepare returns a new HTTP request object
+// by copying the original request and seeking
+// back to the start of the original body if needed.
+//
+// It needs to make a copy of the request because
+// the HTTP code can access the Request.Body field
+// after Client.Do has returned, which means we can't
+// replace it for the second request.
+func (rreq *retryableRequest) prepare() (*http.Request, error) {
+	req := new(http.Request)
+	*req = *rreq.req
+	// Make sure that the original cookie header is still in place
+	// so that we only end up with the cookies that are actually
+	// added by the HTTP cookie logic, and not the ones that were
+	// added in previous requests too.
+	req.Header.Set("Cookie", rreq.origCookie)
+	if rreq.body == nil {
+		// No need for any of the seek shenanigans.
+		return req, nil
+	}
+	if rreq.readStopper != nil {
+		// We've made a previous request. Close its request
+		// body so it can't interfere with the new request's body
+		// and then seek back to the start.
+		rreq.readStopper.Close()
+		if _, err := rreq.body.Seek(0, 0); err != nil {
+			return nil, errgo.Notef(err, "cannot seek to start of request body")
 		}
 	}
-	atomic.AddInt32(&req.ref, 1)
-	// Replace the body with a new readStopper so that
-	// the old request cannot interfere with the new request's reader.
-	req.req.Body = &readStopper{
-		req: req,
-		r:   req.body,
+	atomic.AddInt32(&rreq.ref, 1)
+	// Replace the request body with a new readStopper so that
+	// we can stop a second request from interfering with current
+	// request's body.
+	rreq.readStopper = &readStopper{
+		rreq: rreq,
+		r:    rreq.body,
 	}
-	return nil
+	req.Body = rreq.readStopper
+	return req, nil
 }
 
 // close closes the request. It closes the underlying reader
 // when all references have gone.
-func (req *retryableRequest) close() {
-	if atomic.AddInt32(&req.ref, -1) == 0 {
+func (req *retryableRequest) close() error {
+	if atomic.AddInt32(&req.ref, -1) == 0 && req.body != nil {
 		// We've closed it for the last time, so actually close
 		// the original body.
-		if req.origBody != nil {
-			req.origBody.Close()
-		}
+		return req.body.Close()
 	}
+	return nil
 }
 
 // readStopper works around an issue with the net/http
@@ -95,9 +129,9 @@ func (req *retryableRequest) close() {
 // so this type implements a Reader that prevents all Read
 // calls to the underlying Reader after Close has been called.
 type readStopper struct {
-	req *retryableRequest
-	mu  sync.Mutex
-	r   io.ReadSeeker
+	rreq *retryableRequest
+	mu   sync.Mutex
+	r    io.ReadSeeker
 }
 
 func (r *readStopper) Read(buf []byte) (int, error) {
@@ -105,7 +139,7 @@ func (r *readStopper) Read(buf []byte) (int, error) {
 	defer r.mu.Unlock()
 	if r.r == nil {
 		// Note: we have to use io.EOF here because otherwise
-		// another connection can (in rare circumstances) be
+		// another connection can in rare circumstances be
 		// polluted by the error returned here. Although this
 		// means the file may appear truncated to the server,
 		// that shouldn't matter because the body will only
@@ -117,21 +151,26 @@ func (r *readStopper) Read(buf []byte) (int, error) {
 
 func (r *readStopper) Close() error {
 	r.mu.Lock()
-	closed := r.r == nil
+	alreadyClosed := r.r == nil
 	r.r = nil
 	r.mu.Unlock()
-	if !closed {
-		r.req.close()
+	if alreadyClosed {
+		return nil
 	}
-	return nil
+	return r.rreq.close()
 }
 
 var nopCloserType = reflect.TypeOf(ioutil.NopCloser(nil))
 
+type readSeekCloser interface {
+	io.ReadSeeker
+	io.Closer
+}
+
 // seekerFromBody tries to obtain a seekable reader
 // from the given request body.
-func seekerFromBody(r io.ReadCloser) io.ReadSeeker {
-	if r, ok := r.(io.ReadSeeker); ok {
+func seekerFromBody(r io.ReadCloser) readSeekCloser {
+	if r, ok := r.(readSeekCloser); ok {
 		return r
 	}
 	rv := reflect.ValueOf(r)
@@ -142,6 +181,17 @@ func seekerFromBody(r io.ReadCloser) io.ReadSeeker {
 	// underlying Reader. Note that this works
 	// because the ioutil.nopCloser type exports
 	// its Reader field.
-	rs, _ := rv.Field(0).Interface().(io.ReadSeeker)
-	return rs
+	rs, ok := rv.Field(0).Interface().(io.ReadSeeker)
+	if !ok {
+		return nil
+	}
+	return readSeekerWithNopClose{rs}
+}
+
+type readSeekerWithNopClose struct {
+	io.ReadSeeker
+}
+
+func (r readSeekerWithNopClose) Close() error {
+	return nil
 }

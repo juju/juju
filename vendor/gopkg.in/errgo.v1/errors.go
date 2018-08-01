@@ -1,7 +1,7 @@
 // Copyright 2014 Roger Peppe.
 // See LICENCE file for details.
 
-// The errgo package provides a way to create
+// Package errgo provides a way to create
 // and diagnose errors. It is compatible with
 // the usual Go error idioms but adds a way to wrap errors
 // so that they record source location information
@@ -34,7 +34,7 @@ type Err struct {
 	// by the Cause method.
 	Cause_ error
 
-	// Underlying holds the underlying error, if any.
+	// Underlying_ holds the underlying error, if any.
 	Underlying_ error
 
 	// File and Line identify the source code location where the error was
@@ -116,7 +116,7 @@ type Locationer interface {
 // Details returns information about the stack of
 // underlying errors wrapped by err, in the format:
 //
-// 	[{filename:99: error one} {otherfile:55: cause of error one}]
+//	[{filename:99: error one} {otherfile:55: cause of error one}]
 //
 // The details are found by type-asserting the error to
 // the Locationer, Causer and Wrapper interfaces.
@@ -163,7 +163,7 @@ func Details(err error) string {
 	return string(s)
 }
 
-// Locate records the source location of the error by setting
+// SetLocation records the source location of the error by setting
 // e.Location, at callDepth stack frames above the call.
 func (e *Err) SetLocation(callDepth int) {
 	_, file, line, _ := runtime.Caller(callDepth + 1)
@@ -209,7 +209,7 @@ func match(err error, pass ...func(error) bool) bool {
 // It is intended to be used as a "pass" argument
 // to Mask and friends; for example:
 //
-// 	return errgo.Mask(err, errgo.Is(http.ErrNoCookie))
+//	return errgo.Mask(err, errgo.Is(http.ErrNoCookie))
 //
 // would return an error with an http.ErrNoCookie cause
 // only if that was err's diagnosis; otherwise the diagnosis

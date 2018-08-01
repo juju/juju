@@ -205,14 +205,14 @@ func validateString(x reflect.Value, v Constraint) error {
 			return createError(x, v, fmt.Sprintf("rule must be integer value for %v constraint; got: %v", v.Name, v.Rule))
 		}
 		if len(s) > v.Rule.(int) {
-			return createError(x, v, fmt.Sprintf("value length must be less than %v", v.Rule))
+			return createError(x, v, fmt.Sprintf("value length must be less than or equal to %v", v.Rule))
 		}
 	case MinLength:
 		if _, ok := v.Rule.(int); !ok {
 			return createError(x, v, fmt.Sprintf("rule must be integer value for %v constraint; got: %v", v.Name, v.Rule))
 		}
 		if len(s) < v.Rule.(int) {
-			return createError(x, v, fmt.Sprintf("value length must be greater than %v", v.Rule))
+			return createError(x, v, fmt.Sprintf("value length must be greater than or equal to %v", v.Rule))
 		}
 	case ReadOnly:
 		if len(s) > 0 {

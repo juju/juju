@@ -10,7 +10,6 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/juju/loggo"
 	"golang.org/x/net/publicsuffix"
@@ -158,21 +157,15 @@ func NewClient() *Client {
 // If the required discharges were refused by a third party, an error
 // with a *DischargeError cause will be returned.
 //
-// Note that because the request may be retried, no body may be provided
-// in the request, otherwise the contents will be lost when retrying.
-// For requests with a body (for example PUT or POST methods), use
-// DoWithBody instead.
-//
 // If interaction is required by the user, the visitWebPage function is
 // called with a URL to be opened in a web browser. If visitWebPage
 // returns an error, an error with a *InteractionError cause will be
 // returned. See OpenWebBrowser for a possible implementation of
 // visitWebPage.
+//
+// Do may add headers to req.Header.
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	if req.Body != nil {
-		return nil, fmt.Errorf("body unexpectedly provided in request - use DoWithBody")
-	}
-	return c.DoWithBody(req, nil)
+	return c.do(req, nil)
 }
 
 // DischargeAll attempts to acquire discharge macaroons for all the
@@ -220,12 +213,29 @@ func relativeURL(base, new string) (*url.URL, error) {
 // Note that, unlike the request body passed to http.NewRequest,
 // the body will not be closed even if implements io.Closer.
 //
-// Do may add headers to req.Header.
+// This function is present for API compatibility reasons only
+// and will be removed in a future version of the bakery.
 func (c *Client) DoWithBody(req *http.Request, body io.ReadSeeker) (*http.Response, error) {
 	return c.DoWithBodyAndCustomError(req, body, nil)
 }
 
-// DoWithBodyAndCustomError is like DoWithBody except it allows a client
+// DoWithBodyAndCustomError is like DoWithCustomError
+// except the body is specified independently of the request
+// and will not be closed even if it implements io.Closer.
+//
+// This function is present for API compatibility reasons only
+// and will be removed in a future version of the bakery.
+func (c *Client) DoWithBodyAndCustomError(req *http.Request, body io.ReadSeeker, getError func(resp *http.Response) error) (*http.Response, error) {
+	if req.Body != nil {
+		return nil, errgo.New("body unexpectedly supplied in Request struct")
+	}
+	if body != nil {
+		req.Body = nopSeekCloser{body}
+	}
+	return c.DoWithCustomError(req, getError)
+}
+
+// DoWithCustomError is like Do except it allows a client
 // to specify a custom error function, getError, which is called on the
 // HTTP response and may return a non-nil error if the response holds an
 // error. If the cause of the returned error is a *Error value and its
@@ -240,36 +250,35 @@ func (c *Client) DoWithBody(req *http.Request, body io.ReadSeeker) (*http.Respon
 // return their errors in a format incompatible with Error, but the
 // need for it should be avoided when creating new APIs,
 // as it makes the endpoints less amenable to generic tools.
-func (c *Client) DoWithBodyAndCustomError(req *http.Request, body io.ReadSeeker, getError func(resp *http.Response) error) (*http.Response, error) {
+func (c *Client) DoWithCustomError(req *http.Request, getError func(resp *http.Response) error) (*http.Response, error) {
+	return c.do(req, getError)
+}
+
+func (c *Client) do(req *http.Request, getError func(resp *http.Response) error) (*http.Response, error) {
 	logger.Debugf("client do %s %s {", req.Method, req.URL)
-	resp, err := c.doWithBody(req, body, getError)
+	resp, err := c.do1(req, getError)
 	logger.Debugf("} -> error %#v", err)
 	return resp, err
 }
 
-func (c *Client) doWithBody(req *http.Request, body io.ReadSeeker, getError func(resp *http.Response) error) (*http.Response, error) {
+func (c *Client) do1(req *http.Request, getError func(resp *http.Response) error) (*http.Response, error) {
 	if getError == nil {
 		getError = DefaultGetError
-	}
-	if req.Body != nil {
-		return nil, errgo.New("body unexpectedly supplied in Request struct")
 	}
 	if c.Client.Jar == nil {
 		return nil, errgo.New("no cookie jar supplied in HTTP client")
 	}
-	if err := c.setRequestBody(req, body); err != nil {
-		return nil, errgo.Mask(err)
+	rreq, ok := newRetryableRequest(req)
+	if !ok {
+		return nil, fmt.Errorf("request body is not seekable")
 	}
-	// Ensure that the request body (which will always be *readStopper) is
-	// closed before doWithBody returns. This means that even when
-	// the net/http code continues to read from the body after
-	// the Do returns, it'll be thwarted by our readStopper so
-	// allowing the caller to close the body without a race.
-	// See http://golang.org/issue/12796.
-	defer c.closeRequestBody(req)
+	defer rreq.close()
 
 	req.Header.Set(BakeryProtocolHeader, fmt.Sprint(latestVersion))
-	httpResp, err := c.Client.Do(req)
+	if err := rreq.try(); err != nil {
+		return nil, errgo.Mask(err)
+	}
+	httpResp, err := c.Client.Do(rreq.req)
 	if err != nil {
 		return nil, errgo.Mask(err, errgo.Any)
 	}
@@ -283,21 +292,15 @@ func (c *Client) doWithBody(req *http.Request, body io.ReadSeeker, getError func
 		return nil, errgo.Mask(err, errgo.Any)
 	}
 
-	if err := c.setRequestBody(req, body); err != nil {
+	// Try again with our newly acquired discharge macaroons
+	if err := rreq.try(); err != nil {
 		return nil, errgo.Mask(err)
 	}
-	// Try again with our newly acquired discharge macaroons
-	hresp, err := c.Client.Do(req)
+	hresp, err := c.Client.Do(rreq.req)
 	if err != nil {
 		return nil, errgo.Mask(err, errgo.Any)
 	}
 	return hresp, nil
-}
-
-func (c *Client) closeRequestBody(req *http.Request) {
-	if req.Body != nil {
-		req.Body.Close()
-	}
 }
 
 // HandleError tries to resolve the given error, which should be a
@@ -379,61 +382,6 @@ func parseURLPath(path string) (*url.URL, error) {
 		return nil, errgo.Newf("URL path %q is not clean", path)
 	}
 	return u, nil
-}
-
-func (c *Client) setRequestBody(req *http.Request, body io.ReadSeeker) error {
-	if body == nil {
-		return nil
-	}
-	if req.Body != nil {
-		// Close the old readStopper.
-		req.Body.Close()
-		if _, err := body.Seek(0, 0); err != nil {
-			return errgo.Notef(err, "cannot seek to start of request body")
-		}
-	}
-	// Always replace the body with a new readStopper so that
-	// the old request cannot interfere with the new request's reader.
-	req.Body = &readStopper{
-		r: body,
-	}
-	return nil
-}
-
-var errClosed = errgo.New("reader has been closed")
-
-// readStopper works around an issue with the net/http
-// package (see http://golang.org/issue/12796).
-// Because the first HTTP request might not have finished
-// reading from its body when it returns, we need to
-// ensure that the second request does not race on Read,
-// so this type implements a Reader that prevents all Read
-// calls to the underlying Reader after Close has been called.
-type readStopper struct {
-	mu sync.Mutex
-	r  io.ReadSeeker
-}
-
-func (r *readStopper) Read(buf []byte) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.r == nil {
-		// Note: we have to use io.EOF here because otherwise
-		// another connection can (in rare circumstances) be
-		// polluted by the error returned here. Although this
-		// means the file may appear truncated to the server,
-		// that shouldn't matter because the body will only
-		// be closed after the server has replied.
-		return 0, io.EOF
-	}
-	return r.r.Read(buf)
-}
-
-func (r *readStopper) Close() error {
-	r.mu.Lock()
-	r.r = nil
-	r.mu.Unlock()
-	return nil
 }
 
 // NewCookie takes a slice of macaroons and returns them
@@ -576,13 +524,13 @@ func (c *Client) postForm(url string, data url.Values) (*http.Response, error) {
 }
 
 func (c *Client) post(url string, bodyType string, body io.ReadSeeker) (resp *http.Response, err error) {
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", bodyType)
 	// TODO(rog) see http.shouldRedirectPost
-	return c.DoWithBody(req, body)
+	return c.Do(req)
 }
 
 // postFormJSON does an HTTP POST request to the given url with the given
@@ -724,4 +672,12 @@ func (j *cookieLogger) SetCookies(u *url.URL, cookies []*http.Cookie) {
 		logger.Debugf("\t%d. path %s; name %s", i, c.Path, c.Name)
 	}
 	j.CookieJar.SetCookies(u, cookies)
+}
+
+type nopSeekCloser struct {
+	io.ReadSeeker
+}
+
+func (nopSeekCloser) Close() error {
+	return nil
 }

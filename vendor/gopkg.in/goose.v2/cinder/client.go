@@ -4,6 +4,7 @@
 package cinder
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -20,6 +21,14 @@ func Basic(endpoint *url.URL, tenantId string, token TokenFn) *Client {
 	)
 }
 
+// BasicTLSConfig returns a basic Cinder client which will handle authorization
+// of requests where CACerts are required, and routing to the correct endpoint.
+func BasicTLSConfig(endpoint *url.URL, tenantId string, token TokenFn, tlsConfig *tls.Config) *Client {
+	return NewClient(tenantId, endpoint,
+		AuthHeaderTSLConfigDoRequestFn(token, tlsConfig),
+	)
+}
+
 // TokenFn represents a function signature which returns the user's
 // authorization token when called.
 type TokenFn func() string
@@ -30,6 +39,20 @@ func SetAuthHeaderFn(token TokenFn, wrappedHandler RequestHandlerFn) RequestHand
 	return func(req *http.Request) (*http.Response, error) {
 		req.Header.Set("X-Auth-Token", token())
 		return wrappedHandler(req)
+	}
+}
+
+// AuthHeaderTSLConfigDoRequestFn returns a RequestHandlerFn which sets the
+// authentication headers for a given request and provides the
+// client with a tls config.
+func AuthHeaderTSLConfigDoRequestFn(token TokenFn, tlsConfig *tls.Config) RequestHandlerFn {
+	return func(req *http.Request) (*http.Response, error) {
+		req.Header.Set("X-Auth-Token", token())
+		defaultClient := *http.DefaultClient
+		defaultClient.Transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+		return defaultClient.Do(req)
 	}
 }
 

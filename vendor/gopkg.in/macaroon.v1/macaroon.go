@@ -5,7 +5,7 @@
 //
 // See the macaroon bakery packages at http://godoc.org/gopkg.in/macaroon-bakery.v0
 // for higher level services and operations that use macaroons.
-package macaroon
+package macaroon // import "gopkg.in/macaroon.v1"
 
 import (
 	"bytes"

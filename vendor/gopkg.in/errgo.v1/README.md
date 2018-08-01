@@ -160,7 +160,7 @@ type Err struct {
 	// by the Cause method.
 	Cause_ error
 
-	// Underlying holds the underlying error, if any.
+	// Underlying_ holds the underlying error, if any.
 	Underlying_ error
 
 	// File and Line identify the source code location where the error was

@@ -51,10 +51,6 @@ type Client struct {
 	UnmarshalError func(resp *http.Response) error
 }
 
-// DefaultErrorUnmarshaler is the default error unmarshaler
-// used by Client.
-var DefaultErrorUnmarshaler = ErrorUnmarshaler(new(RemoteError))
-
 // Call invokes the endpoint implied by the given params,
 // which should be of the form accepted by the ArgT
 // argument to a function passed to Handle, and
@@ -261,28 +257,6 @@ func UnmarshalJSONResponse(resp *http.Response, x interface{}) error {
 		return newDecodeResponseError(resp, bodyData, err)
 	}
 	return nil
-}
-
-// RemoteError holds the default type of a remote error
-// used by Client when no custom error unmarshaler
-// is set.
-type RemoteError struct {
-	// Message holds the error message.
-	Message string
-
-	// Code may hold a code that classifies the error.
-	Code string `json:",omitempty"`
-
-	// Info holds any other information associated with the error.
-	Info *json.RawMessage `json:",omitempty"`
-}
-
-// Error implements the error interface.
-func (e *RemoteError) Error() string {
-	if e.Message == "" {
-		return "httprequest: no error message found"
-	}
-	return e.Message
 }
 
 // appendURL returns the result of combining the

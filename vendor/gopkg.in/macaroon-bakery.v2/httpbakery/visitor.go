@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/httprequest.v1"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
 // TODO(rog) rename this file.
@@ -20,13 +21,15 @@ import (
 // response as a map[string]string.
 //
 // It uses the given Doer to execute the HTTP GET request.
-func legacyGetInteractionMethods(ctx context.Context, client httprequest.Doer, u *url.URL) map[string]*url.URL {
+func legacyGetInteractionMethods(ctx context.Context, logger bakery.Logger, client httprequest.Doer, u *url.URL) map[string]*url.URL {
 	methodURLs, err := legacyGetInteractionMethods1(ctx, client, u)
 	if err != nil {
 		// When a discharger doesn't support retrieving interaction methods,
 		// we expect to get an error, because it's probably returning an HTML
 		// page not JSON.
-		logger.Debugf("ignoring error: cannot get interaction methods: %v; %s", err, errgo.Details(err))
+		if logger != nil {
+			logger.Debugf(ctx, "ignoring error: cannot get interaction methods: %v; %s", err, errgo.Details(err))
+		}
 		methodURLs = make(map[string]*url.URL)
 	}
 	if methodURLs["interactive"] == nil {

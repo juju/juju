@@ -20,6 +20,11 @@ type Bakery struct {
 // The zero value is OK to use, but won't allow any authentication
 // or third party caveats to be added.
 type BakeryParams struct {
+	// Logger is used to send log messages. If it is nil,
+	// DefaultLogger("bakery") will be used.
+	// github.com/juju/loggo will be used for logging.
+	Logger Logger
+
 	// Checker holds the checker used to check first party caveats.
 	// If this is nil, New will use checkers.New(nil).
 	Checker FirstPartyCaveatChecker

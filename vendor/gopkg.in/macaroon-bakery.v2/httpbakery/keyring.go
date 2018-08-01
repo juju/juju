@@ -34,6 +34,12 @@ func NewThirdPartyLocator(client httprequest.Doer, cache *bakery.ThirdPartyStore
 	}
 }
 
+// AllowInsecureThirdPartyLocator holds whether ThirdPartyLocator allows
+// insecure HTTP connections for fetching third party information.
+// It is provided for testing purposes and should not be used
+// in production code.
+var AllowInsecureThirdPartyLocator = false
+
 // ThirdPartyLocator represents locator that can interrogate
 // third party discharge services for information. By default it refuses
 // to use insecure URLs.
@@ -44,7 +50,7 @@ type ThirdPartyLocator struct {
 }
 
 // AllowInsecure allows insecure URLs. This can be useful
-// for testing purposes.
+// for testing purposes. See also AllowInsecureThirdPartyLocator.
 func (kr *ThirdPartyLocator) AllowInsecure() {
 	kr.allowInsecure = true
 }
@@ -58,7 +64,7 @@ func (kr *ThirdPartyLocator) ThirdPartyInfo(ctx context.Context, loc string) (ba
 	if err != nil {
 		return bakery.ThirdPartyInfo{}, errgo.Notef(err, "invalid discharge URL %q", loc)
 	}
-	if u.Scheme != "https" && !kr.allowInsecure {
+	if u.Scheme != "https" && !kr.allowInsecure && !AllowInsecureThirdPartyLocator {
 		return bakery.ThirdPartyInfo{}, errgo.Newf("untrusted discharge URL %q", loc)
 	}
 	info, err := kr.cache.ThirdPartyInfo(ctx, loc)

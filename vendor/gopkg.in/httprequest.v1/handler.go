@@ -26,7 +26,16 @@ type Server struct {
 	//
 	// If the returned errorBody implements HeaderSetter, then
 	// that method will be called to add custom headers to the request.
+	//
+	// If this both this and ErrorWriter are nil, DefaultErrorMapper will be used.
 	ErrorMapper func(ctxt context.Context, err error) (httpStatus int, errorBody interface{})
+
+	// ErrorWriter is a more general form of ErrorMapper. If this
+	// field is set, ErrorMapper will be ignored and any returned
+	// errors will be passed to ErrorWriter, which should use
+	// w to set the HTTP status and write an appropriate
+	// error response.
+	ErrorWriter func(ctx context.Context, w http.ResponseWriter, err error)
 }
 
 // Handler defines a HTTP handler that will handle the
@@ -147,7 +156,7 @@ func (srv *Server) Handle(f interface{}) Handler {
 // 	func(p httprequest.Params, handlerArg I) (T, context.Context, error)
 //
 // for some type T and some interface type I. Each exported method defined on T defines a handler,
-// and should be in one of the forms accepted by ErrorMapper.Handle
+// and should be in one of the forms accepted by Server.Handle
 // with the additional constraint that the argument to each
 // of the handlers must be compatible with the type I when the
 // second form is used above.
@@ -168,7 +177,7 @@ func (srv *Server) Handle(f interface{}) Handler {
 //
 // If T implements io.Closer, its Close method will be called
 // after the request is completed.
-func (srv Server) Handlers(f interface{}) []Handler {
+func (srv *Server) Handlers(f interface{}) []Handler {
 	rootv := reflect.ValueOf(f)
 	wt, argInterfacet, err := checkHandlersWrapperFunc(rootv)
 	if err != nil {
@@ -509,15 +518,23 @@ func (srv *Server) HandleErrors(handle ErrorHandler) httprouter.Handle {
 	}
 }
 
-// WriteError writes an error to a ResponseWriter
-// and sets the HTTP status code.
+// WriteError writes an error to a ResponseWriter and sets the HTTP
+// status code, using srv.ErrorMapper to determine the actually written
+// response.
 //
-// It uses WriteJSON to write the error body returned from
-// the ErrorMapper so it is possible to add custom
-// headers to the HTTP error response by implementing
-// HeaderSetter.
+// It uses WriteJSON to write the error body returned from the
+// ErrorMapper so it is possible to add custom headers to the HTTP error
+// response by implementing HeaderSetter.
 func (srv *Server) WriteError(ctx context.Context, w http.ResponseWriter, err error) {
-	status, resp := srv.ErrorMapper(ctx, err)
+	if srv.ErrorWriter != nil {
+		srv.ErrorWriter(ctx, w, err)
+		return
+	}
+	errorMapper := srv.ErrorMapper
+	if errorMapper == nil {
+		errorMapper = DefaultErrorMapper
+	}
+	status, resp := errorMapper(ctx, err)
 	err1 := WriteJSON(w, status, resp)
 	if err1 == nil {
 		return
@@ -526,7 +543,7 @@ func (srv *Server) WriteError(ctx context.Context, w http.ResponseWriter, err er
 
 	// JSON-marshaling the original error failed, so try to send that
 	// error instead; if that fails, give up and go home.
-	status1, resp1 := srv.ErrorMapper(ctx, errgo.Notef(err1, "cannot marshal error response %q", err))
+	status1, resp1 := errorMapper(ctx, errgo.Notef(err1, "cannot marshal error response %q", err))
 	err2 := WriteJSON(w, status1, resp1)
 	if err2 == nil {
 		return

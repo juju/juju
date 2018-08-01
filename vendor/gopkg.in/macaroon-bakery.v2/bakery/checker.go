@@ -46,6 +46,10 @@ type CheckerParams struct {
 
 	// MacaroonVerifier is used to verify macaroons.
 	MacaroonVerifier MacaroonVerifier
+
+	// Logger is used to log checker operations. If it is nil,
+	// DefaultLogger("bakery") will be used.
+	Logger Logger
 }
 
 // OpsAuthorizer is used to check whether an operation authorizes some other
@@ -124,6 +128,9 @@ func NewChecker(p CheckerParams) *Checker {
 	if p.Checker == nil {
 		p.Checker = checkers.New(nil)
 	}
+	if p.Logger == nil {
+		p.Logger = DefaultLogger("bakery")
+	}
 	return &Checker{
 		FirstPartyCaveatChecker: p.Checker,
 		p: p,
@@ -174,7 +181,7 @@ func (a *AuthChecker) initOnceFunc(ctx context.Context) error {
 			a.initErrors = append(a.initErrors, errgo.Mask(err))
 			continue
 		}
-		logger.Debugf("checking macaroon %d; ops %q, conditions %q", i, ops, conditions)
+		a.p.Logger.Debugf(ctx, "macaroon %d has valid sig; ops %q, conditions %q", i, ops, conditions)
 		// It's a valid macaroon (in principle - we haven't checked first party caveats).
 		a.conditions[i] = conditions
 		for _, op := range ops {
@@ -322,7 +329,7 @@ func (a *AuthChecker) Allow(ctx context.Context, ops ...Op) (*AuthInfo, error) {
 		// No more ops need to be authenticated and no caveats to be discharged.
 		return actx.newAuthInfo(), nil
 	}
-	logger.Debugf("operations still needed after auth check: %#v", actx.need)
+	a.p.Logger.Debugf(ctx, "operations still needed after auth check: %#v", actx.need)
 	if len(caveats) == 0 || len(actx.need) > 0 {
 		allErrors := make([]error, 0, len(a.initErrors)+len(actx.errors))
 		allErrors = append(allErrors, a.initErrors...)
@@ -330,7 +337,7 @@ func (a *AuthChecker) Allow(ctx context.Context, ops ...Op) (*AuthInfo, error) {
 		var err error
 		if len(allErrors) > 0 {
 			// TODO return all errors?
-			logger.Infof("all auth errors: %q", allErrors)
+			a.p.Logger.Infof(ctx, "all auth errors: %q", allErrors)
 			err = allErrors[0]
 		}
 		return nil, errgo.WithCausef(err, ErrPermissionDenied, "")
