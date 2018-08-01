@@ -22,7 +22,8 @@ func (s *CmdExportBundleSuite) setupApplications(c *gc.C) {
 	// make an application with 2 endpoints
 	application1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "wordpress",
+			Name:     "wordpress",
+			Revision: "23",
 		}),
 	})
 	endpoint1, err := application1.Endpoint("juju-info")
@@ -33,7 +34,8 @@ func (s *CmdExportBundleSuite) setupApplications(c *gc.C) {
 	// make another application with 2 endpoints
 	application2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "logging",
+			Name:     "logging",
+			Revision: "43",
 		}),
 	})
 	endpoint3, err := application2.Endpoint("info")
@@ -66,9 +68,9 @@ func (s *CmdExportBundleSuite) TestExportBundle(c *gc.C) {
 		"|\n"+
 		"  applications:\n"+
 		"    logging:\n"+
-		"      charm: cs:quantal/logging-122\n"+
+		"      charm: cs:quantal/logging-43\n"+
 		"    wordpress:\n"+
-		"      charm: cs:quantal/wordpress-120\n"+
+		"      charm: cs:quantal/wordpress-23\n"+
 		"  series: xenial\n"+
 		"  relations:\n"+
 		"  - - wordpress:juju-info\n"+
