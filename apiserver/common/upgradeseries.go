@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -200,41 +201,62 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 	return result, nil
 }
 
-func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities, statusType model.UpgradeSeriesStatusType) (params.UpgradeSeriesStatusResults, error) {
+func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
+	args params.Entities, statusType model.UpgradeSeriesStatusType,
+) (params.UpgradeSeriesStatusResults, error) {
 	u.logger.Tracef("Starting UpgradeSeriesPrepareStatus with %+v", args)
-	result := params.UpgradeSeriesStatusResults{
-		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
-	}
+	result := params.UpgradeSeriesStatusResults{}
+
 	canAccess, err := u.accessUnitOrMachine()
 	if err != nil {
-		return params.UpgradeSeriesStatusResults{}, err
+		return result, err
 	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
+
+	for _, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results = append(result.Results, params.UpgradeSeriesStatusResult{Error: ServerError(err)})
 			continue
 		}
-
 		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results = append(result.Results, params.UpgradeSeriesStatusResult{Error: ServerError(ErrPerm)})
 			continue
 		}
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
+		switch tag.Kind() {
+		case names.MachineTagKind:
+			result.Results = append(
+				result.Results,
+				params.UpgradeSeriesStatusResult{Error: ServerError(errors.NotImplementedf("machine status"))},
+			)
+		case names.UnitTagKind:
+			result.Results = append(result.Results, u.upgradeSeriesUnitStatus(tag, statusType))
 		}
-		status, err := unit.UpgradeSeriesStatus(statusType)
-
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		result.Results[i].Status = string(status)
 	}
 
 	return result, nil
+}
+
+// upgradeSeriesUnitStatus returns a result containing the upgrade-series
+// status of the input unit, for the input status type.
+func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(
+	unitTag names.Tag, statusType model.UpgradeSeriesStatusType,
+) params.UpgradeSeriesStatusResult {
+	result := params.UpgradeSeriesStatusResult{}
+
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		result.Error = ServerError(err)
+		return result
+	}
+
+	status, err := unit.UpgradeSeriesStatus(statusType)
+	if err != nil {
+		result.Error = ServerError(err)
+		return result
+	}
+
+	result.Status = string(status)
+	return result
 }
 
 type backendShim struct {
