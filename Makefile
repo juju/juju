@@ -7,6 +7,7 @@ endif
 
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
+PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/)
 
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
@@ -64,19 +65,20 @@ pre-check:
 	@echo running pre-test checks
 	@$(PROJECT_DIR)/scripts/verify.bash
 
-check: godeps pre-check
-	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/... -check.v
+check:
+# godeps pre-check
+	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
 install: godeps go-install
 
 clean:
-	go clean -n -r --cache --testcache $(PROJECT)/...
+	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
 
 go-install:
-	go install -ldflags "-s -w" -v $(PROJECT)/...
+	go install -ldflags "-s -w" -v $(PROJECT_PACKAGES)
 
 go-build:
-	go build $(PROJECT)/...
+	go build $(PROJECT_PACKAGES)
 
 else # --------------------------------
 
