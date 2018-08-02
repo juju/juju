@@ -2208,8 +2208,8 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if err != nil {
 			return nil, err
 		}
-		for _, unit := range lock.CompleteUnits {
-			unit.Status = model.UnitStarted
+		for i := range lock.CompleteUnits {
+			lock.CompleteUnits[i].Status = model.UnitStarted
 		}
 		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
 	}
@@ -2343,10 +2343,7 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			//Assert: bson.D{{"$and", []bson.D{
 			//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
 			//{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
-			Update: bson.D{{"$set",
-				bson.D{{"complete-units", units},
-					{"complete-status", model.MachineSeriesUpgradeComplete}}},
-			},
+			Update: bson.D{{"$set", bson.D{{"complete-units", units}}}},
 		},
 	}
 }

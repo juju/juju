@@ -2709,6 +2709,26 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C) {
+	unit0 := s.addMachineUnit(c, s.machine)
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, model.UnitNotStarted)
+
+	err = s.machine.CompleteUpgradeSeries()
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err = s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, model.UnitStarted)
+}
+
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {
 	unit0 := s.addMachineUnit(c, s.machine)
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
