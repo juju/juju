@@ -79,7 +79,8 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 			{"$set", bson.D{{"prepare-units.0.status", arbitraryStatus}, {"prepare-units.0.timestamp", arbitraryUpdateTime}}}},
 	}
 
-	actualOps := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, 0, arbitraryStatus, arbitraryStatusType, arbitraryUpdateTime)
+	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, 0, arbitraryStatus, arbitraryStatusType, arbitraryUpdateTime)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp.Update)
 	actualOpSt := fmt.Sprint(actualOps[1].Update)
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
@@ -98,7 +99,8 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 		Assert: isAliveDoc,
 	}
 
-	actualOps := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryUnitIndex, arbitraryStatus, arbitraryStatusType, arbitraryUpdateTime)
+	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryUnitIndex, arbitraryStatus, arbitraryStatusType, arbitraryUpdateTime)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp)
 	actualOpSt := fmt.Sprint(actualOps[0])
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)

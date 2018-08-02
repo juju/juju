@@ -100,7 +100,11 @@ type LocalState struct {
 	// for which a config-changed hook has been committed.
 	Series string
 
-	// UpgradeSeriesPrepareStatus is the current state of any currently running
-	// series upgrade or the empty string if no series upgrade has been started.
-	UpgradeSeriesStatus model.UnitSeriesUpgradeStatus
+	// UpgradeSeriesPrepareStatus is the current preparation state of any currently running
+	// upgrade series prepare or the empty string if no upgrade series prepare has been started.
+	UpgradeSeriesPrepareStatus model.UnitSeriesUpgradeStatus
+
+	// UpgradeSeriesCompleteStatus is the current completion state of any currently running
+	// upgrade series or the empty string if no upgrade series complete has been started.
+	UpgradeSeriesCompleteStatus model.UnitSeriesUpgradeStatus
 }

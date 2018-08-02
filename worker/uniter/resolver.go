@@ -52,10 +52,12 @@ func (s *uniterResolver) NextOp(
 		return nil, resolver.ErrTerminate
 	}
 
-	// If the unit has completed a pre-series-upgrade hook (as noted
-	// by its state) then the uniter should idle in the face of
-	// all remote state changes - the unit is waiting to be shutdown.
-	if localState.UpgradeSeriesStatus == model.UnitCompleted && remoteState.UpgradeSeriesStatus == model.UnitCompleted {
+	// If the unit has completed a pre-series-upgrade hook (as noted by its
+	// state) then the uniter should idle in the face of all remote state
+	// changes accept for those which indicate termination - the unit is
+	// waiting to be shutdown.
+	if localState.UpgradeSeriesPrepareStatus == model.UnitCompleted &&
+		remoteState.UpgradeSeriesPrepareStatus == model.UnitCompleted {
 		return nil, resolver.ErrNoOperation
 	}
 
@@ -285,9 +287,16 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	if localState.UpgradeSeriesStatus == model.UnitNotStarted &&
-		remoteState.UpgradeSeriesStatus == model.UnitStarted {
+	if localState.UpgradeSeriesPrepareStatus == model.UnitNotStarted &&
+		remoteState.UpgradeSeriesPrepareStatus == model.UnitStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
+	}
+
+	if localState.UpgradeSeriesCompleteStatus == model.UnitNotStarted &&
+		// localState.UpgradeSeriesPrepareStatus == model.UnitCompleted &&  //these checks ensure that the uniter is not stuck in its idle state after the prepare phase
+		// remoteState.UpgradeSeriesPrepareStatus == model.UnitCompleted
+		remoteState.UpgradeSeriesCompleteStatus == model.UnitStarted {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
@@ -306,6 +315,7 @@ func (s *uniterResolver) nextOp(
 // NopResolver is a resolver that does nothing.
 type NopResolver struct{}
 
+// The NopResolver's NextOp operation should always return the no operation error.
 func (NopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
 	return nil, resolver.ErrNoOperation
 }

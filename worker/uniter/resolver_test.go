@@ -147,12 +147,12 @@ func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
 }
 
-func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
+func (s *resolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
-		UpgradeSeriesStatus:  model.UnitNotStarted,
+		UpgradeSeriesPrepareStatus: model.UnitNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -160,21 +160,42 @@ func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesStatus = model.UnitStarted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
 }
 
+func (s *resolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		Series:               s.charmURL.Series,
+		UpgradeSeriesCompleteStatus: model.UnitNotStarted,
+		//		UpgradeSeriesPrepareStatus:  model.UnitCompleted,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.Series = s.charmURL.Series
+	s.remoteState.UpgradeSeriesCompleteStatus = model.UnitStarted
+	//	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitCompleted
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
+}
+
 func (s *resolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
 	localState := resolver.LocalState{
-		UpgradeSeriesStatus: model.UnitCompleted,
+		UpgradeSeriesPrepareStatus: model.UnitCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 		},
 	}
-	s.remoteState.UpgradeSeriesStatus = model.UnitCompleted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 

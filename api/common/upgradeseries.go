@@ -4,12 +4,15 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 )
 
@@ -48,13 +51,23 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 	return w, nil
 }
 
-// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() (string, error) {
+// UpgradeSeriesPrepareStatus returns the upgrade series status of a unit from remote state
+func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (string, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
+
+	var err error
+	switch statusType {
+	case model.PrepareStatus:
+		err = u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
+	case model.CompleteStatus:
+		err = u.facade.FacadeCall("UpgradeSeriesCompleteStatus", args, &results)
+	default:
+		err = fmt.Errorf("encountered invalid upgrade series type %q", statusType)
+	}
+
 	if err != nil {
 		return "", err
 	}
@@ -63,7 +76,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() (string, error) {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		//TODO (externalreality) The code to convert api errors (with
+		//[TODO](externalreality): The code to convert api errors (with
 		//error codes) back to normal Go errors is in bad spot and
 		//causes import cycles which is why we don't use it here and may
 		//be the reason why it has few uses despite being useful.
@@ -76,7 +89,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() (string, error) {
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string, statusType model.UpgradeSeriesStatusType) error {
 	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
 		[]params.SetUpgradeSeriesStatusParam{{
@@ -84,7 +97,15 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
 			Status: status,
 		}},
 	}
-	err := u.facade.FacadeCall("SetUpgradeSeriesPrepareStatus", args, &results)
+	var err error
+	switch statusType {
+	case model.PrepareStatus:
+		err = u.facade.FacadeCall("SetUpgradeSeriesPrepareStatus", args, &results)
+	case model.CompleteStatus:
+		err = u.facade.FacadeCall("SetUpgradeSeriesCompleteStatus", args, &results)
+	default:
+		err = fmt.Errorf("encountered invalid upgrade series type %q", statusType)
+	}
 	if err != nil {
 		return err
 	}
