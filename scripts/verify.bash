@@ -12,8 +12,10 @@ set -e
 VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
+FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/`
+
 echo "checking: go fmt ..."
-BADFMT=`find * -name '*.go' -not -name '.#*' | grep -v vendor/ | xargs gofmt -l -s`
+BADFMT=`echo "$FILES" | xargs gofmt -l -s`
 if [ -n "$BADFMT" ]; then
     BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
     echo -e "gofmt failed, run the following command(s) to fix:\n"
@@ -59,7 +61,7 @@ go tool vet \
    -all \
    -composites=false \
    -printfuncs=$all_prints \
-    $(go list ./... | grep -v /vendor/) || [ -n "$IGNORE_VET_WARNINGS" ]
+    $FILES || [ -n "$IGNORE_VET_WARNINGS" ]
 
 # Allow the ignoring of the gometalinter
 if [ -z "$IGNORE_GOMETALINTER" ]; then
