@@ -1,0 +1,36 @@
+services:
+  mediawiki:
+    charm: cs:trusty/mediawiki-3
+    num_units: 1
+    options:
+      debug: false
+      name: Please set name of wiki
+      skin: vector
+    annotations:
+      gui-x: "609"
+      gui-y: "-15"
+  mysql:
+    charm: cs:trusty/mysql-29
+    num_units: 1
+    options:
+      binlog-format: MIXED
+      block-size: 5
+      dataset-size: 80%
+      flavor: distro
+      ha-bindiface: eth0
+      ha-mcastport: 5411
+      max-connections: -1
+      preferred-storage-engine: InnoDB
+      query-cache-size: -1
+      query-cache-type: "OFF"
+      rbd-name: mysql1
+      tuning-level: safest
+      vip_cidr: 24
+      vip_iface: eth0
+    annotations:
+      gui-x: "610"
+      gui-y: "255"
+series: trusty
+relations:
+- - mediawiki:db
+  - mysql:db

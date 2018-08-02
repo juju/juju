@@ -440,6 +440,7 @@ var commandNames = []string{
 	"enable-destroy-controller",
 	"enable-ha",
 	"enable-user",
+	"export-bundle",
 	"expose",
 	"find-offers",
 	"firewall-rules",
