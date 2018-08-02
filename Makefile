@@ -37,18 +37,18 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-ifeq ($(JUJU_MAKE_GODEPS),true)
-$(GOPATH)/bin/godeps:
-	go get github.com/rogpeppe/godeps
+ifeq ($(JUJU_MAKE_GODEPS),true)  # ?? change this to JUJU_MAKE_DEP
+$(GOPATH)/bin/dep:
+	go get -u github.com/golang/dep/cmd/dep
 
-godeps: $(GOPATH)/bin/godeps
-	$(GOPATH)/bin/godeps -u dependencies.tsv
+dep: $(GOPATH)/bin/dep
+	$(GOPATH)/bin/dep ensure -update -v
 else
-godeps:
-	@echo "skipping godeps"
+dep:
+	@echo "skipping dep"
 endif
 
-build: godeps go-build
+build: dep go-build
 
 add-patches:
 	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
@@ -57,19 +57,18 @@ add-patches:
 remove-patches:
 	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
 
-release-build: godeps add-patches go-build
+release-build: dep add-patches go-build
 
-release-install: godeps add-patches go-install remove-patches
+release-install: dep add-patches go-install remove-patches
 
 pre-check:
 	@echo running pre-test checks
 	@$(PROJECT_DIR)/scripts/verify.bash
 
-check:
-# godeps pre-check
+check: dep pre-check
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
-install: godeps go-install
+install: dep go-install
 
 clean:
 	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
@@ -105,11 +104,7 @@ format:
 simplify:
 	gofmt -w -l -s .
 
-rebuild-dependencies.tsv: godeps
-	# godeps invoked this way includes 'github.com/juju/juju' as part of
-	# the content, which we want to filter out.
-	# '-t' is not needed on newer versions of godeps, but is still supported.
-	godeps -t ./... | grep -v "^github.com/juju/juju\s" > dependencies.tsv
+rebuild-dependencies: dep
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
@@ -175,6 +170,6 @@ local-operator-update: check-k8s-model operator-image
 .PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
-.PHONY: rebuild-dependencies.tsv
+.PHONY: rebuild-dependencies
 .PHONY: check-deps
 .PHONY: add-patches remove-patches

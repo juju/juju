@@ -25,6 +25,10 @@
 #   unused-packages = true
 
 [[override]]
+  name = "google.golang.org/cloud"  # why this dep is still in depdendencies.tsv ?
+  revision = "f20d6dcccb44ed49de45ae3703312cb46e627db1"
+
+[[override]]
   name = "gopkg.in/macaroon-bakery.v2-unstable"
   revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
 
@@ -415,3 +419,107 @@
 [[override]]
   name = "github.com/prometheus/procfs"
   revision = "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
+
+[[override]]
+  name = "github.com/mattn/go-colorable"
+  revision = "ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8"
+
+[[constraint]]
+  name = "github.com/mattn/go-isatty"
+  revision = "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8"
+
+[[override]]
+  name = "github.com/mattn/go-runewidth"
+  revision = "d96d1bd051f2bd9e7e43d602782b37b93b1b5666"
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  revision = "839d9e913e063e28dfd0e6c7b7512793e0a48be9"
+
+[[override]]
+  name = "github.com/satori/uuid"
+  revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
+
+[[constraint]]
+  name = "github.com/vmware/govmomi"
+  revision = "05504416e95561e1478196d7058721c827a7bb8c"
+
+[[constraint]]
+  name = "golang.org/x/crypto"
+  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
+
+[[constraint]]
+  name = "golang.org/x/net"
+  revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+
+[[constraint]]
+  name = "golang.org/x/oauth2"
+  revision = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4"
+
+[[constraint]]
+  name = "golang.org/x/sys"
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+
+[[override]]
+  name = "golang.org/x/text"
+  revision = "b19bf474d317b857955b12035d2c5acb57ce8b01"
+
+[[constraint]]
+  name = "google.golang.org/api"
+  revision = "ed10e890a8366167a7ce33fac2b12447987bcb1c"
+
+[[constraint]]
+  name = "gopkg.in/check.v1"
+  revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
+
+[[constraint]]
+  name = "gopkg.in/errgo.v1"
+  revision = "442357a80af5c6bf9b6d51ae791a39c3421004f3"
+
+[[constraint]]
+  name = "gopkg.in/goose.v2"
+  revision = "ea50808b6d33ccddc3e5646e2b1a54474519c922"
+
+[[override]]
+  name = "gopkg.in/httprequest.v1"
+  revision = "1a21782420ea13c3c6fb1d03578f446b3248edb1"
+
+[[override]]
+  name = "gopkg.in/juju/charmrepo.v2"
+  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
+
+[[constraint]]
+  name = "gopkg.in/juju/worker.v1"
+  revision = "6965b9d826717287bb002e02d1fd4d079978083e"
+
+[[override]]
+  name = "gopkg.in/macaroon-bakery.v1"
+  revision = "469b44e6f1f9479e115c8ae879ef80695be624d5"
+
+[[override]]
+  name = "gopkg.in/macaroon-bakery.v2"
+  revision = "ec9d2ad6796100720c154f614b6dea8798ec1181"
+
+[[override]]
+  name = "gopkg.in/macaroon.v1"
+  revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
+
+[[constraint]]
+  name = "gopkg.in/mgo.v2"
+  revision = "f2b6f6c918c452ad107eec89615f074e3bd80e33"
+
+[[constraint]]
+  name = "gopkg.in/natefinch/lumberjack.v2"
+  revision = "df99d62fd42d8b3752c8a42c6723555372c02a03"
+
+[[constraint]]
+  name = "gopkg.in/tomb.v2"
+  revision = "14b3d72120e8d10ea6e6b7f87f7175734b1faab8"
+
+[[constraint]]
+  name = "gopkg.in/yaml.v2"
+  revision = "1be3d31502d6eabc0dd7ce5b0daab022e14a5538"
