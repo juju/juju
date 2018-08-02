@@ -5,25 +5,21 @@ package provider_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/storage"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"k8s.io/client-go/kubernetes"
-
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	"github.com/juju/juju/storage"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = gc.Suite(&storageSuite{})
 
 type storageSuite struct {
 	BaseSuite
-	k8sClient kubernetes.Interface
 }
 
 func (s *storageSuite) k8sProvider(c *gc.C, ctrl *gomock.Controller) storage.Provider {
-	s.k8sClient = mocks.NewMockInterface(ctrl)
-
 	return provider.StorageProvider(s.k8sClient, testNamespace)
 }
 
@@ -100,4 +96,22 @@ func (s *storageSuite) TestScope(c *gc.C) {
 
 	p := s.k8sProvider(c, ctrl)
 	c.Assert(p.Scope(), gc.Equals, storage.ScopeEnviron)
+}
+
+func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(nil),
+	)
+
+	p := s.k8sProvider(c, ctrl)
+	vs, err := p.VolumeSource(&storage.Config{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	errs, err := vs.DestroyVolumes(&context.CloudCallContext{}, []string{"vol-1"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
 }

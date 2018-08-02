@@ -329,6 +329,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
+			Provider:    "kubernetes",
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
@@ -521,6 +522,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
+			Provider:    "kubernetes",
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},

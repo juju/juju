@@ -604,6 +604,11 @@ func (k *kubernetesClient) configureStorage(
 	}
 	logger.Debugf("configuring pod filesystems: %+v", filesystems)
 	for i, fs := range filesystems {
+		// TODO(caas) - support rootfs etc
+		if fs.Provider != K8s_ProviderType {
+			logger.Warningf("ignoring storage with missing k8s provider type")
+			continue
+		}
 		var mountPath string
 		if fs.Attachment != nil {
 			mountPath = fs.Attachment.Path
