@@ -627,7 +627,8 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:39168dd1df8b2e72a7b2f0b8417a18667006586d8eeb3e61dca54e074ebd4240"
+  branch = "fix/to-enable-vendor-for-FindImports"
+  digest = "1:3a3803b25c3753ddc5df9d6a800c09c370fbbac740ee41e63cb24271d11cb8aa"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -636,7 +637,8 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "72703b1e95eb8ce4737fd8a3d8496c6b0be280a6"
+  revision = "8a5e118ac4aa94c2abbee1456f6bceb38d444a0c"
+  source = "github.com/ycliuhw/testing"
 
 [[projects]]
   digest = "1:65ea07a1e4b4dcbc0da808e39d74335046622faa6cbb1c038b46de34a6689aaa"
@@ -893,6 +895,13 @@
   pruneopts = ""
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:7a4827b2062a21ba644241bdec27959a5be2670f8aa4038ba14cfe2ce389e8d2"
+  name = "github.com/ncw/swift"
+  packages = ["."]
+  pruneopts = ""
+  revision = "b2a7479cf26fa841ff90dd932d0221cb5c50782d"
 
 [[projects]]
   branch = "master"
@@ -1247,7 +1256,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:ba999d5ef59ad1177fba1755b612638cca8ae4c37a26eb21f0db06104fb93b81"
+  digest = "1:2cf3af3fdf2f8243de033c450c9749e68114b7edc11507a92e138d490e4ba555"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1255,7 +1264,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "52d8af8e45d911a36f072826d1229d83ecdb958d"
+  revision = "abaa717bc6ed4f694281737cb01f32f7de7ea357"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
@@ -1269,7 +1278,7 @@
   revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
 
 [[projects]]
-  digest = "1:9d5ec781c37c06f56607e82a841ec29d20319de408e0439eab3fe6f3947383da"
+  digest = "1:58b987791edd26aa46f1964df3fad56359386e5b872bd145c4cd5eadfb7be646"
   name = "gopkg.in/juju/charmrepo.v3"
   packages = [
     ".",
@@ -1278,10 +1287,10 @@
     "testing",
   ]
   pruneopts = ""
-  revision = "8bb46aa94f3c679069e80fe35aac6d0581096d65"
+  revision = "7778a447283bd71109671c20818544514e16e9d9"
 
 [[projects]]
-  digest = "1:979b72e845d33e0baf159e729059d5df448a9993f4be5e0de65aa6c11973fe1e"
+  digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"
   name = "gopkg.in/juju/charmstore.v5"
   packages = [
     ".",
@@ -1302,7 +1311,7 @@
     "version",
   ]
   pruneopts = ""
-  revision = "d93d0fd2b81b8230bdf9b1be91b50538dd8782fa"
+  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
 
 [[projects]]
   digest = "1:7654e769ed719c292d72af4420ca772d9c850299271e15c6f5af4fb89526c3fd"

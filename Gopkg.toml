@@ -117,9 +117,14 @@
   revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
   name = "github.com/juju/romulus"
 
-[[constraint]]
-  revision = "72703b1e95eb8ce4737fd8a3d8496c6b0be280a6"
+# [[constraint]]
+#   revision = "72703b1e95eb8ce4737fd8a3d8496c6b0be280a6"
+#   name = "github.com/juju/testing"
+
+[[override]]
   name = "github.com/juju/testing"
+  source = "github.com/ycliuhw/testing"
+  branch = "fix/to-enable-vendor-for-FindImports"
 
 [[constraint]]
   revision = "c746c6e86f4fb2a04bc08d66b7a0f7e900d9cbab"
@@ -150,11 +155,11 @@
   name = "gopkg.in/juju/blobstore.v2"
 
 [[constraint]]
-  revision = "52d8af8e45d911a36f072826d1229d83ecdb958d"
+  revision = "abaa717bc6ed4f694281737cb01f32f7de7ea357"
   name = "gopkg.in/juju/charm.v6"
 
 [[constraint]]
-  revision = "8bb46aa94f3c679069e80fe35aac6d0581096d65"
+  revision = "7778a447283bd71109671c20818544514e16e9d9"
   name = "gopkg.in/juju/charmrepo.v3"
 
 [[constraint]]
@@ -183,7 +188,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charmstore.v5"
-  revision = "d93d0fd2b81b8230bdf9b1be91b50538dd8782fa"
+  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
 
 [[override]]
   name = "github.com/masterzen/xmlpath"
@@ -524,3 +529,7 @@
 [[constraint]]
   name = "github.com/docker/distribution"
   revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
+
+[[override]]
+  name = "github.com/ncw/swift"
+  revision = "b2a7479cf26fa841ff90dd932d0221cb5c50782d"

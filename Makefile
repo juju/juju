@@ -41,8 +41,10 @@ ifeq ($(JUJU_MAKE_GODEPS),true)  # ?? change this to JUJU_MAKE_DEP
 $(GOPATH)/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
+# populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
-	$(GOPATH)/bin/dep ensure -update -v
+	$(GOPATH)/bin/dep ensure -v -vendor-only
+	# $(GOPATH)/bin/dep ensure -v -update  # for debug
 else
 dep:
 	@echo "skipping dep"
@@ -53,7 +55,7 @@ build: dep go-build
 add-patches:
 	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/vendor/
 
-#this is useful to run after release-build, or as needed
+# this is useful to run after release-build, or as needed
 remove-patches:
 	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/vendor/
 
@@ -66,6 +68,7 @@ pre-check:
 	@$(PROJECT_DIR)/scripts/verify.bash
 
 check: dep pre-check
+	echo $(shell env | grep GO)
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
 install: dep go-install
@@ -104,7 +107,9 @@ format:
 simplify:
 	gofmt -w -l -s .
 
-rebuild-dependencies: dep
+# update Gopkg.lock (if needed), but do not update `vendor/`.
+rebuild-dependencies:
+	dep ensure -v -no-vendor $(dep-update)
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
