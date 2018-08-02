@@ -24,6 +24,11 @@
 #   go-tests = true
 #   unused-packages = true
 
+
+# [prune]  # change it to false because ./patchs was based on raw src with tests
+#   go-tests = true
+#   unused-packages = true
+
 [[override]]
   name = "google.golang.org/cloud"  # why this dep is still in depdendencies.tsv ?
   revision = "f20d6dcccb44ed49de45ae3703312cb46e627db1"
@@ -73,11 +78,11 @@
   name = "github.com/juju/gojsonschema"
 
 [[constraint]]
-  branch = "master"
+  revision = "abe11904dd8cd40f0777b7704ae60348a876542e"
   name = "github.com/juju/gomaasapi"
 
 [[constraint]]
-  branch = "master"
+  revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
   name = "github.com/juju/jsonschema"
 
 [[constraint]]
@@ -169,16 +174,12 @@
   revision = "2d7c7c65cc71d024968d9ff4385d5e7ad3a83fcc"
 
 [[constraint]]
-  branch = "master"
+  revision = "183f3326a9353bd6d41430fc80f96259331d029c"
   name = "k8s.io/api"
 
 [[constraint]]
-  branch = "master"
+  revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
   name = "k8s.io/apimachinery"
-
-[prune]
-  go-tests = true
-  unused-packages = true
 
 [[constraint]]
   name = "gopkg.in/juju/charmstore.v5"
@@ -286,7 +287,7 @@
 
 [[constraint]]
   name = "github.com/juju/collections"
-  revision = "90152009b5f349bb218a9bf4a6034dd8437c031b"
+  revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[constraint]]
   name = "github.com/juju/errors"
@@ -478,7 +479,7 @@
 
 [[constraint]]
   name = "gopkg.in/goose.v2"
-  revision = "ea50808b6d33ccddc3e5646e2b1a54474519c922"
+  revision = "9cc2ac8f3ac3904725fe9bef85d30b53713b3be9"
 
 [[override]]
   name = "gopkg.in/httprequest.v1"
@@ -519,3 +520,7 @@
 [[constraint]]
   name = "gopkg.in/yaml.v2"
   revision = "1be3d31502d6eabc0dd7ce5b0daab022e14a5538"
+
+[[constraint]]
+  name = "github.com/docker/distribution"
+  revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
