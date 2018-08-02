@@ -24,6 +24,7 @@ type upgradeSeriesSuite struct {
 
 	machineTag1 names.MachineTag
 	unitTag1    names.UnitTag
+	unitTag2    names.UnitTag
 }
 
 var _ = gc.Suite(&upgradeSeriesSuite{})
@@ -31,6 +32,7 @@ var _ = gc.Suite(&upgradeSeriesSuite{})
 func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")
+	s.unitTag2 = names.NewUnitTag("redis/1")
 }
 
 func (s *upgradeSeriesSuite) assertBackendApi(c *gc.C, tag names.Tag) (*common.UpgradeSeriesAPI, *gomock.Controller, *mocks.MockUpgradeSeriesBackend) {
@@ -77,11 +79,11 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsUnitTag(c *gc.C)
 	mockUnit1 := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(1)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
 	mockMachine1.EXPECT().WatchUpgradeSeriesNotifications().Return(upgradeSeriesWatcher, nil)
-	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil).Times(1)
+	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
 
-	args := params.Entities{[]params.Entity{
+	args := params.Entities{Entities: []params.Entity{
 		{Tag: names.NewUnitTag("mysql/2").String()},
 		{Tag: s.unitTag1.String()},
 	}}
@@ -111,7 +113,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsMachineTag(c *gc
 
 	watches, err := api.WatchUpgradeSeriesNotifications(
 		params.Entities{
-			[]params.Entity{
+			Entities: []params.Entity{
 				{Tag: s.machineTag1.String()},
 				{Tag: names.NewMachineTag("7").String()},
 			},
@@ -132,7 +134,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil).Times(1)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
 	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UnitCompleted, model.PrepareStatus).Return(nil)
 
 	args := params.SetUpgradeSeriesStatusParams{
@@ -163,11 +165,11 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil).Times(1)
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
 	mockUnit.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitCompleted, nil)
 
 	args := params.Entities{
-		[]params.Entity{
+		Entities: []params.Entity{
 			{Tag: s.unitTag1.String()},
 			{Tag: names.NewUnitTag("mysql/2").String()},
 		},
@@ -184,6 +186,47 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 			{
 				Status: "",
 				Error:  &params.Error{Message: "permission denied", Code: "unauthorized access"},
+			},
+		},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
+	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
+	defer ctrl.Finish()
+
+	mockApplication := mocks.NewMockUpgradeSeriesMachine(ctrl)
+	mockUnit1 := mocks.NewMockUpgradeSeriesUnit(ctrl)
+	mockUnit2 := mocks.NewMockUpgradeSeriesUnit(ctrl)
+
+	exp := mockBackend.EXPECT()
+	exp.Machine(s.machineTag1.Id()).Return(mockApplication, nil)
+	exp.Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
+	exp.Unit(s.unitTag2.Id()).Return(mockUnit2, nil)
+
+	mockApplication.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
+	mockUnit1.EXPECT().Tag().Return(s.unitTag1)
+	mockUnit1.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitStarted, nil)
+	mockUnit2.EXPECT().Tag().Return(s.unitTag2)
+	mockUnit2.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitCompleted, nil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: s.machineTag1.String()},
+		},
+	}
+
+	results, err := api.UpgradeSeriesPrepareStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
+		Results: []params.UpgradeSeriesStatusResult{
+			{
+				Status: string(model.UnitStarted),
+				Error:  nil,
+			},
+			{
+				Status: string(model.UnitCompleted),
+				Error:  nil,
 			},
 		},
 	})

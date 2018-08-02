@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	common "github.com/juju/juju/apiserver/common"
 	state "github.com/juju/juju/state"
 	reflect "reflect"
 )
@@ -31,6 +32,19 @@ func NewMockUpgradeSeriesMachine(ctrl *gomock.Controller) *MockUpgradeSeriesMach
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockUpgradeSeriesMachine) EXPECT() *MockUpgradeSeriesMachineMockRecorder {
 	return m.recorder
+}
+
+// Units mocks base method
+func (m *MockUpgradeSeriesMachine) Units() ([]common.UpgradeSeriesUnit, error) {
+	ret := m.ctrl.Call(m, "Units")
+	ret0, _ := ret[0].([]common.UpgradeSeriesUnit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Units indicates an expected call of Units
+func (mr *MockUpgradeSeriesMachineMockRecorder) Units() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).Units))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method

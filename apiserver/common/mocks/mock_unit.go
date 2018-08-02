@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
+	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -56,6 +57,18 @@ func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UnitSeriesUpgr
 // SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus
 func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).SetUpgradeSeriesStatus), arg0, arg1)
+}
+
+// Tag mocks base method
+func (m *MockUpgradeSeriesUnit) Tag() names_v2.Tag {
+	ret := m.ctrl.Call(m, "Tag")
+	ret0, _ := ret[0].(names_v2.Tag)
+	return ret0
+}
+
+// Tag indicates an expected call of Tag
+func (mr *MockUpgradeSeriesUnitMockRecorder) Tag() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).Tag))
 }
 
 // UpgradeSeriesStatus mocks base method
