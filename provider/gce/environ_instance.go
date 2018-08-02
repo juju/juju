@@ -35,7 +35,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := getInstances(env)
+	instances, err := getInstances(env, ctx)
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -66,14 +66,14 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	return results, err
 }
 
-var getInstances = func(env *environ) ([]instance.Instance, error) {
-	return env.instances()
+var getInstances = func(env *environ, ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	return env.instances(ctx)
 }
 
-func (env *environ) gceInstances() ([]google.Instance, error) {
+func (env *environ) gceInstances(ctx context.ProviderCallContext) ([]google.Instance, error) {
 	prefix := env.namespace.Prefix()
 	instances, err := env.gce.Instances(prefix, instStatuses...)
-	return instances, errors.Trace(err)
+	return instances, google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // instances returns a list of all "alive" instances in the environment.
@@ -81,8 +81,8 @@ func (env *environ) gceInstances() ([]google.Instance, error) {
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
-func (env *environ) instances() ([]instance.Instance, error) {
-	instances, err := env.gceInstances()
+func (env *environ) instances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	instances, err := env.gceInstances(ctx)
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
@@ -102,7 +102,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.gceInstances()
+	instances, err := env.gceInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,7 +135,11 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 	for _, id := range instances {
 		stringIds = append(stringIds, string(id.Id()))
 	}
-	return errors.Trace(env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...))
+	err = env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...)
+	if err != nil {
+		return google.HandleCredentialError(errors.Trace(err), ctx)
+	}
+	return nil
 }
 
 // TODO(ericsnow) Turn into an interface.
@@ -146,7 +150,7 @@ type instPlacement struct {
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
+func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*instPlacement, error) {
 	if placement == "" {
 		return nil, nil
 	}
@@ -158,7 +162,7 @@ func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		zone, err := env.availZoneUp(value)
+		zone, err := env.availZoneUp(ctx, value)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

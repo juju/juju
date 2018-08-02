@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
@@ -38,7 +39,7 @@ func (step diskLabelsUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	env := step.env
 	disks, err := env.gce.Disks()
 	if err != nil {
-		return errors.Trace(err)
+		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	for _, disk := range disks {
 		if !isValidVolume(disk.Name) {
@@ -56,7 +57,7 @@ func (step diskLabelsUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		disk.Labels[tags.JujuModel] = env.uuid
 		disk.Labels[tags.JujuController] = step.controllerUUID
 		if err := env.gce.SetDiskLabels(disk.Zone, disk.Name, disk.LabelFingerprint, disk.Labels); err != nil {
-			return errors.Annotatef(err, "cannot set labels on volume %q", disk.Name)
+			return google.HandleCredentialError(errors.Annotatef(err, "cannot set labels on volume %q", disk.Name), ctx)
 		}
 	}
 	return nil

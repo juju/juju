@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 // globalFirewallName returns the name to use for the global firewall.
@@ -21,7 +22,7 @@ func (env *environ) globalFirewallName() string {
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	err := env.gce.OpenPorts(env.globalFirewallName(), rules...)
-	return errors.Trace(err)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
@@ -29,7 +30,7 @@ func (env *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.I
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	err := env.gce.ClosePorts(env.globalFirewallName(), rules...)
-	return errors.Trace(err)
+	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // IngressRules returns the ingress rules applicable for the whole environment.
@@ -37,5 +38,5 @@ func (env *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.
 // FwGlobal firewall mode.
 func (env *environ) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	rules, err := env.gce.IngressRules(env.globalFirewallName())
-	return rules, errors.Trace(err)
+	return rules, google.HandleCredentialError(errors.Trace(err), ctx)
 }

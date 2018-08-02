@@ -193,9 +193,9 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (env *environ) Create(ctx context.ProviderCallContext, p environs.CreateParams) error {
 	if err := env.gce.VerifyCredentials(); err != nil {
-		return errors.Trace(err)
+		return google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return nil
 }
@@ -214,13 +214,13 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 		params.ControllerConfig.APIPort(),
 	)
 	if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
-		return nil, errors.Trace(err)
+		return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
 	}
 	if params.ControllerConfig.AutocertDNSName() != "" {
 		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
 		rule = network.NewOpenIngressRule("tcp", 80, 80)
 		if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
-			return nil, errors.Trace(err)
+			return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
 		}
 	}
 	return bootstrap(ctx, env, callCtx, params)

@@ -79,7 +79,7 @@ func (s *environInstSuite) TestBasicInstances(c *gc.C) {
 	eggs := s.NewBaseInstance(c, "eggs")
 	s.FakeConn.Insts = []google.Instance{*spam, *ham, *eggs}
 
-	insts, err := gce.GetInstances(s.Env)
+	insts, err := gce.GetInstances(s.Env, s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{
@@ -92,7 +92,7 @@ func (s *environInstSuite) TestBasicInstances(c *gc.C) {
 func (s *environInstSuite) TestBasicInstancesAPI(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	_, err := gce.GetInstances(s.Env)
+	_, err := gce.GetInstances(s.Env, s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -142,7 +142,7 @@ func (s *environInstSuite) TestParsePlacement(c *gc.C) {
 	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 
-	placement, err := gce.ParsePlacement(s.Env, "zone=a-zone")
+	placement, err := gce.ParsePlacement(s.Env, s.CallCtx, "zone=a-zone")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(placement.Zone, jc.DeepEquals, &zone)
@@ -152,19 +152,19 @@ func (s *environInstSuite) TestParsePlacementZoneFailure(c *gc.C) {
 	failure := errors.New("<unknown>")
 	s.FakeConn.Err = failure
 
-	_, err := gce.ParsePlacement(s.Env, "zone=a-zone")
+	_, err := gce.ParsePlacement(s.Env, s.CallCtx, "zone=a-zone")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *environInstSuite) TestParsePlacementMissingDirective(c *gc.C) {
-	_, err := gce.ParsePlacement(s.Env, "a-zone")
+	_, err := gce.ParsePlacement(s.Env, s.CallCtx, "a-zone")
 
 	c.Check(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
 }
 
 func (s *environInstSuite) TestParsePlacementUnknownDirective(c *gc.C) {
-	_, err := gce.ParsePlacement(s.Env, "inst=spam")
+	_, err := gce.ParsePlacement(s.Env, s.CallCtx, "inst=spam")
 
 	c.Check(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
 }
@@ -187,6 +187,18 @@ func (s *environInstSuite) TestCheckInstanceTypeUnknown(c *gc.C) {
 	matched := gce.CheckInstanceType(cons)
 
 	c.Check(matched, jc.IsFalse)
+}
+
+func (s *environInstSuite) TestPrecheckInstanceInvalidCredentialError(c *gc.C) {
+	zone := google.NewZone("a-zone", google.StatusUp, "", "")
+	s.FakeConn.Zones = []google.AvailabilityZone{zone}
+	mem := uint64(1025)
+	s.FakeConn.Err = gce.InvalidCredentialError
+
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	_, err := s.Env.InstanceTypes(s.CallCtx, constraints.Value{Mem: &mem})
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
 
 func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
@@ -216,4 +228,16 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	c.Check(call.IDs, gc.DeepEquals, []string{"john", "misty"})
 	c.Check(call.Key, gc.Equals, tags.JujuController)
 	c.Check(call.Value, gc.Equals, "other-uuid")
+}
+
+func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *gc.C) {
+	s.FakeConn.Err = gce.InvalidCredentialError
+	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	john := s.NewInstance(c, "john")
+	misty := s.NewInstance(c, "misty")
+	s.FakeEnviron.Insts = []instance.Instance{john, misty}
+
+	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
+	c.Check(err, gc.NotNil)
+	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
