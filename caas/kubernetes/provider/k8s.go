@@ -163,7 +163,6 @@ func (k *kubernetesClient) EnsureSecret(imageSecretName, appName string, imageDe
 		return errors.Trace(err)
 	}
 	secrets := k.CoreV1().Secrets(k.namespace)
-	// imageSecretName := appSecretName(appName, containerSpec.Name)
 
 	newSecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{

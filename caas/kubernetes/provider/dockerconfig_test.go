@@ -21,20 +21,31 @@ type DockerConfigSuite struct {
 var _ = gc.Suite(&DockerConfigSuite{})
 
 func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
-	result := provider.ExtractRegistryURL("test")
-	c.Assert(result, gc.Equals, "docker.io")
-
-	result = provider.ExtractRegistryURL("tester/caas-mysql/mysql-image@sha256:dead-beef")
-	c.Assert(result, gc.Equals, "docker.io")
-
-	result = provider.ExtractRegistryURL("registry.staging.jujucharms.com/tester/caas-mysql/mysql-image@sha256:dead-beef")
-	c.Assert(result, gc.Equals, "registry.staging.jujucharms.com")
-
+	for _, registryTest := range []struct {
+		registryPath string
+		expectedURL  string
+	}{{
+		registryPath: "registry.staging.charmstore.com/me/awesomeimage@sha256:5e2c71d050bec85c258a31aa4507ca8adb3b2f5158a4dc919a39118b8879a5ce",
+		expectedURL:  "registry.staging.charmstore.com",
+	}, {
+		registryPath: "gcr.io/kubeflow/jupyterhub-k8s@sha256:5e2c71d050bec85c258a31aa4507ca8adb3b2f5158a4dc919a39118b8879a5ce",
+		expectedURL:  "gcr.io",
+	}, {
+		registryPath: "docker.io/me/mygitlab:latest",
+		expectedURL:  "docker.io",
+	}, {
+		registryPath: "me/mygitlab:latest",
+		expectedURL:  "docker.io",
+	}} {
+		result, err := provider.ExtractRegistryURL(registryTest.registryPath)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result, gc.Equals, registryTest.expectedURL)
+	}
 }
 
 func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
 	imageDetails := caas.ImageDetails{
-		ImagePath: "registry.staging.jujucharms.com/tester/caas-mysql/mysql-image@sha256:dead-beef",
+		ImagePath: "registry.staging.jujucharms.com/tester/caas-mysql/mysql-image:5.7",
 		Username:  "docker-registry",
 		Password:  "hunter2",
 	}

@@ -17,14 +17,24 @@ type ResourceSuite struct{}
 var _ = gc.Suite(&ResourceSuite{})
 
 func (s *ResourceSuite) TestValidRegistryPath(c *gc.C) {
-	err := resources.ValidateDockerRegistryPath("registry.hub.docker.io/me/awesomeimage@sha256:deedbeaf")
-	c.Assert(err, jc.ErrorIsNil)
-	err = resources.ValidateDockerRegistryPath("docker.io/me/mygitlab:latest")
-	c.Assert(err, jc.ErrorIsNil)
+	for _, registryTest := range []struct {
+		registryPath string
+	}{{
+		registryPath: "registry.staging.charmstore.com/me/awesomeimage@sha256:5e2c71d050bec85c258a31aa4507ca8adb3b2f5158a4dc919a39118b8879a5ce",
+	}, {
+		registryPath: "gcr.io/kubeflow/jupyterhub-k8s@sha256:5e2c71d050bec85c258a31aa4507ca8adb3b2f5158a4dc919a39118b8879a5ce",
+	}, {
+		registryPath: "docker.io/me/mygitlab:latest",
+	}, {
+		registryPath: "me/mygitlab:latest",
+	}} {
+		err := resources.ValidateDockerRegistryPath(registryTest.registryPath)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *ResourceSuite) TestInvalidRegistryPath(c *gc.C) {
-	err := resources.ValidateDockerRegistryPath("sha256:deedbeaf")
+	err := resources.ValidateDockerRegistryPath("blah:sha256@")
 	c.Assert(err, gc.ErrorMatches, "docker image path .* not valid")
 }
 
@@ -38,35 +48,4 @@ func (s *ResourceSuite) TestDockerImageDetailsUnmarshal(c *gc.C) {
 		Username:     "docker-registry",
 		Password:     "fragglerock",
 	})
-}
-
-func (s *ResourceSuite) TestSplitRegistryPathForValidPaths(c *gc.C) {
-	for _, registryTest := range []struct {
-		registryPath         string
-		expectedImagePath    string
-		expectedRegistryPath string
-	}{{
-		registryPath:         "registry.staging.charmstore.com/me/awesomeimage@sha256:deedbeaf",
-		expectedImagePath:    "me/awesomeimage@sha256:deedbeaf",
-		expectedRegistryPath: "registry.staging.charmstore.com",
-	}, {
-		registryPath:         "docker.io/me/mygitlab:latest",
-		expectedImagePath:    "me/mygitlab:latest",
-		expectedRegistryPath: "docker.io",
-	}, {
-		registryPath:         "me/mygitlab:latest",
-		expectedImagePath:    "me/mygitlab:latest",
-		expectedRegistryPath: "",
-	}} {
-		reg, image, err := resources.SplitRegistryPath(registryTest.registryPath)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(reg, gc.Equals, registryTest.expectedRegistryPath)
-		c.Assert(image, gc.Equals, registryTest.expectedImagePath)
-	}
-}
-
-func (s *ResourceSuite) TestSplitRegistryPathForInvalidPaths(c *gc.C) {
-	registryPath := "@sha256:deedbeaf"
-	_, _, err := resources.SplitRegistryPath(registryPath)
-	c.Assert(err, gc.ErrorMatches, "docker image path .* not valid")
 }

@@ -4,15 +4,16 @@
 package provider
 
 import (
+	// Import shas that are used for docker image validation.
+	_ "crypto/sha256"
+	_ "crypto/sha512"
 	"encoding/json"
-	"regexp"
+
+	"github.com/docker/distribution/reference"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
 )
-
-// Used to extract the registry from an Image Path.
-// i.e. registry.staging.jujucharms.com from registry.staging.jujucharms.com/tester/caas-mysql/mysql-image@sha256:dead-beef
-var dockerURLRegexp = regexp.MustCompile(`^(?P<registryURL>([^.]+([.]+[^.\/]+)+))\/.*$`)
 
 // These Docker Config datatypes have been pulled from
 // "k8s.io/kubernetes/pkg/credentialprovider".
@@ -40,7 +41,10 @@ func createDockerConfigJSON(imageDetails *caas.ImageDetails) ([]byte, error) {
 		Username: imageDetails.Username,
 		Password: imageDetails.Password,
 	}
-	registryURL := extractRegistryURL(imageDetails.ImagePath)
+	registryURL, err := extractRegistryURL(imageDetails.ImagePath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	dockerConfig := DockerConfigJson{
 		Auths: map[string]DockerConfigEntry{
@@ -51,11 +55,10 @@ func createDockerConfigJSON(imageDetails *caas.ImageDetails) ([]byte, error) {
 }
 
 // extractRegistryName returns the registry URL part of an images path
-func extractRegistryURL(imagePath string) string {
-	registryURL := "docker.io"
-	hasRegistryURL := dockerURLRegexp.MatchString(imagePath)
-	if hasRegistryURL {
-		registryURL = dockerURLRegexp.ReplaceAllString(imagePath, "$registryURL")
+func extractRegistryURL(imagePath string) (string, error) {
+	imageNamed, err := reference.ParseNormalizedNamed(imagePath)
+	if err != nil {
+		return "", errors.Annotate(err, "extracting registry from path")
 	}
-	return registryURL
+	return reference.Domain(imageNamed), nil
 }
