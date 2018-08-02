@@ -2265,10 +2265,11 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		docIndex, err := m.getUnitIndex(unitName, status)
+		docIndex, err := m.getUnitIndex(unitName, status, statusType)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// TODO[externalreality]: check to see if status is already set to the requested state.
 		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, statusType, bson.Now())
 	}
 	err := m.st.db().Run(buildTxn)
@@ -2442,13 +2443,22 @@ func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
 }
 
-func (m *Machine) getUnitIndex(unitName string, status model.UnitSeriesUpgradeStatus) (int, error) {
+func (m *Machine) getUnitIndex(unitName string, status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType) (int, error) {
 	docIndex := -1
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return docIndex, err
 	}
-	for i, unitStatus := range lock.PrepareUnits {
+	var lockUnits []unitStatus
+	switch statusType {
+	case model.PrepareStatus:
+		lockUnits = lock.PrepareUnits
+	case model.CompleteStatus:
+		lockUnits = lock.CompleteUnits
+	default:
+		return -1, fmt.Errorf("encountered invalid upgrade series type %q", statusType)
+	}
+	for i, unitStatus := range lockUnits {
 		if unitStatus.Id == unitName {
 			// short circuit if there is nothing to do
 			if unitStatus.Status == status {
