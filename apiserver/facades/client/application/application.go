@@ -1090,10 +1090,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Trace(err)
 		}
 
-		// For CAAS models we always destroy storage with the unit.
-		// TODO(caas) - this will change when volumes are managed separately to pods.
-		destroyStorage := arg.DestroyStorage || api.modelType == state.ModelTypeCAAS
-		if destroyStorage {
+		if arg.DestroyStorage {
 			for _, s := range storage {
 				info.DestroyedStorage = append(
 					info.DestroyedStorage,
@@ -1109,7 +1106,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			}
 		}
 		op := unit.DestroyOperation()
-		op.DestroyStorage = destroyStorage
+		op.DestroyStorage = arg.DestroyStorage
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1192,9 +1189,6 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			return nil, err
 		}
 		storageSeen := names.NewSet()
-		// For CAAS models we always destroy storage with the application.
-		// TODO(caas) - this will change when volumes are managed separately to pods.
-		destroyStorage := arg.DestroyStorage || api.modelType == state.ModelTypeCAAS
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
@@ -1218,7 +1212,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			}
 			storage = unseen
 
-			if destroyStorage {
+			if arg.DestroyStorage {
 				for _, s := range storage {
 					info.DestroyedStorage = append(
 						info.DestroyedStorage,
@@ -1237,7 +1231,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			}
 		}
 		op := app.DestroyOperation()
-		op.DestroyStorage = destroyStorage
+		op.DestroyStorage = arg.DestroyStorage
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}

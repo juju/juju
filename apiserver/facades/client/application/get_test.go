@@ -134,8 +134,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dashboard4miner", Charm: ch})
 
 	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,18 +196,18 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiV7 := &application.APIv7{api}
 
-	results, err := apiV7.Get(params.ApplicationGet{"wordpress"})
+	results, err := apiV7.Get(params.ApplicationGet{"dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
+		Application: "dashboard4miner",
+		Charm:       "dashboard4miner",
 		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     "My Title",
-				"description": "A descriptive title used for the blog.",
+			"port": map[string]interface{}{
+				"default":     int64(443),
+				"description": "https port",
 				"source":      "default",
-				"type":        "string",
-				"value":       "My Title",
+				"type":        "int",
+				"value":       int64(443),
 			},
 		},
 		ApplicationConfig: expectedAppConfig,

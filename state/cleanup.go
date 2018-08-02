@@ -344,14 +344,6 @@ func (st *State) cleanupApplicationsForDyingModel() (err error) {
 }
 
 func (st *State) removeApplicationsForDyingModel() (err error) {
-	// For CAAS models we always destroy storage with the application.
-	// TODO(caas) - this will change when volumes are managed separately to pods.
-	m, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	destroyStorage := m.Type() == ModelTypeCAAS
-
 	// This won't miss applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
@@ -365,7 +357,6 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	for iter.Next(&application.doc) {
 		op := application.DestroyOperation()
 		op.RemoveOffers = true
-		op.DestroyStorage = destroyStorage
 		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
@@ -513,9 +504,6 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 }
 
 func (st *State) cleanupDyingUnitResources(unitId string) error {
-	// CAAS models require any storage to be cleaned up when the unit dies
-	// as the storage is tied to the unit.
-	// TODO(caas) - this will change when volumes are managed separately to pods.
 	unitTag := names.NewUnitTag(unitId)
 	sb, err := NewStorageBackend(st)
 	if err != nil {
@@ -781,7 +769,7 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 		}
 	}
 
-	// Detach all filesystems from the machine.
+	// Detach all filesystems from the machine/unit.
 	for _, fsa := range filesystemAttachments {
 		detachable, err := isDetachableFilesystemTag(sb.mb.db(), fsa.Filesystem())
 		if err != nil {
