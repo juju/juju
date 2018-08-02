@@ -147,33 +147,43 @@ func (w *deploymentWorker) loop() error {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
 
-		serviceParams := &caas.ServiceParams{
-			PodSpec:      spec,
-			Constraints:  info.Constraints,
-			ResourceTags: info.Tags,
-			Filesystems:  info.Filesystems,
-			Devices:      info.Devices,
-		}
-		err = w.broker.EnsureService(w.application, serviceParams, currentScale, appConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
-		if !serviceUpdated && !spec.OmitServiceFrontend {
-			// TODO(caas) - add a service watcher
-			service, err := w.broker.Service(w.application)
-			if err != nil && !errors.IsNotFound(err) {
-				return errors.Annotate(err, "cannot get new service details")
-			}
-			err = w.applicationUpdater.UpdateApplicationService(params.UpdateApplicationServiceArg{
-				ApplicationTag: names.NewApplicationTag(w.application).String(),
-				ProviderId:     service.Id,
-				Addresses:      params.FromNetworkAddresses(service.Addresses...),
-			})
+		if spec.CustomResourceDefinition.IsPresent() {
+			err = w.broker.EnsureCrd(w.application, spec)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			serviceUpdated = true
+			logger.Debugf("custom resource definition has been ensured for application %q:\n%#v", w.application, spec.CustomResourceDefinition)
+		}
+		if len(spec.Containers) > 0 {
+			serviceParams := &caas.ServiceParams{
+				PodSpec:      spec,
+				Constraints:  info.Constraints,
+				ResourceTags: info.Tags,
+				Filesystems:  info.Filesystems,
+				Devices:      info.Devices,
+			}
+			err = w.broker.EnsureService(w.application, serviceParams, currentScale, appConfig)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
+			if !serviceUpdated && !spec.OmitServiceFrontend {
+				// TODO(caas) - add a service watcher
+				service, err := w.broker.Service(w.application)
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Annotate(err, "cannot get new service details")
+					err = w.applicationUpdater.UpdateApplicationService(params.UpdateApplicationServiceArg{
+						ApplicationTag: names.NewApplicationTag(w.application).String(),
+						ProviderId:     service.Id,
+						Addresses:      params.FromNetworkAddresses(service.Addresses...),
+					})
+					if err != nil {
+						return errors.Trace(err)
+					}
+					serviceUpdated = true
+				}
+			}
+
 		}
 	}
 }

@@ -160,6 +160,63 @@ containers:
           file1: |
             [config]
             foo: bar
+crd:
+  template:
+    group: kubeflow.org
+    version: v1alpha2
+    scope: Namespaced
+    name: tfjob
+    validation:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              tfReplicaSpecs:
+                properties:
+                  Worker:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                  PS:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                  Chief:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                        maximum: 1
+  content:
+    name: "example-job"
+    spec:
+      replicaSpecs:
+        - replicas: 1
+          tfReplicaType: MASTER
+          template:
+            spec:
+              containers:
+                - image: gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff
+                  name: tensorflow
+              restartPolicy: OnFailure
+        - replicas: 1
+          tfReplicaType: WORKER
+          template:
+            spec:
+              containers:
+                - image: gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff
+                  name: tensorflow
+              restartPolicy: OnFailure
+        - replicas: 2
+          tfReplicaType: PS
+          template:
+            spec:
+              containers:
+                - image: gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff
+                  name: tensorflow
+              restartPolicy: OnFailure
 `[1:]
 
 	expectedFileContent := `
@@ -212,7 +269,106 @@ foo: bar
 					},
 				},
 			},
-		}}})
+		}},
+		CustomResourceDefinition: caas.CustomResourceDefinition{
+			Template: caas.CrdTemplate{
+				Name:    "tfjob",
+				Group:   "kubeflow.org",
+				Version: "v1alpha2",
+				Scope:   "",
+				// Validation: map[string]interface{}{
+				// 	"openAPIV3Schema": map[interface{}]interface{}{
+				// 		"properties": map[interface{}]interface{}{
+				// 			"spec": map[interface{}]interface{}{
+				// 				"properties": map[interface{}]interface{}{
+				// 					"tfReplicaSpecs": map[interface{}]interface{}{
+				// 						"properties": map[interface{}]interface{}{
+				// 							"PS": map[interface{}]interface{}{
+				// 								"properties": map[interface{}]interface{}{
+				// 									"replicas": map[interface{}]interface{}{
+				// 										"type": "integer", "minimum": 1,
+				// 									},
+				// 								},
+				// 							},
+				// 							"Chief": map[interface{}]interface{}{
+				// 								"properties": map[interface{}]interface{}{
+				// 									"replicas": map[interface{}]interface{}{
+				// 										"type":    "integer",
+				// 										"minimum": 1,
+				// 										"maximum": 1,
+				// 									},
+				// 								},
+				// 							},
+				// 							"Worker": map[interface{}]interface{}{
+				// 								"properties": map[interface{}]interface{}{
+				// 									"replicas": map[interface{}]interface{}{
+				// 										"type":    "integer",
+				// 										"minimum": 1,
+				// 									},
+				// 								},
+				// 							},
+				// 						},
+				// 					},
+				// 				},
+				// 			},
+				// 		},
+				// 	},
+				// },
+			},
+			Content: caas.CrdObject{
+				Name: "example-job",
+				Spec: map[string]interface{}{
+					"replicaSpecs": []interface{}{
+						map[interface{}]interface{}{
+							"replicas":      1,
+							"tfReplicaType": "MASTER",
+							"template": map[interface{}]interface{}{
+								"spec": map[interface{}]interface{}{
+									"containers": []interface{}{
+										map[interface{}]interface{}{
+											"image": "gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff",
+											"name":  "tensorflow",
+										},
+									},
+									"restartPolicy": "OnFailure",
+								},
+							},
+						},
+						map[interface{}]interface{}{
+							"template": map[interface{}]interface{}{
+								"spec": map[interface{}]interface{}{
+									"containers": []interface{}{
+										map[interface{}]interface{}{
+											"image": "gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff",
+											"name":  "tensorflow",
+										},
+									},
+									"restartPolicy": "OnFailure",
+								},
+							},
+							"replicas":      1,
+							"tfReplicaType": "WORKER",
+						},
+						map[interface{}]interface{}{
+							"tfReplicaType": "PS",
+							"template": map[interface{}]interface{}{
+								"spec": map[interface{}]interface{}{
+									"containers": []interface{}{
+										map[interface{}]interface{}{
+											"image": "gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff",
+											"name":  "tensorflow",
+										},
+									},
+									"restartPolicy": "OnFailure",
+								},
+							},
+							"replicas": 2,
+						},
+					},
+				},
+			},
+		},
+	})
 }
 
 func (s *providerSuite) TestValidateMissingContainers(c *gc.C) {
