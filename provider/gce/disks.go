@@ -486,7 +486,7 @@ func (v *volumeSource) DetachVolumes(ctx context.ProviderCallContext, attachPara
 	result := make([]error, len(attachParams))
 	for i, volumeAttachment := range attachParams {
 		err := v.detachOneVolume(ctx, volumeAttachment)
-		if err != nil && google.HasDenialStatusCode(err) {
+		if google.HasDenialStatusCode(err) {
 			// no need to continue as we'll keep getting the same invalid credential error.
 			return result, err
 		}
