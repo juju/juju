@@ -26,10 +26,6 @@
 
 [[override]]
   name = "gopkg.in/macaroon-bakery.v2-unstable"
-  # name = "gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
-  # branch = "v2-unstable-fork"
-  # branch = "v2-unstable"
-  # packages = ["mgostorage"]
   revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
 
 [[constraint]]
