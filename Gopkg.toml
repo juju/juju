@@ -181,10 +181,6 @@
   unused-packages = true
 
 [[constraint]]
-  name = "k8s.io/apiextensions-apiserver"
-  branch = "master"
-
-[[constraint]]
   name = "gopkg.in/juju/charmstore.v5"
   revision = "d93d0fd2b81b8230bdf9b1be91b50538dd8782fa"
 

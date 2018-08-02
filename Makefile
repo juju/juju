@@ -51,11 +51,11 @@ endif
 build: dep go-build
 
 add-patches:
-	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/vendor/
 
 #this is useful to run after release-build, or as needed
 remove-patches:
-	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
+	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/vendor/
 
 release-build: dep add-patches go-build
 
