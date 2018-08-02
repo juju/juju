@@ -317,7 +317,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
+func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
 		u, err := app.AddUnit(state.AddUnitParams{})
@@ -438,15 +438,16 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
-	assertValid := func(id string, m names.MachineTag, v names.VolumeTag) {
-		machineTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
+	assertValid := func(id string, m names.Tag, v names.VolumeTag) {
+		hostTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(machineTag, gc.Equals, m)
+		c.Assert(hostTag, gc.Equals, m)
 		c.Assert(volumeTag, gc.Equals, v)
 	}
 	assertValid("0:0", names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	assertValid("0:0/1", names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
 	assertValid("0/lxd/0:1", names.NewMachineTag("0/lxd/0"), names.NewVolumeTag("1"))
+	assertValid("some-unit/0:1", names.NewUnitTag("some-unit/0"), names.NewVolumeTag("1"))
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {

@@ -941,15 +941,21 @@ func volumeAttachmentId(hostId, volumeName string) string {
 }
 
 // ParseVolumeAttachmentId parses a string as a volume attachment ID,
-// returning the machine and volume components.
-func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, error) {
+// returning the host and volume components.
+func ParseVolumeAttachmentId(id string) (names.Tag, names.VolumeTag, error) {
 	fields := strings.SplitN(id, ":", 2)
-	if len(fields) != 2 || !names.IsValidMachine(fields[0]) || !names.IsValidVolume(fields[1]) {
+	isValidHost := names.IsValidMachine(fields[0]) || names.IsValidUnit(fields[0])
+	if len(fields) != 2 || !isValidHost || !names.IsValidFilesystem(fields[1]) {
 		return names.MachineTag{}, names.VolumeTag{}, errors.Errorf("invalid volume attachment ID %q", id)
 	}
-	machineTag := names.NewMachineTag(fields[0])
+	var hostTag names.Tag
+	if names.IsValidMachine(fields[0]) {
+		hostTag = names.NewMachineTag(fields[0])
+	} else {
+		hostTag = names.NewUnitTag(fields[0])
+	}
 	volumeTag := names.NewVolumeTag(fields[1])
-	return machineTag, volumeTag, nil
+	return hostTag, volumeTag, nil
 }
 
 type volumeAttachmentTemplate struct {

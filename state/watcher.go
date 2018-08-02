@@ -219,18 +219,20 @@ func (st *State) WatchModelLives() StringsWatcher {
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all model-scoped volumes.
 func (sb *storageBackend) WatchModelVolumes() StringsWatcher {
-	return sb.watchModelMachinestorage(volumesC)
+	return sb.watchModelHostStorage(volumesC)
 }
 
 // WatchModelFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all model-scoped filesystems.
 func (sb *storageBackend) WatchModelFilesystems() StringsWatcher {
-	return sb.watchModelMachinestorage(filesystemsC)
+	return sb.watchModelHostStorage(filesystemsC)
 }
 
-func (sb *storageBackend) watchModelMachinestorage(collection string) StringsWatcher {
+var machineOrUnitSnippet = "(" + names.NumberSnippet + "|" + names.UnitSnippet + ")"
+
+func (sb *storageBackend) watchModelHostStorage(collection string) StringsWatcher {
 	mb := sb.mb
-	pattern := fmt.Sprintf("^%s$", mb.docID(names.NumberSnippet))
+	pattern := fmt.Sprintf("^%s$", mb.docID(machineOrUnitSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
@@ -245,26 +247,33 @@ func (sb *storageBackend) watchModelMachinestorage(collection string) StringsWat
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
 func (sb *storageBackend) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
-	return sb.watchMachineStorage(m, volumesC)
+	return sb.watchHostStorage(m, volumesC)
 }
 
 // WatchMachineFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all filesystems scoped to the specified machine.
 func (sb *storageBackend) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
-	return sb.watchMachineStorage(m, filesystemsC)
+	return sb.watchHostStorage(m, filesystemsC)
 }
 
-func (sb *storageBackend) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
+// WatchUnitFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all filesystems scoped to units of the specified application.
+func (sb *storageBackend) WatchUnitFilesystems(app names.ApplicationTag) StringsWatcher {
+	return sb.watchHostStorage(app, filesystemsC)
+}
+
+func (sb *storageBackend) watchHostStorage(host names.Tag, collection string) StringsWatcher {
 	mb := sb.mb
-	pattern := fmt.Sprintf("^%s/%s$", mb.docID(m.Id()), names.NumberSnippet)
+	pattern := fmt.Sprintf("^%s(/%s)?/%s$", mb.docID(host.Id()), names.NumberSnippet, names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	prefix := m.Id() + "/"
+	prefix := fmt.Sprintf("%s(/%s)?/.*", host.Id(), names.NumberSnippet)
+	matchExp := regexp.MustCompile(prefix)
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
-		return strings.HasPrefix(k, prefix)
+		return matchExp.MatchString(k)
 	}
 	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
@@ -273,19 +282,19 @@ func (sb *storageBackend) watchMachineStorage(m names.MachineTag, collection str
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
 func (sb *storageBackend) WatchModelVolumeAttachments() StringsWatcher {
-	return sb.watchModelMachinestorageAttachments(volumeAttachmentsC)
+	return sb.watchModelHostStorageAttachments(volumeAttachmentsC)
 }
 
 // WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
 func (sb *storageBackend) WatchModelFilesystemAttachments() StringsWatcher {
-	return sb.watchModelMachinestorageAttachments(filesystemAttachmentsC)
+	return sb.watchModelHostStorageAttachments(filesystemAttachmentsC)
 }
 
-func (sb *storageBackend) watchModelMachinestorageAttachments(collection string) StringsWatcher {
+func (sb *storageBackend) watchModelHostStorageAttachments(collection string) StringsWatcher {
 	mb := sb.mb
-	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), names.NumberSnippet)
+	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), machineOrUnitSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
@@ -305,27 +314,47 @@ func (sb *storageBackend) watchModelMachinestorageAttachments(collection string)
 // changes to the lifecycles of all volume attachments related to the specified
 // machine, for volumes scoped to the machine.
 func (sb *storageBackend) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
-	return sb.watchMachineStorageAttachments(m, volumeAttachmentsC)
+	return sb.watchHostStorageAttachments(m, volumeAttachmentsC)
 }
 
 // WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all filesystem attachments related to the specified
 // machine, for filesystems scoped to the machine.
 func (sb *storageBackend) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
-	return sb.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+	return sb.watchHostStorageAttachments(m, filesystemAttachmentsC)
 }
 
-func (sb *storageBackend) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
+// WatchUnitVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to the specified
+// application's units, for volumes scoped to the application's units.
+// TODO(caas) - currently untested since units don't directly support attached volumes
+func (sb *storageBackend) WatchUnitVolumeAttachments(app names.ApplicationTag) StringsWatcher {
+	return sb.watchHostStorageAttachments(app, volumeAttachmentsC)
+}
+
+// WatchUnitFilesystemAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all filesystem attachments related to the specified
+// application's units, for filesystems scoped to the application's units.
+func (sb *storageBackend) WatchUnitFilesystemAttachments(app names.ApplicationTag) StringsWatcher {
+	return sb.watchHostStorageAttachments(app, filesystemAttachmentsC)
+}
+
+func (sb *storageBackend) watchHostStorageAttachments(host names.Tag, collection string) StringsWatcher {
 	mb := sb.mb
-	pattern := fmt.Sprintf("^%s:%s/.*", mb.docID(m.Id()), m.Id())
+	// Go's regex doesn't support lookbacks so the pattern match is a bit clumsy.
+	// We look for either a machine attachment id, eg 0:0/42
+	// or a unit attachment id, eg mariadb/0:mariadb/0/42
+	pattern := fmt.Sprintf("^%s(/%s)?:%s(/%s)?/.*", mb.docID(host.Id()), names.NumberSnippet, host.Id(), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	prefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
+	prefix := fmt.Sprintf("%s(/%s)?:%s(/%s)?/.*", host.Id(), names.NumberSnippet, host.Id(), names.NumberSnippet)
+	matchExp := regexp.MustCompile(prefix)
 	filter := func(id interface{}) bool {
 		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
-		return strings.HasPrefix(k, prefix)
+		matches := matchExp.FindStringSubmatch(k)
+		return len(matches) == 3 && matches[1] == matches[2]
 	}
 	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }

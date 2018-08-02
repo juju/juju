@@ -110,6 +110,9 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 			Count: 1,
 		},
 	}
+	if s.series == "kubernetes" {
+		expected["cache"] = state.StorageConstraints{Count: 0, Size: 1024, Pool: expectedPool}
+	}
 	c.Assert(cons, jc.DeepEquals, expected)
 
 	app, err = s.st.Application(args.Name)
@@ -441,7 +444,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *FilesystemIAASModelSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() *state.Unit {
 		u, err := app.AddUnit(state.AddUnitParams{})
@@ -578,6 +581,112 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 
 	addUnit(m0)
 	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9")
+	wc.AssertNoChange()
+}
+
+func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-filesystem")
+	storage := map[string]state.StorageConstraints{
+		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
+		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
+		"logs":  {Count: 1, Size: 1024},
+	}
+	app, err := s.st.AddApplication(state.AddApplicationArgs{Name: "mariadb", Charm: ch, Storage: storage})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addUnit := func(app *state.Application) *state.Unit {
+		var err error
+		u, err := app.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		return u
+	}
+	u := addUnit(app)
+
+	w := s.storageBackend.WatchUnitFilesystems(app.ApplicationTag())
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.st, w)
+	wc.AssertChangeInSingleEvent("mariadb/0/0") // initial
+	wc.AssertNoChange()
+
+	app2, err := s.st.AddApplication(state.AddApplicationArgs{Name: "another", Charm: ch, Storage: storage})
+	c.Assert(err, jc.ErrorIsNil)
+	addUnit(app2)
+	// no change, since we're only interested in the one application.
+	wc.AssertNoChange()
+
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := names.NewFilesystemTag("mariadb/0/0")
+	removeFilesystemStorageInstance(c, s.storageBackend, filesystemTag)
+
+	err = s.storageBackend.DestroyFilesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("mariadb/0/0")
+	wc.AssertNoChange()
+
+	attachments, err := s.storageBackend.FilesystemAttachments(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err := s.storageBackend.DetachFilesystem(a.Host(), filesystemTag)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.storageBackend.RemoveFilesystemAttachment(a.Host(), filesystemTag)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	wc.AssertChangeInSingleEvent("mariadb/0/0") // Dying -> Dead
+	wc.AssertNoChange()
+
+	err = s.storageBackend.RemoveFilesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	// no more changes after seeing Dead
+	wc.AssertNoChange()
+}
+
+func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-filesystem")
+	storage := map[string]state.StorageConstraints{
+		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
+		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
+		"logs":  {Count: 1, Size: 1024},
+	}
+	app, err := s.st.AddApplication(state.AddApplicationArgs{Name: "mariadb", Charm: ch, Storage: storage})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addUnit := func(app *state.Application) *state.Unit {
+		var err error
+		u, err := app.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		return u
+	}
+	addUnit(app)
+
+	w := s.storageBackend.WatchUnitFilesystemAttachments(app.ApplicationTag())
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.st, w)
+
+	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/0") // initial
+	wc.AssertNoChange()
+
+	app2, err := s.st.AddApplication(state.AddApplicationArgs{Name: "another", Charm: ch, Storage: storage})
+	c.Assert(err, jc.ErrorIsNil)
+	addUnit(app2)
+	// no change, since we're only interested in the one application.
+	wc.AssertNoChange()
+
+	err = s.storageBackend.DetachFilesystem(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	// no change, since we're only interested in attachments of
+	// unit-scoped volumes.
+	wc.AssertNoChange()
+
+	removeFilesystemStorageInstance(c, s.storageBackend, names.NewFilesystemTag("mariadb/0/0"))
+	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("mariadb/0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/0") // dying
+	wc.AssertNoChange()
+
+	err = s.storageBackend.RemoveFilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("mariadb/0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/0") // removed
 	wc.AssertNoChange()
 }
 

@@ -277,7 +277,9 @@ type AttachmentParams struct {
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the
 	// machine.
-	Machine names.MachineTag
+	// This is a generic tag as it's also used to hold a unit for caas storage.
+	// TODO(caas)-rename to Host
+	Machine names.Tag
 
 	// InstanceId is the ID of the cloud instance that the storage should
 	// be attached to. This will only be of interest to storage providers
