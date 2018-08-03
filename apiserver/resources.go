@@ -157,7 +157,7 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 		if path.Ext(uReq.Filename) != ext {
 			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 		}
-	case charmresource.TypeDocker:
+	case charmresource.TypeContainerImage:
 		// Mapping the uploaded 'filename' which is actually the RegistryPath. There is no 'Path', it'll be written to file as content.yaml
 		err := resources.CheckDockerDetails(res.Name, uReq.Filename)
 		if err != nil {
