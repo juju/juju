@@ -24,6 +24,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Client",
 	"Cloud",
 	"CredentialValidator",
+	"FilesystemAttachmentsWatcher",
 	"LeadershipService",
 	"LifeFlag",
 	"MeterStatus",
@@ -46,9 +47,11 @@ var commonModelFacadeNames = set.NewStrings(
 	"Singular",
 	"StatusHistory",
 	"Storage",
+	"StorageProvisioner",
 	"StringsWatcher",
 	"Undertaker",
 	"Uniter",
+	"VolumeAttachmentsWatcher",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS

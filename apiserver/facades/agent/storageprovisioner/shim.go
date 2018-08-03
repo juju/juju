@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -23,11 +24,14 @@ import (
 
 // NewFacadeV3 provides the signature required for facade registration.
 func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv3, error) {
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+	model, err := st.Model()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environ")
+		return nil, errors.Trace(err)
 	}
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
+		model,
+		stateenvirons.GetNewEnvironFunc(environs.New),
+		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
 	backend, storageBackend, err := NewStateBackends(st)
@@ -54,6 +58,7 @@ type Backend interface {
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	ModelTag() names.ModelTag
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
+	WatchApplications() state.StringsWatcher
 }
 
 type StorageBackend interface {
@@ -63,11 +68,14 @@ type StorageBackend interface {
 	WatchModelFilesystems() state.StringsWatcher
 	WatchModelFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
+	WatchUnitFilesystems(tag names.ApplicationTag) state.StringsWatcher
 	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
+	WatchUnitFilesystemAttachments(tag names.ApplicationTag) state.StringsWatcher
 	WatchModelVolumes() state.StringsWatcher
 	WatchModelVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
+	WatchUnitVolumeAttachments(tag names.ApplicationTag) state.StringsWatcher
 	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
 
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
