@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -978,6 +979,39 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
+}
+
+func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
+	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
+			Results: []params.UpgradeSeriesStatusResult{
+				{Status: "Started"},
+				{Status: "Completed"},
+			},
+		}
+		return nil
+	}
+	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
+
+	sts, err := s.apiUnit.UpgradeSeriesStatus(model.PrepareStatus)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Check(sts, gc.Equals, "")
+}
+
+func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
+	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
+			Results: []params.UpgradeSeriesStatusResult{{Status: "Completed"}},
+		}
+		return nil
+	}
+	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
+
+	sts, err := s.apiUnit.UpgradeSeriesStatus(model.PrepareStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sts, gc.Equals, "Completed")
 }
 
 type unitMetricBatchesSuite struct {
