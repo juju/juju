@@ -43,6 +43,9 @@ func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanc
 		sortedAPIServers[i] = append([]network.HostPort{}, hostPorts...)
 		network.SortHostPorts(sortedAPIServers[i], pub.preferIPv6)
 	}
+	logger.Debugf("Sort API host ports by server (before): %v", sortedAPIServers)
+	network.SortHostPortsServers(sortedAPIServers)
+	logger.Debugf("Sort API host ports by server (after): %v", sortedAPIServers)
 	if apiServersEqual(sortedAPIServers, pub.lastAPIServers) {
 		logger.Debugf("API host ports have not changed")
 		return nil

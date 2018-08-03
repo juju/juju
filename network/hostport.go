@@ -7,6 +7,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -131,6 +132,27 @@ func SortHostPorts(hps []HostPort, preferIPv6 bool) {
 	} else {
 		sort.Sort(hostPortsPreferringIPv4Slice(hps))
 	}
+}
+
+// Slice of HostPort slices (for example, API Servers' HostPorts).
+type hostPortsSlicesSlice [][]HostPort
+
+func (hpss hostPortsSlicesSlice) Len() int      { return len(hpss) }
+func (hpss hostPortsSlicesSlice) Swap(i, j int) { hpss[i], hpss[j] = hpss[j], hpss[i] }
+func (hpss hostPortsSlicesSlice) Less(i, j int) bool {
+	// Convert the HostPort slices to strings and compare.
+	hps1 := strings.Join(HostPortsToStrings(hpss[i]), ",")
+	hps2 := strings.Join(HostPortsToStrings(hpss[j]), ",")
+	return hps1 < hps2
+}
+
+// SortHostPortsServers sorts the outer slice in the given
+// slice of HostPort slices according to converted strings
+// (that is, it sorts the servers based on their hostports).
+// It doesn't sort the inner slices (do with SortHostPorts()).
+// One should sort the inner slices before the outer slice.
+func SortHostPortsServers(hpss [][]HostPort) {
+	sort.Sort(hostPortsSlicesSlice(hpss))
 }
 
 var netLookupIP = net.LookupIP
