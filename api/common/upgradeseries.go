@@ -51,8 +51,8 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 	return w, nil
 }
 
-// UpgradeSeriesPrepareStatus returns the upgrade series status of a unit from remote state
-func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (string, error) {
+// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
+func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) ([]string, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -69,30 +69,33 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesSta
 	}
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(results.Results) != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		//[TODO](externalreality): The code to convert api errors (with
-		//error codes) back to normal Go errors is in bad spot and
-		//causes import cycles which is why we don't use it here and may
-		//be the reason why it has few uses despite being useful.
-		if params.IsCodeNotFound(result.Error) {
-			return "", errors.NewNotFound(result.Error, "")
+
+	statuses := make([]string, len(results.Results))
+	for i, res := range results.Results {
+		if res.Error != nil {
+			// TODO (externalreality) The code to convert api errors (with
+			// error codes) back to normal Go errors is in bad spot and
+			// causes import cycles which is why we don't use it here and may
+			// be the reason why it has few uses despite being useful.
+			if params.IsCodeNotFound(res.Error) {
+				return nil, errors.NewNotFound(res.Error, "")
+			}
+			return nil, res.Error
 		}
-		return "", result.Error
+		statuses[i] = res.Status
 	}
-	return result.Status, nil
+	// TODO (manadart 2018-08-02) Should we be converting these back to
+	// model.UnitSeriesUpgradeStatus and reporting an error if that fails?
+	return statuses, nil
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string, statusType model.UpgradeSeriesStatusType) error {
 	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
-		[]params.SetUpgradeSeriesStatusParam{{
+		Params: []params.SetUpgradeSeriesStatusParam{{
 			Entity: params.Entity{Tag: u.tag.String()},
 			Status: status,
 		}},

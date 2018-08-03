@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,17 +70,14 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 			{Tag: s.tag.String()},
 		}})
 		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
-			Results: []params.UpgradeSeriesStatusResult{{
-				Status: "completed",
-				Error:  nil,
-			}},
+			Results: []params.UpgradeSeriesStatusResult{{Status: "completed"}},
 		}
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
 	watchResult, err := api.UpgradeSeriesStatus(model.PrepareStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watchResult, gc.Equals, "completed")
+	c.Assert(watchResult, gc.DeepEquals, []string{"completed"})
 }
 
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
@@ -100,7 +98,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
 	watchResult, err := api.UpgradeSeriesStatus(model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watchResult, gc.Equals, "completed")
+	c.Assert(watchResult, gc.DeepEquals, []string{"completed"})
 }
 
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
@@ -112,22 +110,22 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 		}})
 		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
 			Results: []params.UpgradeSeriesStatusResult{{
-				Status: "",
 				Error: &params.Error{
 					Code:    params.CodeNotFound,
-					Message: `testing`},
-			},
-			},
+					Message: `testing`,
+				},
+			}},
 		}
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
 	watchResult, err := api.UpgradeSeriesStatus(model.PrepareStatus)
 	c.Assert(err, gc.ErrorMatches, "testing")
-	c.Assert(watchResult, gc.Equals, "")
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(watchResult, gc.HasLen, 0)
 }
 
-func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMoreThanOne(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, gc.Equals, "UpgradeSeriesPrepareStatus")
@@ -136,21 +134,16 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMoreThanOne(c *gc.C) {
 		}})
 		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
 			Results: []params.UpgradeSeriesStatusResult{
-				{
-					Status: "completed",
-					Error:  nil,
-				},
-				{
-					Status: "completed",
-					Error:  nil,
-				},
+				{Status: "Started"},
+				{Status: "Completed"},
 			},
 		}
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	_, err := api.UpgradeSeriesStatus(model.PrepareStatus)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	watchResult, err := api.UpgradeSeriesStatus(model.PrepareStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(watchResult, jc.SameContents, []string{"Started", "Completed"})
 }
 
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
@@ -158,7 +151,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, gc.Equals, "SetUpgradeSeriesPrepareStatus")
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
-			[]params.SetUpgradeSeriesStatusParam{{
+			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
 				Status: "Errored",
 			}},
@@ -180,7 +173,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, gc.Equals, "SetUpgradeSeriesPrepareStatus")
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
-			[]params.SetUpgradeSeriesStatusParam{{
+			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
 				Status: "Errored",
 			}},
@@ -200,7 +193,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, gc.Equals, "SetUpgradeSeriesPrepareStatus")
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
-			[]params.SetUpgradeSeriesStatusParam{{
+			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
 				Status: "Errored",
 			}},

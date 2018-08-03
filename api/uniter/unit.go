@@ -651,7 +651,14 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
 func (u *Unit) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (string, error) {
-	return u.st.UpgradeSeriesStatus(statusType)
+	res, err := u.st.UpgradeSeriesStatus(statusType)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(res) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(res))
+	}
+	return res[0], nil
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
