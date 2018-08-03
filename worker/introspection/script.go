@@ -36,7 +36,7 @@ func profileFilename() string {
 }
 
 const bashFuncs = `
-jujuAgentCall () {
+juju_agent_call () {
   local agent=$1
   shift
   local path=
@@ -46,83 +46,89 @@ jujuAgentCall () {
   juju-introspect --agent=$agent $path
 }
 
-jujuMachineAgentName () {
-  local machine=` + "`ls -d /var/lib/juju/agents/machine*`" + `
-  machine=` + "`basename $machine`" + `
+juju_machine_agent_name () {
+  local machine=$(ls -d /var/lib/juju/agents/machine*)
+  machine=$(basename $machine)
   echo $machine
 }
 
-jujuMachineOrUnit () {
+juju_machine_or_unit () {
   # First arg is the path, second is optional agent name.
   if [ "$#" -gt 2 ]; then
     echo "expected no args (for machine agent) or one (unit agent)"
     return 1
   fi
-  local agent=$(jujuMachineAgentName)
+  local agent=$(juju_machine_agent_name)
   if [ "$#" -eq 2 ]; then
     agent=$2
   fi
-  jujuAgentCall $agent $1
+  juju_agent_call $agent $1
 }
 
-juju-goroutines () {
-  jujuMachineOrUnit debug/pprof/goroutine?debug=1 $@
+juju_goroutines () {
+  juju_machine_or_unit debug/pprof/goroutine?debug=1 $@
 }
 
-juju-cpu-profile () {
+juju_cpu_profile () {
   N=30
   if test -n "$1"; then
     N=$1
     shift
   fi
   echo "Sampling CPU for $N seconds." >&2
-  jujuMachineOrUnit "debug/pprof/profile?debug=1&seconds=$N" $@
+  juju_machine_or_unit "debug/pprof/profile?debug=1&seconds=$N" $@
 }
 
-juju-heap-profile () {
-  jujuMachineOrUnit debug/pprof/heap?debug=1 $@
+juju_heap_profile () {
+  juju_machine_or_unit debug/pprof/heap?debug=1 $@
 }
 
-juju-engine-report () {
-  jujuMachineOrUnit depengine $@
+juju_engine_report () {
+  juju_machine_or_unit depengine $@
 }
 
-juju-statepool-report () {
-  jujuMachineOrUnit statepool $@
+juju_statepool_report () {
+  juju_machine_or_unit statepool $@
 }
 
-juju-pubsub-report () {
-  jujuMachineOrUnit pubsub $@
+juju_pubsub_report () {
+  juju_machine_or_unit pubsub $@
 }
 
-juju-metrics () {
-  jujuMachineOrUnit metrics/ $@
+juju_metrics () {
+  juju_machine_or_unit metrics/ $@
 }
 
-juju-presence-report () {
-  jujuMachineOrUnit presence/ $@
+juju_presence_report () {
+  juju_machine_or_unit presence/ $@
 }
 
-juju-statetracker-report () {
-  jujuMachineOrUnit debug/pprof/juju/state/tracker?debug=1 $@
+juju_statetracker_report () {
+  juju_machine_or_unit debug/pprof/juju/state/tracker?debug=1 $@
 }
 
-juju-machine-lock () {
-  for agent in ` + "`ls /var/lib/juju/agents`" + `; do
-    jujuMachineOrUnit machinelock $agent 2> /dev/null
+juju_machine_lock () {
+  for agent in $(ls /var/lib/juju/agents); do
+    juju_machine_or_unit machinelock $agent 2> /dev/null
   done
 }
 
-export -f jujuAgentCall
-export -f jujuMachineAgentName
-export -f jujuMachineOrUnit
-export -f juju-goroutines
-export -f juju-cpu-profile
-export -f juju-heap-profile
-export -f juju-engine-report
-export -f juju-metrics
-export -f juju-statepool-report
-export -f juju-statetracker-report
-export -f juju-pubsub-report
-export -f juju-presence-report
+# This asks for the command of the current pid.
+# Can't use $0 nor $SHELL due to this being wrong in various situations.
+shell=$(ps -p "$$" -o comm --no-headers)
+if [ "$shell" = "bash" ]; then
+  export -f juju_agent_call
+  export -f juju_machine_agent_name
+  export -f juju_machine_or_unit
+  export -f juju_goroutines
+  export -f juju_cpu_profile
+  export -f juju_heap_profile
+  export -f juju_engine_report
+  export -f juju_metrics
+  export -f juju_statepool_report
+  export -f juju_statetracker_report
+  export -f juju_pubsub_report
+  export -f juju_presence_report
+  export -f juju_machine_lock
+fi
 `

@@ -623,8 +623,9 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 			}
 			return netDialer.DialContext(ctx, netw, addr)
 		},
-		Proxy:           proxy.DefaultConfig.GetProxy,
-		TLSClientConfig: tlsConfig,
+		Proxy:            proxy.DefaultConfig.GetProxy,
+		HandshakeTimeout: 45 * time.Second,
+		TLSClientConfig:  tlsConfig,
 		// In order to deal with the remote side not handling message
 		// fragmentation, we default to largeish frames.
 		ReadBufferSize:  websocketFrameSize,
