@@ -209,3 +209,25 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
 	c.Assert(err, gc.ErrorMatches, "error in call")
 }
+
+func (s *upgradeSeriesSuite) TestUnitIds(c *gc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		c.Assert(name, gc.Equals, "UnitIds")
+		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
+			{Tag: s.tag.String()},
+		}})
+		*(response.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{
+				{Result: "ubuntu-lite/0"},
+				{Result: "wordpress/0"},
+				{Result: "wordpress/1"},
+			},
+		}
+		return nil
+	}
+	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
+	watchResult, err := api.UnitIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watchResult, gc.DeepEquals, []string{"ubuntu-lite/0", "wordpress/0", "wordpress/1"})
+}
