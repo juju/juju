@@ -220,14 +220,38 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
-			{
-				Status: string(model.UnitStarted),
-				Error:  nil,
-			},
-			{
-				Status: string(model.UnitCompleted),
-				Error:  nil,
-			},
+			{Status: string(model.UnitStarted)},
+			{Status: string(model.UnitCompleted)},
+		},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestUnitIds(c *gc.C) {
+	api, ctrl, mockBackend := s.assertBackendApi(c, s.machineTag1)
+	defer ctrl.Finish()
+
+	mockApplication := mocks.NewMockUpgradeSeriesMachine(ctrl)
+	mockUnit1 := mocks.NewMockUpgradeSeriesUnit(ctrl)
+	mockUnit2 := mocks.NewMockUpgradeSeriesUnit(ctrl)
+
+	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockApplication, nil)
+
+	mockApplication.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
+	mockUnit1.EXPECT().Tag().Return(s.unitTag1)
+	mockUnit2.EXPECT().Tag().Return(s.unitTag2)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: s.machineTag1.String()},
+		},
+	}
+
+	results, err := api.UnitIds(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: s.unitTag1.Id()},
+			{Result: s.unitTag2.Id()},
 		},
 	})
 }
