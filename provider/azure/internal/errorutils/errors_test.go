@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/testing"
 )
 
@@ -64,7 +65,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	errorutils.HandleCredentialError(s.azureError, ctx)
 	c.Assert(called, jc.IsFalse)
 
-	for t := range errorutils.AuthorisationFailureStatusCodes {
+	for t := range common.AuthorisationFailureStatusCodes {
 		called = false
 		s.azureError.StatusCode = t
 		errorutils.HandleCredentialError(s.azureError, ctx)

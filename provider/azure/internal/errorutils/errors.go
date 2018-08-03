@@ -4,15 +4,13 @@
 package errorutils
 
 import (
-	"net/http"
-
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure")
@@ -30,14 +28,6 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 	}
 	return nil, false
 }
-
-// AuthorisationFailureStatusCodes contains http status code that signify authorisation difficulties.
-var AuthorisationFailureStatusCodes = set.NewInts(
-	http.StatusUnauthorized,
-	http.StatusPaymentRequired,
-	http.StatusForbidden,
-	http.StatusProxyAuthRequired,
-)
 
 // HandleCredentialError determines if given error relates to invalid credential.
 // If it is, the credential is invalidated.
@@ -71,9 +61,9 @@ func hasDenialStatusCode(err error) bool {
 
 	if d, ok := errors.Cause(err).(autorest.DetailedError); ok {
 		if d.Response != nil {
-			return AuthorisationFailureStatusCodes.Contains(d.Response.StatusCode)
+			return common.AuthorisationFailureStatusCodes.Contains(d.Response.StatusCode)
 		}
-		return AuthorisationFailureStatusCodes.Contains(d.StatusCode.(int))
+		return common.AuthorisationFailureStatusCodes.Contains(d.StatusCode.(int))
 	}
 	return false
 }

@@ -104,6 +104,6 @@ func (mi *maas2Instance) ClosePorts(ctx context.ProviderCallContext, machineId s
 }
 
 func (mi *maas2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
-	logger.Debugf("unimplemented Rules() called")
+	logger.Debugf("unimplemented IngressRules() called")
 	return nil, nil
 }

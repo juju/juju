@@ -3,7 +3,12 @@
 
 package common
 
-import "github.com/juju/errors"
+import (
+	"net/http"
+
+	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+)
 
 // ZoneIndependentError wraps the given error such that it
 // satisfies environs.IsAvailabilityZoneIndependent.
@@ -67,3 +72,11 @@ func IsCredentialNotValid(err error) bool {
 	_, ok := err.(*credentialNotValid)
 	return ok
 }
+
+// AuthorisationFailureStatusCodes contains http status code that signify authorisation difficulties.
+var AuthorisationFailureStatusCodes = set.NewInts(
+	http.StatusUnauthorized,
+	http.StatusPaymentRequired,
+	http.StatusForbidden,
+	http.StatusProxyAuthRequired,
+)

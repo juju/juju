@@ -5,7 +5,6 @@ package maas
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -128,14 +127,14 @@ func (p MaasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*
 	return args.Config.Apply(attrs)
 }
 
-func verifyCredentials(env *maasEnviron) error {
+func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error {
 	// Verify we can connect to the server and authenticate.
 	if env.usingMAAS2() {
 		// The maas2 controller verifies credentials at creation time.
 		return nil
 	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
+	if _, denied := MaybeHandleCredentialError(err, ctx); denied {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 

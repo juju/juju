@@ -83,7 +83,8 @@ type fakeController struct {
 
 	files []gomaasapi.File
 
-	devices []gomaasapi.Device
+	devices      []gomaasapi.Device
+	domainsError error
 }
 
 func newFakeController() *fakeController {
@@ -137,7 +138,7 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 }
 
 func (c *fakeController) Domains() ([]gomaasapi.Domain, error) {
-	return c.domains, nil
+	return c.domains, c.domainsError
 }
 
 func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
