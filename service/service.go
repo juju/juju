@@ -4,6 +4,7 @@
 package service
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
@@ -295,4 +297,21 @@ func restart(svc Service) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// FindUnitServiceNames accepts a collection of service names as managed by the
+// local init system. Any that are identified as being for unit agents are
+// returned, keyed on the unit name.
+func FindUnitServiceNames(svcNames []string) map[string]string {
+	svcMatcher := regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
+	unitServices := make(map[string]string)
+	for _, svc := range svcNames {
+		if groups := svcMatcher.FindStringSubmatch(svc); len(groups) > 0 {
+			unitName := groups[2] + "/" + groups[3]
+			if names.IsValidUnit(unitName) {
+				unitServices[unitName] = groups[1]
+			}
+		}
+	}
+	return unitServices
 }

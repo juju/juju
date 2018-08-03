@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -230,24 +229,7 @@ func (ctx *SimpleContext) deployedUnitsInitSystemJobs() (map[string]string, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return FindUnitServiceNames(svcNames), nil
-}
-
-// FindUnitServiceNames accepts a collection of service names as managed by the
-// local init system. Any that are identified as being for unit agents are
-// returned, keyed on the unit name.
-func FindUnitServiceNames(svcNames []string) map[string]string {
-	unitMatcher := regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
-	unitServices := make(map[string]string)
-	for _, svc := range svcNames {
-		if groups := unitMatcher.FindStringSubmatch(svc); len(groups) > 0 {
-			unitName := groups[2] + "/" + groups[3]
-			if names.IsValidUnit(unitName) {
-				unitServices[unitName] = groups[1]
-			}
-		}
-	}
-	return unitServices
+	return service.FindUnitServiceNames(svcNames), nil
 }
 
 func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
