@@ -145,7 +145,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 // PrepareForBootstrap is part of the Environ interface.
 func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env); err != nil {
+		if err := verifyCredentials(env, nil); err != nil {
 			return err
 		}
 	}
@@ -153,8 +153,8 @@ func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 }
 
 // Create is part of the Environ interface.
-func (env *maasEnviron) Create(context.ProviderCallContext, environs.CreateParams) error {
-	if err := verifyCredentials(env); err != nil {
+func (env *maasEnviron) Create(ctx context.ProviderCallContext, p environs.CreateParams) error {
+	if err := verifyCredentials(env, ctx); err != nil {
 		return err
 	}
 	return nil
@@ -209,7 +209,7 @@ func (env *maasEnviron) controllerInstances1(ctx context.ProviderCallContext, co
 }
 
 func (env *maasEnviron) controllerInstances2(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.instances2(gomaasapi.MachinesArgs{
+	instances, err := env.instances2(ctx, gomaasapi.MachinesArgs{
 		OwnerData: map[string]string{
 			tags.JujuIsController: "true",
 			tags.JujuController:   controllerUUID,
@@ -308,14 +308,14 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (env *maasEnviron) getSupportedArchitectures() ([]string, error) {
+func (env *maasEnviron) getSupportedArchitectures(ctx context.ProviderCallContext) ([]string, error) {
 	env.archMutex.Lock()
 	defer env.archMutex.Unlock()
 	fetchArchitectures := env.allArchitecturesWithFallback
 	if env.usingMAAS2() {
 		fetchArchitectures = env.allArchitectures2
 	}
-	return fetchArchitectures()
+	return fetchArchitectures(ctx)
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -335,10 +335,10 @@ func (env *maasEnviron) SupportsContainerAddresses(ctx context.ProviderCallConte
 
 // allArchitectures2 uses the MAAS2 controller to get architectures from boot
 // resources.
-func (env *maasEnviron) allArchitectures2() ([]string, error) {
+func (env *maasEnviron) allArchitectures2(ctx context.ProviderCallContext) ([]string, error) {
 	resources, err := env.maasController.BootResources()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	architectures := set.NewStrings()
 	for _, resource := range resources {
@@ -350,12 +350,12 @@ func (env *maasEnviron) allArchitectures2() ([]string, error) {
 // allArchitectureWithFallback queries MAAS for all of the boot-images
 // across all registered nodegroups and collapses them down to unique
 // architectures.
-func (env *maasEnviron) allArchitecturesWithFallback() ([]string, error) {
-	architectures, err := env.allArchitectures()
+func (env *maasEnviron) allArchitecturesWithFallback(ctx context.ProviderCallContext) ([]string, error) {
+	architectures, err := env.allArchitectures(ctx)
 	if err != nil || len(architectures) == 0 {
 		logger.Debugf("error querying boot-images: %v", err)
 		logger.Debugf("falling back to listing nodes")
-		architectures, err := env.nodeArchitectures()
+		architectures, err := env.nodeArchitectures(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -365,14 +365,14 @@ func (env *maasEnviron) allArchitecturesWithFallback() ([]string, error) {
 	}
 }
 
-func (env *maasEnviron) allArchitectures() ([]string, error) {
-	nodegroups, err := env.getNodegroups()
+func (env *maasEnviron) allArchitectures(ctx context.ProviderCallContext) ([]string, error) {
+	nodegroups, err := env.getNodegroups(ctx)
 	if err != nil {
 		return nil, err
 	}
 	architectures := set.NewStrings()
 	for _, nodegroup := range nodegroups {
-		bootImages, err := env.nodegroupBootImages(nodegroup)
+		bootImages, err := env.nodegroupBootImages(ctx, nodegroup)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get boot images for nodegroup %v", nodegroup)
 		}
@@ -385,15 +385,15 @@ func (env *maasEnviron) allArchitectures() ([]string, error) {
 
 // getNodegroups returns the UUID corresponding to each nodegroup
 // in the MAAS installation.
-func (env *maasEnviron) getNodegroups() ([]string, error) {
+func (env *maasEnviron) getNodegroups(ctx context.ProviderCallContext) ([]string, error) {
 	nodegroupsListing := env.getMAASClient().GetSubObject("nodegroups")
 	nodegroupsResult, err := nodegroupsListing.CallGet("list", nil)
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	list, err := nodegroupsResult.GetArray()
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	nodegroups := make([]string, len(list))
 	for i, obj := range list {
@@ -416,12 +416,12 @@ type bootImage struct {
 }
 
 // nodegroupBootImages returns the set of boot-images for the specified nodegroup.
-func (env *maasEnviron) nodegroupBootImages(nodegroupUUID string) ([]bootImage, error) {
+func (env *maasEnviron) nodegroupBootImages(ctx context.ProviderCallContext, nodegroupUUID string) ([]bootImage, error) {
 	nodegroupObject := env.getMAASClient().GetSubObject("nodegroups").GetSubObject(nodegroupUUID)
 	bootImagesObject := nodegroupObject.GetSubObject("boot-images/")
 	result, err := bootImagesObject.CallGet("", nil)
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	list, err := result.GetArray()
 	if err != nil {
@@ -454,7 +454,7 @@ func (env *maasEnviron) nodegroupBootImages(nodegroupUUID string) ([]bootImage, 
 //
 // Note: this should only be used if we cannot query
 // boot-images.
-func (env *maasEnviron) nodeArchitectures() ([]string, error) {
+func (env *maasEnviron) nodeArchitectures(ctx context.ProviderCallContext) ([]string, error) {
 	filter := make(url.Values)
 	filter.Add("status", gomaasapi.NodeStatusDeclared)
 	filter.Add("status", gomaasapi.NodeStatusCommissioning)
@@ -462,7 +462,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	filter.Add("status", gomaasapi.NodeStatusReserved)
 	filter.Add("status", gomaasapi.NodeStatusAllocated)
 	// This is fine - nodeArchitectures is only used in MAAS 1 cases.
-	allInstances, err := env.instances1(filter)
+	allInstances, err := env.instances1(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -502,12 +502,12 @@ func (e *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]comm
 		var availabilityZones []common.AvailabilityZone
 		var err error
 		if e.usingMAAS2() {
-			availabilityZones, err = e.availabilityZones2()
+			availabilityZones, err = e.availabilityZones2(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		} else {
-			availabilityZones, err = e.availabilityZones1()
+			availabilityZones, err = e.availabilityZones1(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -517,14 +517,14 @@ func (e *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]comm
 	return e.availabilityZones, nil
 }
 
-func (e *maasEnviron) availabilityZones1() ([]common.AvailabilityZone, error) {
+func (e *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	zonesObject := e.getMAASClient().GetSubObject("zones")
 	result, err := zonesObject.CallGet("", nil)
 	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
 		return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
 	}
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot query ")
+		return nil, HandleCredentialError(errors.Annotate(err, "cannot query "), ctx)
 	}
 	list, err := result.GetArray()
 	if err != nil {
@@ -546,10 +546,10 @@ func (e *maasEnviron) availabilityZones1() ([]common.AvailabilityZone, error) {
 	return availabilityZones, nil
 }
 
-func (e *maasEnviron) availabilityZones2() ([]common.AvailabilityZone, error) {
+func (e *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	zones, err := e.maasController.Zones()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	availabilityZones := make([]common.AvailabilityZone, len(zones))
 	for i, zone := range zones {
@@ -764,7 +764,7 @@ func (environ *maasEnviron) acquireNode2(
 	positiveSpaces, negativeSpaces, err := environ.spaceNamesToSpaceInfo(ctx, positiveSpaceNames, negativeSpaceNames)
 	// If spaces aren't supported the constraints should be empty anyway.
 	if err != nil && !errors.IsNotSupported(err) {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	err = addInterfaces2(&acquireParams, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
@@ -784,7 +784,7 @@ func (environ *maasEnviron) acquireNode2(
 	machine, constraintMatches, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return &maas2Instance{
 		machine:           machine,
@@ -1168,12 +1168,12 @@ func (environ *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContex
 	}
 
 	for a := longAttempt.Start(); a.Next(); {
-		statusValues, err := environ.deploymentStatus(id)
+		statusValues, err := environ.deploymentStatus(ctx, id)
 		if errors.IsNotImplemented(err) {
 			return nil
 		}
 		if err != nil {
-			return errors.Trace(err)
+			return HandleCredentialError(errors.Trace(err), ctx)
 		}
 		if statusValues[systemId] == "Deployed" {
 			return nil
@@ -1197,6 +1197,10 @@ func (environ *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallConte
 		machine, err := environ.getInstance(ctx, id)
 		if err != nil {
 			logger.Warningf("failed to get instance from provider attempt %d", retryCount)
+			if _, denied := MaybeHandleCredentialError(err, ctx); denied {
+				break
+			}
+
 			retryCount++
 			continue
 		}
@@ -1212,20 +1216,22 @@ func (environ *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallConte
 	return errors.Errorf("instance %q is started but not deployed", id)
 }
 
-func (environ *maasEnviron) deploymentStatusOne(id instance.Id) (string, string) {
-	results, err := environ.deploymentStatus(id)
+func (environ *maasEnviron) deploymentStatusOne(ctx context.ProviderCallContext, id instance.Id) (string, string) {
+	results, err := environ.deploymentStatus(ctx, id)
 	if err != nil {
+		HandleCredentialError(err, ctx)
 		return "", ""
 	}
 	systemId := extractSystemId(id)
-	substatus := environ.getDeploymentSubstatus(systemId)
+	substatus := environ.getDeploymentSubstatus(ctx, systemId)
 	return results[systemId], substatus
 }
 
-func (environ *maasEnviron) getDeploymentSubstatus(systemId string) string {
+func (environ *maasEnviron) getDeploymentSubstatus(ctx context.ProviderCallContext, systemId string) string {
 	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
 	result, err := nodesAPI.CallGet("list", nil)
 	if err != nil {
+		HandleCredentialError(err, ctx)
 		return ""
 	}
 	slices, err := result.GetArray()
@@ -1257,14 +1263,14 @@ func (environ *maasEnviron) getDeploymentSubstatus(systemId string) string {
 // deploymentStatus returns the deployment state of MAAS instances with
 // the specified Juju instance ids.
 // Note: the result is a map of MAAS systemId to state.
-func (environ *maasEnviron) deploymentStatus(ids ...instance.Id) (map[string]string, error) {
+func (environ *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ...instance.Id) (map[string]string, error) {
 	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
 	result, err := DeploymentStatusCall(nodesAPI, ids...)
 	if err != nil {
 		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
 			return nil, errors.NewNotImplemented(err, "deployment status")
 		}
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	resultMap, err := result.GetMap()
 	if err != nil {
@@ -1311,6 +1317,7 @@ func (environ *maasEnviron) selectNode(ctx context.ProviderCallContext, args sel
 		args.Volumes,
 	)
 	if err != nil {
+		HandleCredentialError(err, ctx)
 		return nil, &selectNodeError{
 			error:   errors.Trace(err),
 			noMatch: isConflictError(err),
@@ -1384,10 +1391,13 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 	return cloudcfg, nil
 }
 
-func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
+func (environ *maasEnviron) releaseNodes1(ctx context.ProviderCallContext, nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
 	err := ReleaseNodes(nodes, ids)
 	if err == nil {
 		return nil
+	}
+	if _, denied := MaybeHandleCredentialError(err, ctx); denied {
+		return errors.Annotate(err, "cannot release nodes")
 	}
 	maasErr, ok := gomaasapi.GetServerError(err)
 	if !ok {
@@ -1421,23 +1431,27 @@ func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Va
 	for _, id := range ids["nodes"] {
 		idFilter := url.Values{}
 		idFilter.Add("nodes", id)
-		err := environ.releaseNodes1(nodes, idFilter, false)
+		err := environ.releaseNodes1(ctx, nodes, idFilter, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
+			if _, denied := MaybeHandleCredentialError(err, ctx); denied {
+				break
+			}
 		}
 	}
 	return errors.Trace(lastErr)
 
 }
 
-func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error {
+func (environ *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
 	args := gomaasapi.ReleaseMachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
 		Comment:   "Released by Juju MAAS provider",
 	}
 	err := environ.maasController.ReleaseMachines(args)
 
+	_, denied := MaybeHandleCredentialError(err, ctx)
 	switch {
 	case err == nil:
 		return nil
@@ -1451,7 +1465,7 @@ func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error
 		// nodes have been released.
 		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
 		return nil
-	case gomaasapi.IsBadRequestError(err), gomaasapi.IsPermissionError(err):
+	case gomaasapi.IsBadRequestError(err), denied:
 		// a status code of 400 or 403 means one of the nodes
 		// couldn't be found and none have been released. We have to
 		// release all the ones we can individually.
@@ -1459,20 +1473,24 @@ func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error
 			// this node has already been released and we're golden
 			return nil
 		}
-		return environ.releaseNodesIndividually(ids)
+		return environ.releaseNodesIndividually(ctx, ids)
 
 	default:
 		return errors.Annotatef(err, "cannot release nodes")
 	}
 }
 
-func (environ *maasEnviron) releaseNodesIndividually(ids []instance.Id) error {
+func (environ *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext, ids []instance.Id) error {
 	var lastErr error
 	for _, id := range ids {
-		err := environ.releaseNodes2([]instance.Id{id}, false)
+		err := environ.releaseNodes2(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
+			_, denied := MaybeHandleCredentialError(err, ctx)
+			if denied {
+				break
+			}
 		}
 	}
 	return errors.Trace(lastErr)
@@ -1494,13 +1512,13 @@ func (environ *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids .
 	}
 
 	if environ.usingMAAS2() {
-		err := environ.releaseNodes2(ids, true)
+		err := environ.releaseNodes2(ctx, ids, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	} else {
 		nodes := environ.getMAASClient().GetSubObject("nodes")
-		err := environ.releaseNodes1(nodes, getSystemIdValues("nodes", ids), true)
+		err := environ.releaseNodes1(ctx, nodes, getSystemIdValues("nodes", ids), true)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1559,25 +1577,25 @@ func (environ *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, i
 	if !environ.usingMAAS2() {
 		filter := getSystemIdValues("id", ids)
 		filter.Add("agent_name", environ.uuid)
-		return environ.instances1(filter)
+		return environ.instances1(ctx, filter)
 	}
 	args := gomaasapi.MachinesArgs{
 		AgentName: environ.uuid,
 		SystemIDs: instanceIdsToSystemIDs(ids),
 	}
-	return environ.instances2(args)
+	return environ.instances2(ctx, args)
 }
 
 // instances calls the MAAS API to list nodes matching the given filter.
-func (environ *maasEnviron) instances1(filter url.Values) ([]instance.Instance, error) {
+func (environ *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.Values) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	listNodes, err := listNodeObjects.GetArray()
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	instances := make([]instance.Instance, len(listNodes))
 	for index, nodeObj := range listNodes {
@@ -1594,10 +1612,10 @@ func (environ *maasEnviron) instances1(filter url.Values) ([]instance.Instance, 
 	return instances, nil
 }
 
-func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.Instance, error) {
+func (environ *maasEnviron) instances2(ctx context.ProviderCallContext, args gomaasapi.MachinesArgs) ([]instance.Instance, error) {
 	machines, err := environ.maasController.Machines(args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	instances := make([]instance.Instance, len(machines))
 	for index, machine := range machines {
@@ -1607,14 +1625,14 @@ func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.
 }
 
 // subnetsFromNode fetches all the subnets for a specific node.
-func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObject, error) {
+func (environ *maasEnviron) subnetsFromNode(ctx context.ProviderCallContext, nodeId string) ([]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("intance %q", nodeId)
 		}
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	nodeMap, err := json.GetMap()
 	if err != nil {
@@ -1695,12 +1713,12 @@ func (environ *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nod
 	var jsonNets []gomaasapi.JSONObject
 	var err error
 	if nodeId != "" {
-		jsonNets, err = environ.subnetsFromNode(nodeId)
+		jsonNets, err = environ.subnetsFromNode(ctx, nodeId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		jsonNets, err = environ.fetchAllSubnets()
+		jsonNets, err = environ.fetchAllSubnets(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1777,12 +1795,12 @@ func (environ *maasEnviron) getInstance(ctx context.ProviderCallContext, instId 
 // fetchAllSubnets calls the MAAS subnets API to get all subnets and returns the
 // JSON response or an error. If capNetworkDeploymentUbuntu is not available, an
 // error satisfying errors.IsNotSupported will be returned.
-func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
+func (environ *maasEnviron) fetchAllSubnets(ctx context.ProviderCallContext) ([]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient().GetSubObject("subnets")
 
 	json, err := client.CallGet("", nil)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return json.GetArray()
 }
@@ -1817,7 +1835,7 @@ func (environ *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	spacesArray, err := spacesJson.GetArray()
 	if err != nil {
@@ -1862,7 +1880,7 @@ func (environ *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.
 func (environ *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	spaces, err := environ.maasController.Spaces()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	var result []network.SpaceInfo
 	for _, space := range spaces {
@@ -1969,7 +1987,7 @@ func (environ *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, in
 	}
 	machines, err := environ.maasController.Machines(args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	if len(machines) == 0 {
 		return nil, errors.NotFoundf("machine %v", instId)
@@ -2242,7 +2260,7 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 	}
 	result, err := devicesAPI.CallGet("list", values)
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 	devicesArray, err := result.GetArray()
 	if err != nil {
@@ -2270,7 +2288,7 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 	for _, id := range deviceIds {
 		err := devicesAPI.GetSubObject(id).Delete()
 		if err != nil {
-			return errors.Annotatef(err, "deleting device %s", id)
+			return HandleCredentialError(errors.Annotatef(err, "deleting device %s", id), ctx)
 		}
 	}
 	return nil
@@ -2279,7 +2297,7 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 func (env *maasEnviron) releaseContainerAddresses2(ctx context.ProviderCallContext, macAddresses []string) error {
 	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: macAddresses})
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 	// If one device matched on multiple MAC addresses (like for
 	// multi-nic containers) it will be in the slice multiple
@@ -2360,7 +2378,7 @@ func (*maasEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, err
 func (env *maasEnviron) Domains(ctx context.ProviderCallContext) ([]string, error) {
 	maasDomains, err := env.maasController.Domains()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	result := []string{}
 	for _, domain := range maasDomains {

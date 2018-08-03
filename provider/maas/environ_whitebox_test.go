@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -218,7 +219,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	statusGetter := func(instance.Id) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 

@@ -143,6 +143,17 @@ func (suite *maas2EnvironSuite) TestInstances(c *gc.C) {
 	c.Assert(actualMachines, gc.DeepEquals, expectedMachines)
 }
 
+func (suite *maas2EnvironSuite) TestInstancesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		machinesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.Instances(suite.callCtx, []instance.Id{"jake", "bonnibel"})
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
+}
+
 func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{"jake", "bonnibel"}, []string{"tuco", "bonnibel"},
@@ -173,6 +184,17 @@ func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	_, err := env.AvailabilityZones(suite.callCtx)
 	c.Assert(err, gc.ErrorMatches, "a bad thing")
+}
+
+func (suite *maas2EnvironSuite) TestAvailabilityZonesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		zonesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.AvailabilityZones(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
 
 func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
@@ -217,6 +239,17 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	_, err := env.Spaces(suite.callCtx)
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
+}
+
+func (suite *maas2EnvironSuite) TestSpacesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		spacesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.Spaces(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
 
 func collectReleaseArgs(controller *fakeController) []gomaasapi.ReleaseMachinesArgs {
@@ -2244,6 +2277,18 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 	}
 }
 
+func (suite *maas2EnvironSuite) TestControllerInstancesInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		machinesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
+}
+
 func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 	file1 := &fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"}
 	file2 := &fakeFile{name: coretesting.ModelTag.Id() + "-horace"}
@@ -2317,6 +2362,29 @@ func (suite *maas2EnvironSuite) TestConstraintsValidator(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
+}
+
+func (suite *maas2EnvironSuite) TestConstraintsValidatorInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		bootResources:      []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}},
+		bootResourcesError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.ConstraintsValidator(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
+}
+
+func (suite *maas2EnvironSuite) TestDomainsInvalidCredential(c *gc.C) {
+	controller := &fakeController{
+		domainsError: gomaasapi.NewPermissionError("fail auth here"),
+	}
+	env := suite.makeEnviron(c, controller)
+	c.Assert(suite.invalidCredential, jc.IsFalse)
+	_, err := env.Domains(suite.callCtx)
+	c.Assert(err, gc.NotNil)
+	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
 
 func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
