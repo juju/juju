@@ -14,8 +14,10 @@ import (
 
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
+	Model            names.ModelTag
 	Scope            names.Tag
 	StorageDir       string
+	Applications     ApplicationWatcher
 	Volumes          VolumeAccessor
 	Filesystems      FilesystemAccessor
 	Life             LifecycleManager
@@ -39,6 +41,16 @@ func (config Config) Validate() error {
 		if config.StorageDir == "" {
 			return errors.NotValidf("machine Scope with empty StorageDir")
 		}
+		if config.Machines == nil {
+			return errors.NotValidf("nil Machines")
+		}
+	case names.ApplicationTag:
+		if config.StorageDir != "" {
+			return errors.NotValidf("application Scope with StorageDir")
+		}
+		if config.Applications == nil {
+			return errors.NotValidf("nil Applications")
+		}
 	default:
 		return errors.NotValidf("%T Scope", config.Scope)
 	}
@@ -53,9 +65,6 @@ func (config Config) Validate() error {
 	}
 	if config.Registry == nil {
 		return errors.NotValidf("nil Registry")
-	}
-	if config.Machines == nil {
-		return errors.NotValidf("nil Machines")
 	}
 	if config.Status == nil {
 		return errors.NotValidf("nil Status")

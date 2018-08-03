@@ -5,11 +5,12 @@ package environ
 
 import (
 	"github.com/juju/errors"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -60,8 +61,10 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 		*result = inTracker.Environ()
 	case *environs.CloudDestroyer:
 		*result = inTracker.Environ()
+	case *storage.ProviderRegistry:
+		*result = inTracker.Environ()
 	default:
-		return errors.Errorf("expected *environs.Environ or *environs.CloudDestroyer, got %T", out)
+		return errors.Errorf("expected *environs.Environ, *storage.ProviderRegistry, or *environs.CloudDestroyer, got %T", out)
 	}
 	return nil
 }

@@ -346,11 +346,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName: apiCallerName,
-			ClockName:     clockName,
-			EnvironName:   environTrackerName,
-			Scope:         modelTag,
+			APICallerName:       apiCallerName,
+			ClockName:           clockName,
+			StorageRegistryName: environTrackerName,
+			Model:               modelTag,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			NewWorker:                    storageprovisioner.NewStorageProvisioner,
 		}))),
 		firewallerName: ifNotMigrating(ifCredentialValid(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:               agentName,
@@ -461,6 +462,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     caasmodelupgrader.NewFacade,
 			NewWorker:     caasmodelupgrader.NewWorker,
 		}),
+		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+			APICallerName:       apiCallerName,
+			ClockName:           clockName,
+			StorageRegistryName: caasBrokerTrackerName,
+			Model:               modelTag,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			NewWorker:                    storageprovisioner.NewCaasWorker,
+		}))),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
@@ -584,6 +593,7 @@ const (
 	caasFirewallerName          = "caas-firewaller"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
 	caasUnitProvisionerName     = "caas-unit-provisioner"
+	caasStorageProvisionerName  = "caas-storage-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"
 
 	validCredentialFlagName = "valid-credential-flag"

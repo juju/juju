@@ -4,10 +4,10 @@
 package storageprovisioner_test
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
-const attachedVolumeId = "1"
 const needsInstanceVolumeId = "23"
 const noAttachmentVolumeId = "66"
 
@@ -35,8 +35,18 @@ var dyingVolumeAttachmentId = params.MachineStorageId{
 	AttachmentTag: "volume-0",
 }
 
+var dyingUnitVolumeAttachmentId = params.MachineStorageId{
+	MachineTag:    "unit-mariadb-0",
+	AttachmentTag: "volume-0",
+}
+
 var dyingFilesystemAttachmentId = params.MachineStorageId{
 	MachineTag:    "machine-0",
+	AttachmentTag: "filesystem-0",
+}
+
+var dyingUnitFilesystemAttachmentId = params.MachineStorageId{
+	MachineTag:    "unit-mariadb-0",
 	AttachmentTag: "filesystem-0",
 }
 
@@ -80,6 +90,20 @@ func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
 }
 
+type mockApplicationsWatcher struct {
+	watcher *watchertest.MockStringsWatcher
+}
+
+func (w *mockApplicationsWatcher) WatchApplications() (watcher.StringsWatcher, error) {
+	return w.watcher, nil
+}
+
+func newMockApplicationsWatcher(ch chan []string) *mockApplicationsWatcher {
+	return &mockApplicationsWatcher{
+		watcher: watchertest.NewMockStringsWatcher(ch),
+	}
+}
+
 func newMockAttachmentsWatcher() *mockAttachmentsWatcher {
 	return &mockAttachmentsWatcher{
 		changes: make(chan []watcher.MachineStorageId, 1),
@@ -119,11 +143,11 @@ func (m *mockVolumeAccessor) provisionVolume(tag names.VolumeTag) params.Volume 
 	return v
 }
 
-func (w *mockVolumeAccessor) WatchVolumes() (watcher.StringsWatcher, error) {
+func (w *mockVolumeAccessor) WatchVolumes(names.Tag) (watcher.StringsWatcher, error) {
 	return w.volumesWatcher, nil
 }
 
-func (w *mockVolumeAccessor) WatchVolumeAttachments() (watcher.MachineStorageIdsWatcher, error) {
+func (w *mockVolumeAccessor) WatchVolumeAttachments(names.Tag) (watcher.MachineStorageIdsWatcher, error) {
 	return w.attachmentsWatcher, nil
 }
 
@@ -265,6 +289,7 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 }
 
 type mockFilesystemAccessor struct {
+	testing.Stub
 	filesystemsWatcher     *mockStringsWatcher
 	attachmentsWatcher     *mockAttachmentsWatcher
 	provisionedMachines    map[string]instance.Id
@@ -286,11 +311,12 @@ func (m *mockFilesystemAccessor) provisionFilesystem(tag names.FilesystemTag) pa
 	return f
 }
 
-func (w *mockFilesystemAccessor) WatchFilesystems() (watcher.StringsWatcher, error) {
+func (w *mockFilesystemAccessor) WatchFilesystems(tag names.Tag) (watcher.StringsWatcher, error) {
+	w.AddCall("WatchFilesystems", tag)
 	return w.filesystemsWatcher, nil
 }
 
-func (w *mockFilesystemAccessor) WatchFilesystemAttachments() (watcher.MachineStorageIdsWatcher, error) {
+func (w *mockFilesystemAccessor) WatchFilesystemAttachments(names.Tag) (watcher.MachineStorageIdsWatcher, error) {
 	return w.attachmentsWatcher, nil
 }
 
@@ -405,6 +431,7 @@ func newMockFilesystemAccessor() *mockFilesystemAccessor {
 }
 
 type mockLifecycleManager struct {
+	err               *params.Error
 	life              func([]names.Tag) ([]params.LifeResult, error)
 	attachmentLife    func(ids []params.MachineStorageId) ([]params.LifeResult, error)
 	removeAttachments func([]params.MachineStorageId) ([]params.ErrorResult, error)
@@ -417,12 +444,19 @@ func (m *mockLifecycleManager) Life(tags []names.Tag) ([]params.LifeResult, erro
 	}
 	var result []params.LifeResult
 	for _, tag := range tags {
-		id, _ := strconv.Atoi(tag.Id())
-		if id <= 100 {
-			result = append(result, params.LifeResult{Life: params.Alive})
-		} else {
-			result = append(result, params.LifeResult{Life: params.Dying})
+		if m.err != nil {
+			result = append(result, params.LifeResult{Error: m.err})
+			continue
 		}
+		life := params.Alive
+		if tag.Kind() == names.ApplicationTagKind {
+			if tag.Id() == "mysql" {
+				life = params.Dying
+			} else if tag.Id() == "postgresql" {
+				life = params.Dead
+			}
+		}
+		result = append(result, params.LifeResult{Life: life})
 	}
 	return result, nil
 }
@@ -434,7 +468,8 @@ func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]
 	var result []params.LifeResult
 	for _, id := range ids {
 		switch id {
-		case dyingVolumeAttachmentId, dyingFilesystemAttachmentId:
+		case dyingVolumeAttachmentId, dyingUnitVolumeAttachmentId,
+			dyingFilesystemAttachmentId, dyingUnitFilesystemAttachmentId:
 			result = append(result, params.LifeResult{Life: params.Dying})
 		case missingVolumeAttachmentId:
 			result = append(result, params.LifeResult{

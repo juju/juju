@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/context"
@@ -1754,6 +1754,188 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 		provisionedReleaseFilesystem,
 	})
 	assertNoEvent(c, removedChan, "filesystems removed")
+}
+
+type caasStorageProvisionerSuite struct {
+	coretesting.BaseSuite
+	provider *dummyProvider
+	registry storage.ProviderRegistry
+}
+
+var _ = gc.Suite(&caasStorageProvisionerSuite{})
+
+func (s *caasStorageProvisionerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.provider = &dummyProvider{dynamic: true}
+	s.registry = storage.StaticProviderRegistry{
+		map[storage.ProviderType]storage.Provider{
+			"dummy": s.provider,
+		},
+	}
+}
+
+func (s *caasStorageProvisionerSuite) TestDetachVolumesUnattached(c *gc.C) {
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		defer close(removed)
+		c.Assert(ids, gc.DeepEquals, []params.MachineStorageId{{
+			MachineTag:    "unit-mariadb-0",
+			AttachmentTag: "volume-0",
+		}})
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	args := &workerArgs{
+		life:     &mockLifecycleManager{removeAttachments: removeAttachments},
+		registry: s.registry,
+	}
+	w := newStorageProvisioner(c, args)
+	defer w.Wait()
+	defer w.Kill()
+
+	args.volumes.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "unit-mariadb-0", AttachmentTag: "volume-0",
+	}}
+	waitChannel(c, removed, "waiting for attachment to be removed")
+}
+
+func (s *caasStorageProvisionerSuite) TestDetachVolumes(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+
+	expectedAttachmentIds := []params.MachineStorageId{{
+		MachineTag: "unit-mariadb-1", AttachmentTag: "volume-1",
+	}}
+
+	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+		return []params.LifeResult{{Life: params.Dying}}, nil
+	}
+
+	detached := make(chan interface{})
+	s.provider.detachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]error, error) {
+		c.Assert(args, gc.HasLen, 1)
+		c.Assert(args[0].Machine.String(), gc.Equals, expectedAttachmentIds[0].MachineTag)
+		c.Assert(args[0].Volume.String(), gc.Equals, expectedAttachmentIds[0].AttachmentTag)
+		defer close(detached)
+		return make([]error, len(args)), nil
+	}
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		life: &mockLifecycleManager{
+			attachmentLife: attachmentLife,
+		},
+		registry: s.registry,
+	}
+	w := newStorageProvisioner(c, args)
+	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
+	defer w.Kill()
+
+	volumeAccessor.provisionedAttachments[expectedAttachmentIds[0]] = params.VolumeAttachment{
+		MachineTag: "unit-mariadb-1",
+		VolumeTag:  "volume-1",
+	}
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "unit-mariadb-1", AttachmentTag: "volume-1",
+	}}
+	waitChannel(c, detached, "waiting for volume to be detached")
+}
+
+func (s *caasStorageProvisionerSuite) TestRemoveVolumes(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+
+	expectedAttachmentIds := []params.MachineStorageId{{
+		MachineTag: "unit-mariadb-1", AttachmentTag: "volume-1",
+	}}
+
+	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+		return []params.LifeResult{{Life: params.Dying}}, nil
+	}
+
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		close(removed)
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		life: &mockLifecycleManager{
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
+		},
+		registry: s.registry,
+	}
+	w := newStorageProvisioner(c, args)
+	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
+	defer w.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "unit-mariadb-1", AttachmentTag: "volume-1",
+	}}
+	waitChannel(c, removed, "waiting for attachment to be removed")
+}
+
+func (s *caasStorageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		defer close(removed)
+		c.Assert(ids, gc.DeepEquals, []params.MachineStorageId{{
+			MachineTag:    "unit-mariadb-0",
+			AttachmentTag: "filesystem-0",
+		}})
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	args := &workerArgs{
+		life:     &mockLifecycleManager{removeAttachments: removeAttachments},
+		registry: s.registry,
+	}
+	w := newStorageProvisioner(c, args)
+	defer w.Wait()
+	defer w.Kill()
+
+	args.filesystems.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "unit-mariadb-0", AttachmentTag: "filesystem-0",
+	}}
+	waitChannel(c, removed, "waiting for attachment to be removed")
+}
+
+func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *gc.C) {
+	filesystemAccessor := newMockFilesystemAccessor()
+
+	expectedAttachmentIds := []params.MachineStorageId{{
+		MachineTag: "unit-mariadb-1", AttachmentTag: "filesystem-1",
+	}}
+
+	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		return []params.LifeResult{{Life: params.Dying}}, nil
+	}
+
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
+		close(removed)
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
+		},
+		registry: s.registry,
+	}
+	w := newStorageProvisioner(c, args)
+	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
+	defer w.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "unit-mariadb-1", AttachmentTag: "filesystem-1",
+	}}
+	waitChannel(c, removed, "waiting for filesystem to be removed")
 }
 
 func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {

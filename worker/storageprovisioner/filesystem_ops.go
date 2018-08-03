@@ -439,7 +439,10 @@ func filesystemAttachmentParamsBySource(
 		if _, ok := filesystemSources[sourceName]; ok {
 			continue
 		}
-		filesystem := filesystems[params.Filesystem]
+		filesystem, ok := filesystems[params.Filesystem]
+		if !ok {
+			continue
+		}
 		if filesystem.Volume != (names.VolumeTag{}) {
 			filesystemSources[sourceName] = managedFilesystemSource
 			continue

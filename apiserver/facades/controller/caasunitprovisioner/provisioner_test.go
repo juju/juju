@@ -157,10 +157,11 @@ func (s *CAASProvisionerSuite) TestWatchUnits(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.st.application.units = []caasunitprovisioner.Unit{
-		&mockUnit{name: "gitlab/0", life: state.Alive},
+		&mockUnit{name: "gitlab/0", life: state.Dying},
+		&mockUnit{name: "gitlab/1", life: state.Alive},
 	}
-	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/0/0")
-	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = names.NewStorageTag("data/0")
+	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/1/0")
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/0")
 
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
