@@ -62,10 +62,16 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 		return nil, errors.Errorf("expected a machine tag, got %v", tag)
 	}
 
+	// We curry the NewFacade method and pass it as a factory.
+	// This is so the worker can use the API server in different contexts.
+	newFacade := func(t names.Tag) Facade {
+		return config.NewFacade(apiCaller, t)
+	}
+
 	cfg := Config{
-		Tag:    tag,
-		Logger: config.Logger,
-		Facade: config.NewFacade(apiCaller, tag),
+		Tag:           tag,
+		Logger:        config.Logger,
+		FacadeFactory: newFacade,
 	}
 
 	w, err := config.NewWorker(cfg)
