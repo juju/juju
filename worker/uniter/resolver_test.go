@@ -147,7 +147,7 @@ func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
 }
 
-func (s *resolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
+func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
@@ -166,7 +166,7 @@ func (s *resolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
 }
 
-func (s *resolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
+func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
@@ -187,7 +187,8 @@ func (s *resolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.
 	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
 }
 
-func (s *resolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
+func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
+	c.Skip("This test should be skipped unitl machine agent can shutdown the uniter for a series upgrade.")
 	localState := resolver.LocalState{
 		UpgradeSeriesPrepareStatus: model.UnitCompleted,
 		State: operation.State{

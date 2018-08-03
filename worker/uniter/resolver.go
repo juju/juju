@@ -58,7 +58,8 @@ func (s *uniterResolver) NextOp(
 	// waiting to be shutdown.
 	if localState.UpgradeSeriesPrepareStatus == model.UnitCompleted &&
 		remoteState.UpgradeSeriesPrepareStatus == model.UnitCompleted {
-		return nil, resolver.ErrNoOperation
+		logger.Criticalf("We hit here were we are supposed to idle when shutting down.")
+		//return nil, resolver.ErrNoOperation
 	}
 
 	if localState.Kind == operation.Upgrade {
