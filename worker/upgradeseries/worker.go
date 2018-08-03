@@ -4,12 +4,17 @@
 package upgradeseries
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
-
-	"github.com/juju/juju/worker/catacomb"
 	"gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // Logger represents the methods required to emit log messages.
@@ -21,7 +26,9 @@ type Logger interface {
 }
 
 type Config struct {
-	Facade Facade
+	// FacadeFactory is used to acquire back-end state with
+	// the input tag context.
+	FacadeFactory func(names.Tag) Facade
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -45,8 +52,8 @@ func (config Config) Validate() error {
 	if k != names.MachineTagKind {
 		return errors.NotValidf("%q tag kind", k)
 	}
-	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
+	if config.FacadeFactory == nil {
+		return errors.NotValidf("nil FacadeFactory")
 	}
 	return nil
 }
@@ -58,7 +65,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &upgradeSeriesWorker{
-		Facade: config.Facade,
+		Facade: config.FacadeFactory(config.Tag),
 		logger: config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -81,8 +88,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 type upgradeSeriesWorker struct {
 	Facade
 
-	catacomb catacomb.Catacomb
-	logger   Logger
+	facadeFactory func(names.Tag) Facade
+	catacomb      catacomb.Catacomb
+	logger        Logger
 }
 
 func (w *upgradeSeriesWorker) loop() error {
@@ -91,14 +99,116 @@ func (w *upgradeSeriesWorker) loop() error {
 		return errors.Trace(err)
 	}
 	w.catacomb.Add(uw)
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-uw.Changes():
-			w.logger.Errorf("machineUpgradeSeriesLocks changed")
+			if err := w.handleUpgradeSeriesChange(); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
+}
+
+// handleUpgradeSeriesChange retrieves the upgrade-series status for this
+// machine and all of its units.
+// Based on the status, actions are taken.
+func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
+	statuses, err := w.UpgradeSeriesStatus(model.PrepareStatus)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if unitAgentsReadyForStop(statuses) {
+		return errors.Trace(w.transitionPrepareComplete(len(statuses)))
+	}
+
+	// TODO: Check status and start unit agents if required.
+
+	return nil
+}
+
+func unitAgentsReadyForStop(statuses []string) bool {
+	target := string(model.UnitCompleted)
+	for _, s := range statuses {
+		if s != target {
+			return false
+		}
+	}
+	return true
+}
+
+// transitionPrepareComplete stops all unit agents on this machine and updates
+// the upgrade-series status lock to indicate that upgrade work can proceed.
+// The number of known upgrade-series unit statuses is passed in order to do a
+// validation against the detected unit agents on the machine.
+func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
+	unitServices, err := w.unitAgentServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(unitServices) != statusCount {
+		return fmt.Errorf("missmatched counts; upgrade-series statuses: %d, detected services: %d",
+			statusCount, len(unitServices))
+	}
+
+	w.logger.Logf(loggo.INFO, "stopping units for series upgrade")
+	for unit, serviceName := range unitServices {
+		// TODO: Make this method a dependency of the worker as per deployer.
+		svc, err := service.DiscoverService(serviceName, common.Conf{})
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := svc.Stop(); err != nil {
+			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
+		}
+
+		if err := w.setUnitStatus(unit, model.CompleteStatus, model.UnitNotStarted); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// TODO: Perhaps accrue errors above and stop the agents that we can,
+	// then report failures here.
+	return nil
+}
+
+// transitionUnitsStarted updates the upgrade-series status for this machine
+// and its units to indicate readiness for the "complete" command, then starts
+// all of the units.
+func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
+	unitServices, err := w.unitAgentServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(unitServices) != statusCount {
+		return fmt.Errorf("missmatched counts; upgrade-series statuses: %d, detected services: %d",
+			statusCount, len(unitServices))
+	}
+
+	return errors.NotImplementedf("transitionUnitsStarted")
+}
+
+// unitAgentServices filters the services running on the local machine to those
+// that are for unit agents.
+func (w *upgradeSeriesWorker) unitAgentServices() (map[string]string, error) {
+	// TODO: Make this method a dependency of the worker as per deployer.
+	services, err := service.ListServices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.FindUnitServiceNames(services), nil
+}
+
+func (w *upgradeSeriesWorker) setUnitStatus(
+	unitName string, statusType model.UpgradeSeriesStatusType, status model.UnitSeriesUpgradeStatus,
+) error {
+	return errors.Trace(w.facadeFactory(names.NewUnitTag(unitName)).SetUpgradeSeriesStatus(string(status), statusType))
 }
 
 // Kill implements worker.Worker.Kill.

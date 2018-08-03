@@ -7,6 +7,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgradeseries"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 )
 
@@ -14,6 +15,8 @@ import (
 //go:generate mockgen -package upgradeseries_test -destination facade_mock_test.go github.com/juju/juju/worker/upgradeseries Facade
 type Facade interface {
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
+	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) ([]string, error)
+	SetUpgradeSeriesStatus(string, model.UpgradeSeriesStatusType) error
 }
 
 // NewFacade creates a *upgradeseries.State and returns it as a Facade.

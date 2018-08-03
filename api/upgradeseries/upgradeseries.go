@@ -16,7 +16,7 @@ type State struct {
 	*common.UpgradeSeriesAPI
 
 	facade base.FacadeCaller
-	// unitTag contains the authenticated unit's tag.
+	// unitTag contains the authenticated unit/machine tag.
 	authTag names.Tag
 }
 
