@@ -1986,8 +1986,8 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 }
 
 func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {

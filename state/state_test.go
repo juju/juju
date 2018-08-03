@@ -1540,36 +1540,36 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 
 	insettings := charm.Settings{"tuning": "optimized"}
 	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := st.AddApplication(
-		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+	gitlab, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.CharmConfig()
+	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
+	outsettings, err := gitlab.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
 		expected[name] = value
 	}
 	c.Assert(outsettings, gc.DeepEquals, expected)
-	outconfig, err := wordpress.ApplicationConfig()
+	outconfig, err := gitlab.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 
-	sInfo, err := wordpress.Status()
+	sInfo, err := gitlab.Status()
 	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(sInfo.Message, gc.Equals, "waiting for container")
 
 	// Check that retrieving the newly created application works correctly.
-	wordpress, err = st.Application("wordpress")
+	gitlab, err = st.Application("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	ch, _, err = wordpress.Charm()
+	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
+	ch, _, err = gitlab.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }

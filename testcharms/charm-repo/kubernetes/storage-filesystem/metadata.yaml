@@ -7,5 +7,9 @@ storage:
         read-only: true
         multiple:
           range: 1+
+    cache:
+        type: filesystem
+        multiple:
+          range: 0+
 series:
   - kubernetes

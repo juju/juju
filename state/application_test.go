@@ -101,11 +101,11 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "wordpress", "metadata.yaml", metaBase, "kubernetes", 2)
+	sch := state.AddCustomCharm(c, st, "gitlab", "metadata.yaml", metaBase, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -1889,12 +1889,12 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
 	unitZero, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitZero.Name(), gc.Equals, "wordpress/0")
+	c.Assert(unitZero.Name(), gc.Equals, "gitlab/0")
 	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, st.ModelUUID())
@@ -1938,7 +1938,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
 		Number: jujuversion.Current,
@@ -1955,7 +1955,7 @@ func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
@@ -3403,8 +3403,8 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
 
 	f := factory.NewFactory(s.caasSt)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 }
 
 func strPtr(s string) *string {
@@ -3512,7 +3512,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	u, ok = unitsById["new-unit-uuid"]
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(u.Name(), gc.Equals, "wordpress/2")
+	c.Assert(u.Name(), gc.Equals, "gitlab/2")
 	c.Check(info.Address(), gc.NotNil)
 	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})

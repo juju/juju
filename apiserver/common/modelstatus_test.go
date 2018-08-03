@@ -231,7 +231,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 
 	otherFactory := factory.NewFactory(otherSt)
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"}),
+		Charm: otherFactory.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"}),
 	})
 
 	otherModel, err := otherSt.Model()

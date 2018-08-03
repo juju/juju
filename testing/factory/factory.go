@@ -412,7 +412,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
-	ch := testcharms.Repo.CharmDir(params.Name)
+	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")

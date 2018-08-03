@@ -100,7 +100,7 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +173,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	defer st2.Close()
 
 	f := factory.NewFactory(st2)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	controllerModel, err := s.State.Model()
@@ -227,7 +227,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	// add some applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab"})
 	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -277,21 +277,23 @@ func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
 	_, st := s.newCAASModel(c)
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{
+		Name:   "gitlab",
 		Series: "kubernetes",
 	})
 	args := state.AddApplicationArgs{
-		Name:   "foo",
+		Name:   "gitlab",
 		Series: "bionic",
 		Charm:  ch,
 	}
 	_, err := st.AddApplication(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": series "bionic" in a kubernetes model not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": series "bionic" in a kubernetes model not valid`)
 }
 
 func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{
+		Name:   "gitlab",
 		Series: "kubernetes",
 	})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})

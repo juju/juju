@@ -33,7 +33,7 @@ func (s *PodSpecSuite) SetUpTest(c *gc.C) {
 	s.Factory = factory.NewFactory(s.State)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 }

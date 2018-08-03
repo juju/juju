@@ -589,7 +589,6 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
-		"logs":  {Count: 1, Size: 1024},
 	}
 	app, err := s.st.AddApplication(state.AddApplicationArgs{Name: "mariadb", Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,7 +645,6 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
-		"logs":  {Count: 1, Size: 1024},
 	}
 	app, err := s.st.AddApplication(state.AddApplicationArgs{Name: "mariadb", Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
