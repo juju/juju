@@ -130,6 +130,10 @@ type BootstrapConfig struct {
 	// when communicating with the cloud's storage service. This will
 	// be empty for clouds that have no storage-specific API endpoint.
 	CloudStorageEndpoint string `yaml:"storage-endpoint,omitempty"`
+
+	// CloudCACertificates contains the CACertificates necessary to
+	// communicate with the cloud infrastructure.
+	CloudCACertificates []string `yaml:"ca-certificates,omitempty"`
 }
 
 // ControllerUpdater stores controller details.
