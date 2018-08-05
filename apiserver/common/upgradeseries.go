@@ -41,7 +41,7 @@ type upgradeSeriesMachine struct {
 // Units maintains the UpgradeSeriesMachine indirection by wrapping the call to
 // state.Machine.Units().
 func (m *upgradeSeriesMachine) Units() ([]UpgradeSeriesUnit, error) {
-	units, err := m.Units()
+	units, err := m.Machine.Units()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,6 +121,43 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 		result.Results[i].NotifyWatcherId = watcherId
 	}
 	return result, nil
+}
+
+// UnitTags returns the IDs of all units running on the machine identified by
+// the input args.
+func (u *UpgradeSeriesAPI) UnitIds(args params.Entities) (params.StringResults, error) {
+	canAccess, err := u.accessMachine()
+	if err != nil {
+		return params.StringResults{}, err
+	}
+
+	var results []params.StringResult
+	for _, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			results = append(results, params.StringResult{Error: ServerError(err)})
+			continue
+		}
+		if !canAccess(tag) {
+			results = append(results, params.StringResult{Error: ServerError(ErrPerm)})
+			continue
+		}
+
+		machine, err := u.getMachine(tag)
+		if err != nil {
+			results = append(results, params.StringResult{Error: ServerError(err)})
+			continue
+		}
+		units, err := machine.Units()
+		if err != nil {
+			results = append(results, params.StringResult{Error: ServerError(err)})
+			continue
+		}
+		for _, unit := range units {
+			results = append(results, params.StringResult{Result: unit.Tag().Id()})
+		}
+	}
+	return params.StringResults{Results: results}, nil
 }
 
 // UpgradeSeriesPrepareStatus returns the current preparation status of an upgrading
@@ -226,21 +263,21 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 	args params.Entities, statusType model.UpgradeSeriesStatusType,
 ) (params.UpgradeSeriesStatusResults, error) {
 	u.logger.Tracef("Starting UpgradeSeriesPrepareStatus with %+v", args)
-	result := params.UpgradeSeriesStatusResults{}
 
 	canAccess, err := u.accessUnitOrMachine()
 	if err != nil {
-		return result, err
+		return params.UpgradeSeriesStatusResults{}, err
 	}
 
+	var results []params.UpgradeSeriesStatusResult
 	for _, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results = append(result.Results, params.UpgradeSeriesStatusResult{Error: ServerError(err)})
+			results = append(results, params.UpgradeSeriesStatusResult{Error: ServerError(err)})
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results = append(result.Results, params.UpgradeSeriesStatusResult{Error: ServerError(ErrPerm)})
+			results = append(results, params.UpgradeSeriesStatusResult{Error: ServerError(ErrPerm)})
 			continue
 		}
 		switch tag.Kind() {
@@ -249,13 +286,13 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 			// passed in the call, the return will not distinguish between
 			// What unit status results belong to which machine.
 			// At this stage we do not anticipate this, so... YAGNI.
-			result.Results = append(result.Results, u.upgradeSeriesMachineStatus(tag, statusType)...)
+			results = append(results, u.upgradeSeriesMachineStatus(tag, statusType)...)
 		case names.UnitTagKind:
-			result.Results = append(result.Results, u.upgradeSeriesUnitStatus(tag, statusType))
+			results = append(results, u.upgradeSeriesUnitStatus(tag, statusType))
 		}
 	}
 
-	return result, nil
+	return params.UpgradeSeriesStatusResults{Results: results}, nil
 }
 
 // upgradeSeriesMachineStatus returns a result containing the upgrade-series

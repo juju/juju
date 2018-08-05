@@ -121,3 +121,27 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string, statusType mode
 	}
 	return nil
 }
+
+func (u *UpgradeSeriesAPI) UnitIds() ([]string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+
+	err := u.facade.FacadeCall("UnitIds", args, &results)
+	if err != nil {
+		return nil, err
+	}
+
+	statuses := make([]string, len(results.Results))
+	for i, res := range results.Results {
+		if res.Error != nil {
+			if params.IsCodeNotFound(res.Error) {
+				return nil, errors.NewNotFound(res.Error, "")
+			}
+			return nil, res.Error
+		}
+		statuses[i] = res.Result
+	}
+	return statuses, nil
+}
