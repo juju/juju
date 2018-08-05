@@ -5,6 +5,7 @@ package lease
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -44,6 +45,7 @@ func NewStore(config StoreConfig) (lease.Store, error) {
 
 // store implements the lease.Store interface.
 type store struct {
+	mu sync.Mutex
 
 	// config holds resources and configuration necessary to store leases.
 	config StoreConfig
@@ -60,6 +62,8 @@ type store struct {
 
 // Leases is part of the lease.Store interface.
 func (store *store) Leases() map[lease.Key]lease.Info {
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	localTime := store.config.LocalClock.Now()
 	leases := make(map[lease.Key]lease.Info)
 	for name, entry := range store.entries {
@@ -101,6 +105,9 @@ func (store *store) request(name string, request lease.Request, getOps opsFunc, 
 	if err := request.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid request")
 	}
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
 
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
@@ -147,6 +154,9 @@ func (store *store) ExpireLease(key lease.Key) error {
 		return errors.Annotatef(err, "invalid name")
 	}
 
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	// No cache updates needed, only deletes; no closure here.
 	err := store.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
 		store.logger.Tracef("expiring lease %q (attempt %d)", name, attempt)
@@ -180,6 +190,9 @@ func (store *store) ExpireLease(key lease.Key) error {
 
 // Refresh is part of the Store interface.
 func (store *store) Refresh() error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	return store.refresh(true)
 }
 
