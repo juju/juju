@@ -71,7 +71,7 @@ func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resourc
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        name,
-			Type:        charmresource.TypeDocker,
+			Type:        charmresource.TypeContainerImage,
 			Description: name + " description",
 		},
 		Origin:      charmresource.OriginUpload,

@@ -35,7 +35,7 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if info.Type == charmresource.TypeDocker {
+	if info.Type == charmresource.TypeContainerImage {
 		info.Path = "content.yaml"
 	}
 	or := &OpenedResource{

@@ -122,7 +122,7 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 		switch d.resources[name].Type {
 		case charmresource.TypeFile:
 			id, err = d.uploadFile(name, resValue)
-		case charmresource.TypeDocker:
+		case charmresource.TypeContainerImage:
 			id, err = d.uploadDockerDetails(name, resValue)
 		default:
 			err = errors.New("unknown resource type to upload")
@@ -143,7 +143,7 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 		switch d.resources[name].Type {
 		case charmresource.TypeFile:
 			err = d.checkFile(name, value)
-		case charmresource.TypeDocker:
+		case charmresource.TypeContainerImage:
 			err = resources.CheckDockerDetails(name, value)
 		default:
 			return fmt.Errorf("unknown resource: %s", name)

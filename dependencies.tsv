@@ -89,6 +89,7 @@ github.com/mattn/go-colorable	git	ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8	2016-
 github.com/mattn/go-isatty	git	66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8	2016-08-06T12:27:52Z
 github.com/mattn/go-runewidth	git	d96d1bd051f2bd9e7e43d602782b37b93b1b5666	2015-11-18T07:21:59Z
 github.com/matttproud/golang_protobuf_extensions	git	c12348ce28de40eed0136aa2b644d0ee0650e56c	2016-04-24T11:30:07Z
+github.com/ncw/swift	git	b2a7479cf26fa841ff90dd932d0221cb5c50782d	2018-03-27T20:33:07Z
 github.com/nu7hatch/gouuid	git	179d4d0c4d8d407a32af483c2354df1d2c91e6c3	2013-12-21T20:05:32Z
 github.com/oracle/oci-go-sdk	git	ad5c34ed0cf8169d6817e2a37ec3e4521f856368	2018-04-05T22:36:05Z
 github.com/pkg/errors	git	839d9e913e063e28dfd0e6c7b7512793e0a48be9	2016-10-02T05:25:12Z
@@ -113,10 +114,10 @@ gopkg.in/goose.v2	git	9cc2ac8f3ac3904725fe9bef85d30b53713b3be9	2018-07-31T15:26:
 gopkg.in/httprequest.v1	git	1a21782420ea13c3c6fb1d03578f446b3248edb1	2018-03-08T16:26:44Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
-gopkg.in/juju/charm.v6	git	52d8af8e45d911a36f072826d1229d83ecdb958d	2018-07-15T21:39:02Z
+gopkg.in/juju/charm.v6	git	abaa717bc6ed4f694281737cb01f32f7de7ea357	2018-08-03T03:00:15Z
 gopkg.in/juju/charmrepo.v2	git	653bbd81990d2d7d48e0fb931a3b0f52c694572f	2017-11-14T18:40:45Z
-gopkg.in/juju/charmrepo.v3	git	8bb46aa94f3c679069e80fe35aac6d0581096d65	2018-06-29T07:07:28Z
-gopkg.in/juju/charmstore.v5	git	d93d0fd2b81b8230bdf9b1be91b50538dd8782fa	2018-06-28T08:11:03Z
+gopkg.in/juju/charmrepo.v3	git	7778a447283bd71109671c20818544514e16e9d9	2018-08-03T04:37:37Z
+gopkg.in/juju/charmstore.v5	git	743b5ab3209d901b82aaa6594c405e017e0761a9	2018-08-03T04:08:00Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v3	git	1ebf5c5481e815de683e57e0f46705ac567e4e58	2018-06-29T06:57:38Z
 gopkg.in/juju/names.v2	git	fd59336b4621bc2a70bf96d9e2f49954115ad19b	2018-06-21T09:39:30Z

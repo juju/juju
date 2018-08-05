@@ -218,7 +218,7 @@ func (s *ClientSuite) TestGetResourceDockerType(c *gc.C) {
 	}
 	apiRes := params.Resource{
 		Name:        "mysql_image",
-		Type:        "docker",
+		Type:        "oci-image",
 		Description: "something",
 		Revision:    2,
 		Fingerprint: resource.Fingerprint{}.Bytes(),

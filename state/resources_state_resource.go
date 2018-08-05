@@ -283,7 +283,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	switch res.Type {
 	case charmresource.TypeFile:
 		err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash)
-	case charmresource.TypeDocker:
+	case charmresource.TypeContainerImage:
 		var dockerDetails resources.DockerImageDetails
 		respBuf := new(bytes.Buffer)
 		_, err := respBuf.ReadFrom(r)
@@ -336,7 +336,7 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 	var resourceReader io.ReadCloser
 	var resSize int64
 	switch resourceInfo.Type {
-	case charmresource.TypeDocker:
+	case charmresource.TypeContainerImage:
 		resourceReader, resSize, err = st.dockerMetadataStorage.Get(resourceInfo.ID)
 	case charmresource.TypeFile:
 		resourceReader, resSize, err = st.storage.Get(storagePath)
@@ -347,7 +347,7 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
 	switch resourceInfo.Type {
-	case charmresource.TypeDocker:
+	case charmresource.TypeContainerImage:
 		// Resource size only found at this stage in time as it's a response from the charmstore, not a stored file.
 		// Store it as it's used later for verification (in a separate call than this one)
 		resourceInfo.Size = resSize
