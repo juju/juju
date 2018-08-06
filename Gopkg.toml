@@ -124,7 +124,7 @@
 [[override]]
   name = "github.com/juju/testing"
   source = "github.com/ycliuhw/testing"
-  branch = "fix/to-enable-vendor-for-FindImports"
+  revision = "d0460fabb378bd245cb89d3b58ba34521dcb41d9"
 
 [[constraint]]
   revision = "c746c6e86f4fb2a04bc08d66b7a0f7e900d9cbab"
@@ -294,9 +294,14 @@
   name = "github.com/juju/collections"
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
-[[constraint]]
+# [[constraint]]
+#   name = "github.com/juju/errors"
+#   revision = "1b5e39b83d1835fa480e0c2ddefb040ee82d58b3"
+
+[[override]]
   name = "github.com/juju/errors"
-  revision = "1b5e39b83d1835fa480e0c2ddefb040ee82d58b3"
+  source = "github.com/ycliuhw/errors"
+  revision = "cac99a642e9921d21b87cbea5fbdf2f8d5bb1945"
 
 [[constraint]]
   name = "github.com/juju/go-oracle-cloud"

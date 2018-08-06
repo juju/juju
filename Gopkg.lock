@@ -391,11 +391,12 @@
   revision = "25349c35a6b1c9244c24045c9b5faab5932eae63"
 
 [[projects]]
-  digest = "1:d2198713aa9ceb7fcc4cc2aaf55abc3c7684d3a9978912449f3960ce65740ba8"
+  digest = "1:e6e35af83dc90e744ac4aad9c4c61ea36754202743f91070c4b47846d05ea0ed"
   name = "github.com/juju/errors"
   packages = ["."]
   pruneopts = ""
-  revision = "1b5e39b83d1835fa480e0c2ddefb040ee82d58b3"
+  revision = "cac99a642e9921d21b87cbea5fbdf2f8d5bb1945"
+  source = "github.com/ycliuhw/errors"
 
 [[projects]]
   digest = "1:6ea4e90d9fc387ca27c25348e40dbe38c3606eec7f283bf98a39db59b37ed5bb"
@@ -627,8 +628,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  branch = "fix/to-enable-vendor-for-FindImports"
-  digest = "1:3a3803b25c3753ddc5df9d6a800c09c370fbbac740ee41e63cb24271d11cb8aa"
+  digest = "1:2dab0205d446eb8a48d3ed53340a9686d2530ea592382e23e20bb49e1cc12de9"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -637,7 +637,7 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "8a5e118ac4aa94c2abbee1456f6bceb38d444a0c"
+  revision = "d0460fabb378bd245cb89d3b58ba34521dcb41d9"
   source = "github.com/ycliuhw/testing"
 
 [[projects]]
