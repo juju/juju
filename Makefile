@@ -44,7 +44,6 @@ $(GOPATH)/bin/dep:
 # populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
 	$(GOPATH)/bin/dep ensure -v -vendor-only
-	# $(GOPATH)/bin/dep ensure -v -update  # for debug
 else
 dep:
 	@echo "skipping dep"
@@ -68,7 +67,6 @@ pre-check:
 	@$(PROJECT_DIR)/scripts/verify.bash
 
 check: dep pre-check
-	echo $(shell env | grep GO)
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
 install: dep go-install
