@@ -117,14 +117,9 @@
   revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
   name = "github.com/juju/romulus"
 
-# [[constraint]]
-#   revision = "72703b1e95eb8ce4737fd8a3d8496c6b0be280a6"
-#   name = "github.com/juju/testing"
-
-[[override]]
+[[constraint]]
+  revision = "e5d2ee5c1563c66bbef3fe488ed11457a614f50d"
   name = "github.com/juju/testing"
-  source = "github.com/ycliuhw/testing"
-  revision = "d0460fabb378bd245cb89d3b58ba34521dcb41d9"
 
 [[constraint]]
   revision = "c746c6e86f4fb2a04bc08d66b7a0f7e900d9cbab"
@@ -294,14 +289,9 @@
   name = "github.com/juju/collections"
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
-# [[constraint]]
-#   name = "github.com/juju/errors"
-#   revision = "1b5e39b83d1835fa480e0c2ddefb040ee82d58b3"
-
-[[override]]
+[[constraint]]
   name = "github.com/juju/errors"
-  source = "github.com/ycliuhw/errors"
-  revision = "cac99a642e9921d21b87cbea5fbdf2f8d5bb1945"
+  revision = "22422dad46e14561a0854ad42497a75af9b61909"
 
 [[constraint]]
   name = "github.com/juju/go-oracle-cloud"
@@ -406,10 +396,6 @@
 [[override]]
   name = "github.com/masterzen/winrm"
   revision = "7a535cd943fccaeed196718896beec3fb51aff41"
-
-# [[constraint]]
-#   name = "gopkg.in/macaroon.v2"
-#   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
 
 [[constraint]]
   name = "gopkg.in/macaroon.v2-unstable"
@@ -590,3 +576,7 @@
 # [[constraint]]
 #   name = "gopkg.in/tomb.v1"
 #   revision = "dd632973f1e7218eb1089048e0798ec9ae7dceb8"
+
+# [[constraint]]
+#   name = "gopkg.in/macaroon.v2"
+#   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"

@@ -133,27 +133,27 @@ Dependency management
 =====================
 
 In the top-level directory of the juju repo, there is a file,
-[dependencies.tsv](dependencies.tsv), that holds the revision ids of all
+[Gopkg.lock](Gopkg.lock), that holds the revision ids of all
 the external projects that juju depends on.  That file is used to freeze
 the code in external repositories so that juju is insulated from changes
 to those repos.
 
-godeps
+dep
 ------
 
-[godeps](https://launchpad.net/godeps) is the tool that does the freezing.
-After getting the juju code, you need to get `godeps`:
+[dep](https://golang.github.io/dep) is the tool that does the freezing.
+After getting the juju code, you need to get `dep`:
 
 ```shell
-go get github.com/rogpeppe/godeps
+go get github.com/golang/dep
 ```
 
-This installs the `godeps` application.  You can then run `godeps` from the
+This installs the `dep` application.  You can then run `dep` from the
 root of juju, to set the revision number on the external repositories:
 
 ```shell
 cd $GOPATH/src/github.com/juju/juju
-godeps -u dependencies.tsv
+make dep
 ```
 
 Now you are ready to build, run, test, etc.
@@ -161,20 +161,20 @@ Now you are ready to build, run, test, etc.
 Staying up-to-date
 ------------------
 
-The [dependencies.tsv](dependencies.tsv) file can get out of date, for
-example when you switch to another branch.  When it is out of date, run
-`godeps`.  In practice, you can wait until you get a compile error about
+The [Gopkg.lock](Gopkg.lock) file can get out of date, for
+example when you made change to Gopkg.toml.  When it is out of date, run
+`dep`. In practice, you can wait until you get a compile error about
 an external package not existing/having an incorrect API, and then rerun
-`godeps`.
+`dep ensure -v`.
 
 Updating dependencies
 ---------------------
 
 If you update a repo that juju depends on, you will need to recreate
-`dependencies.tsv`:
+`Gopkg.lock`:
 
 ```shell
-make rebuild-dependencies.tsv
+make rebuild-dependencies [dep-update=true]
 ```
 
 
@@ -379,7 +379,7 @@ Static Analysis of the code is provided by [gometalinter](https://github.com/ale
 
 The Static Analysis runs every linter in parallel over the juju code base with
 the aim to spot any potential errors that should be resolved. As a default all
-the linters are disabled and only a selection of linters are run on each pass. 
+the linters are disabled and only a selection of linters are run on each pass.
 The linters that are run, are known to pass with the state of the current code
 base.
 
@@ -391,14 +391,14 @@ repo:
 ./scripts/gometalinter.bash
 ```
 
-If you already have the git hook installed for pre-pushing, then the linters 
+If you already have the git hook installed for pre-pushing, then the linters
 will also run during that check.
 
-Adding new linters can be done, by editing the `./scripts/gometalinter.bash` 
+Adding new linters can be done, by editing the `./scripts/gometalinter.bash`
 file to also including/removing the desired linters.
 
-Additionally to turn off the linter check for pushing or verifying then 
-setting the environment variable `IGNORE_GOMETALINTER` before hand will cause 
+Additionally to turn off the linter check for pushing or verifying then
+setting the environment variable `IGNORE_GOMETALINTER` before hand will cause
 this to happen.
 
 

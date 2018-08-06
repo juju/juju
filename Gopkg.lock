@@ -391,12 +391,11 @@
   revision = "25349c35a6b1c9244c24045c9b5faab5932eae63"
 
 [[projects]]
-  digest = "1:e6e35af83dc90e744ac4aad9c4c61ea36754202743f91070c4b47846d05ea0ed"
+  digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
   name = "github.com/juju/errors"
   packages = ["."]
   pruneopts = ""
-  revision = "cac99a642e9921d21b87cbea5fbdf2f8d5bb1945"
-  source = "github.com/ycliuhw/errors"
+  revision = "22422dad46e14561a0854ad42497a75af9b61909"
 
 [[projects]]
   digest = "1:6ea4e90d9fc387ca27c25348e40dbe38c3606eec7f283bf98a39db59b37ed5bb"
@@ -628,7 +627,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:2dab0205d446eb8a48d3ed53340a9686d2530ea592382e23e20bb49e1cc12de9"
+  digest = "1:128f276ac63262c4263a3b80b5547a1488e316a32b93f1b86da01b21d86be9cb"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -637,8 +636,7 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "d0460fabb378bd245cb89d3b58ba34521dcb41d9"
-  source = "github.com/ycliuhw/testing"
+  revision = "e5d2ee5c1563c66bbef3fe488ed11457a614f50d"
 
 [[projects]]
   digest = "1:65ea07a1e4b4dcbc0da808e39d74335046622faa6cbb1c038b46de34a6689aaa"

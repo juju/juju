@@ -103,11 +103,11 @@ It is advisable, when installing `juju` from source, to look at the [Makefile](.
 
 Juju needs some dependencies in order to be installed and the preferred way to
 collect the necessary packages is to use the provided `Makefile`.
-The target `godeps` will download the go packages listed in `dependencies.tsv`. The following bash code will install the dependencies.
+The target `dep` will download the go packages listed in `Gopkg.lock`. The following bash code will install the dependencies.
 
     cd $GOPATH/src/github.com/juju/juju
     export JUJU_MAKE_GODEPS=true
-    make godeps
+    make dep
 
 ### *Runtime Dependencies*
 
