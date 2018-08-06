@@ -1492,10 +1492,10 @@ func mergeDeviceConstraints(device devices.KubernetesDeviceParams, resources *co
 
 	resourceName := core.ResourceName(device.Type)
 	if v, ok := resources.Limits[resourceName]; ok {
-		return errors.NotValidf("resource limit for %q has already been set to %d! Unexpected!", resourceName, v)
+		return errors.NotValidf("resource limit for %q has already been set to %v! resource limit %q", resourceName, v, resourceName)
 	}
 	if v, ok := resources.Requests[resourceName]; ok {
-		return errors.NotValidf("resource request for %q has already been set to %d! Unexpected!", resourceName, v)
+		return errors.NotValidf("resource request for %q has already been set to %v! resource limit %q", resourceName, v, resourceName)
 	}
 	// GPU request/limit have to be set to same value equals to the Count.
 	// - https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#clusters-containing-different-types-of-nvidia-gpus
