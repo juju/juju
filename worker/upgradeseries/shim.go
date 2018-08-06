@@ -12,7 +12,6 @@ import (
 )
 
 // Facade exposes the API surface required by the upgrade-series worker.
-//go:generate mockgen -package upgradeseries_test -destination facade_mock_test.go github.com/juju/juju/worker/upgradeseries Facade
 type Facade interface {
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) ([]string, error)
