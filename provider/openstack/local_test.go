@@ -565,7 +565,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 		"404; error info: .*itemNotFound.*")
 }
 
-func (s *localServerSuite) TestStartInstanceNetworkNotSet(c *gc.C) {
+func (s *localServerSuite) TestStartInstanceNetworkNotSetReturnsError(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		"network": "",
 	})
@@ -2678,6 +2678,22 @@ func (s *noNeutronSuite) TestUpdateGroupControllerNoNeutron(c *gc.C) {
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
 	))
+}
+
+func (s *noNeutronSuite) TestStartInstanceNetworkNotSetNoError(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	callCtx := context.NewCloudCallContext()
+	ctrlUUID := coretesting.FakeControllerConfig().ControllerUUID()
+
+	inst, _, _, err := testing.StartInstance(s.env, callCtx, ctrlUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(inst, gc.NotNil)
 }
 
 func createNovaSecurityGroup(c *gc.C, client *nova.Client, name string) {
