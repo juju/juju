@@ -92,8 +92,10 @@ type UnitSeriesUpgradeStatus string
 
 const (
 	NotStarted       UnitSeriesUpgradeStatus = "NotStarted"
-	PrepareStarted   UnitSeriesUpgradeStatus = "Started"
-	PrepareCompleted UnitSeriesUpgradeStatus = "Completed"
+	PrepareStarted   UnitSeriesUpgradeStatus = "Prepare Started"
+	PrepareCompleted UnitSeriesUpgradeStatus = "Prepare Completed"
+	CompleteStarted  UnitSeriesUpgradeStatus = "Complete Started"
+	Completed        UnitSeriesUpgradeStatus = "Completed"
 	UnitErrored      UnitSeriesUpgradeStatus = "Errored"
 )
 
