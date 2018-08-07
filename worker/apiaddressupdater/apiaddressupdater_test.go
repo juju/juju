@@ -11,6 +11,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
 	apimachiner "github.com/juju/juju/api/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type APIAddressUpdaterSuite struct {
@@ -64,10 +66,9 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	updater, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
+	defer workertest.CleanKill(c, updater)
 
 	// SetAPIHostPorts should be called with the initial value.
 	select {
@@ -76,6 +77,14 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.DeepEquals, updatedServers)
 	}
+
+	// The values are also available through the report.
+	reporter, ok := updater.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"servers": [][]string{[]string{"localhost:1234", "127.0.0.1:1234"}},
+	})
+
 }
 
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
