@@ -32,7 +32,7 @@ type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
 	UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
-	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
+	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
 }
 
 // UpgradeSeriesState implements the UpgradeSeriesBackend indirection
@@ -155,14 +155,14 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesCompleteStatus(args params.Entities) (pa
 // If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesPrepareStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesPrepareStatus with %+v", args)
-	return u.setUpgradeSeriesStatus(args, model.PrepareStatus)
+	return u.setUpgradeSeriesStatus(args)
 }
 
 // SetUpgradeSeriesCompleteStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesCompleteStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesCompleteStatus with %+v", args)
-	return u.setUpgradeSeriesStatus(args, model.CompleteStatus)
+	return u.setUpgradeSeriesStatus(args)
 }
 
 func (u *UpgradeSeriesAPI) GetMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
@@ -200,7 +200,7 @@ func NewExternalUpgradeSeriesAPI(
 	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }
 
-func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams, statusType model.UpgradeSeriesStatusType) (params.ErrorResults, error) {
+func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -229,7 +229,7 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		err = unit.SetUpgradeSeriesStatus(status, statusType)
+		err = unit.SetUpgradeSeriesStatus(status)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
