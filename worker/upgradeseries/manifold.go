@@ -72,6 +72,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 		Tag:           tag,
 		Logger:        config.Logger,
 		FacadeFactory: newFacade,
+		Service:       &serviceAccess{},
 	}
 
 	w, err := config.NewWorker(cfg)
