@@ -3,7 +3,7 @@
 
 /*
 
-The dependency package exists to address a general problem with shared resources
+Package dependency exists to address a general problem with shared resources
 and the management of their lifetimes. Many kinds of software handle these issues
 with more or less felicity, but it's particularly important that juju (which is
 a distributed system that needs to be very fault-tolerant) handle them clearly

@@ -10,12 +10,26 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 )
 
-var logger = loggo.GetLogger("juju.worker.dependency")
+// Logger represents the various logging methods used by the runner.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
+// Clock defines the time methods needed for the engine.
+type Clock interface {
+	// Now returns the current clock time.
+	Now() time.Time
+
+	// After waits for the duration to elapse and then sends the
+	// current time on the returned channel.
+	After(time.Duration) <-chan time.Time
+}
 
 // EngineConfig defines the parameters needed to create a new engine.
 type EngineConfig struct {
@@ -42,6 +56,13 @@ type EngineConfig struct {
 	// a worker that was deliberately stopped because its dependencies
 	// changed. It must not be negative.
 	BounceDelay time.Duration
+
+	// Clock will be a wall clock for production, and test clocks for tests.
+	Clock Clock
+
+	// Logger is used to provide an implementation for where the logging
+	// messages go for the runner.
+	Logger Logger
 }
 
 // Validate returns an error if any field is invalid.
@@ -57,6 +78,12 @@ func (config *EngineConfig) Validate() error {
 	}
 	if config.BounceDelay < 0 {
 		return errors.New("BounceDelay is negative")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
 	}
 	return nil
 }
@@ -232,6 +259,12 @@ func (engine *Engine) manifoldsReport() map[string]interface{} {
 			KeyInputs:      engine.manifolds[name].Inputs,
 			KeyResourceLog: resourceLogReport(info.resourceLog),
 		}
+		if info.startCount > 0 {
+			report[KeyStartCount] = info.startCount
+		}
+		if !info.startedTime.IsZero() {
+			report[KeyLastStart] = info.startedTime.Format("2006-01-02 15:04:05")
+		}
 		if info.err != nil {
 			report[KeyError] = info.err.Error()
 		}
@@ -260,7 +293,7 @@ func (engine *Engine) Install(name string, manifold Manifold) error {
 // gotInstall handles the params originally supplied to Install. It must only be
 // called from the loop goroutine.
 func (engine *Engine) gotInstall(name string, manifold Manifold) error {
-	logger.Tracef("installing %q manifold...", name)
+	engine.config.Logger.Tracef("installing %q manifold...", name)
 	if _, found := engine.manifolds[name]; found {
 		return errors.Errorf("%q manifold already installed", name)
 	}
@@ -319,13 +352,14 @@ func (engine *Engine) requestStart(name string, delay time.Duration) {
 
 	// Final check that we're not shutting down yet...
 	if engine.isDying() {
-		logger.Tracef("not starting %q manifold worker (shutting down)", name)
+		engine.config.Logger.Tracef("not starting %q manifold worker (shutting down)", name)
 		return
 	}
 
 	// ...then update the info, copy it back to the engine, and start a worker
 	// goroutine based on current known state.
 	info.starting = true
+	info.err = nil
 	info.abort = make(chan struct{})
 	engine.current[name] = info
 	context := engine.context(name, manifold.Inputs, info.abort)
@@ -398,6 +432,7 @@ func (engine *Engine) context(name string, inputs []string, abort <-chan struct{
 		expired:    make(chan struct{}),
 		workers:    workers,
 		outputs:    outputs,
+		logger:     engine.config.Logger,
 	}
 }
 
@@ -416,16 +451,15 @@ func (engine *Engine) runWorker(name string, delay time.Duration, start StartFun
 		//  3) it's not worth complicating the interface for every client just
 		//     to eliminate the possibility of one harmlessly dumb interaction.
 		defer context.expire()
-		logger.Tracef("starting %q manifold worker in %s...", name, delay)
+		engine.config.Logger.Tracef("starting %q manifold worker in %s...", name, delay)
 		select {
 		case <-engine.tomb.Dying():
 			return nil, errAborted
 		case <-context.Abort():
 			return nil, errAborted
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		case <-time.After(delay):
+		case <-engine.config.Clock.After(delay):
 		}
-		logger.Tracef("starting %q manifold worker", name)
+		engine.config.Logger.Tracef("starting %q manifold worker", name)
 		return start(context)
 	}
 
@@ -435,19 +469,19 @@ func (engine *Engine) runWorker(name string, delay time.Duration, start StartFun
 		case errAborted:
 			return nil
 		case nil:
-			logger.Tracef("running %q manifold worker", name)
+			engine.config.Logger.Tracef("running %q manifold worker", name)
 		default:
-			logger.Tracef("failed to start %q manifold worker: %v", name, err)
+			engine.config.Logger.Tracef("failed to start %q manifold worker: %v", name, err)
 			return err
 		}
 		select {
 		case <-engine.tomb.Dying():
-			logger.Tracef("stopping %q manifold worker (shutting down)", name)
+			engine.config.Logger.Tracef("stopping %q manifold worker (shutting down)", name)
 			// Doesn't matter whether worker == engine: if we're already Dying
 			// then cleanly Kill()ing ourselves again won't hurt anything.
 			worker.Kill()
 		case engine.started <- startedTicket{name, worker, context.accessLog}:
-			logger.Tracef("registered %q manifold worker", name)
+			engine.config.Logger.Tracef("registered %q manifold worker", name)
 		}
 		if worker == engine {
 			// We mustn't Wait() for ourselves to complete here, or we'll
@@ -476,15 +510,17 @@ func (engine *Engine) gotStarted(name string, worker worker.Worker, resourceLog 
 		engine.tomb.Kill(errors.Errorf("fatal: unexpected %q manifold worker start", name))
 		fallthrough
 	case info.stopping, engine.isDying():
-		logger.Tracef("%q manifold worker no longer required", name)
+		engine.config.Logger.Tracef("%q manifold worker no longer required", name)
 		worker.Kill()
 	default:
 		// It's fine to use this worker; update info and copy back.
-		logger.Debugf("%q manifold worker started", name)
-		engine.current[name] = workerInfo{
-			worker:      worker,
-			resourceLog: resourceLog,
-		}
+		engine.config.Logger.Debugf("%q manifold worker started", name)
+		info.worker = worker
+		info.starting = false
+		info.startCount++
+		info.resourceLog = resourceLog
+		info.startedTime = engine.config.Clock.Now().UTC()
+		engine.current[name] = info
 
 		// Any manifold that declares this one as an input needs to be restarted.
 		engine.bounceDependents(name)
@@ -498,7 +534,7 @@ type stackTracer interface {
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
 func (engine *Engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
-	logger.Debugf("%q manifold worker stopped: %v", name, err)
+	engine.config.Logger.Debugf("%q manifold worker stopped: %v", name, err)
 	if filter := engine.manifolds[name].Filter; filter != nil {
 		err = filter(err)
 	}
@@ -516,9 +552,11 @@ func (engine *Engine) gotStopped(name string, err error, resourceLog []resourceA
 	engine.current[name] = workerInfo{
 		err:         err,
 		resourceLog: resourceLog,
+		// Keep the start count but clear the start timestamps.
+		startCount: info.startCount,
 	}
 	if engine.isDying() {
-		logger.Tracef("permanently stopped %q manifold worker (shutting down)", name)
+		engine.config.Logger.Tracef("permanently stopped %q manifold worker (shutting down)", name)
 		return
 	}
 
@@ -545,9 +583,9 @@ func (engine *Engine) gotStopped(name string, err error, resourceLog []resourceA
 			engine.uninstall(name)
 		default:
 			// Something went wrong but we don't know what. Try again soon.
-			logger.Errorf("%q manifold worker returned unexpected error: %v", name, err)
+			engine.config.Logger.Errorf("%q manifold worker returned unexpected error: %v", name, err)
 			if tracer, ok := err.(stackTracer); ok {
-				logger.Debugf("stack trace:\n%s", strings.Join(tracer.StackTrace(), "\n"))
+				engine.config.Logger.Debugf("stack trace:\n%s", strings.Join(tracer.StackTrace(), "\n"))
 			}
 			engine.requestStart(name, engine.config.ErrorDelay)
 		}
@@ -609,7 +647,7 @@ func (engine *Engine) allOthersStopped() bool {
 // stops every started one (and trusts the rest of the engine to restart them).
 // It must only be called from the loop goroutine.
 func (engine *Engine) bounceDependents(name string) {
-	logger.Tracef("restarting dependents of %q manifold", name)
+	engine.config.Logger.Tracef("restarting dependents of %q manifold", name)
 	for _, dependentName := range engine.dependents[name] {
 		if engine.current[dependentName].stopped() {
 			engine.requestStart(dependentName, engine.config.BounceDelay)
@@ -628,6 +666,9 @@ type workerInfo struct {
 	worker      worker.Worker
 	err         error
 	resourceLog []resourceAccess
+
+	startedTime time.Time
+	startCount  int
 }
 
 // stopped returns true unless the worker is either assigned or starting.

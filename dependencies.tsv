@@ -30,6 +30,7 @@ github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/bundlechanges	git	5b8dee6ac69a0b40649795140afbad0396d1c96a	2018-05-14T04:51:38Z
 github.com/juju/cmd	git	e74f39857ca013cf63947ba2843806f7afdd380d	2017-11-07T07:04:56Z
+github.com/juju/clock	git	d293bb356ca441f16b59562295cca74478966757	2018-05-24T02:22:03Z
 github.com/juju/collections	git	9be91dc79b7c185fa8b08e7ceceee40562055c83	2018-07-17T17:15:55Z
 github.com/juju/description	git	25349c35a6b1c9244c24045c9b5faab5932eae63	2018-05-30T03:17:50Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
@@ -118,7 +119,7 @@ gopkg.in/juju/charmstore.v5	git	0d59319d1dba8418eaa72667f3ef447561aaefee	2018-02
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v3	git	6f7342099e20c84f560bd9fc8afe96ff7486613e	2017-11-14T17:07:01Z
 gopkg.in/juju/names.v2	git	c43e8bdf2f4915a7019a2f8ad561af1498731a21	2018-05-16T01:04:14Z
-gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
+gopkg.in/juju/worker.v1	git	fece57956a1a0faa71a0a3898606a8f2fdb29ddd	2018-08-06T22:30:48Z
 gopkg.in/macaroon-bakery.v1	git	469b44e6f1f9479e115c8ae879ef80695be624d5	2016-06-22T12:14:21Z
 gopkg.in/macaroon-bakery.v2	git	ec9d2ad6796100720c154f614b6dea8798ec1181	2017-11-03T09:26:24Z
 gopkg.in/macaroon-bakery.v2-unstable	git	5a131df02b2333d5d75c501743cbc2948ee9bbf0	2016-06-23T14:27:47Z

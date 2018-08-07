@@ -137,3 +137,15 @@ func (nw *NotifyWorker) Kill() {
 func (nw *NotifyWorker) Wait() error {
 	return nw.catacomb.Wait()
 }
+
+type reporter interface {
+	Report() map[string]interface{}
+}
+
+// Report implements dependency.Reporter.
+func (nw *NotifyWorker) Report() map[string]interface{} {
+	if r, ok := nw.config.Handler.(reporter); ok {
+		return r.Report()
+	}
+	return nil
+}

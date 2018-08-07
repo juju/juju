@@ -503,6 +503,8 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			WorstError:  cmdutil.MoreImportantError,
 			ErrorDelay:  3 * time.Second,
 			BounceDelay: 10 * time.Millisecond,
+			Clock:       clock.WallClock,
+			Logger:      loggo.GetLogger("juju.worker.dependency"),
 		}
 		engine, err := dependency.NewEngine(config)
 		if err != nil {
@@ -999,6 +1001,8 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		Filter:      model.IgnoreErrRemoved,
 		ErrorDelay:  3 * time.Second,
 		BounceDelay: 10 * time.Millisecond,
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.worker.dependency"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

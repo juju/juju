@@ -6,6 +6,7 @@ package dependency_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,14 +18,21 @@ import (
 
 type ReportSuite struct {
 	testing.IsolationSuite
-	fix *engineFixture
+	fix   *engineFixture
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&ReportSuite{})
 
 func (s *ReportSuite) SetUpTest(c *gc.C) {
+	// Use a non UTC timezone to show times output in UTC.
+	// Vostok is +6 for the entire year.
+	loc, err := time.LoadLocation("Antarctica/Vostok")
+	c.Assert(err, jc.ErrorIsNil)
+	t0 := time.Date(2018, 8, 7, 19, 15, 42, 0, loc)
 	s.IsolationSuite.SetUpTest(c)
-	s.fix = &engineFixture{}
+	s.clock = testclock.NewClock(t0)
+	s.fix = &engineFixture{clock: s.clock}
 }
 
 func (s *ReportSuite) TestReportStarted(c *gc.C) {
@@ -92,6 +100,8 @@ func (s *ReportSuite) TestReportStopping(c *gc.C) {
 			"manifolds": map[string]interface{}{
 				"task": map[string]interface{}{
 					"state":        "stopping",
+					"start-count":  1,
+					"started":      "2018-08-07 13:15:42",
 					"inputs":       ([]string)(nil),
 					"resource-log": []map[string]interface{}{},
 					"report": map[string]interface{}{
@@ -121,6 +131,8 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 			"manifolds": map[string]interface{}{
 				"task": map[string]interface{}{
 					"state":        "started",
+					"start-count":  1,
+					"started":      "2018-08-07 13:15:42",
 					"inputs":       ([]string)(nil),
 					"resource-log": []map[string]interface{}{},
 					"report": map[string]interface{}{
@@ -128,8 +140,10 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 					},
 				},
 				"another task": map[string]interface{}{
-					"state":  "started",
-					"inputs": []string{"task"},
+					"state":       "started",
+					"start-count": 1,
+					"started":     "2018-08-07 13:15:42",
+					"inputs":      []string{"task"},
 					"resource-log": []map[string]interface{}{{
 						"name": "task",
 						"type": "<nil>",

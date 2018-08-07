@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
@@ -73,6 +75,8 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	config := dependency.EngineConfig{
 		IsFatal:    cmdutil.IsFatal,
 		WorstError: cmdutil.MoreImportantError,
+		Clock:      clock.WallClock,
+		Logger:     loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
 	c.Assert(err, jc.ErrorIsNil)

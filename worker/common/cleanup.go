@@ -33,3 +33,15 @@ func (w *CleanupWorker) Wait() error {
 	w.cleanupOnce.Do(w.cleanup)
 	return err
 }
+
+type reporter interface {
+	Report() map[string]interface{}
+}
+
+// Report implements dependency.Reporter.
+func (w *CleanupWorker) Report() map[string]interface{} {
+	if r, ok := w.Worker.(reporter); ok {
+		return r.Report()
+	}
+	return nil
+}

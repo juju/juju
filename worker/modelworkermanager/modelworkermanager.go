@@ -182,3 +182,8 @@ func neverImportant(error, error) bool {
 func isModelActive(m Model) bool {
 	return m.MigrationMode() != state.MigrationModeImporting
 }
+
+// Report shows up in the dependency engine report.
+func (m *modelWorkerManager) Report() map[string]interface{} {
+	return m.runner.Report()
+}
