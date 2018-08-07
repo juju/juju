@@ -290,9 +290,9 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	srv.logSinkWriter = logSinkWriter
 
 	if cfg.PrometheusRegisterer != nil {
-		apiserverCollectior := NewMetricsCollector(&metricAdaptor{srv})
-		cfg.PrometheusRegisterer.Unregister(apiserverCollectior)
-		if err := cfg.PrometheusRegisterer.Register(apiserverCollectior); err != nil {
+		apiserverCollector := NewMetricsCollector(&metricAdaptor{srv})
+		cfg.PrometheusRegisterer.Unregister(apiserverCollector)
+		if err := cfg.PrometheusRegisterer.Register(apiserverCollector); err != nil {
 			return nil, errors.Annotate(err, "registering apiserver metrics collector")
 		}
 	}
