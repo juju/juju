@@ -71,7 +71,7 @@ func (s *CmdExportBundleSuite) TestExportBundle(c *gc.C) {
 		"      charm: cs:quantal/logging-43\n"+
 		"    wordpress:\n"+
 		"      charm: cs:quantal/wordpress-23\n"+
-		"  series: xenial\n"+
+		"  series: bionic\n"+
 		"  relations:\n"+
 		"  - - wordpress:juju-info\n"+
 		"    - logging:info\n"+
