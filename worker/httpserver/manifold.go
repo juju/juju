@@ -5,8 +5,6 @@ package httpserver
 
 import (
 	"crypto/tls"
-	"net"
-	"net/http"
 	"reflect"
 	"sync"
 
@@ -34,7 +32,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
-	NewTLSConfig          func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
+	NewTLSConfig          func(*state.State, func() *tls.Certificate) (*tls.Config, error)
 	NewWorker             func(Config) (worker.Worker, error)
 }
 
@@ -119,28 +117,9 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}()
 
 	systemState := statePool.SystemState()
-	tlsConfig, autocertHandler, err := config.NewTLSConfig(systemState, getCertificate)
+	tlsConfig, err := config.NewTLSConfig(systemState, getCertificate)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	var autocertListener net.Listener
-	if autocertHandler != nil {
-		autocertListener, err = net.Listen("tcp", ":80")
-		if err != nil {
-			// This manifold must be in a test - get a random port instead.
-			logger.Errorf("couldn't listen for autocert challenges on port 80: %s", err)
-			autocertListener, err = net.Listen("tcp", ":0")
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			logger.Debugf("listening for autocert challenges at %s instead", autocertListener.Addr())
-		}
-		defer func() {
-			if err != nil {
-				autocertListener.Close()
-			}
-		}()
 	}
 
 	mux := apiserverhttp.NewMux()
@@ -154,8 +133,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		AgentConfig:          agent.CurrentConfig(),
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		TLSConfig:            tlsConfig,
-		AutocertHandler:      autocertHandler,
-		AutocertListener:     autocertListener,
 		Mux:                  mux,
 	})
 	if err != nil {

@@ -27,8 +27,6 @@ var logger = loggo.GetLogger("juju.worker.httpserver")
 type Config struct {
 	AgentConfig          agent.Config
 	TLSConfig            *tls.Config
-	AutocertHandler      http.Handler
-	AutocertListener     net.Listener
 	Mux                  *apiserverhttp.Mux
 	PrometheusRegisterer prometheus.Registerer
 }
@@ -46,9 +44,6 @@ func (config Config) Validate() error {
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
-	}
-	if config.AutocertHandler != nil && config.AutocertListener == nil {
-		return errors.NewNotValid(nil, "AutocertListener must not be nil if AutocertHandler is not nil")
 	}
 	return nil
 }
@@ -126,20 +121,6 @@ func (w *Worker) loop() error {
 		err := server.Shutdown(context.Background())
 		w.catacomb.Kill(err)
 	}()
-
-	if w.config.AutocertHandler != nil {
-		autocertServer := &http.Server{
-			Handler:  w.config.AutocertHandler,
-			ErrorLog: serverLog,
-		}
-		go autocertServer.Serve(w.config.AutocertListener)
-		defer func() {
-			logger.Infof("shutting down autocert HTTP server")
-			// This will also close the autocert listener.
-			err := autocertServer.Shutdown(context.Background())
-			w.catacomb.Kill(err)
-		}()
-	}
 
 	url := fmt.Sprintf("https://%s", listener.Addr())
 	for {
