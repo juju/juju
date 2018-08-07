@@ -5,8 +5,8 @@ package watcher
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/worker/catacomb"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 // NotifyChannel is a change channel as described in the CoreWatcher docs.
@@ -136,4 +136,12 @@ func (nw *NotifyWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (nw *NotifyWorker) Wait() error {
 	return nw.catacomb.Wait()
+}
+
+// Report implements dependency.Reporter.
+func (nw *NotifyWorker) Report() map[string]interface{} {
+	if r, ok := nw.config.Handler.(worker.Reporter); ok {
+		return r.Report()
+	}
+	return nil
 }

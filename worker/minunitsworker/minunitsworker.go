@@ -5,7 +5,7 @@ package minunitsworker
 
 import (
 	"github.com/juju/loggo"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher/legacy"

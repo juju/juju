@@ -10,15 +10,15 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	workercontroller "github.com/juju/juju/worker/controller"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type ManifoldSuite struct {

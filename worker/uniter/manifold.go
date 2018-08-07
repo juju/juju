@@ -7,7 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"

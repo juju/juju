@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.workers.caasprovisioner")

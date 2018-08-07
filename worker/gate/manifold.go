@@ -7,10 +7,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
-
-	"github.com/juju/juju/worker/dependency"
 )
 
 // Manifold returns a dependency.Manifold that wraps a single channel, shared

@@ -13,13 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerSuite struct {

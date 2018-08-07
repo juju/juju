@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/dependency"
 )
 
 var logger = loggo.GetLogger("juju.worker.apiservercertwatcher")

@@ -20,13 +20,13 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type TestIPVersion struct {

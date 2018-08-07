@@ -8,8 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
-
-	"github.com/juju/juju/worker/dependency"
+	"gopkg.in/juju/worker.v1/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run a worker for

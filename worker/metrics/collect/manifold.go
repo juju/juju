@@ -20,10 +20,10 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"

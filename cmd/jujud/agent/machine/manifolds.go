@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -45,7 +46,6 @@ import (
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dblogpruner"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"

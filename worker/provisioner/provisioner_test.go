@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -52,7 +53,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type CommonProvisionerSuite struct {

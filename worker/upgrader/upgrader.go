@@ -15,13 +15,13 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/gate"
 )
 

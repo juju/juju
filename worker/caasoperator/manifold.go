@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"

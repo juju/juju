@@ -6,11 +6,11 @@ package externalcontrollerupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/externalcontrollerupdater"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes the resources used by an

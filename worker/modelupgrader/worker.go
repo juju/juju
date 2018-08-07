@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"

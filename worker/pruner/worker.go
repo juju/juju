@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.pruner")

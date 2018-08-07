@@ -6,10 +6,10 @@ package modelworkermanager
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 	workerstate "github.com/juju/juju/worker/state"
 )
 

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon.v2-unstable"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	corewatcher "github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type watcherSuite struct {

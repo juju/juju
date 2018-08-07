@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/uniter"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"

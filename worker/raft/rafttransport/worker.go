@@ -18,11 +18,11 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 

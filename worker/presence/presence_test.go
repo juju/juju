@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/pubsub/forwarder"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/presence"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type PresenceSuite struct {

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes the resources and configuration on which the

@@ -8,11 +8,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type ManifoldsSuite struct {

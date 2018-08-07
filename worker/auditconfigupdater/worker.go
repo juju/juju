@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // ConfigSource lets us get notifications of changes to controller

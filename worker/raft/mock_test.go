@@ -6,7 +6,7 @@ package raft_test
 import (
 	"github.com/hashicorp/raft"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/testing"

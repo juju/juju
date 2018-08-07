@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
 )
 

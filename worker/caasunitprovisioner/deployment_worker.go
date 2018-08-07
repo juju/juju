@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // deploymentWorker informs the CAAS broker of how many pods to run and their spec, and

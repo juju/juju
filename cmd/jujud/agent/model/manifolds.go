@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -36,7 +37,6 @@ import (
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/credentialvalidator"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/fortress"

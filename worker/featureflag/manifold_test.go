@@ -8,15 +8,15 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/featureflag"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type ValidationSuite struct {

@@ -5,11 +5,11 @@ package agent
 
 import (
 	"github.com/juju/errors"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // Manifold returns a manifold that starts a worker proxying the supplied Agent
@@ -60,4 +60,13 @@ func (w *agentWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *agentWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+// Report shows up in the dependency engine report.
+func (w *agentWorker) Report() map[string]interface{} {
+	cfg := w.agent.CurrentConfig()
+	return map[string]interface{}{
+		"model-uuid": cfg.Model().Id(),
+		"agent":      cfg.Tag().String(),
+	}
 }
