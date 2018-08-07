@@ -9,9 +9,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run a worker for

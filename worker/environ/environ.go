@@ -6,10 +6,10 @@ package environ
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.environ")

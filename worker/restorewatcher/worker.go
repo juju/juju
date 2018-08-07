@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // Config holds the worker configuration.

@@ -14,12 +14,12 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/dependency"
 	workerstate "github.com/juju/juju/worker/state"
 )
 

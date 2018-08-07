@@ -4,10 +4,10 @@
 package engine
 
 import (
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // Some manifolds just depend on an agent; this type configures them.

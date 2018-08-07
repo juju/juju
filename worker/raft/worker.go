@@ -17,8 +17,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 

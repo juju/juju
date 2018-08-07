@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/state/watcher/watchertest"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/auditconfigupdater"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type updaterSuite struct {

@@ -15,11 +15,11 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 //var logger = loggo.GetLogger("juju.worker.pubsub")

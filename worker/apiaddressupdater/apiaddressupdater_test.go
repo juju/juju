@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	apimachiner "github.com/juju/juju/api/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiaddressupdater"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type APIAddressUpdaterSuite struct {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/juju/sockets"

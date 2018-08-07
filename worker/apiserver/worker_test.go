@@ -10,7 +10,8 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type workerFixture struct {

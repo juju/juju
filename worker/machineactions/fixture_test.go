@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var actionNotFoundErr = errors.New("action not found")

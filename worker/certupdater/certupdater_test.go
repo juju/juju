@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucert "github.com/juju/juju/cert"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
-	"github.com/juju/juju/worker/workertest"
 )
 
 func TestPackage(t *stdtesting.T) {

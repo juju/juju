@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/tomb.v2"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // kubernetesWatcher reports changes to kubernetes

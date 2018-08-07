@@ -5,7 +5,8 @@ package firewaller
 
 import (
 	"github.com/juju/errors"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.

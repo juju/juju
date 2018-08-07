@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // Logger represents the logging methods called.

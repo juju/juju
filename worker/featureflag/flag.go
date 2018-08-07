@@ -6,11 +6,11 @@ package featureflag
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // This implements a flag worker that restarts any time the specified

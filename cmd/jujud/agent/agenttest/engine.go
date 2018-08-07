@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	goyaml "gopkg.in/yaml.v2"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // NewWorkerMatcher takes an EngineTracker, an engine manager id to
