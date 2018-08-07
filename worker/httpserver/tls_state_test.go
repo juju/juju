@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/worker/httpserver"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/crypto/acme"
 	gc "gopkg.in/check.v1"
 )
 
@@ -92,6 +93,7 @@ func (s *TLSStateAutocertSuite) TestAutocert(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
 	c.Assert(s.autocertQueried, jc.IsTrue)
+	c.Assert(tlsConfig.NextProtos, jc.DeepEquals, []string{"h2", "http/1.1", acme.ALPNProto})
 }
 
 func (s *TLSStateAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
