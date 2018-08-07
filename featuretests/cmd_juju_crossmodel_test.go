@@ -82,6 +82,32 @@ varnish:
 `[1:])
 }
 
+func (s *crossmodelSuite) TestListEndpointsOtherModel(c *gc.C) {
+	s.addOtherModelApplication(c)
+
+	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewListEndpointsCommand(),
+		"-m", "otheruser/othermodel", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+hosted-mysql:
+  application: mysql
+  store: kontroll
+  charm: local:quantal/mysql-1
+  offer-url: otheruser/othermodel.hosted-mysql
+  endpoints:
+    database:
+      interface: mysql
+      role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    otheruser:
+      display-name: Other
+      access: admin
+`[1:])
+}
+
 func (s *crossmodelSuite) TestRemove(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
 	s.AddTestingApplication(c, "riakservice", ch)
@@ -376,7 +402,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 }
 
 func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
-	otherOwner := s.Factory.MakeUser(c, &factory.UserParams{Name: "otheruser"})
+	otherOwner := s.Factory.MakeUser(c, &factory.UserParams{Name: "otheruser", DisplayName: "Other"})
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel", Owner: otherOwner.Tag()})
 	s.AddCleanup(func(*gc.C) { otherModel.Close() })
 

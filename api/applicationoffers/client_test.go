@@ -105,6 +105,8 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
+		OwnerName:        "fred",
+		ModelName:        "prod",
 		OfferName:        offerName,
 		Endpoints:        relations,
 		ApplicationName:  "mysql",
@@ -128,6 +130,8 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Filters, gc.HasLen, 1)
 			c.Assert(args.Filters[0], jc.DeepEquals, params.OfferFilter{
+				OwnerName:       "fred",
+				ModelName:       "prod",
 				OfferName:       filter.OfferName,
 				ApplicationName: filter.ApplicationName,
 				Endpoints: []params.EndpointFilterAttributes{{
