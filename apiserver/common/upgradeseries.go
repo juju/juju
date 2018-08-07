@@ -31,7 +31,7 @@ type UpgradeSeriesMachine interface {
 type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error)
+	UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
 	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
 }
 
@@ -309,7 +309,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(
 		return result
 	}
 
-	status, err := unit.UpgradeSeriesStatus(statusType)
+	status, err := unit.UpgradeSeriesStatus()
 	if err != nil {
 		result.Error = ServerError(err)
 		return result
