@@ -42,15 +42,15 @@ var (
 )
 
 var charmSettings = map[string]interface{}{
+	"multiline-value": map[string]interface{}{
+		"description": "Specifies multiline-value",
+		"type":        "string",
+		"value":       "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
+	},
 	"title": map[string]interface{}{
 		"description": "Specifies title",
 		"type":        "string",
 		"value":       "Nearly There",
-	},
-	"multiline-value": map[string]interface{}{
-		"description": "Specifies title",
-		"type":        "string",
-		"value":       "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
 	},
 	"skill-level": map[string]interface{}{
 		"description": "Specifies skill-level",
