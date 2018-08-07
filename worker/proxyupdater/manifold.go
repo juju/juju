@@ -6,7 +6,7 @@ package proxyupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"

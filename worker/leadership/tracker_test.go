@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	coreleadership "github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"

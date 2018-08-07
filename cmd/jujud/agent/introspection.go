@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	names "gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"

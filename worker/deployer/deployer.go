@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	apideployer "github.com/juju/juju/api/deployer"

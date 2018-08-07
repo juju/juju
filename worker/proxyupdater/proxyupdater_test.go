@@ -20,7 +20,7 @@ import (
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	proxyupdaterapi "github.com/juju/juju/api/proxyupdater"
 	coretesting "github.com/juju/juju/testing"

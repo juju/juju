@@ -4,7 +4,7 @@
 package terminationworker
 
 import (
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 )
 
