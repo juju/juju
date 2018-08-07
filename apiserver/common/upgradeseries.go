@@ -173,6 +173,7 @@ func (u *UpgradeSeriesAPI) getUnit(tag names.Tag) (UpgradeSeriesUnit, error) {
 }
 
 // NewExternalUpgradeSeriesAPI can be used for API registration.
+// TODO (manadart 2018-08-07) I think we can delete this.
 func NewExternalUpgradeSeriesAPI(
 	st *state.State,
 	resources facade.Resources,
