@@ -6,8 +6,7 @@ package fortress
 import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-
-	"github.com/juju/juju/worker/dependency"
+	"gopkg.in/juju/worker.v1/dependency"
 )
 
 // Manifold returns a dependency.Manifold that runs a fortress.

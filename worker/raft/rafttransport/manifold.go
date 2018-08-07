@@ -9,12 +9,12 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run an apiserver-based

@@ -6,10 +6,10 @@ package fanconfigurer
 import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
 	apifanconfigurer "github.com/juju/juju/api/fanconfigurer"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/utils/clock"
 )
 

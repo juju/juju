@@ -12,12 +12,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/statemetrics"
-	"github.com/juju/juju/worker/dependency"
 )
 
 var logger = loggo.GetLogger("juju.worker.state")

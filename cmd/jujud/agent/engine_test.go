@@ -5,13 +5,13 @@ package agent
 
 import (
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
 )
 
 var (

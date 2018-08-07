@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/dependency"
 )
 
 var logger = loggo.GetLogger("juju.worker.controller")

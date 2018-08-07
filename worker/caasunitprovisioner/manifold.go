@@ -6,10 +6,10 @@ package caasunitprovisioner
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines a CAAS unit provisioner's dependencies.

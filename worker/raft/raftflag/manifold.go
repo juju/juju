@@ -7,9 +7,9 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run a raftflag.Worker in

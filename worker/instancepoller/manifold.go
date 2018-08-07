@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes the resources used by the instancepoller worker.

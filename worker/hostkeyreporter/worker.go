@@ -11,9 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
-
-	"github.com/juju/juju/worker/dependency"
 )
 
 var logger = loggo.GetLogger("juju.worker.hostkeyreporter")

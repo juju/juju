@@ -8,9 +8,9 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // Logger represents the logging methods called.

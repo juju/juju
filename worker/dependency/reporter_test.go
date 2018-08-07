@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
+	"gopkg.in/juju/worker.v1/dependency"
 	"github.com/juju/juju/worker/workertest"
 )
 
