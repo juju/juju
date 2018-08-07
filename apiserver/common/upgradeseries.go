@@ -275,7 +275,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 }
 
 // upgradeSeriesMachineStatus returns a result containing the upgrade-series
-// status of all units managed buy the input machine, for the input status type.
+// status of all units managed by the input machine, for the input status type.
 func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(
 	machineTag names.Tag, statusType model.UpgradeSeriesStatusType,
 ) []params.UpgradeSeriesStatusResult {
