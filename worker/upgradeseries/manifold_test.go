@@ -1,21 +1,22 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package upgradeseries_test
 
 import (
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/golang/mock/gomock"
-	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/upgradeseries"
-	"gopkg.in/juju/names.v2"
-	"gopkg.in/juju/worker.v1"
 )
 
 type ManifoldSuite struct {
@@ -70,7 +71,7 @@ func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "nil Logger not valid")
 }
 
-func (s *ManifoldSuite) TestStartAgentNameMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAgentName(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -85,7 +86,7 @@ func (s *ManifoldSuite) TestStartAgentNameMissing(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartAPICallerNameMissing(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
