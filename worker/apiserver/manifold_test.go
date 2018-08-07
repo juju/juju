@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/worker/apiserver"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type ManifoldSuite struct {

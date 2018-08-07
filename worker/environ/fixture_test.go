@@ -10,12 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type fixture struct {

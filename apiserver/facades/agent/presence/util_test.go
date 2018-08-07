@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/facades/agent/presence"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var (

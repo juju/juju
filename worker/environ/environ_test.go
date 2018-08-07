@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/environs"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type TrackerSuite struct {

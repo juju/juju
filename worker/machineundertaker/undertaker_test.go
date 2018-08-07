@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/environs"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/machineundertaker"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type undertakerSuite struct {

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/dblogpruner"
-	"github.com/juju/juju/worker/workertest"
 )
 
 func TestPackage(t *stdtesting.T) {

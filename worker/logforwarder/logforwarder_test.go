@@ -11,6 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/logforwarder"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type LogForwarderSuite struct {

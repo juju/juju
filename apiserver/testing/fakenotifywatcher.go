@@ -5,9 +5,9 @@ package testing
 
 import (
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/workertest"
 )
 
 // FakeNotifyWatcher is an implementation of state.NotifyWatcher which

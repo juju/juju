@@ -11,11 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coreleadership "github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type TrackerSuite struct {

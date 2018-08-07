@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type Suite struct {

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/auditlog"
@@ -18,7 +19,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type manifoldSuite struct {

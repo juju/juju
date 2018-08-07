@@ -8,10 +8,10 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/worker/workertest"
 )
 
 // UndertakerSuite is *not* complete. But it's a lot more so

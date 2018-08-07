@@ -10,13 +10,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasfirewaller"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerSuite struct {

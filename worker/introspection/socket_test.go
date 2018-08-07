@@ -19,12 +19,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	// Bring in the state package for the tracker profile.
 	"github.com/juju/juju/core/presence"
 	_ "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type suite struct {

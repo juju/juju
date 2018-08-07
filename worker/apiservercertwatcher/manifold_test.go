@@ -14,13 +14,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type ManifoldSuite struct {
