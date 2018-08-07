@@ -13,14 +13,13 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/worker/catacomb"
 )
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
 //go:generate mockgen -package upgradeseries_test -destination worker_mock_test.go gopkg.in/juju/worker.v1 Worker
 
-//go:generate mockgen -package upgradeseries_test -destination package_mock_test.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService
+//go:generate mockgen -package upgradeseries_test -destination package_mock_test.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
@@ -39,6 +38,9 @@ type Config struct {
 
 	// Tag is the current machine tag.
 	Tag names.Tag
+
+	// ServiceAccess provides access to the local init system.
+	Service ServiceAccess
 }
 
 // Validate validates the upgrade-series worker configuration.
@@ -56,14 +58,10 @@ func (config Config) Validate() error {
 	if config.FacadeFactory == nil {
 		return errors.NotValidf("nil FacadeFactory")
 	}
+	if config.Service == nil {
+		return errors.NotValidf("nil Service")
+	}
 	return nil
-}
-
-// AgentService is a service managed by the local init system, for running a
-// unit agent.
-type AgentService interface {
-	Start() error
-	Stop() error
 }
 
 // upgradeSeriesWorker is responsible for machine and unit agent requirements
@@ -79,14 +77,7 @@ type upgradeSeriesWorker struct {
 	facadeFactory func(names.Tag) Facade
 	catacomb      catacomb.Catacomb
 	logger        Logger
-
-	// listServices returns a slice of service names known by the local init
-	// system. It is a shim for service.ListServices.
-	listServices func() ([]string, error)
-
-	// discoverService returns a service implementation base on the input
-	// service name and config. It is a shim for service.DiscoverService.
-	discoverService func(string, common.Conf) (AgentService, error)
+	service       ServiceAccess
 }
 
 // NewWorker creates, starts and returns a new upgrade-series worker based on
@@ -97,12 +88,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &upgradeSeriesWorker{
-		Facade:       config.FacadeFactory(config.Tag),
-		logger:       config.Logger,
-		listServices: service.ListServices,
-		discoverService: func(name string, cfg common.Conf) (AgentService, error) {
-			return service.DiscoverService(name, cfg)
-		},
+		Facade:        config.FacadeFactory(config.Tag),
+		facadeFactory: config.FacadeFactory,
+		logger:        config.Logger,
+		service:       config.Service,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -137,19 +126,31 @@ func (w *upgradeSeriesWorker) loop() error {
 // handleUpgradeSeriesChange retrieves the upgrade-series status for this
 // machine and all of its units.
 // Based on the status, actions are taken.
+// TODO (manadart 2018-08-06): This needs major upstream work to streamline.
+// We should effectively be getting the whole upgrade-series lock - machine
+// and unit data, to properly assess the current state and to transition as
+// required.
 func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
-	statuses, err := w.UpgradeSeriesStatus(model.PrepareStatus)
+	preparation, err := w.UpgradeSeriesStatus(model.PrepareStatus)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	prepared := unitsPrepared(preparation)
 
-	if unitAgentsReadyToStop(statuses) {
-		return errors.Trace(w.transitionPrepareComplete(len(statuses)))
+	// TODO (manadart 2018-08-06): When we refactor to one set of status
+	// values, there will only be one of these calls.
+	completion, err := w.UpgradeSeriesStatus(model.CompleteStatus)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	incomplete := unitsIncomplete(completion)
+
+	if prepared && incomplete {
+		return errors.Trace(w.transitionPrepareComplete(len(preparation)))
 	}
 
-	if unitAgentsReadyToStart(statuses) {
-		return errors.Trace(w.transitionUnitsStarted(len(statuses)))
-
+	if incomplete {
+		return errors.Trace(w.transitionUnitsStarted(len(completion)))
 	}
 
 	return nil
@@ -165,24 +166,31 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 		return errors.Trace(err)
 	}
 
+	// TODO (manadart 2018-08-06) This needs to be reworked during allotted
+	// refactor period. At present there is no way to determine the status of
+	// a *specific* unit, so we need to ensure they are *all* stopped and only
+	// perform the status updates afterwards. We can't afford to be in a
+	// partial state.
 	w.logger.Logf(loggo.INFO, "stopping units for series upgrade")
 	for unit, serviceName := range unitServices {
-		svc, err := w.discoverService(serviceName, common.Conf{})
+		svc, err := w.service.DiscoverService(serviceName)
+
+		running, err := svc.Running()
 		if err != nil {
 			return errors.Trace(err)
+		}
+		if !running {
+			continue
 		}
 
 		if err := svc.Stop(); err != nil {
 			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
 		}
 
-		if err := w.setUnitStatus(unit, model.CompleteStatus, model.UnitNotStarted); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
-	// TODO: Perhaps accrue errors above and stop the agents that we can,
-	// then report failures here.
+	// TODO (manadart 2018-08-07): Update the machine state.
+
 	return nil
 }
 
@@ -202,7 +210,7 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 // that are for unit agents. If the number of services returned differs from
 // input count, then a error is returned.
 func (w *upgradeSeriesWorker) unitAgentServices(statusCount int) (map[string]string, error) {
-	services, err := w.listServices()
+	services, err := w.service.ListServices()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -221,11 +229,11 @@ func (w *upgradeSeriesWorker) setUnitStatus(
 	return errors.Trace(w.facadeFactory(names.NewUnitTag(unitName)).SetUpgradeSeriesStatus(string(status), statusType))
 }
 
-func unitAgentsReadyToStop(statuses []string) bool {
+func unitsPrepared(statuses []string) bool {
 	return unitsAllWithStatus(statuses, model.UnitCompleted)
 }
 
-func unitAgentsReadyToStart(statuses []string) bool {
+func unitsIncomplete(statuses []string) bool {
 	return unitsAllWithStatus(statuses, model.UnitNotStarted)
 }
 
