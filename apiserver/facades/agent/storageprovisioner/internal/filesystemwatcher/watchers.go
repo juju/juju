@@ -39,6 +39,9 @@ func (fw Watchers) WatchModelManagedFilesystems() state.StringsWatcher {
 	})
 }
 
+// WatchUnitManagedFilesystems returns a strings watcher that reports both
+// unit-scoped filesystems, and model-scoped, volume-backed filesystems
+// that are attached to units of the specified application.
 func (fw Watchers) WatchUnitManagedFilesystems(app names.ApplicationTag) state.StringsWatcher {
 	w := &hostFilesystemsWatcher{
 		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
@@ -67,8 +70,8 @@ func (fw Watchers) WatchUnitManagedFilesystems(app names.ApplicationTag) state.S
 }
 
 // WatchMachineManagedFilesystems returns a strings watcher that reports both
-// host-scoped filesystems, and model-scoped, volume-backed filesystems
-// that are attached to the specified host.
+// machine-scoped filesystems, and model-scoped, volume-backed filesystems
+// that are attached to the specified machine.
 func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.StringsWatcher {
 	w := &hostFilesystemsWatcher{
 		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
@@ -249,9 +252,9 @@ func (fw Watchers) WatchModelManagedFilesystemAttachments() state.StringsWatcher
 }
 
 // WatchMachineManagedFilesystemAttachments returns a strings watcher that
-// reports lifecycle changes for attachments to both host-scoped filesystems,
+// reports lifecycle changes for attachments to both machine-scoped filesystems,
 // and model-scoped, volume-backed filesystems that are attached to the
-// specified host.
+// specified machine.
 func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) state.StringsWatcher {
 	w := &hostFilesystemAttachmentsWatcher{
 		stringsWatcherBase:               stringsWatcherBase{out: make(chan []string)},
@@ -276,6 +279,10 @@ func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) 
 	return w
 }
 
+// WatchMachineManagedFilesystemAttachments returns a strings watcher that
+// reports lifecycle changes for attachments to both unit-scoped filesystems,
+// and model-scoped, volume-backed filesystems that are attached to units of the
+// specified application.
 func (fw Watchers) WatchUnitManagedFilesystemAttachments(app names.ApplicationTag) state.StringsWatcher {
 	w := &hostFilesystemAttachmentsWatcher{
 		stringsWatcherBase:               stringsWatcherBase{out: make(chan []string)},

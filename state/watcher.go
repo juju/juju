@@ -264,6 +264,10 @@ func (sb *storageBackend) WatchUnitFilesystems(app names.ApplicationTag) Strings
 
 func (sb *storageBackend) watchHostStorage(host names.Tag, collection string) StringsWatcher {
 	mb := sb.mb
+	// The regexp patterns below represent either machine or unit attached storage, <hostid>/<number>.
+	// For machines, it can be something like 4/6.
+	// For units the pattern becomes something like mariadb/0/6.
+	// The host parameter passed into this method is the application name, any of whose units we are interested in.
 	pattern := fmt.Sprintf("^%s(/%s)?/%s$", mb.docID(host.Id()), names.NumberSnippet, names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := fmt.Sprintf("%s(/%s)?/.*", host.Id(), names.NumberSnippet)
@@ -344,6 +348,7 @@ func (sb *storageBackend) watchHostStorageAttachments(host names.Tag, collection
 	// Go's regex doesn't support lookbacks so the pattern match is a bit clumsy.
 	// We look for either a machine attachment id, eg 0:0/42
 	// or a unit attachment id, eg mariadb/0:mariadb/0/42
+	// The host parameter passed into this method is the application name, any of whose units we are interested in.
 	pattern := fmt.Sprintf("^%s(/%s)?:%s(/%s)?/.*", mb.docID(host.Id()), names.NumberSnippet, host.Id(), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := fmt.Sprintf("%s(/%s)?:%s(/%s)?/.*", host.Id(), names.NumberSnippet, host.Id(), names.NumberSnippet)

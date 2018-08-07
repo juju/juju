@@ -96,7 +96,7 @@ func NewStorageProvisionerAPIv3(
 			}
 		}, nil
 	}
-	canAccessStorageEntity := func(tag names.Tag, allowHosts bool) bool {
+	canAccessStorageEntity := func(tag names.Tag, allowMachines bool) bool {
 		switch tag := tag.(type) {
 		case names.VolumeTag:
 			machineTag, ok := names.VolumeMachine(tag)
@@ -131,14 +131,13 @@ func NewStorageProvisionerAPIv3(
 					if canAccessStorageMachine(a.Host(), false) {
 						return true
 					}
-					return authorizer.AuthController()
 				}
 			} else if err != state.ErrNoBackingVolume {
 				return false
 			}
 			return authorizer.AuthController()
 		case names.MachineTag:
-			return allowHosts && canAccessStorageMachine(tag, true)
+			return allowMachines && canAccessStorageMachine(tag, true)
 		case names.ApplicationTag:
 			return authorizer.AuthController()
 		default:
@@ -356,8 +355,7 @@ func (s *StorageProvisionerAPIv3) watchStorageEntities(
 			w = watchEnvironStorage()
 		case names.ApplicationTag:
 			w = watchApplicationStorage(tag)
-		}
-		if w == nil {
+		default:
 			return "", nil, common.ServerError(errors.NotSupportedf("watching storage for %v", tag))
 		}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -223,6 +224,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	}
 
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
@@ -289,6 +292,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 					},
 				},
 			}},
+			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
 	serviceArg := &core.Service{
@@ -398,6 +402,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	}
 
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
@@ -482,6 +488,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 					},
 				},
 			}},
+			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
 	serviceArg := &core.Service{

@@ -945,7 +945,7 @@ func volumeAttachmentId(hostId, volumeName string) string {
 func ParseVolumeAttachmentId(id string) (names.Tag, names.VolumeTag, error) {
 	fields := strings.SplitN(id, ":", 2)
 	isValidHost := names.IsValidMachine(fields[0]) || names.IsValidUnit(fields[0])
-	if len(fields) != 2 || !isValidHost || !names.IsValidFilesystem(fields[1]) {
+	if len(fields) != 2 || !isValidHost || !names.IsValidVolume(fields[1]) {
 		return names.MachineTag{}, names.VolumeTag{}, errors.Errorf("invalid volume attachment ID %q", id)
 	}
 	var hostTag names.Tag
