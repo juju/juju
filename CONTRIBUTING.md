@@ -162,7 +162,7 @@ Staying up-to-date
 ------------------
 
 The [Gopkg.lock](Gopkg.lock) file can get out of date, for
-example when you made change to Gopkg.toml.  When it is out of date, run
+example when you have changed Gopkg.toml. When it is out of date, run
 `dep`. In practice, you can wait until you get a compile error about
 an external package not existing/having an incorrect API, and then rerun
 `dep ensure -v`.

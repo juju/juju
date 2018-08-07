@@ -249,11 +249,11 @@
   revision = "08023a0215e7fc27a9aecd8b8c50913c40019478"
 
 [[projects]]
-  digest = "1:2b90d61b3bea4732ad1046dbba6e873d6c8dfe58c585bdcdef7a9b525000d7a1"
+  digest = "0:"
   name = "github.com/gorilla/websocket"
   packages = ["."]
   pruneopts = ""
-  revision = "804cb600d06b10672f2fbc0a336a7bee507a428e"
+  revision = "5ed622c449da6d44c3c8329331ff47a9e5844f71"
 
 [[projects]]
   digest = "1:b4e7b1e55d849b7d1a4d96d1a029141d7ac963b4403e6ddb1cdb6e5384ab4781"

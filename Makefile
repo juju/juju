@@ -37,7 +37,10 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-ifeq ($(JUJU_MAKE_GODEPS),true)  # ?? change this to JUJU_MAKE_DEP
+# keep this for backwards compatibility for ci-run on 2.4, 2.3 branchs
+JUJU_MAKE_DEP ?= $(JUJU_MAKE_GODEPS)
+
+ifeq ($(JUJU_MAKE_DEP),true)
 $(GOPATH)/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
@@ -48,6 +51,9 @@ else
 dep:
 	@echo "skipping dep"
 endif
+
+# keep this for backwards compatibility for ci-run on 2.4, 2.3 branchs
+godeps: dep
 
 build: dep go-build
 
