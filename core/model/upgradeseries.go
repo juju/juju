@@ -91,19 +91,19 @@ const (
 type UnitSeriesUpgradeStatus string
 
 const (
-	UnitNotStarted UnitSeriesUpgradeStatus = "NotStarted"
-	UnitStarted    UnitSeriesUpgradeStatus = "Started"
-	UnitErrored    UnitSeriesUpgradeStatus = "Errored"
-	UnitCompleted  UnitSeriesUpgradeStatus = "Completed"
+	NotStarted       UnitSeriesUpgradeStatus = "NotStarted"
+	PrepareStarted   UnitSeriesUpgradeStatus = "Started"
+	PrepareCompleted UnitSeriesUpgradeStatus = "Completed"
+	UnitErrored      UnitSeriesUpgradeStatus = "Errored"
 )
 
 // Validates a string returning an UpgradeSeriesPrepareStatus, if valid, or an error.
 func ValidateUnitSeriesUpgradeStatus(series string) (UnitSeriesUpgradeStatus, error) {
 	unCheckedStatus := UnitSeriesUpgradeStatus(series)
 	switch unCheckedStatus {
-	case UnitNotStarted, UnitStarted, UnitErrored, UnitCompleted:
+	case NotStarted, PrepareStarted, UnitErrored, PrepareCompleted:
 		return unCheckedStatus, nil
 	}
 
-	return UnitNotStarted, errors.Errorf("encountered invalid unit upgrade series status of %q", series)
+	return NotStarted, errors.Errorf("encountered invalid unit upgrade series status of %q", series)
 }

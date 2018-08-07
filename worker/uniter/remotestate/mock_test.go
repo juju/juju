@@ -267,7 +267,7 @@ func (u *mockUnit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, err
 }
 
 func (u *mockUnit) UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (string, error) {
-	return string(model.UnitStarted), nil
+	return string(model.PrepareStarted), nil
 }
 
 func (m *mockUnit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {

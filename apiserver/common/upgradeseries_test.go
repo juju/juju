@@ -135,17 +135,17 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UnitCompleted, model.PrepareStatus).Return(nil)
+	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.PrepareCompleted, model.PrepareStatus).Return(nil)
 
 	args := params.SetUpgradeSeriesStatusParams{
 		Params: []params.SetUpgradeSeriesStatusParam{
 			{
 				Entity: params.Entity{Tag: s.unitTag1.String()},
-				Status: string(model.UnitCompleted),
+				Status: string(model.PrepareCompleted),
 			},
 			{
 				Entity: params.Entity{Tag: names.NewUnitTag("mysql/2").String()},
-				Status: string(model.UnitCompleted),
+				Status: string(model.PrepareCompleted),
 			},
 		},
 	}
@@ -166,7 +166,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitCompleted, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.PrepareCompleted, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -180,7 +180,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
 			{
-				Status: string(model.UnitCompleted),
+				Status: string(model.PrepareCompleted),
 				Error:  nil,
 			},
 			{
@@ -206,9 +206,9 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 
 	mockApplication.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
 	mockUnit1.EXPECT().Tag().Return(s.unitTag1)
-	mockUnit1.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitStarted, nil)
+	mockUnit1.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.PrepareStarted, nil)
 	mockUnit2.EXPECT().Tag().Return(s.unitTag2)
-	mockUnit2.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitCompleted, nil)
+	mockUnit2.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.PrepareCompleted, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -221,11 +221,11 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
 			{
-				Status: string(model.UnitStarted),
+				Status: string(model.PrepareStarted),
 				Error:  nil,
 			},
 			{
-				Status: string(model.UnitCompleted),
+				Status: string(model.PrepareCompleted),
 				Error:  nil,
 			},
 		},

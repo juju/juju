@@ -716,11 +716,11 @@ func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
 	// assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus(model.PrepareStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, string(model.UnitStarted))
+	c.Assert(status, gc.Equals, string(model.PrepareStarted))
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
-	arbitraryStatus := string(model.UnitNotStarted)
+	arbitraryStatus := string(model.NotStarted)
 	arbitraryStatusType := model.PrepareStatus
 
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus, arbitraryStatusType)
@@ -728,13 +728,13 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
-	arbitraryNonDefaultStatus := string(model.UnitNotStarted)
+	arbitraryNonDefaultStatus := string(model.NotStarted)
 	arbitraryStatusType := model.PrepareStatus
 
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
 
-	// Change the state to something other than the default remote state of UnitStarted
+	// Change the state to something other than the default remote state of PrepareStarted
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryNonDefaultStatus, model.PrepareStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -756,13 +756,13 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C
 	s.CreateUpgradeSeriesLock(c, unit2.Name())
 
 	// Complete one unit
-	err = unit2.SetUpgradeSeriesStatus(model.UnitCompleted, model.PrepareStatus)
+	err = unit2.SetUpgradeSeriesStatus(model.PrepareCompleted, model.PrepareStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The other unit should still be in the started state
 	status, err := s.wordpressUnit.UpgradeSeriesStatus(model.PrepareStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UnitStarted)
+	c.Assert(status, gc.Equals, model.PrepareStarted)
 }
 
 func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {

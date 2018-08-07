@@ -2143,8 +2143,8 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: model.UnitStarted, Timestamp: bson.Now()}
-		completeUnits[i] = unitStatus{Id: name, Status: model.UnitNotStarted, Timestamp: bson.Now()}
+		prepareUnits[i] = unitStatus{Id: name, Status: model.PrepareStarted, Timestamp: bson.Now()}
+		completeUnits[i] = unitStatus{Id: name, Status: model.NotStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:             m.Id(),
@@ -2209,7 +2209,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 			return nil, err
 		}
 		for i := range lock.CompleteUnits {
-			lock.CompleteUnits[i].Status = model.UnitStarted
+			lock.CompleteUnits[i].Status = model.PrepareStarted
 		}
 		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
 	}

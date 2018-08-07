@@ -65,7 +65,7 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
 	arbitraryMachineID := "id"
 	arbitraryUnitName := "application/0"
-	arbitraryStatus := model.UnitStarted
+	arbitraryStatus := model.PrepareStarted
 	arbitraryStatusType := model.PrepareStatus
 	arbitraryUpdateTime := bson.Now()
 	expectedOp := txn.Op{
@@ -88,7 +88,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryStatus := model.UnitStarted
+	arbitraryStatus := model.PrepareStarted
 	arbitraryStatusType := model.PrepareStatus
 	arbitraryUnitName := "application/0"
 	arbitraryUnitIndex := 0

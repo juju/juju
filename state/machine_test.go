@@ -2719,6 +2719,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C)
 
 	sts, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(sts, gc.Equals, model.UnitNotStarted)
 
 	err = s.machine.CompleteUpgradeSeries()
@@ -2726,6 +2727,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C)
 
 	sts, err = s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(sts, gc.Equals, model.UnitStarted)
 }
 
@@ -2756,6 +2758,9 @@ func (s *MachineSuite) TestMachineSeriesUpgradeStatusTranslatesCorrectly(c *gc.C
 	// TODO (manadart 2018-08-07): Re-enable once CompleteUpgradeSeries
 	// is correct. It does not appear to change the machine status.
 	//c.Check(sts, gc.Equals, model.UpgradeSeriesComplete)
+=======
+	c.Assert(status, gc.Equals, model.PrepareStarted)
+>>>>>>> Rename existing constants to reflect linear state progression.
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {
