@@ -110,6 +110,11 @@ func makeImage(id, storage, virtType, arch, version, region string) *imagemetada
 
 var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	// LTS-dependent requires new entries upon new LTS release.
+	// 18.04:amd64
+	makeImage("ami-00001133", "ssd", "hvm", "amd64", "18.04", "test"),
+	makeImage("ami-00001139", "ebs", "hvm", "amd64", "18.04", "test"),
+	makeImage("ami-00001135", "ssd", "pv", "amd64", "18.04", "test"),
+
 	// 16.04:amd64
 	makeImage("ami-00000133", "ssd", "hvm", "amd64", "16.04", "test"),
 	makeImage("ami-00000139", "ebs", "hvm", "amd64", "16.04", "test"),
@@ -157,6 +162,7 @@ const testImageMetadataIndex = `
    "datatype": "image-ids",
    "format": "products:1.0",
    "products": [
+    "com.ubuntu.cloud:server:18.04:amd64",
     "com.ubuntu.cloud:server:16.04:amd64",
     "com.ubuntu.cloud:server:14.04:amd64",
     "com.ubuntu.cloud:server:14.04:i386",
@@ -174,6 +180,61 @@ const testImageMetadataProduct = `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
+    "com.ubuntu.cloud:server:18.04:amd64": {
+      "release": "trusty",
+      "version": "18.04",
+      "arch": "amd64",
+      "versions": {
+        "20121218": {
+          "items": {
+            "usee1pi": {
+              "root_store": "instance",
+              "virt": "pv",
+              "region": "us-east-1",
+              "id": "ami-00001111"
+            },
+            "usww1pe": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "eu-west-1",
+              "id": "ami-00001116"
+            },
+            "apne1pe": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "ap-northeast-1",
+              "id": "ami-00001126"
+            },
+            "apne1he": {
+              "root_store": "ssd",
+              "virt": "hvm",
+              "region": "ap-northeast-1",
+              "id": "ami-00001187"
+            },
+            "test1peebs": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "test",
+              "id": "ami-00001133"
+            },
+            "test1pessd": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "test",
+              "id": "ami-00001139"
+            },
+            "test1he": {
+              "root_store": "ssd",
+              "virt": "hvm",
+              "region": "test",
+              "id": "ami-00001135"
+            }
+          },
+          "pubname": "ubuntu-trusty-16.04-amd64-server-20121218",
+          "label": "release"
+        }
+      }
+    },
    "com.ubuntu.cloud:server:16.04:amd64": {
      "release": "trusty",
      "version": "16.04",
