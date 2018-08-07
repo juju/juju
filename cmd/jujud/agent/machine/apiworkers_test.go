@@ -8,12 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/testing"
-	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type APIWorkersSuite struct {

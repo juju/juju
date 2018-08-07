@@ -17,12 +17,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/metricsadder"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 )

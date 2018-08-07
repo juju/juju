@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/uniter/runner"
 )

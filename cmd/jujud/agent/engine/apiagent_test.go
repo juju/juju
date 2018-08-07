@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type AgentAPIManifoldSuite struct {

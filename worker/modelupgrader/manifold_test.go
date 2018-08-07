@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelupgrader"
 )

@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 )
 

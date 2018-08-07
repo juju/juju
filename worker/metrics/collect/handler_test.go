@@ -16,10 +16,10 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/juju/worker.v1/workertest"
 
 	coretesting "github.com/juju/juju/testing"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"

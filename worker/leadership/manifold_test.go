@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	coreleadership "github.com/juju/juju/core/leadership"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/leadership"
 )
 

@@ -11,12 +11,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/machineundertaker"
 )
 

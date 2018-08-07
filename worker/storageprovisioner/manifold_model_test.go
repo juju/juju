@@ -10,10 +10,10 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 

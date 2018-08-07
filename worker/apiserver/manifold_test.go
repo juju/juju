@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/gate"
 )
 
