@@ -550,9 +550,23 @@ func (k *kubernetesClient) EnsureService(
 		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
 	}
 
-	// Add a deployment controller configured to create the specified number of units/pods.
+	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
+	// Defensively check to see if a stateful set is already used.
+	useStatefulSet := len(params.Filesystems) > 0
+	if !useStatefulSet {
+		statefulsets := k.AppsV1().StatefulSets(k.namespace)
+		_, err := statefulsets.Get(deploymentName(appName), v1.GetOptions{IncludeUninitialized: true})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		useStatefulSet = err == nil
+		if useStatefulSet {
+			logger.Debugf("no updated filesystems but already using stateful set for %v", appName)
+		}
+	}
+
 	numPods := int32(numUnits)
-	if len(params.Filesystems) > 0 {
+	if useStatefulSet {
 		if err := k.configureStatefulSet(appName, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
@@ -590,6 +604,11 @@ func (k *kubernetesClient) configureStorage(
 	}
 	logger.Debugf("configuring pod filesystems: %+v", filesystems)
 	for i, fs := range filesystems {
+		// TODO(caas) - support rootfs etc
+		if fs.Provider != K8s_ProviderType {
+			logger.Warningf("ignoring storage with missing k8s provider type")
+			continue
+		}
 		var mountPath string
 		if fs.Attachment != nil {
 			mountPath = fs.Attachment.Path
@@ -757,6 +776,7 @@ func (k *kubernetesClient) configureStatefulSet(
 					Labels: map[string]string{labelApplication: appName},
 				},
 			},
+			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
 	podSpec := unitSpec.Pod

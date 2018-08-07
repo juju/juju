@@ -151,7 +151,7 @@ settings:
 // ALL application configuration rather than just CAAS configuration. It should
 // be renamed.
 func (s *cmdJujuSuite) TestApplicationGetCAASModel(c *gc.C) {
-	expected := `application: dummy-application
+	expected := `application: gitlab-application
 application-config:
   juju-application-path:
     default: /
@@ -224,7 +224,7 @@ application-config:
     source: default
     type: bool
     value: false
-charm: dummy
+charm: gitlab
 settings:
   outlook:
     description: No default outlook.
@@ -250,14 +250,14 @@ settings:
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caas-model"})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy-application", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab-application", Charm: ch})
 	schema, err := caas.ConfigSchema(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "dummy-application")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "gitlab-application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }

@@ -251,7 +251,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
+	path := testcharms.RepoForSeries(series).ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)

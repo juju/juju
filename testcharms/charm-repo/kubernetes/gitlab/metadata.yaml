@@ -12,5 +12,8 @@ tags:
 provides:
   website:
     interface: http
+requires:
+  db:
+    interface: mysql    
 series:
   - kubernetes

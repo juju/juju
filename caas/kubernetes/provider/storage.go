@@ -6,11 +6,14 @@ package provider
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 	"github.com/juju/schema"
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -42,7 +45,7 @@ func (k *kubernetesClient) StorageProvider(t storage.ProviderType) (storage.Prov
 }
 
 type storageProvider struct {
-	client caas.Broker
+	client *kubernetesClient
 }
 
 var _ storage.Provider = (*storageProvider)(nil)
@@ -130,10 +133,117 @@ func (g *storageProvider) DefaultPools() []*storage.Config {
 
 // VolumeSource is defined on the storage.Provider interface.
 func (g *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
-	return nil, errors.NotSupportedf("volumes")
+	return &volumeSource{
+		client: g.client,
+	}, nil
 }
 
 // FilesystemSource is defined on the storage.Provider interface.
 func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
+}
+
+type volumeSource struct {
+	client *kubernetesClient
+}
+
+var _ storage.VolumeSource = (*volumeSource)(nil)
+
+// CreateVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+	// noop
+	return nil, nil
+}
+
+// ListVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
+	pVolumes := v.client.CoreV1().PersistentVolumes()
+	vols, err := pVolumes.List(v1.ListOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeIds := make([]string, 0, len(vols.Items))
+	for _, v := range vols.Items {
+		volumeIds = append(volumeIds, v.Name)
+	}
+	return volumeIds, nil
+}
+
+// DescribeVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
+	pVolumes := v.client.CoreV1().PersistentVolumes()
+	vols, err := pVolumes.List(v1.ListOptions{
+		// TODO(caas) - filter on volumes for the current model
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	byId := make(map[string]core.PersistentVolume)
+	for _, vol := range vols.Items {
+		byId[vol.Name] = vol
+	}
+	results := make([]storage.DescribeVolumesResult, len(volIds))
+	for i, volId := range volIds {
+		vol, ok := byId[volId]
+		if !ok {
+			results[i].Error = errors.NotFoundf("%s", volId)
+			continue
+		}
+		results[i].VolumeInfo = &storage.VolumeInfo{
+			Size:       uint64(vol.Size()),
+			VolumeId:   vol.Name,
+			Persistent: vol.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain,
+		}
+	}
+	return results, nil
+}
+
+// DestroyVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+	logger.Debugf("destroy k8s volumes: %v", volIds)
+	pVolumes := v.client.CoreV1().PersistentVolumes()
+	return foreachVolume(volIds, func(volumeId string) error {
+		return pVolumes.Delete(volumeId, &v1.DeleteOptions{
+			PropagationPolicy: &defaultPropagationPolicy,
+		})
+	}), nil
+}
+
+// ReleaseVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+	// noop
+	return make([]error, len(volIds)), nil
+}
+
+// ValidateVolumeParams is specified on the storage.VolumeSource interface.
+func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	// TODO(caas) - we need to validate params based on the underlying substrate
+	return nil
+}
+
+// AttachVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	// noop
+	return nil, nil
+}
+
+// DetachVolumes is specified on the storage.VolumeSource interface.
+func (v *volumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+	// noop
+	return make([]error, len(attachParams)), nil
+}
+
+func foreachVolume(volumeIds []string, f func(string) error) []error {
+	results := make([]error, len(volumeIds))
+	var wg sync.WaitGroup
+	for i, volumeId := range volumeIds {
+		wg.Add(1)
+		go func(i int, volumeId string) {
+			defer wg.Done()
+			results[i] = f(volumeId)
+		}(i, volumeId)
+	}
+	wg.Wait()
+	return results
 }

@@ -30,7 +30,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -53,11 +53,11 @@ type VolumeAccessor interface {
 
 	// WatchVolumes watches for changes to volumes that this storage
 	// provisioner is responsible for.
-	WatchVolumes() (watcher.StringsWatcher, error)
+	WatchVolumes(scope names.Tag) (watcher.StringsWatcher, error)
 
 	// WatchVolumeAttachments watches for changes to volume attachments
 	// that this storage provisioner is responsible for.
-	WatchVolumeAttachments() (watcher.MachineStorageIdsWatcher, error)
+	WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
 
 	// Volumes returns details of volumes with the specified tags.
 	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
@@ -95,11 +95,11 @@ type VolumeAccessor interface {
 type FilesystemAccessor interface {
 	// WatchFilesystems watches for changes to filesystems that this
 	// storage provisioner is responsible for.
-	WatchFilesystems() (watcher.StringsWatcher, error)
+	WatchFilesystems(scope names.Tag) (watcher.StringsWatcher, error)
 
 	// WatchFilesystemAttachments watches for changes to filesystem attachments
 	// that this storage provisioner is responsible for.
-	WatchFilesystemAttachments() (watcher.MachineStorageIdsWatcher, error)
+	WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
 
 	// Filesystems returns details of filesystems with the specified tags.
 	Filesystems([]names.FilesystemTag) ([]params.FilesystemResult, error)
@@ -225,16 +225,20 @@ func (w *storageProvisioner) loop() error {
 		machineBlockDevicesChanges = machineBlockDevicesWatcher.Changes()
 	}
 
-	volumesWatcher, err := w.config.Volumes.WatchVolumes()
-	if err != nil {
-		return errors.Annotate(err, "watching volumes")
+	// Units don't have unit-scoped volumes - all volumes are
+	// associated with the model (namespace).
+	if w.config.Scope.Kind() != names.ApplicationTagKind {
+		volumesWatcher, err := w.config.Volumes.WatchVolumes(w.config.Scope)
+		if err != nil {
+			return errors.Annotate(err, "watching volumes")
+		}
+		if err := w.catacomb.Add(volumesWatcher); err != nil {
+			return errors.Trace(err)
+		}
+		volumesChanges = volumesWatcher.Changes()
 	}
-	if err := w.catacomb.Add(volumesWatcher); err != nil {
-		return errors.Trace(err)
-	}
-	volumesChanges = volumesWatcher.Changes()
 
-	filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems()
+	filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems(w.config.Scope)
 	if err != nil {
 		return errors.Annotate(err, "watching filesystems")
 	}
@@ -243,7 +247,7 @@ func (w *storageProvisioner) loop() error {
 	}
 	filesystemsChanges = filesystemsWatcher.Changes()
 
-	volumeAttachmentsWatcher, err := w.config.Volumes.WatchVolumeAttachments()
+	volumeAttachmentsWatcher, err := w.config.Volumes.WatchVolumeAttachments(w.config.Scope)
 	if err != nil {
 		return errors.Annotate(err, "watching volume attachments")
 	}
@@ -252,7 +256,7 @@ func (w *storageProvisioner) loop() error {
 	}
 	volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
 
-	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments()
+	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments(w.config.Scope)
 	if err != nil {
 		return errors.Annotate(err, "watching filesystem attachments")
 	}
@@ -282,6 +286,10 @@ func (w *storageProvisioner) loop() error {
 	ctx.managedFilesystemSource = newManagedFilesystemSource(
 		ctx.volumeBlockDevices, ctx.filesystems,
 	)
+	// Units don't use managed volume backed filesystems.
+	if w.config.Scope.Kind() == names.ApplicationTagKind {
+		ctx.managedFilesystemSource = &noopFilesystemSource{}
+	}
 	for {
 
 		// Check if block devices need to be refreshed.

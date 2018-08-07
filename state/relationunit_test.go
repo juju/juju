@@ -1026,12 +1026,12 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
-	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
+	gitlabch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
-	wp := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpch})
+	gitlab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
 	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
 
-	prr := newProReqRelationForApps(c, st, mysql, wp)
+	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// First no address.
 	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)

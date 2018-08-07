@@ -223,7 +223,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	// at the same time as the pod as it can't be attached later.
 
 	// All units are currently homogeneous so we just
-	// need to get info for the first unit.
+	// need to get info for the first alive unit.
 	app, err := f.state.Application(appTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -240,15 +240,27 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemParams, err := f.applicationFilesystemParams(modelConfig, units[0].UnitTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	// The juju-storage-owner tag is set to the unit. We use it as a label on the CAAS volume.
-	// Since we used an arbitrary unit to get the info, reset the tag to the application.
-	for _, fsp := range filesystemParams {
-		fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
+	// Find the first alive unit which will be used to get filesystem info.
+	var aliveUnit Unit
+	for _, u := range units {
+		if u.Life() == state.Alive {
+			aliveUnit = u
+			break
+		}
+	}
+	var filesystemParams []params.KubernetesFilesystemParams
+	if aliveUnit != nil {
+		filesystemParams, err = f.applicationFilesystemParams(modelConfig, aliveUnit.UnitTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// The juju-storage-owner tag is set to the unit. We use it as a label on the CAAS volume.
+		// Since we used an arbitrary unit to get the info, reset the tag to the application.
+		for _, fsp := range filesystemParams {
+			fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
+		}
 	}
 
 	devices, err := f.devicesParams(app)

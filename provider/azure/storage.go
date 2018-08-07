@@ -618,7 +618,7 @@ func (v *azureVolumeSource) addDataDisk(
 	vm *compute.VirtualMachine,
 	diskName string,
 	volumeTag names.VolumeTag,
-	machineTag names.MachineTag,
+	machineTag names.Tag,
 	createOption compute.DiskCreateOptionTypes,
 	diskSizeGB *int32,
 ) (*storage.VolumeAttachment, error) {

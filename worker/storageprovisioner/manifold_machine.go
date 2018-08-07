@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -34,7 +34,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 	}
 
 	cfg := a.CurrentConfig()
-	api, err := storageprovisioner.NewState(apiCaller, cfg.Tag())
+	api, err := storageprovisioner.NewState(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

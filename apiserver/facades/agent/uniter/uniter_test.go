@@ -2454,10 +2454,10 @@ func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-gitlab-0"},
 		{Tag: "unit-foo-42"},
 		{Tag: "machine-0"},
-		{Tag: "application-wordpress"},
+		{Tag: "application-gitlab"},
 	}}
 
 	uniterAPI, err := uniter.NewUniterAPI(
@@ -3064,8 +3064,8 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		SetCharmURL: true,
@@ -3084,6 +3084,9 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	c.Assert(err, jc.ErrorIsNil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { apiState.Close() })
 
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: unit.Tag(),
+	}
 	u, err := apiState.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
@@ -4046,31 +4049,31 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
-	_, cm, wp, wpUnit := s.setupCAASModel(c)
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
 	st := cm.State()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
 	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
-	eps, err := st.InferEndpoints("wordpress", "mysql")
+	eps, err := st.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	wpRelUnit, err := rel.Unit(wpUnit)
+	wpRelUnit, err := rel.Unit(gitlabUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wpRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"
-	updateUnits.Updates = []*state.UpdateUnitOperation{wpUnit.UpdateOperation(state.UnitUpdateProperties{
+	updateUnits.Updates = []*state.UpdateUnitOperation{gitlabUnit.UpdateOperation(state.UnitUpdateProperties{
 		Address: &addr,
 		Ports:   &[]string{"443"},
 	})}
-	err = wp.UpdateUnits(&updateUnits)
+	err = gitlab.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = wp.UpdateCloudService("", []network.Address{
+	err = gitlab.UpdateCloudService("", []network.Address{
 		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
 		{Value: "54.32.1.2", Scope: network.ScopePublic},
 	})
@@ -4078,7 +4081,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
-		Unit:       wpUnit.Tag().String(),
+		Unit:       gitlabUnit.Tag().String(),
 		Bindings:   []string{"db"},
 		RelationId: &relId,
 	}

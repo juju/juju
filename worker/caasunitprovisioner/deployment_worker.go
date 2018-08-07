@@ -144,7 +144,7 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
+		logger.Debugf("created/updated deployment for %s for %v units", w.application, aliveUnits)
 		if !serviceUpdated && !spec.OmitServiceFrontend {
 			// TODO(caas) - add a service watcher
 			service, err := w.broker.Service(w.application)

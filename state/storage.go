@@ -1177,18 +1177,25 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		machineId, err := u.AssignedMachineId()
-		if errors.IsNotAssigned(err) {
-			// The unit is not assigned to a machine, therefore
-			// there can be no associated machine storage. It
-			// is safe to remove.
-			ops = append(ops, u.noAssignedMachineOp())
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		} else {
-			machineTag := names.NewMachineTag(machineId)
-			volumeAttachment, filesystemAttachment, err := sb.storageMachineAttachment(
-				si, unit, machineTag,
+
+		processAttachments := true
+		var hostTag names.Tag = unit
+		if u.ShouldBeAssigned() {
+			machineId, err := u.AssignedMachineId()
+			if errors.IsNotAssigned(err) {
+				// The unit is not assigned to a machine, therefore
+				// there can be no associated machine storage. It
+				// is safe to remove.
+				ops = append(ops, u.noAssignedMachineOp())
+				processAttachments = false
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+			hostTag = names.NewMachineTag(machineId)
+		}
+		if processAttachments {
+			volumeAttachment, filesystemAttachment, err := sb.storageHostAttachment(
+				si, unit, hostTag,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1253,10 +1260,10 @@ func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 	return ops
 }
 
-func (sb *storageBackend) storageMachineAttachment(
+func (sb *storageBackend) storageHostAttachment(
 	si *storageInstance,
 	unitTag names.UnitTag,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 ) (VolumeAttachment, FilesystemAttachment, error) {
 	switch si.Kind() {
 	case StorageKindBlock:
@@ -1264,7 +1271,7 @@ func (sb *storageBackend) storageMachineAttachment(
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		att, err := sb.VolumeAttachment(machineTag, volume.VolumeTag())
+		att, err := sb.VolumeAttachment(hostTag, volume.VolumeTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -1275,7 +1282,7 @@ func (sb *storageBackend) storageMachineAttachment(
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		att, err := sb.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		att, err := sb.FilesystemAttachment(hostTag, filesystem.FilesystemTag())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

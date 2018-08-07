@@ -69,21 +69,12 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 
-func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
-	_, err := enginetest.RunAgentAPIManifold(
-		storageprovisioner.MachineManifold(s.config),
-		&fakeAgent{tag: names.NewUnitTag("foo/0")},
-		&fakeAPIConn{})
-	c.Assert(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UnitTag")
-	c.Assert(s.newCalled, jc.IsFalse)
-}
-
 func (s *MachineManifoldSuite) TestNonAgent(c *gc.C) {
 	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})
-	c.Assert(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UserTag")
+	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 

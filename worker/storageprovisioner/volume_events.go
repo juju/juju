@@ -131,7 +131,7 @@ func updatePendingVolume(ctx *context, params storage.VolumeParams) {
 		return
 	}
 	if params.Attachment.InstanceId == "" {
-		watchMachine(ctx, params.Attachment.Machine)
+		watchMachine(ctx, params.Attachment.Machine.(names.MachineTag))
 		ctx.incompleteVolumeParams[params.Tag] = params
 	} else {
 		delete(ctx.incompleteVolumeParams, params.Tag)
@@ -156,7 +156,7 @@ func updatePendingVolumeAttachment(
 	params storage.VolumeAttachmentParams,
 ) {
 	if params.InstanceId == "" {
-		watchMachine(ctx, params.Machine)
+		watchMachine(ctx, params.Machine.(names.MachineTag))
 	} else if params.VolumeId != "" {
 		delete(ctx.incompleteVolumeAttachmentParams, id)
 		scheduleOperations(ctx, &attachVolumeOp{args: params})
@@ -292,6 +292,10 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 		return errors.Annotate(err, "getting volume params")
 	}
 	for _, params := range volumeParams {
+		if params.Attachment != nil && params.Attachment.Machine.Kind() != names.MachineTagKind {
+			logger.Debugf("not queuing volume for non-machine %v", params.Attachment.Machine)
+			continue
+		}
 		updatePendingVolume(ctx, params)
 	}
 	return nil
@@ -342,6 +346,10 @@ func processAliveVolumeAttachments(
 		return errors.Trace(err)
 	}
 	for i, params := range params {
+		if params.Machine.Kind() != names.MachineTagKind {
+			logger.Debugf("not queuing volume attachment for non-machine %v", params.Machine)
+			continue
+		}
 		if volume, ok := ctx.volumes[params.Volume]; ok {
 			params.VolumeId = volume.VolumeId
 		}
@@ -481,7 +489,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 				in.VolumeTag, in.Attachment.VolumeTag,
 			)
 		}
-		machineTag, err := names.ParseMachineTag(in.Attachment.MachineTag)
+		hostTag, err := names.ParseTag(in.Attachment.MachineTag)
 		if err != nil {
 			return storage.VolumeParams{}, errors.Annotate(
 				err, "parsing attachment machine tag",
@@ -490,7 +498,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 		attachment = &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   providerType,
-				Machine:    machineTag,
+				Machine:    hostTag,
 				InstanceId: instance.Id(in.Attachment.InstanceId),
 				ReadOnly:   in.Attachment.ReadOnly,
 			},
@@ -508,7 +516,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 }
 
 func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage.VolumeAttachmentParams, error) {
-	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	hostTag, err := names.ParseTag(in.MachineTag)
 	if err != nil {
 		return storage.VolumeAttachmentParams{}, errors.Trace(err)
 	}
@@ -519,7 +527,7 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 	return storage.VolumeAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
-			Machine:    machineTag,
+			Machine:    hostTag,
 			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
