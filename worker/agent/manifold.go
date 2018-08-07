@@ -61,3 +61,12 @@ func (w *agentWorker) Kill() {
 func (w *agentWorker) Wait() error {
 	return w.tomb.Wait()
 }
+
+// Report shows up in the dependency engine report.
+func (w *agentWorker) Report() map[string]interface{} {
+	cfg := w.agent.CurrentConfig()
+	return map[string]interface{}{
+		"model-uuid": cfg.Model().Id(),
+		"agent":      cfg.Tag().String(),
+	}
+}

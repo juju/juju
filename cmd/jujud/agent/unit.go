@@ -212,6 +212,8 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		WorstError:  cmdutil.MoreImportantError,
 		ErrorDelay:  3 * time.Second,
 		BounceDelay: 10 * time.Millisecond,
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
 	if err != nil {

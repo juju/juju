@@ -7,7 +7,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/agent"
@@ -79,10 +80,42 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, "expected *agent.agentWorker->*agent.Agent; got *agent.agentWorker->*interface {}")
 }
 
+func (s *ManifoldSuite) TestReport(c *gc.C) {
+	inputAgent := &dummyAgent{}
+	manifold := agent.Manifold(inputAgent)
+
+	agentWorker, err := manifold.Start(nil)
+	c.Check(err, jc.ErrorIsNil)
+	defer assertStop(c, agentWorker)
+
+	reporter, ok := agentWorker.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"model-uuid": "model-uuid",
+		"agent":      "machine-42",
+	})
+}
+
 type dummyAgent struct {
 	coreagent.Agent
 }
 
+func (dummyAgent) CurrentConfig() coreagent.Config {
+	return fakeConfig{}
+}
+
 func assertStop(c *gc.C, w worker.Worker) {
 	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+}
+
+type fakeConfig struct {
+	coreagent.Config
+}
+
+func (fakeConfig) Model() names.ModelTag {
+	return names.NewModelTag("model-uuid")
+}
+
+func (fakeConfig) Tag() names.Tag {
+	return names.NewMachineTag("42")
 }

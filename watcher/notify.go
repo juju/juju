@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -136,4 +137,12 @@ func (nw *NotifyWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (nw *NotifyWorker) Wait() error {
 	return nw.catacomb.Wait()
+}
+
+// Report implements dependency.Reporter.
+func (nw *NotifyWorker) Report() map[string]interface{} {
+	if r, ok := nw.config.Handler.(worker.Reporter); ok {
+		return r.Report()
+	}
+	return nil
 }

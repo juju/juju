@@ -31,6 +31,8 @@ type context struct {
 	// accessLog holds the names and types of resource requests, and any error
 	// encountered. It does not include requests made after expiry.
 	accessLog []resourceAccess
+
+	logger Logger
 }
 
 // Abort is part of the Context interface.
@@ -40,7 +42,7 @@ func (ctx *context) Abort() <-chan struct{} {
 
 // Get is part of the Context interface.
 func (ctx *context) Get(resourceName string, out interface{}) error {
-	logger.Tracef("%q manifold requested %q resource", ctx.clientName, resourceName)
+	ctx.logger.Tracef("%q manifold requested %q resource", ctx.clientName, resourceName)
 	select {
 	case <-ctx.expired:
 		return errors.New("expired context: cannot be used outside Start func")

@@ -6,7 +6,9 @@ package dependency_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -687,6 +689,14 @@ func (s *EngineSuite) TestConfigValidate(c *gc.C) {
 		func(config *dependency.EngineConfig) {
 			config.BounceDelay = -time.Second
 		}, "BounceDelay is negative",
+	}, {
+		func(config *dependency.EngineConfig) {
+			config.Clock = nil
+		}, "missing Clock not valid",
+	}, {
+		func(config *dependency.EngineConfig) {
+			config.Logger = nil
+		}, "missing Logger not valid",
 	}}
 
 	for i, test := range tests {
@@ -696,6 +706,8 @@ func (s *EngineSuite) TestConfigValidate(c *gc.C) {
 			WorstError:  firstError,
 			ErrorDelay:  time.Second,
 			BounceDelay: time.Second,
+			Clock:       clock.WallClock,
+			Logger:      loggo.GetLogger("test"),
 		}
 		test.breakConfig(&config)
 

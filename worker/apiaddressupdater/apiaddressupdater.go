@@ -5,6 +5,7 @@ package apiaddressupdater
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,6 +24,9 @@ var logger = loggo.GetLogger("juju.worker.apiaddressupdater")
 type APIAddressUpdater struct {
 	addresser APIAddresser
 	setter    APIAddressSetter
+
+	mu      sync.Mutex
+	current [][]network.HostPort
 }
 
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
@@ -62,9 +66,24 @@ func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
 
 // Handle is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
+	hpsToSet, err := c.getAddresses()
+	if err != nil {
+		return err
+	}
+	logger.Debugf("updating API hostPorts to %+v", hpsToSet)
+	c.mu.Lock()
+	c.current = hpsToSet
+	c.mu.Unlock()
+	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
+		return fmt.Errorf("error setting addresses: %v", err)
+	}
+	return nil
+}
+
+func (c *APIAddressUpdater) getAddresses() ([][]network.HostPort, error) {
 	addresses, err := c.addresser.APIHostPorts()
 	if err != nil {
-		return fmt.Errorf("error getting addresses: %v", err)
+		return nil, fmt.Errorf("error getting addresses: %v", err)
 	}
 
 	// Filter out any LXC or LXD bridge addresses. See LP bug #1416928. and
@@ -85,14 +104,27 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 			hpsToSet = append(hpsToSet, hps)
 		}
 	}
-	logger.Debugf("updating API hostPorts to %+v", hpsToSet)
-	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
-		return fmt.Errorf("error setting addresses: %v", err)
-	}
-	return nil
+	return hpsToSet, nil
 }
 
 // TearDown is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) TearDown() error {
 	return nil
+}
+
+// Report shows up in the dependency engine report.
+func (c *APIAddressUpdater) Report() map[string]interface{} {
+	report := make(map[string]interface{})
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var servers [][]string
+	for _, server := range c.current {
+		var addresses []string
+		for _, addr := range server {
+			addresses = append(addresses, addr.String())
+		}
+		servers = append(servers, addresses)
+	}
+	report["servers"] = servers
+	return report
 }

@@ -63,4 +63,10 @@ const (
 	// KeyType holds a string representation of the type by which a resource
 	// was accessed.
 	KeyType = "type"
+
+	// KeyStartCount holds the number of times the worker has been started.
+	KeyStartCount = "start-count"
+
+	// KeyLastStart holds the time of when the worker was last started.
+	KeyLastStart = "started"
 )

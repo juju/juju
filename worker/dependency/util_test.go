@@ -6,9 +6,11 @@ package dependency_test
 import (
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
@@ -21,6 +23,7 @@ type engineFixture struct {
 	worstError dependency.WorstErrorFunc
 	filter     dependency.FilterFunc
 	dirty      bool
+	clock      clock.Clock
 }
 
 func (fix *engineFixture) isFatalFunc() dependency.IsFatalFunc {
@@ -38,12 +41,18 @@ func (fix *engineFixture) worstErrorFunc() dependency.WorstErrorFunc {
 }
 
 func (fix *engineFixture) run(c *gc.C, test func(*dependency.Engine)) {
+	fixutureClock := fix.clock
+	if fixutureClock == nil {
+		fixutureClock = clock.WallClock
+	}
 	config := dependency.EngineConfig{
 		IsFatal:     fix.isFatalFunc(),
 		WorstError:  fix.worstErrorFunc(),
 		Filter:      fix.filter, // can be nil anyway
 		ErrorDelay:  coretesting.ShortWait / 2,
 		BounceDelay: coretesting.ShortWait / 10,
+		Clock:       fixutureClock,
+		Logger:      loggo.GetLogger("test"),
 	}
 
 	engine, err := dependency.NewEngine(config)

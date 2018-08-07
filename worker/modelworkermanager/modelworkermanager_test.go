@@ -144,6 +144,24 @@ func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
 	})
 }
 
+func (s *suite) TestReport(c *gc.C) {
+	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockModelGetter) {
+		mw.sendModelChange("uuid")
+		s.assertStarts(c, "uuid")
+
+		reporter, ok := w.(worker.Reporter)
+		c.Assert(ok, jc.IsTrue)
+		report := reporter.Report()
+		c.Assert(report, gc.NotNil)
+		// TODO: pass a clock through in the worker config so it can be passed
+		// to the worker.Runner used in the model to control time.
+		// For now, we just look at the started state.
+		workers := report["workers"].(map[string]interface{})
+		modelWorker := workers["uuid"].(map[string]interface{})
+		c.Assert(modelWorker["state"], gc.Equals, "started")
+	})
+}
+
 type testFunc func(worker.Worker, *mockModelWatcher, *mockModelGetter)
 type killFunc func(*gc.C, worker.Worker)
 
