@@ -61,6 +61,7 @@ var seriesVersions map[string]string = map[string]string{
 	"raring":  "13.04",
 	"trusty":  "14.04",
 	"xenial":  "16.04",
+	"bionic":  "18.04",
 }
 
 type expectedMetadata struct {
@@ -147,7 +148,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2-latest-lts",
 		"type":            "ec2",
