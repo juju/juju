@@ -34,13 +34,9 @@ func (w *CleanupWorker) Wait() error {
 	return err
 }
 
-type reporter interface {
-	Report() map[string]interface{}
-}
-
 // Report implements dependency.Reporter.
 func (w *CleanupWorker) Report() map[string]interface{} {
-	if r, ok := w.Worker.(reporter); ok {
+	if r, ok := w.Worker.(worker.Reporter); ok {
 		return r.Report()
 	}
 	return nil
