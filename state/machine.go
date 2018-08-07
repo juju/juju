@@ -2221,6 +2221,28 @@ func (m *Machine) CompleteUpgradeSeries() error {
 	return nil
 }
 
+// MachineUpgradeSeriesStatus returns the upgrade-series status of a machine.
+// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
+// and the unit-based methods renamed to indicate their context.
+// The translation code can be removed once the old->new bootstrap is no
+// longer required.
+func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return -1, errors.NotFoundf("upgrade series lock for machine %q", m.Id())
+	}
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	status, err := model.FromOldUpgradeSeriesStatus(lock.PrepareStatus, lock.CompleteStatus)
+	return status, errors.Trace(err)
+}
+
 // UpgradeSeriesPrepareStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus(unitName string, statusType model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)

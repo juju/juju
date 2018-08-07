@@ -70,7 +70,7 @@ func FromOldUpgradeSeriesStatus(prepare, complete MachineSeriesUpgradeStatus) (U
 	case MachineSeriesUpgradeNotStarted:
 		return UpgradeSeriesNotStarted, nil
 	case MachineSeriesUpgradeStarted:
-		return UpgradeSeriesCompleteStarted, nil
+		return UpgradeSeriesPrepareStarted, nil
 	case MachineSeriesUpgradeAgentsStopped:
 		return UpgradeSeriesPreparePending, nil
 	}
