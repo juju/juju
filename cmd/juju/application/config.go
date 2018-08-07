@@ -358,13 +358,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		if !found {
 			return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
 		}
-		out := &bytes.Buffer{}
-		err := cmd.FormatYaml(out, info["value"])
-		if err != nil {
-			return err
-		}
-		fmt.Fprint(ctx.Stdout, out.String())
-		return nil
+		return c.out.Write(ctx, info["value"])
 	}
 
 	resultsMap := map[string]interface{}{
