@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
@@ -101,6 +101,12 @@ func (nh *notifyHandler) CheckActions(c *gc.C, actions ...string) {
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
 	c.Check(nh.actions, gc.DeepEquals, actions)
+}
+
+func (nh *notifyHandler) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"test": true,
+	}
 }
 
 // During teardown we try to stop the worker, but don't hang the test suite if
@@ -307,4 +313,14 @@ func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "change channel closed")
 	s.actor.CheckActions(c, "setup", "teardown")
 	s.worker = nil
+}
+
+func (s *notifyWorkerSuite) TestWorkerReport(c *gc.C) {
+	// Check that the worker has a report method, and it calls through to the
+	// handler.
+	reporter, ok := s.worker.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"test": true,
+	})
 }
