@@ -21,10 +21,9 @@ func (s UpgradeSeriesStatus) String() string {
 const (
 	UpgradeSeriesNotStarted UpgradeSeriesStatus = iota
 	UpgradeSeriesPrepareStarted
-	UpgradeSeriesPreparePending
+	UpgradeSeriesPrepareMachine
 	UpgradeSeriesPrepareComplete
 	UpgradeSeriesCompleteStarted
-	UpgradeSeriesCompletePending
 	UpgradeSeriesComplete
 	UpgradeSeriesError
 )
@@ -32,10 +31,9 @@ const (
 var upgradeSeriesStatusNames = map[UpgradeSeriesStatus]string{
 	UpgradeSeriesNotStarted:      "not started",
 	UpgradeSeriesPrepareStarted:  "prepare started",
-	UpgradeSeriesPreparePending:  "prepare pending",
+	UpgradeSeriesPrepareMachine:  "prepare machine",
 	UpgradeSeriesPrepareComplete: "prepare complete",
 	UpgradeSeriesCompleteStarted: "complete started",
-	UpgradeSeriesCompletePending: "complete pending",
 	UpgradeSeriesComplete:        "complete",
 	UpgradeSeriesError:           "error",
 }
@@ -50,14 +48,12 @@ func (s UpgradeSeriesStatus) ToOldStatus() (UpgradeSeriesStatusType, MachineSeri
 		return PrepareStatus, MachineSeriesUpgradeNotStarted
 	case UpgradeSeriesPrepareStarted:
 		return PrepareStatus, MachineSeriesUpgradeStarted
-	case UpgradeSeriesPreparePending:
+	case UpgradeSeriesPrepareMachine:
 		return PrepareStatus, MachineSeriesUpgradeAgentsStopped
 	case UpgradeSeriesPrepareComplete:
 		return PrepareStatus, MachineSeriesUpgradeComplete
 	case UpgradeSeriesCompleteStarted:
 		return CompleteStatus, MachineSeriesUpgradeStarted
-	case UpgradeSeriesCompletePending:
-		return CompleteStatus, MachineSeriesUpgradeUnitsRunning
 	case UpgradeSeriesComplete:
 		return CompleteStatus, MachineSeriesUpgradeComplete
 	default:
@@ -72,7 +68,7 @@ func FromOldUpgradeSeriesStatus(prepare, complete MachineSeriesUpgradeStatus) (U
 	case MachineSeriesUpgradeStarted:
 		return UpgradeSeriesPrepareStarted, nil
 	case MachineSeriesUpgradeAgentsStopped:
-		return UpgradeSeriesPreparePending, nil
+		return UpgradeSeriesPrepareMachine, nil
 	}
 
 	// Arriving here, prepare is complete, so we check the complete status.
@@ -81,8 +77,6 @@ func FromOldUpgradeSeriesStatus(prepare, complete MachineSeriesUpgradeStatus) (U
 		return UpgradeSeriesPrepareComplete, nil
 	case MachineSeriesUpgradeStarted:
 		return UpgradeSeriesCompleteStarted, nil
-	case MachineSeriesUpgradeUnitsRunning:
-		return UpgradeSeriesCompletePending, nil
 	case MachineSeriesUpgradeComplete:
 		return UpgradeSeriesComplete, nil
 	}
@@ -106,8 +100,6 @@ type MachineSeriesUpgradeStatus string
 const (
 	MachineSeriesUpgradeNotStarted    MachineSeriesUpgradeStatus = "NotStarted"
 	MachineSeriesUpgradeStarted       MachineSeriesUpgradeStatus = "Started"
-	MachineSeriesUpgradeUnitsRunning  MachineSeriesUpgradeStatus = "UnitsRunning"
-	MachineSeriesUpgradeJujuComplete  MachineSeriesUpgradeStatus = "JujuComplete"
 	MachineSeriesUpgradeAgentsStopped MachineSeriesUpgradeStatus = "AgentsStopped"
 	MachineSeriesUpgradeComplete      MachineSeriesUpgradeStatus = "Complete"
 )
