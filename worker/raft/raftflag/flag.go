@@ -7,9 +7,8 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	worker "gopkg.in/juju/worker.v1"
-
-	"github.com/juju/juju/worker/catacomb"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.raft.raftflag")

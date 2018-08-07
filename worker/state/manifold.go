@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/statemetrics"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/dependency"
 )
 

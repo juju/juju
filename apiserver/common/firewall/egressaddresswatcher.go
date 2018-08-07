@@ -7,10 +7,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // EgressAddressWatcher reports changes to addresses

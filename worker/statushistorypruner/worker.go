@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/statushistory"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/pruner"
 )
 

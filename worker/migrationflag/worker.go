@@ -6,10 +6,10 @@ package migrationflag
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // ErrChanged indicates that a Worker has stopped because its

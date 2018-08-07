@@ -12,7 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/catacomb"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 type cleaner interface {

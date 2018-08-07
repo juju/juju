@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/worker/catacomb"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 type CatacombSuite struct {
