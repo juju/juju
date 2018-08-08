@@ -756,11 +756,11 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C
 	s.CreateUpgradeSeriesLock(c, unit2.Name())
 
 	// Complete one unit
-	err = unit2.SetUpgradeSeriesStatus(model.PrepareCompleted, model.PrepareStatus)
+	err = unit2.SetUpgradeSeriesStatus(model.PrepareCompleted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The other unit should still be in the started state
-	status, err := s.wordpressUnit.UpgradeSeriesStatus(model.PrepareStatus)
+	status, err := s.wordpressUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, model.PrepareStarted)
 }
