@@ -2720,7 +2720,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C)
 	sts, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(sts, gc.Equals, model.UnitNotStarted)
+	c.Assert(sts, gc.Equals, model.PrepareStarted)
 
 	err = s.machine.CompleteUpgradeSeries()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2761,6 +2761,11 @@ func (s *MachineSuite) TestMachineSeriesUpgradeStatusTranslatesCorrectly(c *gc.C
 =======
 	c.Assert(status, gc.Equals, model.PrepareStarted)
 >>>>>>> Rename existing constants to reflect linear state progression.
+=======
+	status, err = s.machine.UpgradeSeriesStatus(unit0.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, model.CompleteStarted)
+>>>>>>> Remove status type from complete transaction.
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {

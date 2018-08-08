@@ -2185,7 +2185,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	return nil
 }
 
-// CompleteUpgradeSeries notifies units and machines that and upgrade series is
+// CompleteUpgradeSeries notifies units and machines that an upgrade series is
 // ready for its "completion" phase.
 func (m *Machine) CompleteUpgradeSeries() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -2208,10 +2208,10 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if err != nil {
 			return nil, err
 		}
-		for i := range lock.CompleteUnits {
-			lock.CompleteUnits[i].Status = model.PrepareStarted
+		for i := range lock.PrepareUnits {
+			lock.PrepareUnits[i].Status = model.CompleteStarted
 		}
-		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
+		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.PrepareUnits), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2376,7 +2376,7 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			Assert: bson.D{{"$and", []bson.D{
 				//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
 				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
-			Update: bson.D{{"$set", bson.D{{"complete-units", units}}}},
+			Update: bson.D{{"$set", bson.D{{"prepare-units", units}}}},
 		},
 	}
 }
