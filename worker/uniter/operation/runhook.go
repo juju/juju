@@ -207,7 +207,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.PrepareCompleted, model.PrepareStatus)
 	case hooks.PostSeriesUpgrade:
 		logger.Debugf("completing post upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.PrepareCompleted, model.CompleteStatus)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.Completed, model.CompleteStatus)
 	}
 	return hasRunStatusSet && err == nil, err
 }

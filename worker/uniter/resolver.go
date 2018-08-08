@@ -296,7 +296,7 @@ func (s *uniterResolver) nextOp(
 	if localState.UpgradeSeriesCompleteStatus == model.NotStarted &&
 		// localState.UpgradeSeriesPrepareStatus == model.PrepareCompleted &&  //these checks ensure that the uniter is not stuck in its idle state after the prepare phase
 		// remoteState.UpgradeSeriesPrepareStatus == model.PrepareCompleted
-		remoteState.UpgradeSeriesCompleteStatus == model.PrepareStarted {
+		remoteState.UpgradeSeriesCompleteStatus == model.CompleteStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 
