@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -90,6 +91,38 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *clientSuite) TestZipHasHooks(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
+
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = ch.ArchiveTo(tempFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := *api.HasHooks
+	hasHooks, err := f(tempFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasHooks, jc.IsTrue)
+}
+
+func (s *clientSuite) TestZipHasNoHooks(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("category") // has no hooks
+
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = ch.ArchiveTo(tempFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := *api.HasHooks
+	hasHooks, err := f(tempFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasHooks, jc.IsFalse)
+}
+
 func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
@@ -117,6 +150,48 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+}
+
+func (s *clientSuite) TestAddLocalCharmFindingHooksError(c *gc.C) {
+	s.assertAddLocalCharmFailed(c,
+		func(string) (bool, error) {
+			return true, fmt.Errorf("bad zip")
+		},
+		`bad zip`)
+}
+
+func (s *clientSuite) TestAddLocalCharmNoHooks(c *gc.C) {
+	s.assertAddLocalCharmFailed(c,
+		func(string) (bool, error) {
+			return false, nil
+		},
+		`invalid charm \"dummy\": has no hooks`)
+}
+
+func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
+	curl, ch := s.testCharm(c)
+	s.PatchValue(api.HasHooks, f)
+	_, err := s.APIState.Client().AddLocalCharm(curl, ch)
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *clientSuite) TestAddLocalCharmDefinetelyWithHooks(c *gc.C) {
+	curl, ch := s.testCharm(c)
+	s.PatchValue(api.HasHooks, func(string) (bool, error) {
+		return true, nil
+	})
+
+	savedCURL, err := s.APIState.Client().AddLocalCharm(curl, ch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedCURL.String(), gc.Equals, curl.String())
+}
+
+func (s *clientSuite) testCharm(c *gc.C) (*charm.URL, charm.Charm) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	return curl, charmArchive
 }
 
 func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
