@@ -108,7 +108,7 @@ func (s *clientSuite) TestZipHasHooks(c *gc.C) {
 }
 
 func (s *clientSuite) TestZipHasNoHooks(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("riak") // has no hooks
+	ch := testcharms.Repo.CharmDir("category") // has no hooks
 
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
