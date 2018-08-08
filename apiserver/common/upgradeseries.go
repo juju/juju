@@ -25,6 +25,7 @@ type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
 	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
 }
 
 type UpgradeSeriesUnit interface {
@@ -37,16 +38,16 @@ type UpgradeSeriesUnit interface {
 // UpgradeSeriesState implements the UpgradeSeriesBackend indirection
 // over state.State.
 type UpgradeSeriesState struct {
-	st *state.State
+	St *state.State
 }
 
-func (shim UpgradeSeriesState) Machine(id string) (UpgradeSeriesMachine, error) {
-	m, err := shim.st.Machine(id)
+func (s UpgradeSeriesState) Machine(id string) (UpgradeSeriesMachine, error) {
+	m, err := s.St.Machine(id)
 	return &upgradeSeriesMachine{m}, err
 }
 
-func (shim UpgradeSeriesState) Unit(id string) (UpgradeSeriesUnit, error) {
-	return shim.st.Unit(id)
+func (s UpgradeSeriesState) Unit(id string) (UpgradeSeriesUnit, error) {
+	return s.St.Unit(id)
 }
 
 type upgradeSeriesMachine struct {
@@ -187,6 +188,7 @@ func (u *UpgradeSeriesAPI) getUnit(tag names.Tag) (UpgradeSeriesUnit, error) {
 	return u.backend.Unit(tag.Id())
 }
 
+// NewExternalUpgradeSeriesAPI can be used for API registration.
 func NewExternalUpgradeSeriesAPI(
 	st *state.State,
 	resources facade.Resources,

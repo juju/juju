@@ -41,7 +41,7 @@ func (s *upgradeSeriesSuite) newAPI(
 
 	mockBackend := mocks.NewMockUpgradeSeriesBackend(ctrl)
 
-	api, err := upgradeseries.NewAPI(mockBackend, resources, authorizer)
+	api, err := upgradeseries.NewUpgradeSeriesAPI(mockBackend, resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return api, mockBackend
@@ -71,5 +71,28 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 				Status: params.UpgradeSeriesStatus{Entity: entity, Status: model.UpgradeSeriesPrepareComplete},
 			},
 		},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api, backend := s.newAPI(c, ctrl)
+
+	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+
+	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
+	machine.EXPECT().SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete).Return(nil)
+
+	entity := params.Entity{Tag: s.machineTag.String()}
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatus{{Entity: entity, Status: model.UpgradeSeriesPrepareComplete}},
+	}
+
+	results, err := api.SetMachineStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
 	})
 }

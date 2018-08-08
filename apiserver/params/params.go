@@ -1323,3 +1323,7 @@ type UpgradeSeriesStatusResultNew struct {
 type UpgradeSeriesStatusResultsNew struct {
 	Results []UpgradeSeriesStatusResultNew `json:"results,omitempty"`
 }
+
+type UpgradeSeriesStatusParams struct {
+	Params []UpgradeSeriesStatus `json:"params"`
+}
