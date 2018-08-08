@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
@@ -26,7 +27,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var _ = gc.Suite(&remoteRelationsSuite{})

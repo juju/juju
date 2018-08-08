@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run a raft

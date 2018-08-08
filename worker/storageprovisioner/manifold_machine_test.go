@@ -10,7 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 

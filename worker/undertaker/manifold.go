@@ -6,11 +6,11 @@ package undertaker
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig holds the names of the resources used by, and the

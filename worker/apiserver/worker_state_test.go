@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coreapiserver "github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
@@ -15,7 +16,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerStateSuite struct {

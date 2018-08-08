@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -36,7 +37,6 @@ import (
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/uniter"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerSuite struct {

@@ -15,10 +15,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.httpserver")

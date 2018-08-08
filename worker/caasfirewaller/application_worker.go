@@ -8,8 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
-
-	"github.com/juju/juju/worker/catacomb"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 type applicationWorker struct {

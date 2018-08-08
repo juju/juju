@@ -4,7 +4,7 @@
 package legacy
 
 import (
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"

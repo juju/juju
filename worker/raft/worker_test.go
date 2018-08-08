@@ -13,12 +13,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/raft/raftutil"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type workerFixture struct {

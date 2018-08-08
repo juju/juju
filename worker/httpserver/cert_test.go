@@ -15,11 +15,11 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/cert"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/httpserver"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type certSuite struct {

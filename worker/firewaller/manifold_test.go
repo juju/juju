@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/firewaller"
 )
 

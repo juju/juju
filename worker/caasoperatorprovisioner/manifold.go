@@ -6,12 +6,12 @@ package caasoperatorprovisioner
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.

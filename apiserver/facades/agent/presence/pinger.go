@@ -12,8 +12,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-
-	"github.com/juju/juju/worker/catacomb"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 // Pinger exposes some methods implemented by state/presence.Pinger.

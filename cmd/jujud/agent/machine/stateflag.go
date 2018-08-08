@@ -5,9 +5,9 @@ package machine
 
 import (
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // isControllerFlagManifold returns a dependency.Manifold which requires

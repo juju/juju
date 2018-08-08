@@ -7,17 +7,19 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/introspection"
 )
 
@@ -73,6 +75,8 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	config := dependency.EngineConfig{
 		IsFatal:    cmdutil.IsFatal,
 		WorstError: cmdutil.MoreImportantError,
+		Clock:      clock.WallClock,
+		Logger:     loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
 	c.Assert(err, jc.ErrorIsNil)

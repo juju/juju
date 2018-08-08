@@ -214,6 +214,10 @@ type mockClock struct {
 	c    *gc.C
 }
 
+func (m *mockClock) Now() time.Time {
+	return time.Now()
+}
+
 func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 	m.wait = duration
 	return time.After(time.Millisecond)

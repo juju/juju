@@ -13,7 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationminion"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var (

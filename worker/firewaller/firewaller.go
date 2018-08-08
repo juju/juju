@@ -14,7 +14,8 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/common"
 )
 

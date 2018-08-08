@@ -11,13 +11,13 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")

@@ -6,11 +6,11 @@ package lifeflag
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/lifeflag"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // Facade exposes capabilities required by the worker.

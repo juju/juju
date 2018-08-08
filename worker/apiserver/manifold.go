@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 )

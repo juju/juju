@@ -5,8 +5,8 @@ package model
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1/dependency"
 
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/lifeflag"
 )
 

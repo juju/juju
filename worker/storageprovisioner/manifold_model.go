@@ -8,12 +8,12 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 )
 
 // ModelManifoldConfig defines a storage provisioner's configuration and dependencies.

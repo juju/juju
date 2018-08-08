@@ -9,14 +9,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/migrationflag"
-	"github.com/juju/juju/worker/workertest"
 )
 
 // newMockFacade returns a mock Facade that will add calls to the

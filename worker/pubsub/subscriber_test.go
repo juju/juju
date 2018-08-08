@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
 	psworker "github.com/juju/juju/worker/pubsub"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerConfigSuite struct {

@@ -7,9 +7,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 type subRelationsWatcher struct {

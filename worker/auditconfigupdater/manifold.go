@@ -6,11 +6,11 @@ package auditconfigupdater
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/dependency"
 	workerstate "github.com/juju/juju/worker/state"
 )
 

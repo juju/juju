@@ -10,13 +10,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/modelworkermanager"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var _ = gc.Suite(&suite{})
@@ -141,6 +141,24 @@ func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
 		w.sendModelChange("uuid1")
 
 		s.assertNoWorkers(c)
+	})
+}
+
+func (s *suite) TestReport(c *gc.C) {
+	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockModelGetter) {
+		mw.sendModelChange("uuid")
+		s.assertStarts(c, "uuid")
+
+		reporter, ok := w.(worker.Reporter)
+		c.Assert(ok, jc.IsTrue)
+		report := reporter.Report()
+		c.Assert(report, gc.NotNil)
+		// TODO: pass a clock through in the worker config so it can be passed
+		// to the worker.Runner used in the model to control time.
+		// For now, we just look at the started state.
+		workers := report["workers"].(map[string]interface{})
+		modelWorker := workers["uuid"].(map[string]interface{})
+		c.Assert(modelWorker["state"], gc.Equals, "started")
 	})
 }
 

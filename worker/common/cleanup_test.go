@@ -8,6 +8,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
@@ -33,6 +35,18 @@ func (s *cleanupSuite) TestCleansUpOnce(c *gc.C) {
 	w.stub.CheckCallNames(c, "Wait", "cleanup", "Wait")
 }
 
+func (s *cleanupSuite) TestReport(c *gc.C) {
+	var w fakeWorker
+	cw := common.NewCleanupWorker(&w, func() {})
+	defer workertest.CleanKill(c, cw)
+
+	reporter, ok := cw.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"fake": true,
+	})
+}
+
 type fakeWorker struct {
 	stub testing.Stub
 }
@@ -44,4 +58,10 @@ func (w *fakeWorker) Kill() {
 func (w *fakeWorker) Wait() error {
 	w.stub.AddCall("Wait")
 	return w.stub.NextErr()
+}
+
+func (w *fakeWorker) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"fake": true,
+	}
 }

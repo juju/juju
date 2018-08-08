@@ -5,7 +5,7 @@ package hostkeyreporter
 
 import (
 	"github.com/juju/errors"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	apihostkeyreporter "github.com/juju/juju/api/hostkeyreporter"

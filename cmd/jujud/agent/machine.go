@@ -30,6 +30,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -71,7 +72,6 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	workercommon "github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/conv2state"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
@@ -503,6 +503,8 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			WorstError:  cmdutil.MoreImportantError,
 			ErrorDelay:  3 * time.Second,
 			BounceDelay: 10 * time.Millisecond,
+			Clock:       clock.WallClock,
+			Logger:      loggo.GetLogger("juju.worker.dependency"),
 		}
 		engine, err := dependency.NewEngine(config)
 		if err != nil {
@@ -995,6 +997,8 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		Filter:      model.IgnoreErrRemoved,
 		ErrorDelay:  3 * time.Second,
 		BounceDelay: 10 * time.Millisecond,
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.worker.dependency"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

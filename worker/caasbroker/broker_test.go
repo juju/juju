@@ -8,12 +8,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasbroker"
-	"github.com/juju/juju/worker/workertest"
 )
 
 type TrackerSuite struct {

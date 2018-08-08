@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
@@ -212,6 +212,8 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		WorstError:  cmdutil.MoreImportantError,
 		ErrorDelay:  3 * time.Second,
 		BounceDelay: 10 * time.Millisecond,
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
 	if err != nil {
