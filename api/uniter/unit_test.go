@@ -714,7 +714,7 @@ func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
 	// Then we check to see the status of our upgrade. We note that creating
 	// the lock essentially kicks off an upgrade from the perspective of
 	// assigned units.
-	status, err := s.apiUnit.UpgradeSeriesStatus(model.PrepareStatus)
+	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, string(model.PrepareStarted))
 }
@@ -729,7 +729,6 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
 	arbitraryNonDefaultStatus := string(model.NotStarted)
-	arbitraryStatusType := model.PrepareStatus
 
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
@@ -739,7 +738,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check to see that the upgrade status has been set appropriately
-	status, err := s.apiUnit.UpgradeSeriesStatus(arbitraryStatusType)
+	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, arbitraryNonDefaultStatus)
 }
@@ -994,7 +993,7 @@ func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
 	}
 	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
 
-	sts, err := s.apiUnit.UpgradeSeriesStatus(model.PrepareStatus)
+	sts, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 	c.Check(sts, gc.Equals, "")
 }
@@ -1009,7 +1008,7 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 	}
 	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
 
-	sts, err := s.apiUnit.UpgradeSeriesStatus(model.PrepareStatus)
+	sts, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sts, gc.Equals, "Completed")
 }
