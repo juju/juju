@@ -135,7 +135,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.PrepareCompleted, model.PrepareStatus).Return(nil)
+	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.PrepareCompleted).Return(nil)
 
 	args := params.SetUpgradeSeriesStatusParams{
 		Params: []params.SetUpgradeSeriesStatusParam{
@@ -166,7 +166,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.PrepareCompleted, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.PrepareCompleted, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -206,9 +206,9 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 
 	mockApplication.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
 	mockUnit1.EXPECT().Tag().Return(s.unitTag1)
-	mockUnit1.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.PrepareStarted, nil)
+	mockUnit1.EXPECT().UpgradeSeriesStatus().Return(model.PrepareStarted, nil)
 	mockUnit2.EXPECT().Tag().Return(s.unitTag2)
-	mockUnit2.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.PrepareCompleted, nil)
+	mockUnit2.EXPECT().UpgradeSeriesStatus().Return(model.PrepareCompleted, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
