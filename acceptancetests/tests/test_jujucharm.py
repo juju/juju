@@ -27,7 +27,7 @@ class TestCharm(TestCase):
         expected = {
             'name': 'test',
             'summary': 'a summary',
-            'series': ('xenial', 'trusty'),
+            'series': ('bionic', 'xenial', 'trusty'),
             'maintainer': 'juju-qa@lists.canonical.com',
             'description': 'description',
         }
@@ -35,12 +35,12 @@ class TestCharm(TestCase):
 
     def test_default_series_default(self):
         charm = Charm('test', 'a summary')
-        self.assertEqual(charm.default_series, 'xenial')
+        self.assertEqual(charm.default_series, 'bionic')
 
     def test_default_series_unset(self):
         charm = Charm('test', 'a summary')
         del charm.metadata['series']
-        self.assertEqual(charm.default_series, 'xenial')
+        self.assertEqual(charm.default_series, 'bionic')
 
     def test_default_series_single(self):
         charm = Charm('test', 'a summary', series='wily')
@@ -63,7 +63,7 @@ class TestCharm(TestCase):
             'name': 'test',
             'summary': 'a summary',
             'description': 'a description',
-            'series': ['xenial', 'trusty'],
+            'series': ['bionic', 'xenial', 'trusty'],
         }
         self.assertEqual(metadata, expected)
 
