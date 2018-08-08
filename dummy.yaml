@@ -1,0 +1,15 @@
+series: xenial
+applications:
+  mysql:
+    charm: 'cs:mysql-58'
+    num_units: 1
+    annotations:
+      gui-x: '692'
+      gui-y: '438'
+    to:
+      - 'lxd:0'
+relations: []
+machines:
+  "0":
+    series: xenial
+    constraints: arch=amd64 cpu-cores=1 cpu-power=350 mem=3840 root-disk=8192
