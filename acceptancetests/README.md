@@ -130,7 +130,7 @@ environments:
     testing123:
         type: lxd
         test-mode: true
-        default-series: xenial
+        default-series: bionic
         # You can use config like this too:
         # agent-metadata-url: https://custom.streams.bucket.com
 ```

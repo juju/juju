@@ -47,7 +47,7 @@ class TestCharm(TestCase):
         self.assertEqual(charm.default_series, 'wily')
 
     def test_default_series_list(self):
-        charm = Charm('test', 'a summary', series=['trusty', 'xenial'])
+        charm = Charm('test', 'a summary', series=['trusty', 'xenial', 'bionic'])
         self.assertEqual(charm.default_series, 'trusty')
 
     def test_to_dir(self):

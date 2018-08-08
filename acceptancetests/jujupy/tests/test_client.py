@@ -3340,7 +3340,7 @@ class TestModelClient(ClientTest):
         output = """\
         machines:
           "0":
-            series: xenial
+            series: bionic
         """
         env = JujuData('foo')
         client = ModelClient(env, None, None)
@@ -3348,7 +3348,7 @@ class TestModelClient(ClientTest):
                           return_value=output) as mock:
             data = client.show_machine('0')
         mock.assert_called_once_with('show-machine', '0', '--format', 'yaml')
-        self.assertEqual({'machines': {'0': {'series': 'xenial'}}}, data)
+        self.assertEqual({'machines': {'0': {'series': 'bionic'}}}, data)
 
     def test_ssh_keys(self):
         client = ModelClient(JujuData('foo'), None, None)

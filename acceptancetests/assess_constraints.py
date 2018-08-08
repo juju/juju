@@ -230,7 +230,7 @@ def application_hardware(client, application):
 
 
 def prepare_constraint_test(client, constraints, charm_name,
-                            charm_series='xenial'):
+                            charm_series='bionic'):
     """Deploy a charm with constraints and data to see if it meets them."""
     with temp_dir() as charm_dir:
         deploy_charm_constraint(client, constraints, charm_name,
@@ -245,7 +245,7 @@ def assess_virt_type(client, virt_type):
         raise JujuAssertionError(virt_type)
     constraints = Constraints(virt_type=virt_type)
     charm_name = 'virt-type-{}'.format(virt_type)
-    charm_series = 'xenial'
+    charm_series = 'bionic'
     with temp_dir() as charm_dir:
         deploy_charm_constraint(client, constraints, charm_name,
                                 charm_series, charm_dir)
