@@ -1011,9 +1011,10 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		} else {
 			return nil, common.ZoneIndependentError(err)
 		}
+	} else {
+		logger.Debugf("using network id %q", networkId)
+		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 	}
-	logger.Debugf("using network id %q", networkId)
-	networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 
 	machineName := resourceName(
 		e.namespace,
