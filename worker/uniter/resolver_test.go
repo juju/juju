@@ -180,7 +180,7 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesCompleteStatus = model.PrepareStarted
+	s.remoteState.UpgradeSeriesCompleteStatus = model.CompleteStarted
 	//	s.remoteState.UpgradeSeriesPrepareStatus = model.PrepareCompleted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
