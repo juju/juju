@@ -32,6 +32,7 @@ import (
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/goose.v2/testservices/hook"
 	"gopkg.in/goose.v2/testservices/identityservice"
+	"gopkg.in/goose.v2/testservices/neutronmodel"
 	"gopkg.in/goose.v2/testservices/neutronservice"
 	"gopkg.in/goose.v2/testservices/novaservice"
 	"gopkg.in/goose.v2/testservices/openstackservice"
@@ -578,6 +579,27 @@ func (s *localServerSuite) TestStartInstanceNetworkNotSetReturnsError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
 	To resolve this error, set a value for "network" in model-config or model-defaults;
 	or supply it via --config when creating a new model`)
+}
+
+func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc.C) {
+	// Modify the server that is created by default, to clear the networks.
+	model := neutronmodel.New()
+	for _, net := range model.AllNetworks() {
+		model.RemoveNetwork(net.Id)
+	}
+	s.srv.Openstack.Neutron.AddNeutronModel(model)
+	s.srv.Openstack.Nova.AddNeutronModel(model)
+
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
@@ -2678,22 +2700,6 @@ func (s *noNeutronSuite) TestUpdateGroupControllerNoNeutron(c *gc.C) {
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
 	))
-}
-
-func (s *noNeutronSuite) TestStartInstanceNetworkNotSetNoError(c *gc.C) {
-	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		"network": "",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	callCtx := context.NewCloudCallContext()
-	ctrlUUID := coretesting.FakeControllerConfig().ControllerUUID()
-
-	inst, _, _, err := testing.StartInstance(s.env, callCtx, ctrlUUID, "100")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(inst, gc.NotNil)
 }
 
 func createNovaSecurityGroup(c *gc.C, client *nova.Client, name string) {
