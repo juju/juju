@@ -721,9 +721,8 @@ func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
 	arbitraryStatus := string(model.NotStarted)
-	arbitraryStatusType := model.PrepareStatus
 
-	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus, arbitraryStatusType)
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus)
 	c.Assert(err, gc.ErrorMatches, "machine \"[0-9]*\" is not locked for upgrade")
 }
 
