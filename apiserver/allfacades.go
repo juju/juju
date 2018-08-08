@@ -275,7 +275,7 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 8, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
-	reg("UpgradeSeries", 1, upgradeseries.NewUpgradeSeriesAPI)
+	reg("UpgradeSeries", 1, upgradeseries.NewAPI)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 

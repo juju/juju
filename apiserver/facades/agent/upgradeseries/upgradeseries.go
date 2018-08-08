@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
@@ -18,7 +19,7 @@ type State interface {
 	common.UpgradeSeriesBackend
 }
 
-type UpgradeSeriesAPI struct {
+type API struct {
 	*common.UpgradeSeriesAPI
 
 	st        State
@@ -26,9 +27,7 @@ type UpgradeSeriesAPI struct {
 	resources facade.Resources
 }
 
-func NewUpgradeSeriesAPI(
-	st State, resources facade.Resources, authorizer facade.Authorizer,
-) (*UpgradeSeriesAPI, error) {
+func NewAPI(state *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -44,21 +43,20 @@ func NewUpgradeSeriesAPI(
 		}, nil
 	}
 
-	return &UpgradeSeriesAPI{
-		st:        st,
-		resources: resources,
-		auth:      authorizer,
-		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(
-			st, resources, authorizer, accessMachine, accessUnit, logger,
-		),
+	st := common.UpgradeSeriesState{state}
+	return &API{
+		st:               st,
+		resources:        resources,
+		auth:             authorizer,
+		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 	}, nil
 }
 
 // MachineStatus gets the current upgrade-series status of a machine.
-func (u *UpgradeSeriesAPI) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusResultsNew, error) {
+func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusResultsNew, error) {
 	result := params.UpgradeSeriesStatusResultsNew{}
 
-	canAccess, err := u.AccessMachine()
+	canAccess, err := a.AccessMachine()
 	if err != nil {
 		return result, err
 	}
@@ -75,7 +73,7 @@ func (u *UpgradeSeriesAPI) MachineStatus(args params.Entities) (params.UpgradeSe
 			continue
 		}
 
-		machine, err := u.GetMachine(tag)
+		machine, err := a.GetMachine(tag)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue

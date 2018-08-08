@@ -34,6 +34,21 @@ type UpgradeSeriesUnit interface {
 	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
 }
 
+// UpgradeSeriesState implements the UpgradeSeriesBackend indirection
+// over state.State.
+type UpgradeSeriesState struct {
+	st *state.State
+}
+
+func (shim UpgradeSeriesState) Machine(id string) (UpgradeSeriesMachine, error) {
+	m, err := shim.st.Machine(id)
+	return &upgradeSeriesMachine{m}, err
+}
+
+func (shim UpgradeSeriesState) Unit(id string) (UpgradeSeriesUnit, error) {
+	return shim.st.Unit(id)
+}
+
 type upgradeSeriesMachine struct {
 	*state.Machine
 }
@@ -172,8 +187,6 @@ func (u *UpgradeSeriesAPI) getUnit(tag names.Tag) (UpgradeSeriesUnit, error) {
 	return u.backend.Unit(tag.Id())
 }
 
-// NewExternalUpgradeSeriesAPI can be used for API registration.
-// TODO (manadart 2018-08-07) I think we can delete this.
 func NewExternalUpgradeSeriesAPI(
 	st *state.State,
 	resources facade.Resources,
@@ -182,7 +195,7 @@ func NewExternalUpgradeSeriesAPI(
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UpgradeSeriesAPI {
-	return NewUpgradeSeriesAPI(backendShim{st}, resources, authorizer, accessMachine, accessUnit, logger)
+	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }
 
 func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams, statusType model.UpgradeSeriesStatusType) (params.ErrorResults, error) {
@@ -302,17 +315,4 @@ func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(
 
 	result.Status = string(status)
 	return result
-}
-
-type backendShim struct {
-	st *state.State
-}
-
-func (shim backendShim) Machine(id string) (UpgradeSeriesMachine, error) {
-	m, err := shim.st.Machine(id)
-	return &upgradeSeriesMachine{m}, err
-}
-
-func (shim backendShim) Unit(id string) (UpgradeSeriesUnit, error) {
-	return shim.st.Unit(id)
 }

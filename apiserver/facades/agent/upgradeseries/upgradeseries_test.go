@@ -33,7 +33,7 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 
 func (s *upgradeSeriesSuite) newAPI(
 	c *gc.C, ctrl *gomock.Controller,
-) (*upgradeseries.UpgradeSeriesAPI, *mocks.MockUpgradeSeriesBackend) {
+) (*upgradeseries.API, *mocks.MockUpgradeSeriesBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.machineTag,
@@ -41,7 +41,7 @@ func (s *upgradeSeriesSuite) newAPI(
 
 	mockBackend := mocks.NewMockUpgradeSeriesBackend(ctrl)
 
-	api, err := upgradeseries.NewUpgradeSeriesAPI(mockBackend, resources, authorizer)
+	api, err := upgradeseries.NewAPI(mockBackend, resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return api, mockBackend
