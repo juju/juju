@@ -59,6 +59,7 @@ func init() {
 	gc.Suite(&cmdUpdateSeriesSuite{})
 	gc.Suite(&FirewallRulesSuite{})
 	gc.Suite(&StatusSuite{})
+	gc.Suite(&cmdDeploySuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.
