@@ -224,7 +224,6 @@ type upgradeSeriesLockDoc struct {
 	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"prepare-status"`
 	PrepareUnits   []unitStatus                     `bson:"prepare-units"`
 	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"complete-status"`
-	CompleteUnits  []unitStatus                     `bson:"complete-units"`
 }
 
 type unitStatus struct {
@@ -2153,7 +2152,6 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		PrepareStatus:  model.MachineSeriesUpgradeStarted,
 		PrepareUnits:   prepareUnits,
 		CompleteStatus: model.MachineSeriesUpgradeNotStarted,
-		CompleteUnits:  completeUnits,
 	}
 }
 
