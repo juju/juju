@@ -113,7 +113,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "e5d2ee5c1563c66bbef3fe488ed11457a614f50d"
+  revision = "c84dd6ba038a9012fb7830d206a006915b6e7937"
   name = "github.com/juju/testing"
 
 [[constraint]]
@@ -486,7 +486,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/worker.v1"
-  revision = "6965b9d826717287bb002e02d1fd4d079978083e"
+  revision = "e63ca51523be524b34f05ffa0c62eed10e231f8f"
 
 [[override]]
   name = "gopkg.in/macaroon-bakery.v1"
@@ -519,3 +519,7 @@
 [[constraint]]
   name = "github.com/docker/distribution"
   revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
+
+[[constraint]]
+  name = "github.com/juju/clock"
+  revision = "d293bb356ca441f16b59562295cca74478966757"
