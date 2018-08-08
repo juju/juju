@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -88,6 +89,38 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	// the API client POSTs the tools archive to the correct endpoint.
 	client.UploadTools(bytes.NewReader(expectedTools), newVersion)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *clientSuite) TestZipHasHooks(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
+
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = ch.ArchiveTo(tempFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := *api.HasHooks
+	hasHooks, err := f(tempFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasHooks, jc.IsTrue)
+}
+
+func (s *clientSuite) TestZipHasNoHooks(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("riak") // has no hooks
+
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = ch.ArchiveTo(tempFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := *api.HasHooks
+	hasHooks, err := f(tempFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasHooks, jc.IsFalse)
 }
 
 func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
