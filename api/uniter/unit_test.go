@@ -733,7 +733,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
 	s.CreateUpgradeSeriesLock(c)
 
 	// Change the state to something other than the default remote state of PrepareStarted
-	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryNonDefaultStatus, model.PrepareStatus)
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryNonDefaultStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check to see that the upgrade status has been set appropriately
