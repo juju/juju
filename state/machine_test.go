@@ -2702,7 +2702,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
@@ -2714,19 +2714,19 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C)
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
+	sts, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UnitNotStarted)
+	c.Assert(sts, gc.Equals, model.UnitNotStarted)
 
 	err = s.machine.CompleteUpgradeSeries()
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err = s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
+	sts, err = s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UnitStarted)
+	c.Assert(sts, gc.Equals, model.UnitStarted)
 }
 
 // TODO (manadart 2018-08-07): Remove/refactor once prepare/complete
@@ -2740,7 +2740,7 @@ func (s *MachineSuite) TestMachineSeriesUpgradeStatusTranslatesCorrectly(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sts, gc.Equals, model.UpgradeSeriesPrepareStarted)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sts, err = s.machine.MachineUpgradeSeriesStatus()
@@ -2763,7 +2763,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteSta
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
