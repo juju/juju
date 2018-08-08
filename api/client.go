@@ -4,6 +4,7 @@
 package api
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -334,12 +336,49 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	default:
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
+	anyHooks, err := hasHooks(archive.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !anyHooks {
+		return nil, errors.Errorf("invalid charm %q: has no hooks", curl.Name)
+	}
 
-	curl, err := c.UploadCharm(curl, archive)
+	curl, err = c.UploadCharm(curl, archive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return curl, nil
+}
+
+var hasHooks = hasHooksFolder
+
+func hasHooksFolder(name string) (bool, error) {
+	zipr, err := zip.OpenReader(name)
+	if err != nil {
+		return false, err
+	}
+	defer zipr.Close()
+	count := 0
+	// Cater for file separator differences between operating systems.
+	hooksPath := filepath.FromSlash("hooks/")
+	for _, f := range zipr.File {
+		if strings.Contains(f.Name, hooksPath) {
+			count++
+		}
+		if count > 1 {
+			// 1 is the magic number here.
+			// Charm zip archive is expected to contain several files and folders.
+			// All properly built charms will have a non-empty "hooks" folders.
+			// File names in the archive will be of the form "hooks/" - for hooks folder; and
+			// "hooks/*" for the actual charm hooks implementations.
+			// For example, install hook may have a file with a name "hooks/install".
+			// Once we know that there are, at least, 2 files that have names that start with "hooks/", we
+			// know for sure that the charm has a non-empty hooks folder.
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // UploadCharm sends the content to the API server using an HTTP post.
