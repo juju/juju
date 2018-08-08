@@ -5,10 +5,8 @@ package httpserver_test
 
 import (
 	"crypto/tls"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -81,11 +79,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *httpserver.Config) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
-	}, {
-		func(cfg *httpserver.Config) {
-			cfg.AutocertHandler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
-		},
-		"AutocertListener must not be nil if AutocertHandler is not nil",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -207,48 +200,4 @@ func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
 	conn, err := tls.Dial("tcp", parsed.Host, tlsConfig)
 	c.Assert(err, gc.ErrorMatches, ".*protocol version not supported")
 	c.Assert(conn, gc.IsNil)
-}
-
-type WorkerAutocertSuite struct {
-	workerFixture
-	stub   testing.Stub
-	worker *httpserver.Worker
-	url    string
-}
-
-var _ = gc.Suite(&WorkerAutocertSuite{})
-
-func (s *WorkerAutocertSuite) SetUpTest(c *gc.C) {
-	s.workerFixture.SetUpTest(c)
-	s.config.AutocertHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.stub.AddCall("AutocertHandler")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("yay\n"))
-	})
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { listener.Close() })
-	s.config.AutocertListener = listener
-	s.url = fmt.Sprintf("http://%s/whatever/", listener.Addr())
-	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		workertest.DirtyKill(c, worker)
-	})
-	s.worker = worker
-}
-
-func (s *WorkerAutocertSuite) TestAutocertHandler(c *gc.C) {
-	client := &http.Client{}
-	response, err := client.Get(s.url)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	content, err := ioutil.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, "yay\n")
-
-	workertest.CleanKill(c, s.worker)
-
-	_, err = client.Get(s.url)
-	c.Assert(err, gc.ErrorMatches, ".*connection refused$")
 }
