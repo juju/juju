@@ -34,7 +34,7 @@ To run a test locally with lxd:
         lxd:
             type: lxd
             test-mode: true
-            default-series: xenial
+            default-series: bionic
     ```
   * ```export JUJU_REPOSITORY=./path/to/acceptancetests/repository```
   * Now you can run the test with:
@@ -54,7 +54,7 @@ To run a test using AWS:
         myaws:
             type: ec2
             test-mode: true
-            default-series: xenial
+            default-series: bionic
             region: us-east-1
     ```
   * ```$ vim $JUJU_HOME/credentials.yaml```

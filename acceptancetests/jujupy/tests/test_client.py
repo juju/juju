@@ -958,13 +958,21 @@ class TestModelClient(ClientTest):
             env.deploy('local:mondogb', force=True)
         mock_juju.assert_called_with('deploy', ('local:mondogb', '--force',))
 
-    def test_deploy_series(self):
+    def test_deploy_xenial_series(self):
         env = ModelClient(
             JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', series='xenial')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--series', 'xenial'))
+
+    def test_deploy_bionic_series(self):
+        env = ModelClient(
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
+        with patch_juju_call(env) as mock_juju:
+            env.deploy('local:blah', series='bionic')
+        mock_juju.assert_called_with(
+            'deploy', ('local:blah', '--series', 'bionic'))
 
     def test_deploy_multiple(self):
         env = ModelClient(

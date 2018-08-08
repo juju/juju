@@ -72,7 +72,7 @@ class _JujuStreamData:
         :param version: Juju version string for product (i.e. '2.3.3')
         :param arch: Architecture string of this product (e.g. 's390x','amd64')
         :param series: Series string that appears in item_name
-          (e.g. 'xenial', 'centos')
+          (e.g. 'bionic', 'xenial', 'centos')
         :param agent_tgz_path: String full path to agent tarball file to use.
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
@@ -115,7 +115,7 @@ class StreamServer:
         :param version: Juju version string for product (i.e. '2.3.3')
         :param arch: Architecture string of this product (e.g. 's390x','amd64')
         :param series: Series string that appears in item_name
-          (e.g. 'xenial', 'centos')
+          (e.g. 'bionic', 'xenial', 'centos')
         :param agent_tgz_path: String full path to agent tarball file to use.
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.

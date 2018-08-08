@@ -123,7 +123,7 @@ def parse_args(argv):
 def get_bootstrap_managers(args):
     """Create 2 bootstrap managers from the provided args.
 
-    Need to make a couple of elements uniqe (e.g. environment name) so we can
+    Need to make a couple of elements unique (e.g. environment name) so we can
     have 2 bootstrapped at the same time.
     """
     bs_1 = BootstrapManager.from_args(args)
