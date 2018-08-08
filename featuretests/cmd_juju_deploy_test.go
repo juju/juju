@@ -32,13 +32,13 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeploySuccess(c *gc.C) {
 }
 
 func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("riak") // has no hooks
+	ch := testcharms.Repo.CharmDir("category") // has no hooks
 
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, gc.NotNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `invalid charm "riak": has no hooks`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `invalid charm "category": has no hooks`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
-	_, err = s.State.Charm(charm.MustParseURL("local:quantal/riak"))
+	_, err = s.State.Charm(charm.MustParseURL("local:quantal/category"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
