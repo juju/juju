@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -662,7 +661,7 @@ func (u *Unit) UpgradeSeriesStatus() (string, error) {
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(status string, statusType model.UpgradeSeriesStatusType) error {
+func (u *Unit) SetUpgradeSeriesStatus(status string) error {
 	return u.st.SetUpgradeSeriesStatus(status)
 }
 
