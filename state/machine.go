@@ -2233,10 +2233,10 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
-		return -1, errors.NotFoundf("upgrade series lock for machine %q", m.Id())
+		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
 	}
 	if err != nil {
-		return -1, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	status, err := model.FromOldUpgradeSeriesStatus(lock.PrepareStatus, lock.CompleteStatus)

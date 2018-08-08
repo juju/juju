@@ -9,34 +9,17 @@ import (
 
 // UpgradeSeriesStatus is a status that a machine or unit can be in during the
 // execution of an OS series upgrade on its host machine.
-type UpgradeSeriesStatus int
+type UpgradeSeriesStatus string
 
-// String returns an indicative description of the status.
-func (s UpgradeSeriesStatus) String() string {
-	return upgradeSeriesStatusNames[s]
-}
-
-// Enumerating the status values allows us to represent relative progression
-// though the upgrade-series workflow.
 const (
-	UpgradeSeriesNotStarted UpgradeSeriesStatus = iota
-	UpgradeSeriesPrepareStarted
-	UpgradeSeriesPrepareMachine
-	UpgradeSeriesPrepareComplete
-	UpgradeSeriesCompleteStarted
-	UpgradeSeriesComplete
-	UpgradeSeriesError
+	UpgradeSeriesNotStarted      UpgradeSeriesStatus = "not started"
+	UpgradeSeriesPrepareStarted  UpgradeSeriesStatus = "prepare started"
+	UpgradeSeriesPrepareMachine  UpgradeSeriesStatus = "prepare machine"
+	UpgradeSeriesPrepareComplete UpgradeSeriesStatus = "prepare complete"
+	UpgradeSeriesCompleteStarted UpgradeSeriesStatus = "complete started"
+	UpgradeSeriesComplete        UpgradeSeriesStatus = "complete"
+	UpgradeSeriesError           UpgradeSeriesStatus = "error"
 )
-
-var upgradeSeriesStatusNames = map[UpgradeSeriesStatus]string{
-	UpgradeSeriesNotStarted:      "not started",
-	UpgradeSeriesPrepareStarted:  "prepare started",
-	UpgradeSeriesPrepareMachine:  "prepare machine",
-	UpgradeSeriesPrepareComplete: "prepare complete",
-	UpgradeSeriesCompleteStarted: "complete started",
-	UpgradeSeriesComplete:        "complete",
-	UpgradeSeriesError:           "error",
-}
 
 // TODO (manadart 2018-08-07) Everything below here to be discarded.
 
@@ -81,7 +64,7 @@ func FromOldUpgradeSeriesStatus(prepare, complete MachineSeriesUpgradeStatus) (U
 		return UpgradeSeriesComplete, nil
 	}
 
-	return -1, errors.Errorf("unable to determine status from old combination: %q/%q", prepare, complete)
+	return "", errors.Errorf("unable to determine status from old combination: %q/%q", prepare, complete)
 }
 
 // The Statuses, at least for units, appy to both the "Prepare" and "Complete"
