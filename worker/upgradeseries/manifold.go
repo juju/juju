@@ -76,8 +76,5 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	}
 
 	w, err := config.NewWorker(cfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "starting machine upgrade series worker")
-	}
-	return w, nil
+	return w, errors.Annotate(err, "starting machine upgrade series worker")
 }

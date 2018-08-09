@@ -4,8 +4,6 @@
 package upgradeseries
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -261,7 +259,7 @@ func (w *upgradeSeriesWorker) unitAgentServices(statusCount int) (map[string]str
 
 	unitServices := service.FindUnitServiceNames(services)
 	if len(unitServices) != statusCount {
-		return nil, fmt.Errorf("missmatched counts; upgrade-series statuses: %d, detected services: %d",
+		return nil, errors.Errorf("mismatched counts; upgrade-series statuses: %d, detected services: %d",
 			statusCount, len(unitServices))
 	}
 	return unitServices, nil
