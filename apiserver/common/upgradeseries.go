@@ -24,15 +24,15 @@ type UpgradeSeriesBackend interface {
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
-	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
+	MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
+	SetMachineUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
 }
 
 type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error)
-	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
+	UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
+	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
 }
 
 // UpgradeSeriesState implements the UpgradeSeriesBackend indirection
@@ -142,27 +142,27 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 // UpgradeSeriesPrepareStatus returns the current preparation status of an upgrading
 // unit. If no series upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) UpgradeSeriesPrepareStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	return u.upgradeSeriesStatus(args, model.PrepareStatus)
+	return u.upgradeSeriesStatus(args)
 }
 
 // UpgradeSeriesCompleteStatus returns the current completion status of upgrading
 // unit. If no series upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) UpgradeSeriesCompleteStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	return u.upgradeSeriesStatus(args, model.CompleteStatus)
+	return u.upgradeSeriesStatus(args)
 }
 
 // SetUpgradeSeriesPrepareStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesPrepareStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesPrepareStatus with %+v", args)
-	return u.setUpgradeSeriesStatus(args, model.PrepareStatus)
+	return u.setUpgradeSeriesStatus(args)
 }
 
 // SetUpgradeSeriesCompleteStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesCompleteStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesCompleteStatus with %+v", args)
-	return u.setUpgradeSeriesStatus(args, model.CompleteStatus)
+	return u.setUpgradeSeriesStatus(args)
 }
 
 func (u *UpgradeSeriesAPI) GetMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
@@ -200,7 +200,7 @@ func NewExternalUpgradeSeriesAPI(
 	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }
 
-func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams, statusType model.UpgradeSeriesStatusType) (params.ErrorResults, error) {
+func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -229,7 +229,7 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		err = unit.SetUpgradeSeriesStatus(status, statusType)
+		err = unit.SetUpgradeSeriesStatus(status)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
@@ -238,9 +238,7 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 	return result, nil
 }
 
-func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
-	args params.Entities, statusType model.UpgradeSeriesStatusType,
-) (params.UpgradeSeriesStatusResults, error) {
+func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	u.logger.Tracef("Starting UpgradeSeriesPrepareStatus with %+v", args)
 	result := params.UpgradeSeriesStatusResults{}
 
@@ -265,9 +263,9 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 			// passed in the call, the return will not distinguish between
 			// What unit status results belong to which machine.
 			// At this stage we do not anticipate this, so... YAGNI.
-			result.Results = append(result.Results, u.upgradeSeriesMachineStatus(tag, statusType)...)
+			result.Results = append(result.Results, u.upgradeSeriesMachineStatus(tag)...)
 		case names.UnitTagKind:
-			result.Results = append(result.Results, u.upgradeSeriesUnitStatus(tag, statusType))
+			result.Results = append(result.Results, u.upgradeSeriesUnitStatus(tag))
 		}
 	}
 
@@ -275,10 +273,8 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 }
 
 // upgradeSeriesMachineStatus returns a result containing the upgrade-series
-// status of all units managed buy the input machine, for the input status type.
-func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(
-	machineTag names.Tag, statusType model.UpgradeSeriesStatusType,
-) []params.UpgradeSeriesStatusResult {
+// status of all units managed by the input machine, for the input status type.
+func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(machineTag names.Tag) []params.UpgradeSeriesStatusResult {
 	machine, err := u.GetMachine(machineTag)
 	if err != nil {
 		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
@@ -291,16 +287,14 @@ func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(
 
 	results := make([]params.UpgradeSeriesStatusResult, len(units))
 	for i, unit := range units {
-		results[i] = u.upgradeSeriesUnitStatus(unit.Tag(), statusType)
+		results[i] = u.upgradeSeriesUnitStatus(unit.Tag())
 	}
 	return results
 }
 
 // upgradeSeriesUnitStatus returns a result containing the upgrade-series
 // status of the input unit, for the input status type.
-func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(
-	unitTag names.Tag, statusType model.UpgradeSeriesStatusType,
-) params.UpgradeSeriesStatusResult {
+func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(unitTag names.Tag) params.UpgradeSeriesStatusResult {
 	result := params.UpgradeSeriesStatusResult{}
 
 	unit, err := u.getUnit(unitTag)
@@ -309,7 +303,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(
 		return result
 	}
 
-	status, err := unit.UpgradeSeriesStatus(statusType)
+	status, err := unit.UpgradeSeriesStatus()
 	if err != nil {
 		result.Error = ServerError(err)
 		return result

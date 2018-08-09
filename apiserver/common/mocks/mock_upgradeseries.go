@@ -86,9 +86,9 @@ func (m *MockUpgradeSeriesMachine) EXPECT() *MockUpgradeSeriesMachineMockRecorde
 }
 
 // MachineUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesMachine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+func (m *MockUpgradeSeriesMachine) MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
 	ret := m.ctrl.Call(m, "MachineUpgradeSeriesStatus")
-	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
+	ret0, _ := ret[0].(model.UnitSeriesUpgradeStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -99,7 +99,7 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) MachineUpgradeSeriesStatus() *go
 }
 
 // SetMachineUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesMachine) SetMachineUpgradeSeriesStatus(arg0 model.UpgradeSeriesStatus) error {
+func (m *MockUpgradeSeriesMachine) SetMachineUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus) error {
 	ret := m.ctrl.Call(m, "SetMachineUpgradeSeriesStatus", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -173,15 +173,15 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) AssignedMachineId() *gomock.Call {
 }
 
 // SetUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus, arg1 model.UpgradeSeriesStatusType) error {
-	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1)
+func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus) error {
+	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus
-func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).SetUpgradeSeriesStatus), arg0, arg1)
+func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).SetUpgradeSeriesStatus), arg0)
 }
 
 // Tag mocks base method
@@ -197,14 +197,14 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) Tag() *gomock.Call {
 }
 
 // UpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus(arg0 model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
-	ret := m.ctrl.Call(m, "UpgradeSeriesStatus", arg0)
+func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
 	ret0, _ := ret[0].(model.UnitSeriesUpgradeStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus
-func (mr *MockUpgradeSeriesUnitMockRecorder) UpgradeSeriesStatus(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).UpgradeSeriesStatus), arg0)
+func (mr *MockUpgradeSeriesUnitMockRecorder) UpgradeSeriesStatus() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).UpgradeSeriesStatus))
 }

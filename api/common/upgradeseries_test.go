@@ -75,7 +75,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus(model.PrepareStatus)
+	watchResult, err := api.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watchResult, gc.DeepEquals, []string{"completed"})
 }
@@ -83,7 +83,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "UpgradeSeriesCompleteStatus")
+		c.Assert(name, gc.Equals, "UpgradeSeriesPrepareStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -96,7 +96,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus(model.CompleteStatus)
+	watchResult, err := api.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watchResult, gc.DeepEquals, []string{"completed"})
 }
@@ -119,7 +119,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus(model.PrepareStatus)
+	watchResult, err := api.UpgradeSeriesStatus()
 	c.Assert(err, gc.ErrorMatches, "testing")
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
 	c.Check(watchResult, gc.HasLen, 0)
@@ -141,7 +141,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus(model.PrepareStatus)
+	watchResult, err := api.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(watchResult, jc.SameContents, []string{"Started", "Completed"})
 }
@@ -164,7 +164,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
+	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -184,7 +184,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
+	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored))
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -206,6 +206,6 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored), model.PrepareStatus)
+	err := api.SetUpgradeSeriesStatus(string(model.UnitErrored))
 	c.Assert(err, gc.ErrorMatches, "error in call")
 }

@@ -2871,19 +2871,19 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 }
 
 // UpgradeSeriesPrepareStatus returns the upgrade status of the units assigned machine.
-func (u *Unit) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
+func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
 	machine, err := u.machine()
 	if err != nil {
 		return "", err
 	}
-	return machine.UpgradeSeriesStatus(u.Name(), statusType)
+	return machine.UpgradeSeriesStatus(u.Name())
 }
 
 // UpgradeSeriesPrepareStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType) error {
+func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
 	machine, err := u.machine()
 	if err != nil {
 		return err
 	}
-	return machine.SetUpgradeSeriesStatus(u.Name(), status, statusType)
+	return machine.SetUpgradeSeriesStatus(u.Name(), status)
 }
