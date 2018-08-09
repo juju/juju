@@ -4,7 +4,10 @@
 package upgradeseries_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -15,8 +18,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/upgradeseries"
-	"github.com/juju/loggo"
-	"time"
 )
 
 type fakeWatcher struct {
