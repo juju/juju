@@ -153,7 +153,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
 			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
-				Status: "Errored",
+				Status: string(model.UnitErrored),
 			}},
 		})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
@@ -175,7 +175,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
 			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
-				Status: "Errored",
+				Status: string(model.UnitErrored),
 			}},
 		})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
@@ -195,7 +195,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
 			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
-				Status: "Errored",
+				Status: string(model.UnitErrored),
 			}},
 		})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
