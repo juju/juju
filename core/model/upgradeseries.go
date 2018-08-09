@@ -7,36 +7,16 @@ import (
 	"github.com/juju/errors"
 )
 
-// UpgradeSeriesStatus is a status that a machine or unit can be in during the
-// execution of an OS series upgrade on its host machine.
-type UpgradeSeriesStatus string
-
-const (
-	UpgradeSeriesNotStarted      UpgradeSeriesStatus = "not started"
-	UpgradeSeriesPrepareStarted  UpgradeSeriesStatus = "prepare started"
-	UpgradeSeriesPrepareMachine  UpgradeSeriesStatus = "prepare machine"
-	UpgradeSeriesPrepareComplete UpgradeSeriesStatus = "prepare complete"
-	UpgradeSeriesCompleteStarted UpgradeSeriesStatus = "complete started"
-	UpgradeSeriesComplete        UpgradeSeriesStatus = "complete"
-	UpgradeSeriesError           UpgradeSeriesStatus = "error"
-)
-
-//MachineSeriesUpgradeStatus is the current status a machine series upgrade
-type MachineSeriesUpgradeStatus string
-
-const (
-	MachineSeriesUpgradeNotStarted    MachineSeriesUpgradeStatus = "NotStarted"
-	MachineSeriesUpgradeStarted       MachineSeriesUpgradeStatus = "Started"
-	MachineSeriesUpgradeAgentsStopped MachineSeriesUpgradeStatus = "AgentsStopped"
-	MachineSeriesUpgradeComplete      MachineSeriesUpgradeStatus = "Complete"
-)
-
 //UnitSeriesUpgradeStatus is the current status of a series upgrade for units
 type UnitSeriesUpgradeStatus string
+
+// Machine upgrade series status will be removed
+type MachineSeriesUpgradeStatus = UnitSeriesUpgradeStatus
 
 const (
 	NotStarted       UnitSeriesUpgradeStatus = "NotStarted"
 	PrepareStarted   UnitSeriesUpgradeStatus = "Prepare Started"
+	PrepareMachine   UnitSeriesUpgradeStatus = "prepare machine"
 	PrepareCompleted UnitSeriesUpgradeStatus = "Prepare Completed"
 	CompleteStarted  UnitSeriesUpgradeStatus = "Complete Started"
 	Completed        UnitSeriesUpgradeStatus = "Completed"

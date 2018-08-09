@@ -24,8 +24,8 @@ type UpgradeSeriesBackend interface {
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
-	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
+	MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
+	SetMachineUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
 }
 
 type UpgradeSeriesUnit interface {
@@ -275,7 +275,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.Upg
 // upgradeSeriesMachineStatus returns a result containing the upgrade-series
 // status of all units managed by the input machine, for the input status type.
 func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(machineTag names.Tag) []params.UpgradeSeriesStatusResult {
-	machine, err := u.getMachine(machineTag)
+	machine, err := u.GetMachine(machineTag)
 	if err != nil {
 		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
 	}

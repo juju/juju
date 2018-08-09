@@ -2149,9 +2149,9 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
-		PrepareStatus:  model.MachineSeriesUpgradeStarted,
+		PrepareStatus:  model.NotStarted,
 		UnitStatuses:   prepareUnits,
-		CompleteStatus: model.MachineSeriesUpgradeNotStarted,
+		CompleteStatus: model.NotStarted,
 	}
 }
 
@@ -2224,7 +2224,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 // and the unit-based methods renamed to indicate their context.
 // The translation code can be removed once the old->new bootstrap is no
 // longer required.
-func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+func (m *Machine) MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2237,8 +2237,7 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 		return "", errors.Trace(err)
 	}
 
-	s, err := model.FromOldUpgradeSeriesStatus(lock.PrepareStatus, lock.CompleteStatus)
-	return s, errors.Trace(err)
+	return lock.PrepareStatus, errors.Trace(err)
 }
 
 // UpgradeSeriesPrepareStatus returns the status of a series upgrade.
@@ -2295,7 +2294,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 // and the unit-based methods renamed to indicate their context.
 // The translation code can be removed once the old->new bootstrap is no
 // longer required.
-func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2322,30 +2321,17 @@ func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UpgradeSeriesStatus
 	return nil
 }
 
-func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStatus) (bool, error) {
+func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UnitSeriesUpgradeStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return false, err
 	}
 
-	// TODO (manadart 2018-08-08): Remove when lock structure modified.
-	t, s := status.ToOldStatus()
-	if t == model.PrepareStatus {
-		return lock.PrepareStatus == s, nil
-	}
-	return lock.CompleteStatus == s, nil
+	return lock.PrepareStatus == status, nil
 }
 
-func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus) []txn.Op {
-	// TODO (manadart 2018-08-08): Remove when lock structure modified.
-	t, s := status.ToOldStatus()
-	var field string
-	switch t {
-	case model.PrepareStatus:
-		field = "prepare-status"
-	case model.CompleteStatus:
-		field = "complete-status"
-	}
+func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UnitSeriesUpgradeStatus) []txn.Op {
+	field := "prepare-status"
 
 	return []txn.Op{
 		{
@@ -2356,7 +2342,7 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeri
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{field, s}}}},
+			Update: bson.D{{"$set", bson.D{{field, status}}}},
 		},
 	}
 }
@@ -2373,7 +2359,7 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			Id: machineDocID,
 			Assert: bson.D{{"$and", []bson.D{
 				//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
-				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
+				{{"complete-status", model.NotStarted}}}}},
 			Update: bson.D{{"$set", bson.D{{"unit-statuses", units}}}},
 		},
 	}
@@ -2456,7 +2442,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 
 	// [TODO](externalreality) Do not forget to put in a check to see if prepare status is completed for the Machine.
 	// lock.PrepareStatus == model.MachineSeriesUpgradeComplete
-	return lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
+	return lock.CompleteStatus == model.NotStarted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
