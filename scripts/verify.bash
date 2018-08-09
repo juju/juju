@@ -2,18 +2,20 @@
 # Copyright 2014 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.
 
-# This is called from pre-push.bash to do some verification checks on 
+# This is called from pre-push.bash to do some verification checks on
 # the Go code.  The script will exit non-zero if any of these tests
 # fail. However if environment variable IGNORE_VET_WARNINGS is a non-zero
 # length string, go vet warnings will not exit non-zero.
 
-set -e 
+set -e
 
 VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
+FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/`
+
 echo "checking: go fmt ..."
-BADFMT=`find * -name '*.go' -not -name '.#*' | xargs gofmt -l -s`
+BADFMT=`echo "$FILES" | xargs gofmt -l -s`
 if [ -n "$BADFMT" ]; then
     BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
     echo -e "gofmt failed, run the following command(s) to fix:\n"
@@ -59,7 +61,7 @@ go tool vet \
    -all \
    -composites=false \
    -printfuncs=$all_prints \
-    . || [ -n "$IGNORE_VET_WARNINGS" ]
+    $FILES || [ -n "$IGNORE_VET_WARNINGS" ]
 
 # Allow the ignoring of the gometalinter
 if [ -z "$IGNORE_GOMETALINTER" ]; then
@@ -70,7 +72,7 @@ else
 fi
 
 echo "checking: go build ..."
-go build github.com/juju/juju/...
+go build $(go list github.com/juju/juju/... | grep -v /vendor/)
 
 echo "checking: tests are wired up ..."
 ./scripts/checktesting.bash
