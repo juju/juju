@@ -479,3 +479,12 @@ type UpgradeStep interface {
 	// Run executes the upgrade business logic.
 	Run(ctx context.ProviderCallContext) error
 }
+
+// DefaultConstraintsChecker defines an interface for checking if the default
+// constraints should be applied for the Environ provider when bootstrapping
+// the provider.
+type DefaultConstraintsChecker interface {
+	// ShouldUseDefaultConstraints returns if bootstrapping logic should use
+	// default constraints
+	ShouldUseDefaultConstraints() bool
+}

@@ -268,7 +268,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
+	// The follow is used to determine if we should apply the default
+	// constraints when we bootstrap. Generally speaking this should always be
+	// applied, but there are exceptions to the rule e.g. local LXD
+	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldUseDefaultConstraints() {
+		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
+	}
 
 	// The arch we use to find tools isn't the boostrapConstraints arch.
 	// We copy the constraints arch to a separate variable and
