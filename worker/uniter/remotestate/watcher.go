@@ -583,7 +583,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	rawStatus, err := w.unit.UpgradeSeriesStatus()
 	if err != nil {
 		return "", err

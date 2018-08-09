@@ -1303,8 +1303,8 @@ type SetUpgradeSeriesStatusParam struct {
 // TODO (manadart 2018-08-07) Replace SetUpgradeSeriesStatusParam usage
 // with this and use in place of UpgradeSeriesStatusResult.Status.
 type UpgradeSeriesStatus struct {
-	Entity Entity                        `json:"entity"`
-	Status model.UnitSeriesUpgradeStatus `json:"status"`
+	Entity Entity                    `json:"entity"`
+	Status model.UpgradeSeriesStatus `json:"status"`
 }
 
 // UpgradeSeriesStatusResultNew transports the upgrade-series status of a

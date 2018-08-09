@@ -228,7 +228,7 @@ type upgradeSeriesLockDoc struct {
 
 type unitStatus struct {
 	Id     string
-	Status model.UnitSeriesUpgradeStatus
+	Status model.UpgradeSeriesStatus
 
 	// The time that the status was set
 	Timestamp time.Time
@@ -2224,7 +2224,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 // and the unit-based methods renamed to indicate their context.
 // The translation code can be removed once the old->new bootstrap is no
 // longer required.
-func (m *Machine) MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2241,7 +2241,7 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, e
 }
 
 // UpgradeSeriesPrepareStatus returns the status of a series upgrade.
-func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
+func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2264,7 +2264,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus) error {
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2294,7 +2294,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 // and the unit-based methods renamed to indicate their context.
 // The translation code can be removed once the old->new bootstrap is no
 // longer required.
-func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
+func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2321,7 +2321,7 @@ func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UnitSeriesUpgradeSt
 	return nil
 }
 
-func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UnitSeriesUpgradeStatus) (bool, error) {
+func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return false, err
@@ -2330,7 +2330,7 @@ func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UnitSeriesUpgrade
 	return lock.PrepareStatus == status, nil
 }
 
-func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UnitSeriesUpgradeStatus) []txn.Op {
+func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus) []txn.Op {
 	field := "prepare-status"
 
 	return []txn.Op{
@@ -2392,7 +2392,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
-func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, timestamp time.Time) ([]txn.Op, error) {
+func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UpgradeSeriesStatus, timestamp time.Time) ([]txn.Op, error) {
 	statusField := "unit-statuses"
 	unitStatusField := fmt.Sprintf("%s.%d.status", statusField, unitIndex)
 	unitIDField := fmt.Sprintf("%s.%d.id", statusField, unitIndex)
@@ -2449,7 +2449,7 @@ func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
 }
 
-func (m *Machine) getUnitIndex(unitName string, status model.UnitSeriesUpgradeStatus) (int, error) {
+func (m *Machine) getUnitIndex(unitName string, status model.UpgradeSeriesStatus) (int, error) {
 	docIndex := -1
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {

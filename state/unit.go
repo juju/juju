@@ -2871,7 +2871,7 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 }
 
 // UpgradeSeriesPrepareStatus returns the upgrade status of the units assigned machine.
-func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	machine, err := u.machine()
 	if err != nil {
 		return "", err
@@ -2880,7 +2880,7 @@ func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
 }
 
 // UpgradeSeriesPrepareStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
+func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	machine, err := u.machine()
 	if err != nil {
 		return err

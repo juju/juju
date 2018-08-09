@@ -24,15 +24,15 @@ type UpgradeSeriesBackend interface {
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
-	MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
-	SetMachineUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
+	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
 }
 
 type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
-	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
+	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
 }
 
 // UpgradeSeriesState implements the UpgradeSeriesBackend indirection

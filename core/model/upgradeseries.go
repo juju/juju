@@ -7,25 +7,25 @@ import (
 	"github.com/juju/errors"
 )
 
-//UnitSeriesUpgradeStatus is the current status of a series upgrade for units
-type UnitSeriesUpgradeStatus string
+//UpgradeSeriesStatus is the current status of a series upgrade for units
+type UpgradeSeriesStatus string
 
 // Machine upgrade series status will be removed
-type MachineSeriesUpgradeStatus = UnitSeriesUpgradeStatus
+type MachineSeriesUpgradeStatus = UpgradeSeriesStatus
 
 const (
-	NotStarted       UnitSeriesUpgradeStatus = "NotStarted"
-	PrepareStarted   UnitSeriesUpgradeStatus = "Prepare Started"
-	PrepareMachine   UnitSeriesUpgradeStatus = "prepare machine"
-	PrepareCompleted UnitSeriesUpgradeStatus = "Prepare Completed"
-	CompleteStarted  UnitSeriesUpgradeStatus = "Complete Started"
-	Completed        UnitSeriesUpgradeStatus = "Completed"
-	UnitErrored      UnitSeriesUpgradeStatus = "Errored"
+	NotStarted       UpgradeSeriesStatus = "not started"
+	PrepareStarted   UpgradeSeriesStatus = "prepare started"
+	PrepareMachine   UpgradeSeriesStatus = "prepare machine"
+	PrepareCompleted UpgradeSeriesStatus = "prepare completed"
+	CompleteStarted  UpgradeSeriesStatus = "complete started"
+	Completed        UpgradeSeriesStatus = "completed"
+	UnitErrored      UpgradeSeriesStatus = "error"
 )
 
 // Validates a string returning an UpgradeSeriesPrepareStatus, if valid, or an error.
-func ValidateUnitSeriesUpgradeStatus(series string) (UnitSeriesUpgradeStatus, error) {
-	unCheckedStatus := UnitSeriesUpgradeStatus(series)
+func ValidateUnitSeriesUpgradeStatus(series string) (UpgradeSeriesStatus, error) {
+	unCheckedStatus := UpgradeSeriesStatus(series)
 	switch unCheckedStatus {
 	case NotStarted, PrepareStarted, PrepareCompleted, CompleteStarted, Completed, UnitErrored:
 		return unCheckedStatus, nil
