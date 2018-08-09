@@ -157,12 +157,21 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	started := unitsStarted(completion)
 	completed := unitsCompleted(completion)
 
 	// User has done the required manual work and run upgrade-series complete.
 	// Restart the unit agents.
-	if machineStatus == model.UpgradeSeriesCompleteStarted && !completed {
-		return errors.Trace(w.transitionCompleted(len(completion)))
+	if machineStatus == model.UpgradeSeriesCompleteStarted && prepared && !started && !completed {
+		return errors.Trace(w.transitionUnitsStarted(len(preparation)))
+	}
+
+	// All the units have run their series-upgrade complete hooks and indicated
+	// that they are completed. Transition the machine to completed too.
+	if machineStatus == model.UpgradeSeriesCompleteStarted && completed {
+		// TODO (manadart 2018-08-09): Do we remove the lock at some point?
+		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesComplete))
 	}
 
 	return nil
@@ -220,9 +229,10 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareComplete))
 }
 
-// transitionCompleted starts all of the unit agents and updates the machine
-// status to indicate it has completed all of the series upgrade steps
-func (w *upgradeSeriesWorker) transitionCompleted(statusCount int) error {
+// transitionUnitsStarted iterates over units managed by this machine.
+// It changes each unit state start the completion of the series upgrade,
+// then starts the unit's agent service.
+func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 	unitServices, err := w.unitAgentServices(statusCount)
 	if err != nil {
 		return errors.Trace(err)
@@ -231,6 +241,12 @@ func (w *upgradeSeriesWorker) transitionCompleted(statusCount int) error {
 	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
+
+		// TODO (manadart 2018-08-09): Add a method to the API to do this for
+		// all units at once.
+		if err := w.setUnitStatus(unit, model.CompleteStatus, model.UnitStarted); err != nil {
+			return errors.Trace(err)
+		}
 
 		running, err := svc.Running()
 		if err != nil {
@@ -245,7 +261,7 @@ func (w *upgradeSeriesWorker) transitionCompleted(statusCount int) error {
 		}
 	}
 
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesComplete))
+	return nil
 }
 
 // unitAgentServices filters the services running on the local machine to those
@@ -273,6 +289,10 @@ func (w *upgradeSeriesWorker) setUnitStatus(
 
 func unitsCompleted(statuses []string) bool {
 	return unitsAllWithStatus(statuses, model.UnitCompleted)
+}
+
+func unitsStarted(statuses []string) bool {
+	return unitsAllWithStatus(statuses, model.UnitStarted)
 }
 
 func unitsAllWithStatus(statuses []string, target model.UnitSeriesUpgradeStatus) bool {
