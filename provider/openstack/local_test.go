@@ -582,7 +582,8 @@ func (s *localServerSuite) TestStartInstanceNetworkNotSetReturnsError(c *gc.C) {
 }
 
 func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc.C) {
-	// Modify the server that is created by default, to clear the networks.
+	// Modify the Openstack service that is created by default,
+	// to clear the networks.
 	model := neutronmodel.New()
 	for _, net := range model.AllNetworks() {
 		model.RemoveNetwork(net.Id)
