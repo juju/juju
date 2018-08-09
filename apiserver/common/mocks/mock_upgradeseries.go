@@ -86,9 +86,9 @@ func (m *MockUpgradeSeriesMachine) EXPECT() *MockUpgradeSeriesMachineMockRecorde
 }
 
 // MachineUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesMachine) MachineUpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+func (m *MockUpgradeSeriesMachine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "MachineUpgradeSeriesStatus")
-	ret0, _ := ret[0].(model.UnitSeriesUpgradeStatus)
+	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -99,7 +99,7 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) MachineUpgradeSeriesStatus() *go
 }
 
 // SetMachineUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesMachine) SetMachineUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus) error {
+func (m *MockUpgradeSeriesMachine) SetMachineUpgradeSeriesStatus(arg0 model.UpgradeSeriesStatus) error {
 	ret := m.ctrl.Call(m, "SetMachineUpgradeSeriesStatus", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -173,7 +173,7 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) AssignedMachineId() *gomock.Call {
 }
 
 // SetUpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UnitSeriesUpgradeStatus) error {
+func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UpgradeSeriesStatus) error {
 	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -197,9 +197,9 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) Tag() *gomock.Call {
 }
 
 // UpgradeSeriesStatus mocks base method
-func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
-	ret0, _ := ret[0].(model.UnitSeriesUpgradeStatus)
+	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
