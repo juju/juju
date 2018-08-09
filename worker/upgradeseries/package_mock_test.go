@@ -36,6 +36,31 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
+// MachineStatus mocks base method
+func (m *MockFacade) MachineStatus() (model.UpgradeSeriesStatus, error) {
+	ret := m.ctrl.Call(m, "MachineStatus")
+	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineStatus indicates an expected call of MachineStatus
+func (mr *MockFacadeMockRecorder) MachineStatus() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineStatus", reflect.TypeOf((*MockFacade)(nil).MachineStatus))
+}
+
+// SetMachineStatus mocks base method
+func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus) error {
+	ret := m.ctrl.Call(m, "SetMachineStatus", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachineStatus indicates an expected call of SetMachineStatus
+func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0)
+}
+
 // SetUpgradeSeriesStatus mocks base method
 func (m *MockFacade) SetUpgradeSeriesStatus(arg0 string, arg1 model.UpgradeSeriesStatusType) error {
 	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1)

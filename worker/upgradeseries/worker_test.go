@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/upgradeseries"
+	"github.com/juju/loggo"
+	"time"
 )
 
 type fakeWatcher struct {
@@ -48,6 +50,107 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.done = make(chan struct{})
 }
 
+func (s *workerSuite) TestInconsistentStateNoChange(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	exp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"nope"}, nil)
+	exp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"nope"}, nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestPrepareStatusCompleteUnitsStoppedPrepareMachine(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	agentWordpress := NewMockAgentService(ctrl)
+	agentMySQL := NewMockAgentService(ctrl)
+
+	fExp := s.facade.EXPECT()
+	fExp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
+	fExp.SetMachineStatus(model.UpgradeSeriesPrepareMachine).Return(nil)
+
+	sExp := s.service.EXPECT()
+	sExp.ListServices().Return([]string{
+		"jujud-unit-wordpress-0",
+		"jujud-unit-mysql-0",
+		"jujud-machine-0",
+	}, nil)
+	sExp.DiscoverService("jujud-unit-wordpress-0").Return(agentWordpress, nil)
+	sExp.DiscoverService("jujud-unit-mysql-0").Return(agentMySQL, nil)
+
+	agentWordpress.EXPECT().Running().Return(true, nil)
+	agentWordpress.EXPECT().Stop().Return(nil)
+
+	agentMySQL.EXPECT().Running().Return(false, nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestPrepareMachineUnitFilesWrittenPrepareComplete(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	fExp := s.facade.EXPECT()
+	fExp.MachineStatus().Return(model.UpgradeSeriesPrepareMachine, nil)
+	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
+
+	// TODO (manadart 2018-08-09): Assertions for service unit manipulation.
+
+	fExp.SetMachineStatus(model.UpgradeSeriesPrepareComplete).Return(nil)
+
+	sExp := s.service.EXPECT()
+	sExp.ListServices().Return([]string{
+		"jujud-unit-wordpress-0",
+		"jujud-unit-mysql-0",
+		"jujud-machine-0",
+	}, nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestPrepareCompleteUnitsStartedComplete(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	agentWordpress := NewMockAgentService(ctrl)
+	agentMySQL := NewMockAgentService(ctrl)
+
+	fExp := s.facade.EXPECT()
+	fExp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
+	fExp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"Started", "Started"}, nil)
+	fExp.SetMachineStatus(model.UpgradeSeriesComplete).Return(nil)
+
+	sExp := s.service.EXPECT()
+	sExp.ListServices().Return([]string{
+		"jujud-unit-wordpress-0",
+		"jujud-unit-mysql-0",
+		"jujud-machine-0",
+	}, nil)
+	sExp.DiscoverService("jujud-unit-wordpress-0").Return(agentWordpress, nil)
+	sExp.DiscoverService("jujud-unit-mysql-0").Return(agentMySQL, nil)
+
+	agentWordpress.EXPECT().Running().Return(false, nil)
+	agentWordpress.EXPECT().Start().Return(nil)
+
+	agentMySQL.EXPECT().Running().Return(true, nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
 func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
 	s.logger = NewMockLogger(ctrl)
 	s.facade = NewMockFacade(ctrl)
@@ -75,57 +178,37 @@ func (s *workerSuite) newWorker(c *gc.C, ctrl *gomock.Controller, behaviours ...
 	return w
 }
 
-func (s *workerSuite) TestInconsistentStateNoChange(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
-
-	s.facade.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"nope"}, nil)
-	s.facade.EXPECT().UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"nope"}, nil)
-
-	w := s.newWorker(c, ctrl, ignoreLogging, notify(1))
-	<-s.done
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) TestPrepareStatusCompleteUnitsStopped(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
-
-	agentWordpress := NewMockAgentService(ctrl)
-	agentMySQL := NewMockAgentService(ctrl)
-
-	s.facade.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
-	s.facade.EXPECT().UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"NotStarted", "NotStarted"}, nil)
-	// Expect an upgrade to machine status.
-
-	exp := s.service.EXPECT()
-	exp.ListServices().Return([]string{
-		"jujud-unit-wordpress-0",
-		"jujud-unit-mysql-0",
-		"jujud-machine-0",
-	}, nil)
-	exp.DiscoverService("jujud-unit-wordpress-0").Return(agentWordpress, nil)
-	exp.DiscoverService("jujud-unit-mysql-0").Return(agentMySQL, nil)
-
-	agentWordpress.EXPECT().Running().Return(true, nil)
-	agentWordpress.EXPECT().Stop().Return(nil)
-
-	agentMySQL.EXPECT().Running().Return(true, nil)
-	agentMySQL.EXPECT().Stop().Return(nil)
-
-	w := s.newWorker(c, ctrl, ignoreLogging, notify(1))
-	<-s.done
+// cleanKill waits for notifications to be processed, then waits for the input
+// worker to be killed cleanly. If either ops time out, the test fails.
+func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
+	select {
+	case <-s.done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
 	workertest.CleanKill(c, w)
 }
 
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
-func ignoreLogging(s *workerSuite) {
-	e := s.logger.EXPECT()
-	e.Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	e.Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-	e.Warningf(gomock.Any(), gomock.Any()).AnyTimes()
+// Logs are still emitted via the test logger.
+func ignoreLogging(c *gc.C) suiteBehaviour {
+	logIt := func(level loggo.Level, message string, args ...interface{}) {
+		nArgs := append([]interface{}{level}, args)
+		c.Logf("%s "+message, nArgs...)
+	}
+	warnIt := func(message string, args ...interface{}) {
+		logIt(loggo.WARNING, message, args...)
+	}
+	errorIt := func(message string, args ...interface{}) {
+		logIt(loggo.ERROR, message, args...)
+	}
+
+	return func(s *workerSuite) {
+		e := s.logger.EXPECT()
+		e.Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(logIt)
+		e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
+		e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
+	}
 }
 
 // notify returns a suite behaviour that will cause the upgrade-series watcher
