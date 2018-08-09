@@ -3,9 +3,9 @@
 package upgradeseries
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
@@ -23,10 +23,7 @@ type State struct {
 	authTag names.Tag
 }
 
-func NewState(
-	caller base.APICaller,
-	authTag names.Tag,
-) *State {
+func NewState(caller base.APICaller, authTag names.Tag) *State {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		upgradeSeriesFacade,
