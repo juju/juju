@@ -36,9 +36,9 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	return validator, nil
 }
 
-// ShouldUseDefaultConstraints returns if bootstrapping logic should use
+// ShouldApplyControllerConstraints returns if bootstrapping logic should use
 // default constraints
-func (env *environ) ShouldUseDefaultConstraints() bool {
+func (env *environ) ShouldApplyControllerConstraints() bool {
 	return false
 }
 

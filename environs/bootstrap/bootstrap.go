@@ -271,7 +271,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 	// The follow is used to determine if we should apply the default
 	// constraints when we bootstrap. Generally speaking this should always be
 	// applied, but there are exceptions to the rule e.g. local LXD
-	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldUseDefaultConstraints() {
+	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints() {
 		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 	}
 
