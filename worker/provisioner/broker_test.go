@@ -207,7 +207,7 @@ func (f *fakeAPI) HostChangesForContainer(machineTag names.MachineTag) ([]networ
 	return []network.DeviceToBridge{f.fakeDeviceToBridge}, 0, nil
 }
 
-func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger) error {
+func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error {
 	// This is not actually part of the API, however it is something that the
 	// Brokers should be calling, and putting it here means we get a wholistic
 	// view of when what function is getting called.
@@ -216,7 +216,7 @@ func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger) e
 		return err
 	}
 	if f.fakePreparer != nil {
-		return f.fakePreparer(containerTag, log)
+		return f.fakePreparer(containerTag, log, abort)
 	}
 	return nil
 }
