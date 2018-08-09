@@ -2728,7 +2728,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C)
 	sts, err = s.machine.UpgradeSeriesStatus(unit0.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(sts, gc.Equals, model.PrepareStarted)
+	c.Assert(sts, gc.Equals, model.CompleteStarted)
 }
 
 // TODO (manadart 2018-08-07): Remove/refactor once prepare/complete

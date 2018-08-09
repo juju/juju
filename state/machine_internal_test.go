@@ -71,11 +71,11 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 		C:  machineUpgradeSeriesLocksC,
 		Id: arbitraryMachineID,
 		Assert: bson.D{{"$and", []bson.D{
-			{{"prepare-units", bson.D{{"$exists", true}}}},
-			{{"prepare-units.0.id", "application/0"}},
-			{{"prepare-units.0.status", bson.D{{"$ne", arbitraryStatus}}}}}}},
+			{{"unit-statuses", bson.D{{"$exists", true}}}},
+			{{"unit-statuses.0.id", "application/0"}},
+			{{"unit-statuses.0.status", bson.D{{"$ne", arbitraryStatus}}}}}}},
 		Update: bson.D{
-			{"$set", bson.D{{"prepare-units.0.status", arbitraryStatus}, {"prepare-units.0.timestamp", arbitraryUpdateTime}}}},
+			{"$set", bson.D{{"unit-statuses.0.status", arbitraryStatus}, {"unit-statuses.0.timestamp", arbitraryUpdateTime}}}},
 	}
 
 	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, 0, arbitraryStatus, arbitraryUpdateTime)

@@ -2149,7 +2149,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
-		PrepareStatus:  model.NotStarted,
+		PrepareStatus:  model.PrepareStarted,
 		UnitStatuses:   prepareUnits,
 		CompleteStatus: model.NotStarted,
 	}
@@ -2358,9 +2358,8 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			C:  machineUpgradeSeriesLocksC,
 			Id: machineDocID,
 			Assert: bson.D{{"$and", []bson.D{
-				//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
-				{{"complete-status", model.NotStarted}}}}},
-			Update: bson.D{{"$set", bson.D{{"unit-statuses", units}}}},
+				{{"prepare-status", model.PrepareCompleted}}}}},
+			Update: bson.D{{"$set", bson.D{{"unit-statuses", units}, {"prepare-status", model.CompleteStarted}}}},
 		},
 	}
 }
