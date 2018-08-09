@@ -5,8 +5,11 @@ package upgradeseries
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 const upgradeSeriesFacade = "UpgradeSeries"
@@ -33,4 +36,41 @@ func NewState(
 		authTag:          authTag,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
 	}
+}
+
+func (s *State) MachineStatus() (model.UpgradeSeriesStatus, error) {
+	var results params.UpgradeSeriesStatusResultsNew
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.authTag.String()}},
+	}
+
+	err := s.facade.FacadeCall("MachineStatus", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	r := results.Results[0]
+	return r.Status.Status, r.Error
+}
+
+func (s *State) SetMachineStatus(status model.UpgradeSeriesStatus) error {
+	var results params.ErrorResults
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatus{{
+			Entity: params.Entity{Tag: s.authTag.String()},
+			Status: status,
+		}},
+	}
+
+	err := s.facade.FacadeCall("SetMachineStatus", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	return results.Results[0].Error
 }
