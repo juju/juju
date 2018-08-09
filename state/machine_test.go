@@ -2615,7 +2615,7 @@ func (s *MachineSuite) TestCreateUgradeSeriesLock(c *gc.C) {
 	c.Assert(locked, jc.IsTrue)
 }
 
-func (s *MachineSuite) TestCreateUgradeSeriesLockErrorsIfLockExists(c *gc.C) {
+func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2623,7 +2623,7 @@ func (s *MachineSuite) TestCreateUgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "upgrade series lock for machine \".*\" already exists")
 }
 
-func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnDyingMachine(c *gc.C) {
+func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C) {
 	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2634,7 +2634,7 @@ func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnDyingMachine(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "machine not found or not alive")
 }
 
-func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnSameSeries(c *gc.C) {
+func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnSameSeries(c *gc.C) {
 	mach, err := s.State.AddMachine("xenial", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2642,7 +2642,7 @@ func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnSameSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine .* already at series xenial")
 }
 
-func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockUnitsChanged(c *gc.C) {
+func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockUnitsChanged(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 
 	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0"}, "xenial")
@@ -2702,7 +2702,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
@@ -2714,19 +2714,48 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatus(c *gc.C)
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
+	sts, err := s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UnitNotStarted)
+	c.Assert(sts, gc.Equals, model.UnitNotStarted)
 
 	err = s.machine.CompleteUpgradeSeries()
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err = s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
+	sts, err = s.machine.UpgradeSeriesStatus(unit0.Name(), model.CompleteStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UnitStarted)
+	c.Assert(sts, gc.Equals, model.UnitStarted)
+}
+
+// TODO (manadart 2018-08-07): Remove/refactor once prepare/complete
+// statuses are unified.
+func (s *MachineSuite) TestMachineSeriesUpgradeStatusTranslatesCorrectly(c *gc.C) {
+	unit0 := s.addMachineUnit(c, s.machine)
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	sts, err := s.machine.MachineUpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sts, gc.Equals, model.UpgradeSeriesPrepareStarted)
+
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sts, err = s.machine.MachineUpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sts, gc.Equals, model.UpgradeSeriesPrepareComplete)
+
+	err = s.machine.CompleteUpgradeSeries()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sts, err = s.machine.MachineUpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (manadart 2018-08-07): Re-enable once CompleteUpgradeSeries
+	// is correct. It does not appear to change the machine status.
+	//c.Check(sts, gc.Equals, model.UpgradeSeriesComplete)
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {
@@ -2734,7 +2763,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteSta
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()

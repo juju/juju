@@ -2221,6 +2221,28 @@ func (m *Machine) CompleteUpgradeSeries() error {
 	return nil
 }
 
+// MachineUpgradeSeriesStatus returns the upgrade-series status of a machine.
+// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
+// and the unit-based methods renamed to indicate their context.
+// The translation code can be removed once the old->new bootstrap is no
+// longer required.
+func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	s, err := model.FromOldUpgradeSeriesStatus(lock.PrepareStatus, lock.CompleteStatus)
+	return s, errors.Trace(err)
+}
+
 // UpgradeSeriesPrepareStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus(unitName string, statusType model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
@@ -2281,7 +2303,11 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 }
 
 // SetUpgradeSeriesStatus sets the machine status of a series upgrade.
-func (m *Machine) SetMachineUpgradeSeriesStatus(status model.MachineSeriesUpgradeStatus) error {
+// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
+// and the unit-based methods renamed to indicate their context.
+// The translation code can be removed once the old->new bootstrap is no
+// longer required.
+func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2308,15 +2334,31 @@ func (m *Machine) SetMachineUpgradeSeriesStatus(status model.MachineSeriesUpgrad
 	return nil
 }
 
-func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.MachineSeriesUpgradeStatus) (bool, error) {
+func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return false, err
 	}
-	return lock.PrepareStatus == status, nil
+
+	// TODO (manadart 2018-08-08): Remove when lock structure modified.
+	t, s := status.ToOldStatus()
+	if t == model.PrepareStatus {
+		return lock.PrepareStatus == s, nil
+	}
+	return lock.CompleteStatus == s, nil
 }
 
-func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.MachineSeriesUpgradeStatus) []txn.Op {
+func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus) []txn.Op {
+	// TODO (manadart 2018-08-08): Remove when lock structure modified.
+	t, s := status.ToOldStatus()
+	var field string
+	switch t {
+	case model.PrepareStatus:
+		field = "prepare-status"
+	case model.CompleteStatus:
+		field = "complete-status"
+	}
+
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2326,7 +2368,7 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.MachineSeri
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{"prepare-status", status}}}},
+			Update: bson.D{{"$set", bson.D{{field, s}}}},
 		},
 	}
 }

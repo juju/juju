@@ -14,24 +14,40 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/mock_backend.go github.com/juju/juju/apiserver/common UpgradeSeriesBackend
+//go:generate mockgen -package mocks -destination mocks/mock_upgradeseries.go github.com/juju/juju/apiserver/common UpgradeSeriesBackend,UpgradeSeriesMachine,UpgradeSeriesUnit
+
 type UpgradeSeriesBackend interface {
 	Machine(string) (UpgradeSeriesMachine, error)
 	Unit(string) (UpgradeSeriesUnit, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/mock_machine.go github.com/juju/juju/apiserver/common UpgradeSeriesMachine
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
+	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
 }
 
-//go:generate mockgen -package mocks -destination mocks/mock_unit.go github.com/juju/juju/apiserver/common UpgradeSeriesUnit
 type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
 	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error)
 	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
+}
+
+// UpgradeSeriesState implements the UpgradeSeriesBackend indirection
+// over state.State.
+type UpgradeSeriesState struct {
+	St *state.State
+}
+
+func (s UpgradeSeriesState) Machine(id string) (UpgradeSeriesMachine, error) {
+	m, err := s.St.Machine(id)
+	return &upgradeSeriesMachine{m}, err
+}
+
+func (s UpgradeSeriesState) Unit(id string) (UpgradeSeriesUnit, error) {
+	return s.St.Unit(id)
 }
 
 type upgradeSeriesMachine struct {
@@ -60,7 +76,7 @@ type UpgradeSeriesAPI struct {
 	logger loggo.Logger
 
 	accessUnitOrMachine GetAuthFunc
-	accessMachine       GetAuthFunc
+	AccessMachine       GetAuthFunc
 	accessUnit          GetAuthFunc
 }
 
@@ -79,7 +95,7 @@ func NewUpgradeSeriesAPI(
 		backend:             backend,
 		resources:           resources,
 		accessUnitOrMachine: AuthAny(accessUnit, accessMachine),
-		accessMachine:       accessMachine,
+		AccessMachine:       accessMachine,
 		accessUnit:          accessUnit,
 		logger:              logger,
 	}
@@ -107,7 +123,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		machine, err := u.getMachine(tag)
+		machine, err := u.GetMachine(tag)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
@@ -149,7 +165,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesCompleteStatus(args params.SetUpgrade
 	return u.setUpgradeSeriesStatus(args, model.CompleteStatus)
 }
 
-func (u *UpgradeSeriesAPI) getMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
+func (u *UpgradeSeriesAPI) GetMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
 	var id string
 	switch tag.Kind() {
 	case names.MachineTagKind:
@@ -181,7 +197,7 @@ func NewExternalUpgradeSeriesAPI(
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UpgradeSeriesAPI {
-	return NewUpgradeSeriesAPI(backendShim{st}, resources, authorizer, accessMachine, accessUnit, logger)
+	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }
 
 func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams, statusType model.UpgradeSeriesStatusType) (params.ErrorResults, error) {
@@ -263,7 +279,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(
 func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(
 	machineTag names.Tag, statusType model.UpgradeSeriesStatusType,
 ) []params.UpgradeSeriesStatusResult {
-	machine, err := u.getMachine(machineTag)
+	machine, err := u.GetMachine(machineTag)
 	if err != nil {
 		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
 	}
@@ -301,17 +317,4 @@ func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(
 
 	result.Status = string(status)
 	return result
-}
-
-type backendShim struct {
-	st *state.State
-}
-
-func (shim backendShim) Machine(id string) (UpgradeSeriesMachine, error) {
-	m, err := shim.st.Machine(id)
-	return &upgradeSeriesMachine{m}, err
-}
-
-func (shim backendShim) Unit(id string) (UpgradeSeriesUnit, error) {
-	return shim.st.Unit(id)
 }
