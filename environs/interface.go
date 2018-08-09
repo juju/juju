@@ -484,7 +484,7 @@ type UpgradeStep interface {
 // constraints should be applied for the Environ provider when bootstrapping
 // the provider.
 type DefaultConstraintsChecker interface {
-	// ShouldUseDefaultConstraints returns if bootstrapping logic should use
-	// default constraints
-	ShouldUseDefaultConstraints() bool
+	// ShouldApplyControllerConstraints returns if bootstrapping logic should
+	// use default constraints
+	ShouldApplyControllerConstraints() bool
 }
