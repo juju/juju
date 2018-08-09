@@ -52,9 +52,6 @@ dep:
 	@echo "skipping dep"
 endif
 
-# keep this for backwards compatibility for ci-run on 2.4, 2.3 branchs
-godeps: dep
-
 build: dep go-build
 
 add-patches:
@@ -180,5 +177,5 @@ local-operator-update: check-k8s-model operator-image
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies
-.PHONY: check-deps
+.PHONY: dep check-deps
 .PHONY: add-patches remove-patches

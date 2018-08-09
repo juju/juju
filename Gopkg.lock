@@ -1042,7 +1042,7 @@
   revision = "05504416e95561e1478196d7058721c827a7bb8c"
 
 [[projects]]
-  digest = "1:63331acfdedfa72fef75e5ed82d5200eb6bb238883a487f8c3409992ac62be6e"
+  digest = "0:"
   name = "golang.org/x/crypto"
   packages = [
     "acme",
@@ -1052,6 +1052,7 @@
     "ed25519",
     "ed25519/internal/edwards25519",
     "internal/chacha20",
+    "internal/subtle",
     "nacl/box",
     "nacl/secretbox",
     "openpgp",
@@ -1069,7 +1070,7 @@
     "ssh/terminal",
   ]
   pruneopts = ""
-  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
+  revision = "f027049dab0ad238e394a753dba2d14753473a04"
 
 [[projects]]
   digest = "1:40dd5a4f1e82c4d3dc3de550a96152f6a8937bcfcb20c7ee34685f8764e1bda5"
