@@ -17,6 +17,8 @@ type Facade interface {
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) ([]string, error)
 	SetUpgradeSeriesStatus(string, model.UpgradeSeriesStatusType) error
+	MachineStatus() (model.UpgradeSeriesStatus, error)
+	SetMachineStatus(status model.UpgradeSeriesStatus) error
 }
 
 // NewFacade creates a *upgradeseries.State and returns it as a Facade.
