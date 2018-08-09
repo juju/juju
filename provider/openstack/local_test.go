@@ -32,6 +32,7 @@ import (
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/goose.v2/testservices/hook"
 	"gopkg.in/goose.v2/testservices/identityservice"
+	"gopkg.in/goose.v2/testservices/neutronmodel"
 	"gopkg.in/goose.v2/testservices/neutronservice"
 	"gopkg.in/goose.v2/testservices/novaservice"
 	"gopkg.in/goose.v2/testservices/openstackservice"
@@ -565,7 +566,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 		"404; error info: .*itemNotFound.*")
 }
 
-func (s *localServerSuite) TestStartInstanceNetworkNotSet(c *gc.C) {
+func (s *localServerSuite) TestStartInstanceNetworkNotSetReturnsError(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		"network": "",
 	})
@@ -578,6 +579,28 @@ func (s *localServerSuite) TestStartInstanceNetworkNotSet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
 	To resolve this error, set a value for "network" in model-config or model-defaults;
 	or supply it via --config when creating a new model`)
+}
+
+func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc.C) {
+	// Modify the Openstack service that is created by default,
+	// to clear the networks.
+	model := neutronmodel.New()
+	for _, net := range model.AllNetworks() {
+		model.RemoveNetwork(net.Id)
+	}
+	s.srv.Openstack.Neutron.AddNeutronModel(model)
+	s.srv.Openstack.Nova.AddNeutronModel(model)
+
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
