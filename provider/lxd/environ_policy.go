@@ -43,6 +43,12 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
+// ShouldApplyControllerConstraints returns if bootstrapping logic should use
+// default constraints
+func (env *environ) ShouldApplyControllerConstraints() bool {
+	return false
+}
+
 // SupportNetworks returns whether the environment has support to
 // specify networks for applications and machines.
 func (env *environ) SupportNetworks(ctx context.ProviderCallContext) bool {
