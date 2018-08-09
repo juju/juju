@@ -222,7 +222,7 @@ type upgradeSeriesLockDoc struct {
 	ToSeries       string                           `bson:"to-series"`
 	FromSeries     string                           `bson:"from-series"`
 	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"prepare-status"`
-	PrepareUnits   []unitStatus                     `bson:"prepare-units"`
+	UnitStatuses   []unitStatus                     `bson:"unit-statuses"`
 	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"complete-status"`
 }
 
@@ -2150,7 +2150,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
 		PrepareStatus:  model.MachineSeriesUpgradeStarted,
-		PrepareUnits:   prepareUnits,
+		UnitStatuses:   prepareUnits,
 		CompleteStatus: model.MachineSeriesUpgradeNotStarted,
 	}
 }
@@ -2206,10 +2206,10 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if err != nil {
 			return nil, err
 		}
-		for i := range lock.PrepareUnits {
-			lock.PrepareUnits[i].Status = model.CompleteStarted
+		for i := range lock.UnitStatuses {
+			lock.UnitStatuses[i].Status = model.CompleteStarted
 		}
-		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.PrepareUnits), nil
+		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.UnitStatuses), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2255,7 +2255,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 		return "", errors.Trace(err)
 	}
 
-	for _, unit := range lock.PrepareUnits {
+	for _, unit := range lock.UnitStatuses {
 		if unit.Id == unitName {
 			return unit.Status, nil
 		}
@@ -2374,7 +2374,7 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			Assert: bson.D{{"$and", []bson.D{
 				//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
 				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
-			Update: bson.D{{"$set", bson.D{{"prepare-units", units}}}},
+			Update: bson.D{{"$set", bson.D{{"unit-statuses", units}}}},
 		},
 	}
 }
@@ -2408,7 +2408,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
 func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, timestamp time.Time) ([]txn.Op, error) {
-	statusField := "prepare-units"
+	statusField := "unit-statuses"
 	unitStatusField := fmt.Sprintf("%s.%d.status", statusField, unitIndex)
 	unitIDField := fmt.Sprintf("%s.%d.id", statusField, unitIndex)
 	unitTimestampField := fmt.Sprintf("%s.%d.timestamp", statusField, unitIndex)
@@ -2470,7 +2470,7 @@ func (m *Machine) getUnitIndex(unitName string, status model.UnitSeriesUpgradeSt
 	if err != nil {
 		return docIndex, err
 	}
-	for i, unitStatus := range lock.PrepareUnits {
+	for i, unitStatus := range lock.UnitStatuses {
 		if unitStatus.Id == unitName {
 			// short circuit if there is nothing to do
 			if unitStatus.Status == status {
