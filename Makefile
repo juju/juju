@@ -36,11 +36,16 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
+JUJU_MAKE_GODEPS ?= $(JUJU_MAKE_DEP)
+
+remove-vendor:
+	rm -rf ./vendor
+
 ifeq ($(JUJU_MAKE_GODEPS),true)
 $(GOPATH)/bin/godeps:
 	go get github.com/rogpeppe/godeps
 
-godeps: $(GOPATH)/bin/godeps
+godeps: $(GOPATH)/bin/godeps remove-vendor
 	$(GOPATH)/bin/godeps -u dependencies.tsv
 else
 godeps:
