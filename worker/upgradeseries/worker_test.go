@@ -120,7 +120,7 @@ func (s *workerSuite) TestPrepareMachineUnitFilesWrittenPrepareComplete(c *gc.C)
 	s.cleanKill(c, w)
 }
 
-func (s *workerSuite) TestPrepareCompleteUnitsStartedComplete(c *gc.C) {
+func (s *workerSuite) TestCompleteStartedUnitsNotStartedUnitsStarted(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
@@ -131,8 +131,8 @@ func (s *workerSuite) TestPrepareCompleteUnitsStartedComplete(c *gc.C) {
 	fExp := s.facade.EXPECT()
 	fExp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
-	fExp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"Started", "Started"}, nil)
-	fExp.SetMachineStatus(model.UpgradeSeriesComplete).Return(nil)
+	fExp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"Not Started", "Not Started"}, nil)
+	fExp.SetUpgradeSeriesStatus("Started", model.CompleteStatus).Return(nil).Times(2)
 
 	sExp := s.service.EXPECT()
 	sExp.ListServices().Return([]string{
@@ -147,6 +147,21 @@ func (s *workerSuite) TestPrepareCompleteUnitsStartedComplete(c *gc.C) {
 	agentWordpress.EXPECT().Start().Return(nil)
 
 	agentMySQL.EXPECT().Running().Return(true, nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestCompleteStartedUnitsCompleteComplete(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	fExp := s.facade.EXPECT()
+	fExp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
+	fExp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"Completed", "Completed"}, nil)
+	fExp.SetMachineStatus(model.UpgradeSeriesComplete).Return(nil)
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
