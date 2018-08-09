@@ -10,10 +10,10 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/worker/catacomb"
 )
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
@@ -188,8 +188,6 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 		}
 
 	}
-
-	// TODO (manadart 2018-08-07): Update the machine state.
 
 	return nil
 }
