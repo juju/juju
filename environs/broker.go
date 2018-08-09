@@ -88,6 +88,10 @@ type StartInstanceParams struct {
 	// changes in status. Its signature is consistent with other
 	// status-related functions to allow them to be used as callbacks.
 	StatusCallback StatusCallbackFunc
+
+	// Abort is a channel that will be closed to indicate that the command
+	// should be aborted.
+	Abort <-chan struct{}
 }
 
 // StartInstanceResult holds the result of an

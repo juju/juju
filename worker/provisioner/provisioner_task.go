@@ -709,6 +709,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 		EndpointBindings:  endpointBindings,
 		ImageMetadata:     possibleImageMetadata,
 		StatusCallback:    machine.SetInstanceStatus,
+		Abort:             task.catacomb.Dying(),
 	}
 
 	return startInstanceParams, nil

@@ -268,18 +268,15 @@ func defaultBridger() (network.Bridger, error) {
 	}
 }
 
-func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
+func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error {
 	preparer := NewHostPreparer(HostPreparerParams{
 		API:                cs.provisioner,
 		ObserveNetworkFunc: cs.observeNetwork,
 		AcquireLockFunc:    cs.acquireLock,
 		CreateBridger:      defaultBridger,
-		// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
-		// this function, so that we can stop trying to acquire the lock if we
-		// are stopping.
-		AbortChan:  nil,
-		MachineTag: cs.machine.MachineTag(),
-		Logger:     log,
+		AbortChan:          abort,
+		MachineTag:         cs.machine.MachineTag(),
+		Logger:             log,
 	})
 	return preparer.Prepare(containerTag)
 }

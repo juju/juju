@@ -400,7 +400,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func noopPrepareHostFunc(names.MachineTag, loggo.Logger) error {
+func noopPrepareHostFunc(names.MachineTag, loggo.Logger, <-chan struct{}) error {
 	return nil
 }
 
