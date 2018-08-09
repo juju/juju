@@ -69,7 +69,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	err = broker.prepareHost(names.NewMachineTag(containerMachineID), kvmLogger)
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), kvmLogger, args.Abort)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
