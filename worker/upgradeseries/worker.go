@@ -138,6 +138,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		}
 		return errors.Trace(err)
 	}
+	w.logger.Logf(loggo.DEBUG, "series upgrade lock changed")
 
 	preparation, err := w.UpgradeSeriesStatus(model.PrepareStatus)
 	if err != nil {
@@ -176,6 +177,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	// that they are completed. Transition the machine to completed too.
 	if machineStatus == model.UpgradeSeriesCompleteStarted && completed {
 		// TODO (manadart 2018-08-09): Do we remove the lock at some point?
+		w.logger.Logf(loggo.INFO, "series upgrade complete")
 		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesComplete))
 	}
 
@@ -189,6 +191,8 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 // TODO (manadart 2018-08-09): Rename when a better name is contrived for
 // UpgradeSeriesPrepareMachine
 func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
+	w.logger.Logf(loggo.INFO, "stopping units for series upgrade")
+
 	unitServices, err := w.unitAgentServices(statusCount)
 	if err != nil {
 		return errors.Trace(err)
@@ -199,7 +203,6 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
 	// a *specific* unit, so we need to ensure they are *all* stopped and only
 	// perform the status updates afterwards. We can't afford to be in a
 	// partial state.
-	w.logger.Logf(loggo.INFO, "stopping units for series upgrade")
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
 
@@ -223,7 +226,9 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
 // on this machine so that they are compatible with the init system of the
 // series upgrade target
 func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
-	/*unitServices*/ _, err := w.unitAgentServices(statusCount)
+	w.logger.Logf(loggo.INFO, "preparing service units for series upgrade")
+
+	_, err := w.unitAgentServices(statusCount)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -238,12 +243,13 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 // It changes each unit state start the completion of the series upgrade,
 // then starts the unit's agent service.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
+	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
+
 	unitServices, err := w.unitAgentServices(statusCount)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
 
