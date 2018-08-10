@@ -63,7 +63,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 		ProvisioningInfoGetter: client,
 		LifeGetter:             client,
-		UnitGetter:             client,
 		UnitUpdater:            client,
 	})
 	if err != nil {

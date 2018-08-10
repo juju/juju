@@ -7,14 +7,12 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -26,13 +24,9 @@ type applicationWorker struct {
 	containerBroker ContainerBroker
 
 	provisioningInfoGetter ProvisioningInfoGetter
-	lifeGetter             LifeGetter
 	applicationGetter      ApplicationGetter
 	applicationUpdater     ApplicationUpdater
-	unitGetter             UnitGetter
 	unitUpdater            UnitUpdater
-
-	aliveUnitsChan chan []string
 }
 
 func newApplicationWorker(
@@ -40,10 +34,8 @@ func newApplicationWorker(
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
 	provisioningInfoGetter ProvisioningInfoGetter,
-	lifeGetter LifeGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
-	unitGetter UnitGetter,
 	unitUpdater UnitUpdater,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
@@ -51,12 +43,9 @@ func newApplicationWorker(
 		serviceBroker:          serviceBroker,
 		containerBroker:        containerBroker,
 		provisioningInfoGetter: provisioningInfoGetter,
-		lifeGetter:             lifeGetter,
 		applicationGetter:      applicationGetter,
 		applicationUpdater:     applicationUpdater,
-		unitGetter:             unitGetter,
 		unitUpdater:            unitUpdater,
-		aliveUnitsChan:         make(chan []string),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -78,28 +67,19 @@ func (aw *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	jujuUnitsWatcher, err := aw.unitGetter.WatchUnits(aw.application)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	aw.catacomb.Add(jujuUnitsWatcher)
-
 	deploymentWorker, err := newDeploymentWorker(
 		aw.application,
 		aw.serviceBroker,
 		aw.provisioningInfoGetter,
 		aw.applicationGetter,
 		aw.applicationUpdater,
-		aw.aliveUnitsChan)
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	aw.catacomb.Add(deploymentWorker)
-	aliveUnits := set.NewStrings()
-	var (
-		aliveUnitsChan     chan []string
-		brokerUnitsWatcher watcher.NotifyWatcher
-	)
+
+	var brokerUnitsWatcher watcher.NotifyWatcher
 	// The caas watcher can just die from underneath us hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
 	// workers unbounded, use use a defer to stop the running worker.
@@ -130,12 +110,10 @@ func (aw *applicationWorker) loop() error {
 		// to shutdown so that we don't leave stuff running in the cloud.
 		case <-aw.catacomb.Dying():
 			return aw.catacomb.ErrDying()
-		case aliveUnitsChan <- aliveUnits.Values():
-			aliveUnitsChan = nil
 		case _, ok := <-brokerUnitsWatcher.Changes():
 			logger.Debugf("units changed: %#v", ok)
 			if !ok {
-				logger.Warningf("%v", brokerUnitsWatcher.Wait())
+				logger.Debugf("%v", brokerUnitsWatcher.Wait())
 				worker.Stop(brokerUnitsWatcher)
 				brokerUnitsWatcher = nil
 				continue
@@ -205,22 +183,6 @@ func (aw *applicationWorker) loop() error {
 				// We can ignore not found errors as the worker will get stopped anyway.
 				if !errors.IsNotFound(err) {
 					return errors.Trace(err)
-				}
-			}
-		case units, ok := <-jujuUnitsWatcher.Changes():
-			if !ok {
-				return errors.New("watcher closed channel")
-			}
-			aliveUnitsChan = aw.aliveUnitsChan
-			for _, unitId := range units {
-				unitLife, err := aw.lifeGetter.Life(unitId)
-				if err != nil && !errors.IsNotFound(err) {
-					return errors.Trace(err)
-				}
-				if errors.IsNotFound(err) || unitLife == life.Dead {
-					aliveUnits.Remove(unitId)
-				} else {
-					aliveUnits.Add(unitId)
 				}
 			}
 		}

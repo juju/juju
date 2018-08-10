@@ -19,7 +19,6 @@ type Client interface {
 	ApplicationUpdater
 	ProvisioningInfoGetter
 	LifeGetter
-	UnitGetter
 	UnitUpdater
 }
 
@@ -30,6 +29,8 @@ type Client interface {
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
+	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
+	ApplicationScale(string) (int, error)
 }
 
 // ApplicationUpdater provides an interface for updating
@@ -50,14 +51,6 @@ type ProvisioningInfoGetter interface {
 // lifecycle state value for an application or unit.
 type LifeGetter interface {
 	Life(string) (life.Value, error)
-}
-
-// UnitGetter provides an interface for watching for
-// the lifecycle state changes (including addition)
-// of a specified application's units, and fetching
-// their details.
-type UnitGetter interface {
-	WatchUnits(string) (watcher.StringsWatcher, error)
 }
 
 // UnitUpdater provides an interface for updating
