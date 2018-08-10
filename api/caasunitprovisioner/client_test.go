@@ -202,20 +202,20 @@ func (s *unitprovisionerSuite) TestWatchApplications(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *unitprovisionerSuite) TestWatchUnits(c *gc.C) {
+func (s *unitprovisionerSuite) TestWatchApplicationScale(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchUnits")
+		c.Check(request, gc.Equals, "WatchApplicationsScale")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -223,9 +223,35 @@ func (s *unitprovisionerSuite) TestWatchUnits(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchUnits("gitlab")
+	watcher, err := client.WatchApplicationScale("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *unitprovisionerSuite) TestApplicationScale(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ApplicationsScale")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.IntResults{})
+		*(result.(*params.IntResults)) = params.IntResults{
+			Results: []params.IntResult{{
+				Result: 5,
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	scale, err := client.ApplicationScale("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scale, gc.Equals, 5)
 }
 
 func (s *unitprovisionerSuite) TestWatchPodSpec(c *gc.C) {
