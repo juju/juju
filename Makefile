@@ -46,7 +46,7 @@ $(GOPATH)/bin/dep:
 
 # populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
-	$(GOPATH)/bin/dep ensure -v -vendor-only
+	$(GOPATH)/bin/dep ensure -vendor-only
 else
 dep:
 	@echo "skipping dep"
@@ -78,7 +78,8 @@ clean:
 	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
 
 go-install:
-	go install -ldflags "-s -w" -v $(PROJECT_PACKAGES)
+	@echo 'go install -ldflags "-s -w" -v $$PROJECT_PACKAGES'
+	@go install -ldflags "-s -w" -v $(PROJECT_PACKAGES)
 
 go-build:
 	go build $(PROJECT_PACKAGES)
