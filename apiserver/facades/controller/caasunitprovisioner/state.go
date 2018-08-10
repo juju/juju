@@ -39,6 +39,12 @@ type StorageBackend interface {
 	StorageInstanceVolume(tag names.StorageTag) (state.Volume, error)
 	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
 	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
+
+	// These are for cleanup up orphaned filesystems when pods are recreated.
+	// TODO(caas) - record unit id on the filesystem so we can query by unit
+	AllFilesystems() ([]state.Filesystem, error)
+	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error)
+	DestroyFilesystem(tag names.FilesystemTag) (err error)
 }
 
 // DeviceBackend provides the subset of backend Device
@@ -59,7 +65,8 @@ type Model interface {
 // Application provides the subset of application state
 // required by the CAAS unit provisioner facade.
 type Application interface {
-	WatchUnits() state.StringsWatcher
+	GetScale() int
+	WatchScale() state.NotifyWatcher
 	ApplicationConfig() (application.ConfigAttributes, error)
 	AllUnits() (units []Unit, err error)
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation

@@ -122,7 +122,9 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 
 type mockApplicationGetter struct {
 	testing.Stub
-	watcher *watchertest.MockStringsWatcher
+	watcher      *watchertest.MockStringsWatcher
+	scaleWatcher *watchertest.MockNotifyWatcher
+	scale        int
 }
 
 func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, error) {
@@ -138,6 +140,22 @@ func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.C
 	return application.ConfigAttributes{
 		"juju-external-hostname": "exthost",
 	}, a.NextErr()
+}
+
+func (a *mockApplicationGetter) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {
+	a.MethodCall(a, "WatchApplicationScale", application)
+	if err := a.NextErr(); err != nil {
+		return nil, err
+	}
+	return a.scaleWatcher, nil
+}
+
+func (a *mockApplicationGetter) ApplicationScale(application string) (int, error) {
+	a.MethodCall(a, "ApplicationScale", application)
+	if err := a.NextErr(); err != nil {
+		return 0, err
+	}
+	return a.scale, nil
 }
 
 type mockApplicationUpdater struct {
@@ -227,19 +245,6 @@ func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 	default:
 	}
 	return life, nil
-}
-
-type mockUnitGetter struct {
-	testing.Stub
-	watcher *watchertest.MockStringsWatcher
-}
-
-func (m *mockUnitGetter) WatchUnits(application string) (watcher.StringsWatcher, error) {
-	m.MethodCall(m, "WatchUnits", application)
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	return m.watcher, nil
 }
 
 type mockUnitUpdater struct {

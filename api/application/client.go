@@ -580,6 +580,40 @@ func (c *Client) DestroyConsumedApplication(saasNames ...string) ([]params.Error
 	return allResults, nil
 }
 
+// ScaleApplicationParams contains parameters for the ScaleApplication API method.
+type ScaleApplicationParams struct {
+	// ApplicationName is the application to scale.
+	ApplicationName string
+
+	// Scale is the number of units which should be running.
+	Scale int
+}
+
+// ScaleApplication sets the desired unit count for one or more applications.
+func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if !names.IsValidApplication(in.ApplicationName) {
+		return params.ScaleApplicationResult{}, errors.NotValidf("application %q", in.ApplicationName)
+	}
+	args := params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
+			Scale:          in.Scale,
+		}},
+	}
+	var results params.ScaleApplicationResults
+	if err := c.facade.FacadeCall("ScaleApplications", args, &results); err != nil {
+		return params.ScaleApplicationResult{}, errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return params.ScaleApplicationResult{}, errors.Errorf("expected 1 result, got %d", n)
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return params.ScaleApplicationResult{}, err
+	}
+	return results.Results[0], nil
+}
+
 // GetConstraints returns the constraints for the given applications.
 func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, error) {
 	var allConstraints []constraints.Value

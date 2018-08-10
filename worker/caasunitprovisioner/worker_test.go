@@ -38,17 +38,16 @@ type WorkerSuite struct {
 	containerBroker    mockContainerBroker
 	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
-	unitGetter         mockUnitGetter
 	unitUpdater        mockUnitUpdater
 
-	applicationChanges   chan []string
-	jujuUnitChanges      chan []string
-	caasUnitsChanges     chan struct{}
-	containerSpecChanges chan struct{}
-	serviceDeleted       chan struct{}
-	serviceEnsured       chan struct{}
-	serviceUpdated       chan struct{}
-	clock                *testing.Clock
+	applicationChanges      chan []string
+	applicationScaleChanges chan struct{}
+	caasUnitsChanges        chan struct{}
+	containerSpecChanges    chan struct{}
+	serviceDeleted          chan struct{}
+	serviceEnsured          chan struct{}
+	serviceUpdated          chan struct{}
+	clock                   *testing.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -96,7 +95,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
-	s.jujuUnitChanges = make(chan []string)
+	s.applicationScaleChanges = make(chan struct{})
 	s.caasUnitsChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{}, 1)
 	s.serviceDeleted = make(chan struct{})
@@ -104,7 +103,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.serviceUpdated = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
-		watcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
+		watcher:      watchertest.NewMockStringsWatcher(s.applicationChanges),
+		scaleWatcher: watchertest.NewMockNotifyWatcher(s.applicationScaleChanges),
 	}
 	s.applicationUpdater = mockApplicationUpdater{
 		updated: s.serviceUpdated,
@@ -123,9 +123,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		}},
 	})
 
-	s.unitGetter = mockUnitGetter{
-		watcher: watchertest.NewMockStringsWatcher(s.jujuUnitChanges),
-	}
 	s.unitUpdater = mockUnitUpdater{}
 
 	s.containerBroker = mockContainerBroker{
@@ -147,7 +144,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ContainerBroker:        &s.containerBroker,
 		ProvisioningInfoGetter: &s.podSpecGetter,
 		LifeGetter:             &s.lifeGetter,
-		UnitGetter:             &s.unitGetter,
 		UnitUpdater:            &s.unitUpdater,
 	}
 }
@@ -184,10 +180,6 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
-
-	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
-		config.UnitGetter = nil
-	}, `missing UnitGetter not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Config), expect string) {
@@ -219,10 +211,11 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 		c.Fatal("timed out sending applications change")
 	}
 
+	s.applicationGetter.scale = 1
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
+	case s.applicationScaleChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
+		c.Fatal("timed out sending scale change")
 	}
 
 	// We seed a "not found" error above to indicate that
@@ -250,18 +243,17 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
+func (s *WorkerSuite) TestScaleChanged(c *gc.C) {
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "WatchApplicationScale", "ApplicationScale", "ApplicationConfig")
 	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "ProvisioningInfo", "ProvisioningInfo")
 	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
 	s.podSpecGetter.CheckCall(c, 1, "ProvisioningInfo", "gitlab") // not found
 	s.podSpecGetter.CheckCall(c, 2, "ProvisioningInfo", "gitlab")
-	s.lifeGetter.CheckCallNames(c, "Life", "Life")
+	s.lifeGetter.CheckCallNames(c, "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
-	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", expectedServiceParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
@@ -269,10 +261,11 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
+	s.applicationGetter.scale = 2
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/1"}:
+	case s.applicationScaleChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
+		c.Fatal("timed out sending scale change")
 	}
 
 	select {
@@ -289,11 +282,11 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
-	s.lifeGetter.setLife(life.Dead)
+	s.applicationGetter.scale = 1
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
+	case s.applicationScaleChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
+		c.Fatal("timed out sending scale change")
 	}
 
 	select {
@@ -366,10 +359,11 @@ func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
+	s.applicationGetter.scale = 2
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/1"}:
+	case s.applicationScaleChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
+		c.Fatal("timed out sending scale change")
 	}
 
 	select {
@@ -379,19 +373,22 @@ func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
 	}
 	s.serviceBroker.ResetCalls()
 
-	// Now the units die.
-	s.lifeGetter.setLife(life.Dead)
+	// Now the scale down to 0.
+	s.applicationGetter.scale = 0
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0", "gitlab/1"}:
+	case s.applicationScaleChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
+		c.Fatal("timed out sending scale change")
 	}
 
 	select {
 	case <-s.serviceEnsured:
-		c.Fatal("service/unit ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be ensured")
 	}
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
+		"gitlab", &caas.ServiceParams{}, 0, application.ConfigAttributes(nil))
 }
 
 func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
@@ -432,16 +429,17 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	}
 
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
-		c.Fatal("unexpected watch for units")
+	case s.applicationScaleChanges <- struct{}{}:
+		c.Fatal("unexpected watch for application scale")
 	case <-time.After(coretesting.ShortWait):
 	}
 
 	workertest.CleanKill(c, w)
-	s.unitGetter.CheckNoCalls(c)
+	// There should just be the initial watch call, no subsequent calls to watch/get scale etc.
+	s.applicationGetter.CheckCallNames(c, "WatchApplications")
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
+func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C) {
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -496,7 +494,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		}
 	}
 	c.Assert(running, jc.IsFalse)
-	workertest.CheckKilled(c, s.unitGetter.watcher)
+	workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
@@ -504,6 +502,7 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
+	s.applicationGetter.scale = 1
 	select {
 	case s.applicationChanges <- []string{"gitlab"}:
 	case <-time.After(coretesting.LongWait):
@@ -511,14 +510,13 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	}
 
 	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
+	case s.applicationScaleChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
+		c.Fatal("timed out sending scale change")
 	}
 
 	s.podSpecGetter.watcher.KillErr(errors.New("splat"))
 	workertest.CheckKilled(c, s.podSpecGetter.watcher)
-	workertest.CheckKilled(c, s.unitGetter.watcher)
 	workertest.CheckKilled(c, s.applicationGetter.watcher)
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")

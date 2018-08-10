@@ -130,3 +130,12 @@ func NewRemoveSaasCommandForTest(api RemoveSaasAPI, store jujuclient.ClientStore
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+// NewScaleCommandForTest returns a ScaleCommand with the api provided as specified.
+func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &scaleApplicationCommand{newAPIFunc: func() (scaleApplicationAPI, error) {
+		return api, nil
+	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

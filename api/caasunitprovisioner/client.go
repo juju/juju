@@ -81,15 +81,15 @@ func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAt
 // WatchUnits returns a StringsWatcher that notifies of
 // changes to the lifecycles of units of the specified
 // CAAS application in the current model.
-func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {
 	applicationTag, err := applicationTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	args := entities(applicationTag)
 
-	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall("WatchUnits", args, &results); err != nil {
+	var results params.NotifyWatchResults
+	if err := c.facade.FacadeCall("WatchApplicationsScale", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -98,8 +98,24 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	if err := results.Results[0].Error; err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), results.Results[0])
 	return w, nil
+}
+
+// ApplicationScale returns the scale for the specified application.
+func (c *Client) ApplicationScale(applicationName string) (int, error) {
+	var results params.IntResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	}
+	err := c.facade.FacadeCall("ApplicationsScale", args, &results)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	if len(results.Results) != len(args.Entities) {
+		return 0, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
+	}
+	return results.Results[0].Result, nil
 }
 
 // WatchPodSpec returns a NotifyWatcher that notifies of

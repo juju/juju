@@ -130,6 +130,14 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, e
 	return &a.addedUnit, nil
 }
 
+func (a *mockApplication) Scale(scale int) error {
+	a.MethodCall(a, "Scale", scale)
+	if err := a.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *mockApplication) IsPrincipal() bool {
 	a.MethodCall(a, "IsPrincipal")
 	a.PopNoErr()

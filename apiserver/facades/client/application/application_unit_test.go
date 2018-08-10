@@ -39,7 +39,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv7
+	api          *application.APIv8
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -61,7 +61,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv7{api}
+	s.api = &application.APIv8{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -513,18 +513,58 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 
 func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
-	results, err := s.api.AddUnits(params.AddApplicationUnits{
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 	})
+	c.Assert(err, gc.ErrorMatches, "adding units on a non-container model not supported")
+	app := s.backend.applications["postgresql"]
+	app.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestDestroyUnitsCAASModel(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	_, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{
+			{UnitTag: "unit-postgresql-0"},
+			{
+				UnitTag:        "unit-postgresql-1",
+				DestroyStorage: true,
+			},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "removing units on a non-container model not supported")
+	app := s.backend.applications["postgresql"]
+	app.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
-		Units: []string{"postgresql/99"},
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Info: &params.ScaleApplicationInfo{Scale: 5},
+		}},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
-	app.addedUnit.CheckNoCalls(c) // no assignment
+	app.CheckCall(c, 0, "Scale", 5)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {
+	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}}})
+	c.Assert(err, gc.ErrorMatches, "scaling applications on a non-container model not supported")
+	app := s.backend.applications["postgresql"]
+	app.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
@@ -557,26 +597,6 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 		AttachStorage:   []string{"volume-0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
-}
-
-func (s *ApplicationSuite) TestAddUnitsAttachStorageCAASModel(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
-		ApplicationName: "postgresql",
-		NumUnits:        1,
-		AttachStorage:   []string{"storage-pgdata-0"},
-	})
-	c.Assert(err, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
-}
-
-func (s *ApplicationSuite) TestAddUnitsPlacementCAASModel(c *gc.C) {
-	application.SetModelType(s.api, state.ModelTypeCAAS)
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
-		ApplicationName: "postgresql",
-		NumUnits:        1,
-		Placement:       []*instance.Placement{{}},
-	})
-	c.Assert(err, gc.ErrorMatches, "Placement may not be specified for caas models")
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {

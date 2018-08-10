@@ -509,8 +509,11 @@ func (k *kubernetesClient) EnsureService(
 ) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
-	if numUnits <= 0 {
-		return errors.Errorf("number of units must be > 0")
+	if numUnits < 0 {
+		return errors.Errorf("number of units must be >= 0")
+	}
+	if numUnits == 0 {
+		return k.deleteAllPods(appName)
 	}
 	if params == nil || params.PodSpec == nil {
 		return errors.Errorf("missing pod spec")
@@ -593,6 +596,32 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	return nil
+}
+
+func (k *kubernetesClient) deleteAllPods(appName string) error {
+	zero := int32(0)
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulSet, err := statefulsets.Get(deploymentName(appName), v1.GetOptions{IncludeUninitialized: true})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if err == nil {
+		statefulSet.Spec.Replicas = &zero
+		_, err = statefulsets.Update(statefulSet)
+		return errors.Trace(err)
+	}
+
+	deployments := k.AppsV1().Deployments(k.namespace)
+	deployment, err := deployments.Get(deploymentName(appName), v1.GetOptions{IncludeUninitialized: true})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deployment.Spec.Replicas = &zero
+	_, err = deployments.Update(deployment)
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) configureStorage(

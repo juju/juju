@@ -25,7 +25,6 @@ type Config struct {
 	ContainerBroker        ContainerBroker
 	ProvisioningInfoGetter ProvisioningInfoGetter
 	LifeGetter             LifeGetter
-	UnitGetter             UnitGetter
 	UnitUpdater            UnitUpdater
 }
 
@@ -48,9 +47,6 @@ func (config Config) Validate() error {
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
-	}
-	if config.UnitGetter == nil {
-		return errors.NotValidf("missing UnitGetter")
 	}
 	if config.UnitUpdater == nil {
 		return errors.NotValidf("missing UnitUpdater")
@@ -174,10 +170,8 @@ func (p *provisioner) loop() error {
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
 					p.config.ProvisioningInfoGetter,
-					p.config.LifeGetter,
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,
-					p.config.UnitGetter,
 					p.config.UnitUpdater,
 				)
 				if err != nil {

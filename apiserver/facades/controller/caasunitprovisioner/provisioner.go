@@ -116,39 +116,37 @@ func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
-// WatchUnits starts a StringsWatcher to watch changes to the
-// lifecycle states of units for the specified applications in
-// this model.
-func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, error) {
-	results := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+// WatchApplicationsScale starts a NotifyWatcher to watch changes
+// to the applications' scale.
+func (f *Facade) WatchApplicationsScale(args params.Entities) (params.NotifyWatchResults, error) {
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		id, changes, err := f.watchUnits(arg.Tag)
+		id, err := f.watchApplicationScale(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].StringsWatcherId = id
-		results.Results[i].Changes = changes
+		results.Results[i].NotifyWatcherId = id
 	}
 	return results, nil
 }
 
-func (f *Facade) watchUnits(tagString string) (string, []string, error) {
+func (f *Facade) watchApplicationScale(tagString string) (string, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	app, err := f.state.Application(tag.Id())
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	w := app.WatchUnits()
-	if changes, ok := <-w.Changes(); ok {
-		return f.resources.Register(w), changes, nil
+	w := app.WatchScale()
+	if _, ok := <-w.Changes(); ok {
+		return f.resources.Register(w), nil
 	}
-	return "", nil, watcher.EnsureErr(w)
+	return "", watcher.EnsureErr(w)
 }
 
 // WatchPodSpec starts a NotifyWatcher to watch changes to the
@@ -185,6 +183,35 @@ func (f *Facade) watchPodSpec(model Model, tagString string) (string, error) {
 		return f.resources.Register(w), nil
 	}
 	return "", watcher.EnsureErr(w)
+}
+
+// ApplicationsScale returns the scaling info for specified applications in this model.
+func (f *Facade) ApplicationsScale(args params.Entities) (params.IntResults, error) {
+	results := params.IntResults{
+		Results: make([]params.IntResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		scale, err := f.applicationScale(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = scale
+	}
+	logger.Debugf("provisioning info result: %#v", results)
+	return results, nil
+}
+
+func (f *Facade) applicationScale(tagString string) (int, error) {
+	appTag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	app, err := f.state.Application(appTag.Id())
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return app.GetScale(), nil
 }
 
 // ProvisioningInfo returns the provisioning info for specified applications in this model.
@@ -508,24 +535,24 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 	}
 
 	stateUnitsById := make(map[string]Unit)
-	cloudUnitsById := make(map[string]params.ApplicationUnitParams)
+	cloudPodsById := make(map[string]params.ApplicationUnitParams)
 
 	// Record all unit provider ids known to exist in the cloud.
 	for _, u := range unitUpdates {
-		cloudUnitsById[u.ProviderId] = u
+		cloudPodsById[u.ProviderId] = u
 	}
 
 	stateUnitExistsInCloud := func(providerId string) bool {
 		if providerId == "" {
 			return false
 		}
-		_, ok := cloudUnitsById[providerId]
+		_, ok := cloudPodsById[providerId]
 		return ok
 	}
 
 	unitInfo := &updateStateUnitParams{
 		stateUnitsInCloud: make(map[string]Unit),
-		deletedRemoved:    false,
+		deletedRemoved:    true,
 	}
 	var (
 		// aliveStateIds holds the provider ids of alive units in state.
@@ -572,7 +599,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 
 	// Do it in sorted order so it's deterministic for tests.
 	var ids []string
-	for id := range cloudUnitsById {
+	for id := range cloudPodsById {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
@@ -583,14 +610,13 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 		extraIds = append(extraIds, id)
 	}
 	sort.Strings(extraIds)
-	extraIdIndex := 0
 	unassociatedUnitCount := len(unitInfo.unassociatedUnits)
 
 	for _, id := range ids {
-		u := cloudUnitsById[id]
+		u := cloudPodsById[id]
 		if aliveStateIds.Contains(id) {
 			u.UnitTag = stateUnitsById[id].UnitTag().String()
-			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
+			unitInfo.existingCloudPods = append(unitInfo.existingCloudPods, u)
 			continue
 		}
 
@@ -598,30 +624,12 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 		// to a unit which does not yet have a provider id.
 		if unassociatedUnitCount > 0 {
 			unassociatedUnitCount -= 1
-			unitInfo.addedCloudUnits = append(unitInfo.addedCloudUnits, u)
-			continue
-		}
-
-		// If there are units in state which used to be be associated with a pod
-		// but are now not, we give those state units a pod which is not
-		// associated with any unit. The pod may have been added new due to a scale
-		// out operation, or the pod's state unit was deleted but the cloud removed
-		// a different pod in response and so we need to re-associated this still
-		// alive pod with the orphaned unit.
-		if !extraStateIds.IsEmpty() {
-			extraId := extraIds[extraIdIndex]
-			extraIdIndex += 1
-			extraStateIds.Remove(extraId)
-			u.ProviderId = id
-			unit := stateUnitsById[extraId]
-			u.UnitTag = unit.UnitTag().String()
-			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
-			unitInfo.stateUnitsInCloud[u.UnitTag] = unit
+			unitInfo.addedCloudPods = append(unitInfo.addedCloudPods, u)
 			continue
 		}
 
 		// A new pod was added to the cloud but does not yet have a unit in state.
-		unitInfo.addedCloudUnits = append(unitInfo.addedCloudUnits, u)
+		unitInfo.addedCloudPods = append(unitInfo.addedCloudPods, u)
 	}
 
 	// If there are any extra provider ids left over after allocating all the cloud pods,
@@ -636,12 +644,12 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 }
 
 type updateStateUnitParams struct {
-	stateUnitsInCloud  map[string]Unit
-	addedCloudUnits    []params.ApplicationUnitParams
-	existingCloudUnits []params.ApplicationUnitParams
-	removedUnits       []Unit
-	unassociatedUnits  []Unit
-	deletedRemoved     bool
+	stateUnitsInCloud map[string]Unit
+	addedCloudPods    []params.ApplicationUnitParams
+	existingCloudPods []params.ApplicationUnitParams
+	removedUnits      []Unit
+	unassociatedUnits []Unit
+	deletedRemoved    bool
 }
 
 type filesystemInfo struct {
@@ -670,8 +678,8 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		return nil
 	}
 
-	logger.Tracef("added cloud units: %+v", unitInfo.addedCloudUnits)
-	logger.Tracef("existing cloud units: %+v", unitInfo.existingCloudUnits)
+	logger.Tracef("added cloud units: %+v", unitInfo.addedCloudPods)
+	logger.Tracef("existing cloud units: %+v", unitInfo.existingCloudPods)
 	logger.Tracef("removed units: %+v", unitInfo.removedUnits)
 	logger.Tracef("unassociated units: %+v", unitInfo.unassociatedUnits)
 
@@ -700,7 +708,6 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 		if unitInfo.deletedRemoved {
 			unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
-			continue
 		}
 		// We'll set the status as Terminated. This will either be transient, as will
 		// occur when a pod is restarted external to Juju, or permanent if the pod has
@@ -713,11 +720,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		agentStatus := &status.StatusInfo{
 			Status: status.Idle,
 		}
-		// And we'll reset the provider id - the pod may be restarted and we'll
-		// record the new id next time.
-		resetId := ""
 		updateProps := state.UnitUpdateProperties{
-			ProviderId:  &resetId,
 			UnitStatus:  unitStatus,
 			AgentStatus: agentStatus,
 		}
@@ -739,7 +742,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		}, nil
 	}
 
-	processFilesystemParams := func(unitTag names.UnitTag, unitParams params.ApplicationUnitParams) error {
+	processFilesystemParams := func(processedFilesystemIds set.Strings, unitTag names.UnitTag, unitParams params.ApplicationUnitParams) error {
 		// Once a unit is available in the cluster, we consider
 		// its filesystem(s) to be attached since the unit is
 		// not considered ready until this happens.
@@ -781,6 +784,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 					return errors.Trace(err)
 				}
 				fsInfo := infos[0]
+				processedFilesystemIds.Add(fsInfo.FilesystemId)
 
 				// k8s reports provisioned info even when the volume is not ready.
 				// Only update state when volume is created so Juju doesn't think
@@ -832,7 +836,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 	var unitParamsWithFilesystemInfo []params.ApplicationUnitParams
 
-	for _, unitParams := range unitInfo.existingCloudUnits {
+	for _, unitParams := range unitInfo.existingCloudPods {
 		u, ok := unitInfo.stateUnitsInCloud[unitParams.UnitTag]
 		if !ok {
 			logger.Warningf("unexpected unit parameters %+v not in state", unitParams)
@@ -853,7 +857,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	// exist but which do not yet have provider ids (recording the provider
 	// id as well), or add a brand new unit.
 	idx := 0
-	for _, unitParams := range unitInfo.addedCloudUnits {
+	for _, unitParams := range unitInfo.addedCloudPods {
 		if idx < len(unitInfo.unassociatedUnits) {
 			u := unitInfo.unassociatedUnits[idx]
 			updateProps, err := processUnitParams(unitParams)
@@ -869,18 +873,16 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			continue
 		}
 
-		// TODO(caas) - attempting 2 way sync has unintended consequences on some deployments
-		// For now disable.
-		//// Process units added directly in the cloud instead of via Juju.
-		//updateProps, err := processUnitParams(unitParams)
-		//if err != nil {
-		//	return errors.Trace(err)
-		//}
-		//if len(unitParams.FilesystemInfo) > 0 {
-		//	unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
-		//}
-		//unitUpdate.Adds = append(unitUpdate.Adds,
-		//	app.AddOperation(*updateProps))
+		// Process units added directly in the cloud instead of via Juju.
+		updateProps, err := processUnitParams(unitParams)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(unitParams.FilesystemInfo) > 0 {
+			unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
+		}
+		unitUpdate.Adds = append(unitUpdate.Adds,
+			app.AddOperation(*updateProps))
 	}
 	err := app.UpdateUnits(&unitUpdate)
 	// We ignore any updates for dying applications.
@@ -910,6 +912,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		providerIdToUnit[c.ProviderId()] = names.NewUnitTag(c.Unit())
 	}
 
+	processedFilesystemIds := set.NewStrings()
 	for _, unitParams := range unitParamsWithFilesystemInfo {
 		var (
 			unitTag names.UnitTag
@@ -926,12 +929,19 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		} else {
 			unitTag, _ = names.ParseUnitTag(unitParams.UnitTag)
 		}
-		if err := processFilesystemParams(unitTag, unitParams); err != nil {
+		if err := processFilesystemParams(processedFilesystemIds, unitTag, unitParams); err != nil {
 			return errors.Annotatef(err, "processing filesystem info for unit %q", unitTag.Id())
 		}
 	}
 
+	// If pods are recreated on the Kubernetes side, new units are created on the Juju
+	// side and so any previously attached filesystems become orphaned and need to
+	// be cleaned up.
 	appName := app.Name()
+	if err := a.cleaupOrphanedFilesystems(processedFilesystemIds); err != nil {
+		return errors.Annotatef(err, "deleting orphaned filesystems for %v", appName)
+	}
+
 	// First do the volume updates as volumes need to be attached before the filesystem updates.
 	if err := a.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
 		return errors.Annotatef(err, "updating volume information for %v", appName)
@@ -939,6 +949,57 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 	err = a.updateFilesystemInfo(filesystemUpdates, filesystemStatus)
 	return errors.Annotatef(err, "updating filesystem information for %v", appName)
+}
+
+func (a *Facade) cleaupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
+	// TODO(caas) - record unit id on the filesystem so we can query by unit
+	allFilesystems, err := a.storage.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, fs := range allFilesystems {
+		fsInfo, err := fs.Info()
+		if errors.IsNotProvisioned(err) {
+			continue
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !processedFilesystemIds.Contains(fsInfo.FilesystemId) {
+			continue
+		}
+
+		storageTag, err := fs.Storage()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			continue
+		}
+
+		si, err := a.storage.StorageInstance(storageTag)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			continue
+		}
+		_, ok := si.Owner()
+		if ok {
+			continue
+		}
+
+		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
+		err = a.storage.DestroyStorageInstance(storageTag, false)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		err = a.storage.DestroyFilesystem(fs.FilesystemTag())
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {

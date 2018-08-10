@@ -106,7 +106,7 @@ func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, e
 type mockApplication struct {
 	testing.Stub
 	life         state.Life
-	unitsWatcher *statetesting.MockStringsWatcher
+	scaleWatcher *statetesting.MockNotifyWatcher
 
 	tag        names.Tag
 	units      []caasunitprovisioner.Unit
@@ -129,9 +129,14 @@ func (a *mockApplication) Life() state.Life {
 	return a.life
 }
 
-func (a *mockApplication) WatchUnits() state.StringsWatcher {
-	a.MethodCall(a, "WatchUnits")
-	return a.unitsWatcher
+func (a *mockApplication) WatchScale() state.NotifyWatcher {
+	a.MethodCall(a, "WatchScale")
+	return a.scaleWatcher
+}
+
+func (a *mockApplication) GetScale() int {
+	a.MethodCall(a, "GetScale")
+	return 5
 }
 
 func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
@@ -246,6 +251,30 @@ func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstan
 		tag:   tag,
 		owner: names.NewUserTag("fred"),
 	}, nil
+}
+
+func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
+	m.MethodCall(m, "AllFilesystems")
+	var result []state.Filesystem
+	for _, fsTag := range m.storageFilesystems {
+		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag})
+	}
+	return result, nil
+}
+
+func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool) (err error) {
+	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments)
+	return nil
+}
+
+func (m *mockStorage) DestroyFilesystem(tag names.FilesystemTag) (err error) {
+	m.MethodCall(m, "DestroyFilesystem", tag)
+	return nil
+}
+
+func (m *mockStorage) DestroyVolume(tag names.VolumeTag) (err error) {
+	m.MethodCall(m, "DestroyVolume", tag)
+	return nil
 }
 
 func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {

@@ -1271,6 +1271,40 @@ type DestroyUnitInfo struct {
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
 }
 
+// ScaleApplicationsParams holds bulk parameters for the Application.ScaleApplication call.
+type ScaleApplicationsParams struct {
+	Applications []ScaleApplicationParams `json:"applications"`
+}
+
+// ScaleApplicationParams holds parameters for the Application.ScaleApplication call.
+type ScaleApplicationParams struct {
+	// ApplicationTag holds the tag of the application to scale.
+	ApplicationTag string `json:"application-tag"`
+
+	// Scale is the number of units which should be running.
+	Scale int `json:"scale"`
+}
+
+// ScaleApplicationResults contains the results of a ScaleApplication
+// API request.
+type ScaleApplicationResults struct {
+	Results []ScaleApplicationResult `json:"results,omitempty"`
+}
+
+// ScaleApplicationResult contains one of the results of a
+// ScaleApplication API request.
+type ScaleApplicationResult struct {
+	Error *Error                `json:"error,omitempty"`
+	Info  *ScaleApplicationInfo `json:"info,omitempty"`
+}
+
+// ScaleApplicationInfo contains information related to the scaling of
+// an application.
+type ScaleApplicationInfo struct {
+	// Scale is the number of units which should be running.
+	Scale int `json:"num-units"`
+}
+
 // DumpModelRequest wraps the request for a dump-model call.
 // A simplified dump will not contain a complete export, but instead
 // a reduced set that is determined by the server.

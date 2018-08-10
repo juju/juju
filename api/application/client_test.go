@@ -30,7 +30,7 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{f, 6})
+	return application.NewClient(basetesting.BestVersionCaller{f, 8})
 }
 
 func newClientV4(f basetesting.APICallerFunc) *application.Client {
@@ -1120,4 +1120,104 @@ func (s *applicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
 	err := client.ResolveUnitErrors(nil, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestScaleApplication(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", Scale: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 5}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	results, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 5},
+	})
+}
+
+func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", Scale: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 5}},
+				{Info: &params.ScaleApplicationInfo{Scale: 3}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", Scale: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Error: &params.Error{Message: "boom"}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			return errors.New("boom")
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		Scale:           5,
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
