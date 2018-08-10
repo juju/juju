@@ -613,10 +613,13 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
+	fingerprint, err := clientCert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name: insecureCred.Label,
@@ -625,6 +628,61 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 		Certificate: clientX509Base64,
 		Password:    "fred",
 	}).Return(nil)
+	deps.server.EXPECT().GetServer().Return(&api.Server{
+		Environment: api.ServerEnvironment{
+			Certificate: coretesting.ServerCert,
+		},
+	}, "etag", nil)
+	deps.serverFactory.EXPECT().RemoteServer(secureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
+
+	expected := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": coretesting.ServerCert,
+	})
+
+	got, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, &expected)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	insecureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert":    coretesting.CACert,
+		"client-key":     coretesting.CAKey,
+		"trust-password": "fred",
+	})
+	insecureSpec := environs.CloudSpec{
+		Endpoint:   "8.8.8.8",
+		Credential: &insecureCred,
+	}
+	secureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": coretesting.ServerCert,
+	})
+	secureSpec := environs.CloudSpec{
+		Endpoint:   "8.8.8.8",
+		Credential: &secureCred,
+	}
+	params := environs.FinalizeCredentialParams{
+		CloudEndpoint: "8.8.8.8",
+		Credential:    insecureCred,
+	}
+	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
+	fingerprint, err := clientCert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
+
+	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
+	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
+	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(&api.Certificate{}, "", nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{
 		Environment: api.ServerEnvironment{
 			Certificate: coretesting.ServerCert,
@@ -695,10 +753,13 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
+	fingerprint, err := clientCert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name: insecureCred.Label,
@@ -735,10 +796,13 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
+	fingerprint, err := clientCert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name: insecureCred.Label,
@@ -785,10 +849,13 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
 	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
+	fingerprint, err := clientCert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().GetCertificate(fingerprint).Return(nil, "", errors.New("not found"))
 	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
 		CertificatePut: api.CertificatePut{
 			Name: insecureCred.Label,
