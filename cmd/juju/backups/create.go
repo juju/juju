@@ -66,6 +66,7 @@ type createCommand struct {
 	Notes string
 	// KeepCopy means the backup archive should be stored in the controller db.
 	KeepCopy bool
+	fs       *gnuflag.FlagSet
 }
 
 // Info implements Command.Info.
@@ -81,13 +82,31 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, implies keep-copy")
-	f.BoolVar(&c.KeepCopy, "keep-copy", false, "Keep a copy of the archive on the controller")
+	f.BoolVar(&c.NoDownload, noDownloadOption, false, "Do not download the archive, implies keep-copy")
+	f.BoolVar(&c.KeepCopy, keepCopyOption, false, "Keep a copy of the archive on the controller")
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
+	c.fs = f
 }
+
+var (
+	noDownloadOption = "no-download"
+	keepCopyOption   = "keep-copy"
+)
 
 // Init implements Command.Init.
 func (c *createCommand) Init(args []string) error {
+	noDownloadSet, keepCopySet := false, false
+	c.fs.Visit(func(blah *gnuflag.Flag) {
+		if blah.Name == noDownloadOption {
+			noDownloadSet = true
+		}
+		if blah.Name == keepCopyOption {
+			keepCopySet = true
+		}
+	})
+	if keepCopySet && noDownloadSet {
+		return errors.Errorf("cannot mix --no-download and --keep-copy")
+	}
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
