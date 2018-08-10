@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 )
 
@@ -143,6 +142,7 @@ func NewAddUnitCommand() cmd.Command {
 // addUnitCommand is responsible adding additional units to an application.
 type addUnitCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	UnitCommandBase
 	ApplicationName string
 	api             applicationAddUnitAPI
@@ -171,15 +171,6 @@ func (c *addUnitCommand) Init(args []string) error {
 	}
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
-	}
-	if len(c.AttachStorage) > 0 {
-		modelType, err := c.ModelType()
-		if err != nil {
-			return err
-		}
-		if modelType == model.CAAS && len(c.AttachStorage) > 0 {
-			return errors.New("--attach-storage cannot be used on kubernetes models")
-		}
 	}
 
 	return c.UnitCommandBase.Init(args)

@@ -420,10 +420,18 @@ type IAASOnlyCommand interface {
 	_iaasonly() // not implemented, marker only.
 }
 
+// CAASOnlyCommand is used as a marker and is embedded
+// by commands which should only run in CAAS models.
+type CAASOnlyCommand interface {
+	_caasonly() // not implemented, marker only.
+}
+
 // validateCommandForModelType returns an error if an IAAS-only command
 // is run on a CAAS model.
 func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error {
-	if _, ok := w.inner().(IAASOnlyCommand); !ok {
+	_, iaasOnly := w.inner().(IAASOnlyCommand)
+	_, caasOnly := w.inner().(CAASOnlyCommand)
+	if !caasOnly && !iaasOnly {
 		return nil
 	}
 
@@ -438,8 +446,11 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 		}
 		return nil
 	}
-	if modelType == model.CAAS {
+	if modelType == model.CAAS && iaasOnly {
 		return errors.Errorf("Juju command %q not supported on kubernetes models", w.Info().Name)
+	}
+	if modelType == model.IAAS && caasOnly {
+		return errors.Errorf("Juju command %q not supported on non-container models", w.Info().Name)
 	}
 	return nil
 }

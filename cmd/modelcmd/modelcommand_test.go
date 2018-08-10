@@ -252,6 +252,22 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `Juju command "test-command" not supported on kubernetes models`)
 }
 
+func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "bar/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = runCaasCommand(c, s.store)
+	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" not supported on non-container models`)
+}
+
 func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
@@ -296,6 +312,30 @@ func (c *testCommand) Info() *cmd.Info {
 }
 
 func (c *testCommand) Run(ctx *cmd.Context) error {
+	return nil
+}
+
+func runCaasCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+	modelCmd := new(caasCommand)
+	modelcmd.SetModelRefresh(noOpRefresh, modelCmd)
+	cmd := modelcmd.Wrap(modelCmd)
+	cmd.SetClientStore(store)
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmd, errors.Trace(err)
+}
+
+type caasCommand struct {
+	modelcmd.ModelCommandBase
+	modelcmd.CAASOnlyCommand
+}
+
+func (c *caasCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name: "caas-command",
+	}
+}
+
+func (c *caasCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 

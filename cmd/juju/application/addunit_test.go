@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
@@ -116,16 +115,6 @@ func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
-}
-
-func (s *AddUnitSuite) TestInitErrorsCaasModel(c *gc.C) {
-	m := s.store.Models["arthur"].Models["king/sword"]
-	m.ModelType = model.CAAS
-	s.store.Models["arthur"].Models["king/sword"] = m
-
-	args := []string{"some-application-name", "--attach-storage", "foo/0"}
-	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), args)
-	c.Assert(err, gc.ErrorMatches, "--attach-storage cannot be used on kubernetes models")
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {

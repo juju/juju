@@ -520,6 +520,7 @@ var commandNames = []string{
 	"revoke",
 	"run",
 	"run-action",
+	"scale-application",
 	"scp",
 	"set-constraints",
 	"set-default-credential",

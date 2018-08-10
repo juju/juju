@@ -24,6 +24,7 @@ func NewRemoveUnitCommand() modelcmd.ModelCommand {
 // removeUnitCommand is responsible for destroying application units.
 type removeUnitCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	DestroyStorage bool
 	UnitNames      []string
 }

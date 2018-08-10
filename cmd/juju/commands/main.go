@@ -468,6 +468,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
 	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(application.NewScaleApplicationCommand())
 
 	// Manage Application Credential Access
 	r.Register(application.NewTrustCommand())
