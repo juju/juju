@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -49,6 +50,18 @@ type suiteBehaviour func(*workerSuite)
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.done = make(chan struct{})
+}
+
+func (s *workerSuite) TestLockNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestInconsistentStateNoChange(c *gc.C) {
