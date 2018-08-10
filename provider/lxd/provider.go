@@ -65,6 +65,7 @@ type environProvider struct {
 var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
 	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
+	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
 	// Order doesn't matter since there's only one thing to ask about.  Add
 	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
@@ -86,6 +87,27 @@ var cloudSchema = &jsonschema.Schema{
 						string(interactiveAuthType),
 					},
 				}},
+			},
+		},
+		cloud.RegionsKey: {
+			Type:          []jsonschema.Type{jsonschema.ObjectType},
+			Singular:      "region",
+			Plural:        "regions",
+			Default:       "default",
+			PromptDefault: "use default",
+			AdditionalProperties: &jsonschema.Schema{
+				Type:          []jsonschema.Type{jsonschema.ObjectType},
+				Required:      []string{cloud.EndpointKey},
+				MaxProperties: jsonschema.Int(1),
+				Properties: map[string]*jsonschema.Schema{
+					cloud.EndpointKey: {
+						Singular:      "the API endpoint url for the region",
+						Type:          []jsonschema.Type{jsonschema.StringType},
+						Format:        jsonschema.FormatURI,
+						Default:       "",
+						PromptDefault: "use cloud api url",
+					},
+				},
 			},
 		},
 	},
@@ -204,6 +226,10 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 				AuthTypes: []cloud.AuthType{
 					cloud.CertificateAuthType,
 				},
+				Regions: []cloud.Region{{
+					Name:     lxdnames.DefaultRemoteRegion,
+					Endpoint: remote.Addr,
+				}},
 			})
 		}
 	}
@@ -236,6 +262,10 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 				AuthTypes: []cloud.AuthType{
 					cloud.CertificateAuthType,
 				},
+				Regions: []cloud.Region{{
+					Name:     lxdnames.DefaultRemoteRegion,
+					Endpoint: remote.Addr,
+				}},
 			}, nil
 		}
 	}
@@ -257,7 +287,6 @@ func (p *environProvider) FinalizeCloud(
 		if endpoint == "" {
 			// The cloud endpoint is empty, which means
 			// that we should connect to the local LXD.
-			var err error
 			hostAddress, err := p.getLocalHostAddress(ctx)
 			if err != nil {
 				return errors.Trace(err)

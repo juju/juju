@@ -118,6 +118,10 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 			AuthTypes: []cloud.AuthType{
 				cloud.CertificateAuthType,
 			},
+			Regions: []cloud.Region{{
+				Name:     "default",
+				Endpoint: "https://10.0.0.1:8443",
+			}},
 			Description: "LXD Container Hypervisor",
 		},
 	})
@@ -181,6 +185,10 @@ func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
 		AuthTypes: []cloud.AuthType{
 			cloud.CertificateAuthType,
 		},
+		Regions: []cloud.Region{{
+			Name:     "default",
+			Endpoint: "https://10.0.0.1:8443",
+		}},
 		Description: "LXD Container Hypervisor",
 	})
 }
