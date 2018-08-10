@@ -5,7 +5,9 @@ package backups_test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -33,6 +35,16 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	s.defaultFilename = "juju-backup-<date>-<time>.tar.gz"
 }
 
+func (s *createSuite) TearDownTest(c *gc.C) {
+	// We do not need to cater here for s.BaseBackupsSuite.filename as it will be deleted by the base suite.
+	// However, in situations where s.command.Filename is defined, we want to remove it as well.
+	if s.command.Filename != backups.NotSet && s.command.Filename != s.filename {
+		err := os.Remove(s.command.Filename)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	s.BaseBackupsSuite.TearDownTest(c)
+}
+
 func (s *createSuite) setSuccess() *fakeAPIClient {
 	client := &fakeAPIClient{metaresult: s.metaresult}
 	s.patchGetAPI(client)
@@ -52,25 +64,22 @@ func (s *createSuite) setDownload() *fakeAPIClient {
 }
 
 func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
-	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, MetaResultString)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, MetaResultString)
 
-	out := ctx.Stderr.(*bytes.Buffer).String()
-
+	out := cmdtesting.Stderr(ctx)
 	parts := strings.Split(out, "\n")
-	i := 0
+	c.Assert(parts, gc.HasLen, 3)
 	if s.command.KeepCopy {
-		c.Assert(parts, gc.HasLen, 3)
-		c.Check(parts[0], gc.Equals, s.metaresult.ID)
-		i = 1
+		c.Check(parts[0], gc.Equals, fmt.Sprintf("Remote backup stored on the controller as %v.", s.metaresult.ID))
 	} else {
-		c.Assert(parts, gc.HasLen, 2)
+		c.Check(parts[0], gc.Equals, "Remote backup was not created.")
 	}
 
 	// Check the download message.
-	parts = strings.Split(parts[i], "downloading to ")
+	parts = strings.Split(parts[1], "Downloaded to ")
 	c.Assert(parts, gc.HasLen, 2)
 	c.Assert(parts[0], gc.Equals, "")
-	s.filename = parts[1]
+	s.filename = parts[1][:len(parts[1])-1]
 }
 
 func (s *createSuite) checkDownload(c *gc.C, ctx *cmd.Context) {
@@ -224,7 +233,8 @@ func (s *createSuite) TestNoDownload(c *gc.C) {
 	client.CheckCalls(c, "Create")
 	client.CheckArgs(c, "", "true", "true")
 	out := MetaResultString
-	s.checkStd(c, ctx, out, "WARNING "+backups.DownloadWarning+"\n"+s.metaresult.ID+"\n")
+	expectedMsg := fmt.Sprintf("WARNING %v\nRemote backup stored on the controller as %v.\n", backups.DownloadWarning, s.metaresult.ID)
+	s.checkStd(c, ctx, out, expectedMsg)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
 }
 
@@ -237,6 +247,12 @@ func (s *createSuite) TestKeepCopy(c *gc.C) {
 	client.CheckArgs(c, "", "true", "false", "filename")
 
 	s.checkDownload(c, ctx)
+}
+
+func (s *createSuite) TestFailKeepCopyNoDownload(c *gc.C) {
+	s.setDownload()
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy", "--no-download")
+	c.Check(err, gc.ErrorMatches, "cannot mix --no-download and --keep-copy")
 }
 
 func (s *createSuite) TestKeepCopyV1Fail(c *gc.C) {
