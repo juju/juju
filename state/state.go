@@ -1122,6 +1122,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	// Perform model specific arg processing.
+	scale := 0
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
@@ -1131,6 +1132,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err := st.processCAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
+		scale = 1
 	}
 
 	applicationID := st.docID(args.Name)
@@ -1150,6 +1152,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
+
+		// CAAS
+		DesiredScale: scale,
 	}
 
 	app := newApplication(st, appDoc)

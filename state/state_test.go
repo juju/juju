@@ -1550,6 +1550,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
+	c.Assert(gitlab.GetScale(), gc.Equals, 1)
 	outsettings, err := gitlab.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()

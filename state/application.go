@@ -58,6 +58,7 @@ type applicationDoc struct {
 	RelationCount        int          `bson:"relationcount"`
 	Exposed              bool         `bson:"exposed"`
 	MinUnits             int          `bson:"minunits"`
+	DesiredScale         int          `bson:"scale"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
 	MetricCredentials    []byte       `bson:"metric-credentials"`
@@ -1273,6 +1274,41 @@ func (a *Application) Refresh() error {
 	return nil
 }
 
+// GetScale returns the application's desired scale value.
+func (a *Application) GetScale() int {
+	return a.doc.DesiredScale
+}
+
+// Scale sets the application's desired scale value.
+func (a *Application) Scale(scale int) error {
+	if scale < 0 {
+		return errors.NotValidf("application scale %d", scale)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+		}
+		return []txn.Op{{
+			C:  applicationsC,
+			Id: a.doc.DocID,
+			Assert: bson.D{{"life", Alive},
+				{"charmurl", a.doc.CharmURL},
+				{"unitcount", a.doc.UnitCount}},
+			Update: bson.D{{"$set", bson.D{{"scale", scale}}}},
+		}}, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Errorf("cannot set scale for application %q to %v: %v", a, scale, onAbort(err, applicationNotAliveErr))
+	}
+	a.doc.DesiredScale = scale
+	return nil
+}
+
 // newUnitName returns the next unit name.
 func (a *Application) newUnitName() (string, error) {
 	unitSeq, err := sequence(a.st, a.Tag().String())
@@ -2368,10 +2404,10 @@ func (op *UpdateUnitsOperation) allOps() []ModelOperation {
 	for _, mop := range op.Adds {
 		all = append(all, mop)
 	}
-	for _, mop := range op.Deletes {
+	for _, mop := range op.Updates {
 		all = append(all, mop)
 	}
-	for _, mop := range op.Updates {
+	for _, mop := range op.Deletes {
 		all = append(all, mop)
 	}
 	return all

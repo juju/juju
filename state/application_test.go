@@ -3593,6 +3593,52 @@ func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
+	err := s.app.Scale(-1)
+	c.Assert(err, gc.ErrorMatches, "application scale -1 not valid")
+}
+
+func (s *CAASApplicationSuite) TestScale(c *gc.C) {
+	err := s.app.Scale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 5)
+}
+
+func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
+	// Empty initial event.
+	w := s.app.WatchScale()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	err := s.app.Scale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	// Set to same value, no change.
+	err = s.app.Scale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.app.Scale(6)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	// An unrelated update, no change.
+	err = s.app.SetMinUnits(2)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
 func (s *ApplicationSuite) TestApplicationSetAgentPresence(c *gc.C) {
 	alive, err := s.mysql.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
