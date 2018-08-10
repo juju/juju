@@ -6,6 +6,7 @@ package interact
 import (
 	"bytes"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -20,6 +21,12 @@ type PollsterSuite struct {
 }
 
 var _ = gc.Suite(PollsterSuite{})
+
+func (p PollsterSuite) TearDownTest(c *gc.C) {
+	p.IsolationSuite.TearDownTest(c)
+	os.Unsetenv("SCHEMA_VAR")
+	os.Unsetenv("SCHEMA_VAR_TWO")
+}
 
 func (PollsterSuite) TestSelect(c *gc.C) {
 	r := strings.NewReader("macintosh")
@@ -387,6 +394,63 @@ func (PollsterSuite) TestQueryStringSchemaWithPromptDefault(c *gc.C) {
 	c.Check(w.String(), jc.Contains, "Enter region [not foo]:")
 }
 
+func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVar(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "",
+		EnvVars:  []string{"SCHEMA_VAR"},
+	}
+	os.Setenv("SCHEMA_VAR", "value from env var")
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "value from env var")
+	c.Assert(w.String(), jc.Contains, "Enter region [value from env var]:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithDefaultEnvVarOverride(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "",
+		EnvVars:  []string{"SCHEMA_VAR"},
+	}
+	os.Setenv("SCHEMA_VAR", "value from env var")
+	r := strings.NewReader("use me\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "use me")
+	c.Assert(w.String(), jc.Contains, "Enter region [value from env var]:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithDefaultTwoEnvVar(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "",
+		EnvVars:  []string{"SCHEMA_VAR", "SCHEMA_VAR_TWO"},
+	}
+	os.Setenv("SCHEMA_VAR_TWO", "value from second")
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "value from second")
+	c.Assert(w.String(), jc.Contains, "Enter region [value from second]:")
+}
+
 func (PollsterSuite) TestQueryURISchema(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "region",
@@ -580,10 +644,10 @@ n
 	c.Check(w.String(), gc.Equals, `
 Enter region name: 
 Enter location: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 Enter region name: 
 Enter location: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 `[1:])
 }
 
@@ -612,8 +676,8 @@ n
 	})
 	c.Check(w.String(), gc.Equals, `
 Enter region name: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 Enter region name: 
-Enter another region? (Y/n): 
+Enter another region? (y/N): 
 `[1:])
 }

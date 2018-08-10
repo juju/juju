@@ -58,6 +58,10 @@ var cloudSchema = map[string]interface{}{
 		"config":            map[string]interface{}{"type": "object"},
 		"regions":           regionsSchema,
 		"region-config":     map[string]interface{}{"type": "object"},
+		"ca-certificates": map[string]interface{}{
+			"type":  "array",
+			"items": map[string]interface{}{"type": "string"},
+		},
 	},
 	"additionalProperties": false,
 }

@@ -77,6 +77,11 @@ const (
 	// RegionsKey is the name of the key in a cloud schema that holds the list
 	// of regions a cloud supports.
 	RegionsKey = "regions"
+
+	// CertFilenameKey is the name of the key in a cloud schema that holds
+	// the filename of a CA Certificate to be used to access the cloud, in conjunction
+	// with an auth type.
+	CertFilenameKey = "certfilename"
 )
 
 // Attrs serves as a map to hold regions specific configuration attributes.
