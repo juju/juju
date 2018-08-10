@@ -20,16 +20,30 @@ import (
 const (
 	notset          = backups.FilenamePrefix + "<date>-<time>.tar.gz"
 	downloadWarning = "downloading backup archives is recommended; " +
-		"backups stored remotely are not guaranteed to be available"
+		"backups stored remotely are not guaranteed to be available."
 )
 
 const createDoc = `
-create-backup requests that Juju creates a backup of its state and prints the
+This command requests that Juju creates a backup of its state and prints the
 backup's unique ID.  You may provide a note to associate with the backup.
 
-The backup archive and associated metadata are stored remotely by Juju, but
-will also be copied locally unless --no-download is supplied. To access the
-remote backups, see 'juju download-backup'.
+By default, the backup archive and associated metadata are downloaded without keeping a copy remotely on the controller.
+
+Use --no-download to avoid getting a local copy of the backup downloaded at the end of the backup process. 
+
+Use --keep-copy option to store a copy of this backup remotely on the controller. Ignored when --no-download is used.
+
+
+Use --verbose to see extra information about backup.
+
+To access the remote backups stored on the controller, see 'juju download-backup'.
+
+Examples:
+    juju create-backup 
+    juju create-backup --no-download
+    juju create-backup --no-download --keep-copy=false // ignores --keep-copy
+    juju create-backup --keep-copy
+    juju create-backup --verbose
 
 See also:
     backups
@@ -98,10 +112,6 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if c.NoDownload {
-		ctx.Warningf(downloadWarning)
-	}
-
 	client, apiVersion, err := c.NewGetAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -117,6 +127,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.NoDownload {
+		ctx.Warningf(downloadWarning)
 		c.KeepCopy = true
 	}
 
@@ -132,7 +143,9 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.KeepCopy {
-		ctx.Infof(metadataResult.ID)
+		ctx.Infof("Remote backup stored on the controller as %v.", metadataResult.ID)
+	} else {
+		ctx.Infof("Remote backup was not created.")
 	}
 
 	// Handle download.
@@ -155,8 +168,6 @@ func (c *createCommand) decideFilename(ctx *cmd.Context, filename string, timest
 }
 
 func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom string, archiveFilename string) error {
-	ctx.Infof("downloading to " + archiveFilename)
-
 	resultArchive, err := client.Download(copyFrom)
 	if err != nil {
 		return errors.Trace(err)
@@ -165,12 +176,16 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom st
 
 	archive, err := os.Create(archiveFilename)
 	if err != nil {
-		return errors.Annotate(err, "while creating local archive file")
+		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
 	}
 	defer archive.Close()
 
 	_, err = io.Copy(archive, resultArchive)
-	return errors.Annotate(err, "while copying to local archive file")
+	if err != nil {
+		return errors.Annotatef(err, "while copying to local archive file %v", archiveFilename)
+	}
+	ctx.Infof("Downloaded to %v.", archiveFilename)
+	return nil
 }
 
 func (c *createCommand) create(client APIClient, apiVersion int) (*params.BackupsMetadataResult, string, error) {

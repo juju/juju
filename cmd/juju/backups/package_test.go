@@ -117,6 +117,14 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer archive.Close()
 
+	// Test file created successfully. Clean it up after the test is run.
+	s.AddCleanup(func(c *gc.C) {
+		err := os.Remove(s.filename)
+		if !os.IsNotExist(err) {
+			c.Fatalf("could not remove test file %v: %v", s.filename, err)
+		}
+	})
+
 	data, err := ioutil.ReadAll(archive)
 	c.Check(string(data), gc.Equals, s.data)
 }
