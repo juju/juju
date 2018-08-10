@@ -37,19 +37,16 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-# keep this for backwards compatibility for ci-run on 2.4, 2.3 branchs
-JUJU_MAKE_DEP ?= $(JUJU_MAKE_GODEPS)
-
-ifeq ($(JUJU_MAKE_DEP),true)
+ifeq ($(JUJU_SKIP_DEP),true)
+dep:
+	@echo "skipping dep"
+else
 $(GOPATH)/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
 # populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
 	$(GOPATH)/bin/dep ensure -vendor-only
-else
-dep:
-	@echo "skipping dep"
 endif
 
 build: dep go-build
