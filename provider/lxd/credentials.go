@@ -410,9 +410,10 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 		}); err != nil {
 			return nil, errors.Trace(err)
 		}
+		fmt.Fprintln(output, "Uploaded certificate to LXD server.")
+	} else {
+		fmt.Fprintln(output, "Reusing certificate from LXD server.")
 	}
-
-	fmt.Fprintln(output, "Uploaded certificate to LXD server.")
 
 	lxdServer, _, err := server.GetServer()
 	if err != nil {
