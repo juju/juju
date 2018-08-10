@@ -27,16 +27,17 @@ const createDoc = `
 This command requests that Juju creates a backup of its state and prints the
 backup's unique ID.  You may provide a note to associate with the backup.
 
-By default, the backup archive and associated metadata are downloaded without keeping a copy remotely on the controller.
+By default, the backup archive and associated metadata are downloaded 
+without keeping a copy remotely on the controller.
 
-Use --no-download to avoid getting a local copy of the backup downloaded at the end of the backup process. 
+Use --no-download to avoid getting a local copy of the backup downloaded
+at the end of the backup process. 
 
-Use --keep-copy option to store a copy of this backup remotely on the controller. Ignored when --no-download is used.
-
+Use --keep-copy option to store a copy of backup remotely on the controller. 
 
 Use --verbose to see extra information about backup.
 
-To access the remote backups stored on the controller, see 'juju download-backup'.
+To access remote backups stored on the controller, see 'juju download-backup'.
 
 Examples:
     juju create-backup 
