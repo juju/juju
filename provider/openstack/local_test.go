@@ -2774,6 +2774,7 @@ func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.cred = &identity.Credentials{
+		Version:    2,
 		User:       "fred",
 		Secrets:    "secret",
 		Region:     "some-region",
