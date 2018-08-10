@@ -180,6 +180,29 @@ func (s *K8sBrokerSuite) TestDeleteService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	two := int32(2)
+	dc := &apps.Deployment{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}, Spec: apps.DeploymentSpec{Replicas: &two}}
+	zero := int32(0)
+	emptyDc := dc
+	emptyDc.Spec.Replicas = &zero
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(dc, nil),
+		s.mockDeployments.EXPECT().Update(emptyDc).Times(1).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{}
+	err := s.broker.EnsureService("test", params, 0, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
