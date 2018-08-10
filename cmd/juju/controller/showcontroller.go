@@ -240,6 +240,10 @@ type ShowControllerDetails struct {
 
 // ControllerDetails holds details of a controller to show.
 type ControllerDetails struct {
+	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
+	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
+	OldControllerUUID string `yaml:"uuid" json:"-"`
+
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"controller-uuid" json:"uuid"`
 
@@ -276,6 +280,10 @@ type MachineDetails struct {
 
 // ModelDetails holds details of a model to show.
 type ModelDetails struct {
+	// TODO(anastasiamac 2018-08-10) This is a deprecated property, see lp#1596607.
+	// It was added for backward compatibility, lp#1786061, to be removed for Juju 3.
+	OldModelUUID string `yaml:"uuid" json:"-"`
+
 	// ModelUUID holds the details of a model.
 	ModelUUID string `yaml:"model-uuid" json:"uuid"`
 
@@ -308,12 +316,13 @@ func (c *showControllerCommand) convertControllerForShow(
 ) {
 
 	controller.Details = ControllerDetails{
-		ControllerUUID: details.ControllerUUID,
-		APIEndpoints:   details.APIEndpoints,
-		CACert:         details.CACert,
-		Cloud:          details.Cloud,
-		CloudRegion:    details.CloudRegion,
-		AgentVersion:   details.AgentVersion,
+		ControllerUUID:    details.ControllerUUID,
+		OldControllerUUID: details.ControllerUUID,
+		APIEndpoints:      details.APIEndpoints,
+		CACert:            details.CACert,
+		Cloud:             details.Cloud,
+		CloudRegion:       details.CloudRegion,
+		AgentVersion:      details.AgentVersion,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)
@@ -371,7 +380,7 @@ func (c *showControllerCommand) convertModelsForShow(
 ) {
 	controller.Models = make(map[string]ModelDetails)
 	for i, model := range models {
-		modelDetails := ModelDetails{ModelUUID: model.UUID}
+		modelDetails := ModelDetails{ModelUUID: model.UUID, OldModelUUID: model.UUID}
 		result := modelStatus[i]
 		if result.Error != nil {
 			if !errors.IsNotFound(result.Error) {
