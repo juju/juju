@@ -50,7 +50,14 @@ func (s *State) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	}
 
 	r := results.Results[0]
-	return r.Status.Status, r.Error
+	if r.Error != nil {
+		if params.IsCodeNotFound(r.Error) {
+			return "", errors.NewNotFound(r.Error, "")
+		}
+		return "", r.Error
+	}
+
+	return r.Status.Status, nil
 }
 
 func (s *State) SetMachineStatus(status model.UpgradeSeriesStatus) error {
