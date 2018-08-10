@@ -393,15 +393,23 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	}
 
 	// check to see if the cert already exists
-	if err := server.CreateCertificate(api.CertificatesPost{
-		CertificatePut: api.CertificatePut{
-			Name: credentials.Label,
-			Type: "client",
-		},
-		Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
-		Password:    trustPassword,
-	}); err != nil {
+	fingerprint, err := clientCert.Fingerprint()
+	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	cert, _, err := server.GetCertificate(fingerprint)
+	if err != nil || cert == nil {
+		if err := server.CreateCertificate(api.CertificatesPost{
+			CertificatePut: api.CertificatePut{
+				Name: credentials.Label,
+				Type: "client",
+			},
+			Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
+			Password:    trustPassword,
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	fmt.Fprintln(output, "Uploaded certificate to LXD server.")
