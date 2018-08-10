@@ -51,13 +51,17 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 		return nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
 	}
 	for i, result := range lifeResults {
+		life := result.Life
 		if result.Error != nil {
-			return nil, nil, nil, errors.Annotatef(
-				result.Error, "getting life of %s attached to %s",
-				ids[i].AttachmentTag, ids[i].MachineTag,
-			)
+			if !params.IsCodeNotFound(err) {
+				return nil, nil, nil, errors.Annotatef(
+					result.Error, "getting life of %s attached to %s",
+					ids[i].AttachmentTag, ids[i].MachineTag,
+				)
+			}
+			life = params.Dead
 		}
-		switch result.Life {
+		switch life {
 		case params.Alive:
 			alive = append(alive, ids[i])
 		case params.Dying:

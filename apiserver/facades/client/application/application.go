@@ -57,6 +57,11 @@ type APIv6 struct {
 
 // APIv7 provides the Application API facade for version 7.
 type APIv7 struct {
+	*APIv8
+}
+
+// APIv8 provides the Application API facade for version 8.
+type APIv8 struct {
 	*APIBase
 }
 
@@ -117,11 +122,19 @@ func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
 // NewFacadeV7 provides the signature required for facade registration
 // for version 7.
 func NewFacadeV7(ctx facade.Context) (*APIv7, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV8(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv7{api}, nil
+}
+
+func NewFacadeV8(ctx facade.Context) (*APIv8, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv8{api}, nil
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
@@ -944,6 +957,9 @@ func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplica
 
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
+	if api.modelType == state.ModelTypeCAAS {
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units on a non-container model")
+	}
 	if err := api.checkCanWrite(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1063,6 +1079,9 @@ func (api *APIv4) DestroyUnit(args params.Entities) (params.DestroyUnitResults, 
 
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
+	if api.modelType == state.ModelTypeCAAS {
+		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
+	}
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
@@ -1276,6 +1295,51 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 		}
 	}
 	return params.ErrorResults{results}, nil
+}
+
+// ScaleApplications isn't on the V7 API.
+func (u *APIv7) ScaleApplications(_, _ struct{}) {}
+
+// ScaleApplications scales the specified application to the requested number of units.
+func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+	if api.modelType != state.ModelTypeCAAS {
+		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
+	}
+	if err := api.checkCanWrite(); err != nil {
+		return params.ScaleApplicationResults{}, errors.Trace(err)
+	}
+	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
+		if arg.Scale < 0 {
+			return nil, errors.NotValidf("scale < 0")
+		}
+		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := appTag.Id()
+		app, err := api.backend.Application(name)
+		if errors.IsNotFound(err) {
+			return nil, errors.Errorf("application %q does not exist", name)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var info params.ScaleApplicationInfo
+		if err := app.Scale(arg.Scale); err != nil {
+			return nil, errors.Trace(err)
+		}
+		info.Scale = arg.Scale
+		return &info, nil
+	}
+	results := make([]params.ScaleApplicationResult, len(args.Applications))
+	for i, entity := range args.Applications {
+		info, err := scaleApplication(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.ScaleApplicationResults{results}, nil
 }
 
 // GetConstraints returns the constraints for a given application.
