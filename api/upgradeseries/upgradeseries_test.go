@@ -5,6 +5,8 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -48,6 +50,29 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	status, err := api.MachineStatus()
 	c.Assert(err, gc.IsNil)
 	c.Check(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
+}
+
+func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	resultSource := params.UpgradeSeriesStatusResultsNew{
+		Results: []params.UpgradeSeriesStatusResultNew{{
+			Error: &params.Error{
+				Code:    params.CodeNotFound,
+				Message: "did not find",
+			},
+		}},
+	}
+	fCaller.EXPECT().FacadeCall("MachineStatus", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	status, err := api.MachineStatus()
+	c.Assert(err, gc.ErrorMatches, "did not find")
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(string(status), gc.Equals, "")
 }
 
 func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {

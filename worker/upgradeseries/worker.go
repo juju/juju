@@ -131,6 +131,11 @@ func (w *upgradeSeriesWorker) loop() error {
 func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	machineStatus, err := w.MachineStatus()
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// No upgrade-series lock.
+			// This can only happen on the first watch call.
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
