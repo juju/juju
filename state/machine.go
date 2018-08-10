@@ -2204,14 +2204,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !readyForCompletion {
 			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
-		lock, err := m.getUpgradeSeriesLock()
-		if err != nil {
-			return nil, err
-		}
-		for i := range lock.CompleteUnits {
-			lock.CompleteUnits[i].Status = model.UnitStarted
-		}
-		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
+		return completeUpgradeSeriesTxnOps(m.doc.Id), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2373,7 +2366,7 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeri
 	}
 }
 
-func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.Op {
+func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2384,9 +2377,9 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			C:  machineUpgradeSeriesLocksC,
 			Id: machineDocID,
 			Assert: bson.D{{"$and", []bson.D{
-				//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
+				{{"prepare-status", model.MachineSeriesUpgradeComplete}},
 				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
-			Update: bson.D{{"$set", bson.D{{"complete-units", units}}}},
+			Update: bson.D{{"$set", bson.D{{"complete-status", model.MachineSeriesUpgradeStarted}}}},
 		},
 	}
 }
@@ -2475,9 +2468,8 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 		return false, err
 	}
 
-	// [TODO](externalreality) Do not forget to put in a check to see if prepare status is completed for the Machine.
-	// lock.PrepareStatus == model.MachineSeriesUpgradeComplete
-	return lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
+	return lock.PrepareStatus == model.MachineSeriesUpgradeComplete &&
+		lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
