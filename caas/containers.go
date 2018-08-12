@@ -5,7 +5,7 @@ package caas
 
 import (
 	"github.com/juju/errors"
-	// apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
 // FileSet defines a set of files to mount
@@ -63,30 +63,18 @@ type PodSpec struct {
 	CustomResourceDefinition CustomResourceDefinition `yaml:"crd,omitempty"`
 }
 
-// CrdObject defines the custom resource definition new resource.
-type CrdObject struct {
-	Name string                 `yaml:"name"`
-	Spec map[string]interface{} `yaml:"spec"`
-}
-
 // CrdTemplateValidation defines the custom resource definition validation schema.
 type CrdTemplateValidation struct {
-	OpenAPIV3Schema map[string]interface{} `yaml:"openAPIV3Schema,omitempty"`
-}
-
-// CrdTemplate defines the custom resource definition type.
-type CrdTemplate struct {
-	Name       string                `yaml:"name"`
-	Group      string                `yaml:"group"`
-	Version    string                `yaml:"version"`
-	Scope      string                `yaml:"scope"`
-	Validation CrdTemplateValidation `yaml:"validation,omitempty"`
+	Properties map[string]apiextensionsv1beta1.JSONSchemaProps `yaml:"properties,omitempty"`
 }
 
 // CustomResourceDefinition defines the custom resource definition template and content format in podspec.
 type CustomResourceDefinition struct {
-	Template CrdTemplate `yaml:"template"`
-	Content  CrdObject   `yaml:"content"`
+	Kind       string                `yaml:"kind"`
+	Group      string                `yaml:"group"`
+	Version    string                `yaml:"version"`
+	Scope      string                `yaml:"scope"`
+	Validation CrdTemplateValidation `yaml:"validation,omitempty"`
 }
 
 // Validate returns an error if the crd is not valid.
@@ -97,7 +85,7 @@ func (crd *CustomResourceDefinition) Validate() error {
 
 // IsPresent checks if CustomResourceDefinition is empty.
 func (crd *CustomResourceDefinition) IsPresent() bool {
-	return crd.Template.Name != "" && crd.Content.Name != ""
+	return crd.Kind != ""
 }
 
 // Validate returns an error if the spec is not valid.

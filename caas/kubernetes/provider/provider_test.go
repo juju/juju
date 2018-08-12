@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
@@ -161,62 +162,30 @@ containers:
             [config]
             foo: bar
 crd:
-  template:
-    group: kubeflow.org
-    version: v1alpha2
-    scope: Namespaced
-    name: tfjob
-    validation:
-      openAPIV3Schema:
+  group: kubeflow.org
+  version: v1alpha2
+  scope: Namespaced
+  kind: TFJob
+  validation:
+    properties:
+      tfReplicaSpecs:
         properties:
-          spec:
+          Worker:
             properties:
-              tfReplicaSpecs:
-                properties:
-                  Worker:
-                    properties:
-                      replicas:
-                        type: integer
-                        minimum: 1
-                  PS:
-                    properties:
-                      replicas:
-                        type: integer
-                        minimum: 1
-                  Chief:
-                    properties:
-                      replicas:
-                        type: integer
-                        minimum: 1
-                        maximum: 1
-  content:
-    name: "example-job"
-    spec:
-      replicaSpecs:
-        - replicas: 1
-          tfReplicaType: MASTER
-          template:
-            spec:
-              containers:
-                - image: gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff
-                  name: tensorflow
-              restartPolicy: OnFailure
-        - replicas: 1
-          tfReplicaType: WORKER
-          template:
-            spec:
-              containers:
-                - image: gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff
-                  name: tensorflow
-              restartPolicy: OnFailure
-        - replicas: 2
-          tfReplicaType: PS
-          template:
-            spec:
-              containers:
-                - image: gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff
-                  name: tensorflow
-              restartPolicy: OnFailure
+              replicas:
+                type: integer
+                minimum: 1
+          PS:
+            properties:
+              replicas:
+                type: integer
+                minimum: 1
+          Chief:
+            properties:
+              replicas:
+                type: integer
+                minimum: 1
+                maximum: 1
 `[1:]
 
 	expectedFileContent := `
@@ -271,104 +240,48 @@ foo: bar
 			},
 		}},
 		CustomResourceDefinition: caas.CustomResourceDefinition{
-			Template: caas.CrdTemplate{
-				Name:    "tfjob",
-				Group:   "kubeflow.org",
-				Version: "v1alpha2",
-				Scope:   "",
-				// Validation: map[string]interface{}{
-				// 	"openAPIV3Schema": map[interface{}]interface{}{
-				// 		"properties": map[interface{}]interface{}{
-				// 			"spec": map[interface{}]interface{}{
-				// 				"properties": map[interface{}]interface{}{
-				// 					"tfReplicaSpecs": map[interface{}]interface{}{
-				// 						"properties": map[interface{}]interface{}{
-				// 							"PS": map[interface{}]interface{}{
-				// 								"properties": map[interface{}]interface{}{
-				// 									"replicas": map[interface{}]interface{}{
-				// 										"type": "integer", "minimum": 1,
-				// 									},
-				// 								},
-				// 							},
-				// 							"Chief": map[interface{}]interface{}{
-				// 								"properties": map[interface{}]interface{}{
-				// 									"replicas": map[interface{}]interface{}{
-				// 										"type":    "integer",
-				// 										"minimum": 1,
-				// 										"maximum": 1,
-				// 									},
-				// 								},
-				// 							},
-				// 							"Worker": map[interface{}]interface{}{
-				// 								"properties": map[interface{}]interface{}{
-				// 									"replicas": map[interface{}]interface{}{
-				// 										"type":    "integer",
-				// 										"minimum": 1,
-				// 									},
-				// 								},
-				// 							},
-				// 						},
-				// 					},
-				// 				},
-				// 			},
-				// 		},
-				// 	},
-				// },
-			},
-			Content: caas.CrdObject{
-				Name: "example-job",
-				Spec: map[string]interface{}{
-					"replicaSpecs": []interface{}{
-						map[interface{}]interface{}{
-							"replicas":      1,
-							"tfReplicaType": "MASTER",
-							"template": map[interface{}]interface{}{
-								"spec": map[interface{}]interface{}{
-									"containers": []interface{}{
-										map[interface{}]interface{}{
-											"image": "gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff",
-											"name":  "tensorflow",
-										},
+			Kind:    "TFJob",
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Scope:   "Namespaced",
+			Validation: caas.CrdTemplateValidation{
+				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+					"tfReplicaSpecs": {
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"PS": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type: "integer", Minimum: float64Ptr(1),
 									},
-									"restartPolicy": "OnFailure",
 								},
 							},
-						},
-						map[interface{}]interface{}{
-							"template": map[interface{}]interface{}{
-								"spec": map[interface{}]interface{}{
-									"containers": []interface{}{
-										map[interface{}]interface{}{
-											"image": "gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff",
-											"name":  "tensorflow",
-										},
+							"Chief": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type:    "integer",
+										Minimum: float64Ptr(1),
+										Maximum: float64Ptr(1),
 									},
-									"restartPolicy": "OnFailure",
 								},
 							},
-							"replicas":      1,
-							"tfReplicaType": "WORKER",
-						},
-						map[interface{}]interface{}{
-							"tfReplicaType": "PS",
-							"template": map[interface{}]interface{}{
-								"spec": map[interface{}]interface{}{
-									"containers": []interface{}{
-										map[interface{}]interface{}{
-											"image": "gcr.io/tf-on-k8s-dogfood/tf_sample:dc944ff",
-											"name":  "tensorflow",
-										},
+							"Worker": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type:    "integer",
+										Minimum: float64Ptr(1),
 									},
-									"restartPolicy": "OnFailure",
 								},
 							},
-							"replicas": 2,
 						},
 					},
 				},
 			},
 		},
 	})
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
 }
 
 func (s *providerSuite) TestValidateMissingContainers(c *gc.C) {

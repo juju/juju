@@ -21,8 +21,7 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	k8sstorage "k8s.io/api/storage/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	// this bad guy "k8s.io/apiextensions-apiserver/vendor/k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -506,44 +505,41 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(appName))
 }
 
-func (k *kubernetesClient) EnsureCrd(podSpec *caas.PodSpec) error {
+func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) error {
 	if err := podSpec.CustomResourceDefinition.Validate(); err != nil {
 		return errors.Annotate(err, "validating custom resource definition.")
 	}
 	if err := k.ensureCrdTemplate(podSpec); err != nil {
 		return errors.Annotate(err, "ensuring custom resource definition template.")
 	}
-	if err := k.ensureCrdContent(podSpec); err != nil {
-		return errors.Annotate(err, "ensuring custom resource definition content.")
-	}
 	return nil
 }
 
 func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) error {
-	t := podSpec.CustomResourceDefinition.Template
+	t := podSpec.CustomResourceDefinition
+	name := strings.ToLower(t.Kind)
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: fmt.Sprintf("%q.%q", t.Name, t.Group),
+			Name: fmt.Sprintf("%s.%s", name, t.Group),
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   t.Group,
 			Version: t.Version,
 			Scope:   apiextensionsv1beta1.ResourceScope(t.Scope),
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   fmt.Sprintf("%qs", strings.ToLower(t.Name)),
-				Kind:     strings.ToUpper(t.Name),
-				Singular: strings.ToLower(t.Name),
+				Plural:   fmt.Sprintf("%ss", name),
+				Kind:     t.Kind,
+				Singular: name,
 			},
 			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps(t.Validation.OpenAPIV3Schema),
+				// OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps(t.Validation.OpenAPIV3Schema),
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: t.Validation.Properties,
+				},
 			},
 		},
 	}
 	logger.Debugf("crd ->", crd.Spec)
-	return nil
-}
-
-func (k *kubernetesClient) ensureCrdContent(podSpec *caas.PodSpec) error {
 	return nil
 }
 
