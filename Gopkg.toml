@@ -523,3 +523,7 @@
 [[constraint]]
   name = "github.com/juju/clock"
   revision = "d293bb356ca441f16b59562295cca74478966757"
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
