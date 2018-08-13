@@ -173,6 +173,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 // devices is suitable for LXD to work with Juju.
 func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 	checked := make([]string, 0, len(nics))
+	var ipV6ErrMsg error
 	for name, nic := range nics {
 		checked = append(checked, name)
 
@@ -190,6 +191,7 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 			return errors.Annotatef(err, "retrieving network %q", netName)
 		}
 		if err := verifyNoIPv6(net); err != nil {
+			ipV6ErrMsg = err
 			continue
 		}
 
@@ -198,8 +200,18 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 		return nil
 	}
 
-	return errors.Errorf("no network device found with nictype %q or %q, and without IPv6 configured."+
-		"\n\tthe following devices were checked: %v", nicTypeBridged, nicTypeMACVLAN, checked)
+	// A nic with valid type found, but the network configures IPv6.
+	if ipV6ErrMsg != nil {
+		return ipV6ErrMsg
+	}
+
+	// No nics with a nictype of nicTypeBridged, nicTypeMACVLAN was found.
+	return errors.Errorf(fmt.Sprintf(
+		"no network device found with nictype %q or %q"+
+			"\n\tthe following devices were checked: %s"+
+			"\nNote: juju does not support IPv6."+
+			"\nReconfigure lxd to use a network of type %q or %q, disabling IPv6.",
+		nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN))
 }
 
 // verifyNICsWithConfigFile is recruited for legacy LXD installations.
@@ -338,6 +350,8 @@ func checkBridgeConfigFile(reader func(string) ([]byte, error)) (string, error) 
 	}
 
 	if !foundSubnetConfig {
+		// TODO (hml) 2018-08-09 Question
+		// Should the error mention ipv6 is not enabled if juju doesn't support it?
 		return "", bridgeConfigError(bridgeName + " has no ipv4 or ipv6 subnet enabled")
 	}
 	return bridgeName, nil

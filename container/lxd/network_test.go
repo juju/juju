@@ -146,9 +146,10 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
 	c.Assert(err, gc.ErrorMatches,
-		`profile "default": no network device found with nictype "bridged" or "macvlan", `+
-			`and without IPv6 configured.\n`+
-			`\tthe following devices were checked: \[eth0\]`)
+		`profile "default": no network device found with nictype "bridged" or "macvlan"\n`+
+			`\tthe following devices were checked: eth0\n`+
+			`Note: juju does not support IPv6.\n`+
+			`Reconfigure lxd to use a network of type "bridged" or "macvlan", disabling IPv6.`)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
@@ -172,9 +173,9 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 
 	err = jujuSvr.VerifyNetworkDevice(defaultProfile(), "")
 	c.Assert(err, gc.ErrorMatches,
-		`profile "default": no network device found with nictype "bridged" or "macvlan", `+
-			`and without IPv6 configured.\n`+
-			`\tthe following devices were checked: \[eth0\]`)
+		`profile "default": juju does not support IPv6. Disable IPv6 in LXD via:\n`+
+			`\tlxc network set lxdbr0 ipv6.address none\n`+
+			`and run the command again`)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
