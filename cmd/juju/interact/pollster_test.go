@@ -681,3 +681,117 @@ Enter region name:
 Enter another region? (y/N): 
 `[1:])
 }
+
+func (PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested", "bar"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular: "nested",
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"bar": {
+				Singular: "nested",
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				Default:  "",
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	r := strings.NewReader("Bill\n\nnamespace\n\n\nfoo\nbaz\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"namespace": map[string]interface{}{
+				"name": "",
+			},
+		},
+		"bar": map[string]interface{}{
+			"foo": map[string]interface{}{
+				"name": "baz",
+			},
+		},
+	})
+}
+
+func (PollsterSuite) TestQueryObjectSchemaWithDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular: "nested",
+				Default:  "default",
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	r := strings.NewReader("Bill\n\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"default": map[string]interface{}{
+				"name": "",
+			},
+		},
+	})
+}
