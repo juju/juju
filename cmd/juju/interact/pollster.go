@@ -405,7 +405,7 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		// (i.e. map key) is the "name" of the thing.
 		var name string
 		var err error
-		if schema.Default != nil {
+		if schema.Default != nil && schema.Default != "" {
 			var def string
 			if schema.PromptDefault != nil {
 				def = fmt.Sprintf("%v", schema.PromptDefault)

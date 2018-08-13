@@ -66,8 +66,6 @@ var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
 	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
 	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
-	// Order doesn't matter since there's only one thing to ask about.  Add
-	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
 			Singular: "the API endpoint url for the remote LXD server",
@@ -90,11 +88,10 @@ var cloudSchema = &jsonschema.Schema{
 			},
 		},
 		cloud.RegionsKey: {
-			Type:          []jsonschema.Type{jsonschema.ObjectType},
-			Singular:      "region",
-			Plural:        "regions",
-			Default:       "default",
-			PromptDefault: "use default",
+			Type:     []jsonschema.Type{jsonschema.ObjectType},
+			Singular: "region",
+			Plural:   "regions",
+			Default:  "default",
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
 				Required:      []string{cloud.EndpointKey},
