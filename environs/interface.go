@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs EnvironProvider,ProviderCredentials,RequestFinalizeCredential
+//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs EnvironProvider,ProviderCredentials,ProviderCredentialsRegister,RequestFinalizeCredential
 
 // A EnvironProvider represents a computing and storage provider
 // for either a traditional cloud or a container substrate like k8s.
@@ -125,6 +125,19 @@ type ProviderCredentials interface {
 		FinalizeCredentialContext,
 		FinalizeCredentialParams,
 	) (*cloud.Credential, error)
+}
+
+// ProviderCredentialsRegister is an interface that an EnvironProvider
+// implements in order to validate and automatically register credentials for
+// clouds supported by the provider.
+type ProviderCredentialsRegister interface {
+
+	// RegisterCredentials will return any credentials that need to be
+	// registered for the provider.
+	//
+	// If no credentials can be found, RegisterCredentials should return
+	// an error satisfying errors.IsNotFound.
+	RegisterCredentials() (*cloud.CloudCredential, error)
 }
 
 // RequestFinalizeCredential is an interface that an EnvironProvider implements

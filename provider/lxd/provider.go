@@ -57,6 +57,7 @@ type LXCRemoteConfig struct {
 type environProvider struct {
 	environs.ProviderCredentials
 	environs.RequestFinalizeCredential
+	environs.ProviderCredentialsRegister
 	serverFactory   ServerFactory
 	lxcConfigReader LXCConfigReader
 	Clock           clock.Clock
@@ -122,10 +123,11 @@ func NewProvider() environs.CloudEnvironProvider {
 		lxcConfigReader: configReader,
 	}
 	return &environProvider{
-		ProviderCredentials:       credentials,
-		RequestFinalizeCredential: credentials,
-		serverFactory:             factory,
-		lxcConfigReader:           configReader,
+		ProviderCredentials:         credentials,
+		RequestFinalizeCredential:   credentials,
+		ProviderCredentialsRegister: credentials,
+		serverFactory:               factory,
+		lxcConfigReader:             configReader,
 	}
 }
 
@@ -266,6 +268,31 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 			}, nil
 		}
 	}
+	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
+}
+
+func (p *environProvider) detectCloud(name, path string) (cloud.Cloud, error) {
+	config, err := p.lxcConfigReader.ReadConfig(path)
+	if err != nil {
+		return cloud.Cloud{}, err
+	}
+
+	if remote, ok := config.Remotes[name]; ok {
+		return cloud.Cloud{
+			Name:        name,
+			Type:        lxdnames.ProviderType,
+			Endpoint:    remote.Addr,
+			Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
+			AuthTypes: []cloud.AuthType{
+				cloud.CertificateAuthType,
+			},
+			Regions: []cloud.Region{{
+				Name:     lxdnames.DefaultRemoteRegion,
+				Endpoint: remote.Addr,
+			}},
+		}, nil
+	}
+
 	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
 }
 

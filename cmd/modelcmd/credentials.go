@@ -185,3 +185,30 @@ func DetectCredential(cloudName string, provider environs.EnvironProvider) (*clo
 	}
 	return detected, nil
 }
+
+// RegisterCredentials returns any credentials that need to be registered for
+// a provider.
+func RegisterCredentials(cloudName string, provider environs.EnvironProvider) (*cloud.CloudCredential, error) {
+	if register, ok := provider.(environs.ProviderCredentialsRegister); ok {
+		found, err := register.RegisterCredentials()
+		if err != nil {
+			return nil, errors.Annotatef(
+				err, "registering credentials for %q cloud provider", cloudName,
+			)
+		}
+		logger.Tracef("provider registered credentials: %v", found)
+		if len(found.AuthCredentials) == 0 {
+			return nil, errors.NotFoundf("credentials for cloud %q", cloudName)
+		}
+		return found, errors.Trace(err)
+	}
+	return nil, nil
+}
+
+//go:generate mockgen -package modelcmd -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/modelcmd TestCloudProvider
+
+// TestCloudProvider is used for testing.
+type TestCloudProvider interface {
+	environs.EnvironProvider
+	environs.ProviderCredentialsRegister
+}
