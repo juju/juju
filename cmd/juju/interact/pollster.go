@@ -409,7 +409,17 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 			var def string
 			if schema.PromptDefault != nil {
 				def = fmt.Sprintf("%v", schema.PromptDefault)
-			} else {
+			}
+			if len(schema.EnvVars) > 0 {
+				for _, envVar := range schema.EnvVars {
+					value, ok := os.LookupEnv(envVar)
+					if ok && value != "" {
+						def = value
+						break
+					}
+				}
+			}
+			if def == "" {
 				def = fmt.Sprintf("%v", schema.Default)
 			}
 			name, err = p.EnterVerifyDefault(schema.Singular+" name", verifyName, def)
