@@ -218,12 +218,12 @@ type instanceData struct {
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLockDoc struct {
-	Id             string                           `bson:"machine-id"`
-	ToSeries       string                           `bson:"to-series"`
-	FromSeries     string                           `bson:"from-series"`
-	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"prepare-status"`
-	UnitStatuses   []unitStatus                     `bson:"unit-statuses"`
-	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"complete-status"`
+	Id             string                    `bson:"machine-id"`
+	ToSeries       string                    `bson:"to-series"`
+	FromSeries     string                    `bson:"from-series"`
+	PrepareStatus  model.UpgradeSeriesStatus `bson:"prepare-status"`
+	UnitStatuses   []unitStatus              `bson:"unit-statuses"`
+	CompleteStatus model.UpgradeSeriesStatus `bson:"complete-status"`
 }
 
 type unitStatus struct {

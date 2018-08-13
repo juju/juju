@@ -10,9 +10,6 @@ import (
 //UpgradeSeriesStatus is the current status of a series upgrade for units
 type UpgradeSeriesStatus string
 
-// Machine upgrade series status will be removed
-type MachineSeriesUpgradeStatus = UpgradeSeriesStatus
-
 const (
 	NotStarted       UpgradeSeriesStatus = "not started"
 	PrepareStarted   UpgradeSeriesStatus = "prepare started"
