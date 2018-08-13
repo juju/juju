@@ -148,7 +148,7 @@ def deploy_caas_stack(bundle_path, client, timeout=3600):
     client.deploy_bundle(bundle_path, static_bundle=True)
     # Wait for the deployment to finish.
     client.wait_for_started(timeout=timeout)
-    # wait for cluster to stablize
+    # wait for cluster to stabilize
     client.wait_for_workloads()
     # get current status with tabular format for better debugging
     client.juju(client._show_status, ('--format', 'tabular'))
@@ -616,7 +616,7 @@ class ExistingController:
         """Prepare client for use by pointing it at the selected controller.
 
         This is a bit of a hack to allow for multiple controllers in the same
-        environment while testing. When the client object is intiailly made out
+        environment while testing. When the client object is initially made out
         of the existing environment it picks up the current controller and
         sets the env.controller name to that ID. Resetting the name to occurred
         desired ID simply forces jujupy to pass that ID as the first part of

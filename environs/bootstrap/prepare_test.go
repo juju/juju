@@ -85,7 +85,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			controller.SetNUMAControlPolicyKey: true,
 		},
 		Config: map[string]interface{}{
-			"default-series":            "xenial",
+			"default-series":            "bionic",
 			"firewall-mode":             "instance",
 			"ssl-hostname-verification": true,
 			"logging-config":            "<root>=DEBUG;unit=DEBUG",
