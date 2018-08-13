@@ -65,7 +65,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "UpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -83,7 +83,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "UpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -104,7 +104,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "UpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -128,7 +128,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "UpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -149,7 +149,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetUpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "SetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
 			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
@@ -171,7 +171,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetUpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "SetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
 			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
@@ -191,7 +191,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetUpgradeSeriesPrepareStatus")
+		c.Assert(name, gc.Equals, "SetUpgradeSeriesStatus")
 		c.Assert(args, jc.DeepEquals, params.SetUpgradeSeriesStatusParams{
 			Params: []params.SetUpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},

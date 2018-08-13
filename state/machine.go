@@ -2240,7 +2240,7 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 	return lock.PrepareStatus, errors.Trace(err)
 }
 
-// UpgradeSeriesPrepareStatus returns the status of a series upgrade.
+// UpgradeSeriesStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()

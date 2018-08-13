@@ -149,7 +149,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesPrepareStatus(args)
+	watches, err := api.SetUpgradeSeriesStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -175,7 +175,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.UpgradeSeriesPrepareStatus(args)
+	results, err := api.GetUpgradeSeriesStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
@@ -216,7 +216,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.UpgradeSeriesPrepareStatus(args)
+	results, err := api.GetUpgradeSeriesStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{

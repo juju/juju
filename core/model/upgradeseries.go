@@ -23,7 +23,8 @@ const (
 	UnitErrored      UpgradeSeriesStatus = "error"
 )
 
-// Validates a string returning an UpgradeSeriesPrepareStatus, if valid, or an error.
+// ValidateUnitSeriesUpgradeStatus validates a string returning an
+// UpgradeSeriesStatus, if valid, or an error.
 func ValidateUnitSeriesUpgradeStatus(series string) (UpgradeSeriesStatus, error) {
 	unCheckedStatus := UpgradeSeriesStatus(series)
 	switch unCheckedStatus {

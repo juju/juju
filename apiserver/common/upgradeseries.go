@@ -139,29 +139,16 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 	return result, nil
 }
 
-// UpgradeSeriesPrepareStatus returns the current preparation status of an upgrading
+// UpgradeSeriesStatus returns the current preparation status of an upgrading
 // unit. If no series upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) UpgradeSeriesPrepareStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+func (u *UpgradeSeriesAPI) GetUpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	return u.upgradeSeriesStatus(args)
 }
 
-// UpgradeSeriesCompleteStatus returns the current completion status of upgrading
-// unit. If no series upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) UpgradeSeriesCompleteStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	return u.upgradeSeriesStatus(args)
-}
-
-// SetUpgradeSeriesPrepareStatus sets the upgrade series status of the unit.
+// SetUpgradeSeriesStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesPrepareStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting SetUpgradeSeriesPrepareStatus with %+v", args)
-	return u.setUpgradeSeriesStatus(args)
-}
-
-// SetUpgradeSeriesCompleteStatus sets the upgrade series status of the unit.
-// If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesCompleteStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting SetUpgradeSeriesCompleteStatus with %+v", args)
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+	u.logger.Tracef("Starting SetUpgradeSeriesStatus with %+v", args)
 	return u.setUpgradeSeriesStatus(args)
 }
 
@@ -239,7 +226,7 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 }
 
 func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	u.logger.Tracef("Starting UpgradeSeriesPrepareStatus with %+v", args)
+	u.logger.Tracef("Starting GetUpgradeSeriesStatus with %+v", args)
 	result := params.UpgradeSeriesStatusResults{}
 
 	canAccess, err := u.accessUnitOrMachine()
