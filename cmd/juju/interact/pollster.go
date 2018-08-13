@@ -396,6 +396,15 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		return true, "", nil
 	}
 
+	localEnvVars := func(envVars []string) string {
+		for _, envVar := range envVars {
+			if value, ok := os.LookupEnv(envVar); ok && value != "" {
+				return value
+			}
+		}
+		return ""
+	}
+
 	// Currently we assume we always prompt for at least one value for
 	// additional properties, but we may want to change this to ask if they want
 	// to enter any at all.
@@ -405,8 +414,10 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		// (i.e. map key) is the "name" of the thing.
 		var name string
 		var err error
+
 		// Note: here we check that schema.Default is empty as well.
-		if schema.Default == nil || schema.Default == "" {
+		defFromEnvVar := localEnvVars(schema.EnvVars)
+		if (schema.Default == nil || schema.Default == "") && defFromEnvVar == "" {
 			name, err = p.EnterVerify(schema.Singular+" name", verifyName)
 			if err != nil {
 				return errors.Trace(err)
@@ -419,15 +430,8 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 			if schema.PromptDefault != nil {
 				def = fmt.Sprintf("%v", schema.PromptDefault)
 			}
-			var defFromEnvVar string
-			if len(schema.EnvVars) > 0 {
-				for _, envVar := range schema.EnvVars {
-					if value, ok := os.LookupEnv(envVar); ok && value != "" {
-						defFromEnvVar = value
-						def = defFromEnvVar
-						break
-					}
-				}
+			if defFromEnvVar != "" {
+				def = defFromEnvVar
 			}
 			if def == "" {
 				def = fmt.Sprintf("%v", schema.Default)

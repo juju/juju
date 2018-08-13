@@ -846,3 +846,52 @@ func (PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *gc.C) {
 		},
 	})
 }
+
+func (PollsterSuite) TestQueryObjectSchemaEnvVarsWithOutDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Type:  []jsonschema.Type{jsonschema.ObjectType},
+		Order: []string{"name", "nested"},
+		Properties: map[string]*jsonschema.Schema{
+			"nested": {
+				Singular: "nested",
+				EnvVars:  []string{"TEST_ENV_VAR_NESTED"},
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					Required:      []string{"name"},
+					MaxProperties: jsonschema.Int(1),
+					Properties: map[string]*jsonschema.Schema{
+						"name": {
+							Singular:      "the name",
+							Type:          []jsonschema.Type{jsonschema.StringType},
+							Default:       "",
+							PromptDefault: "use name",
+						},
+					},
+				},
+			},
+			"name": {
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Singular: "the name",
+			},
+		},
+	}
+	// queries should be alphabetical without an order specified, so name then
+	// number.
+	os.Setenv("TEST_ENV_VAR_NESTED", "baz")
+	defer os.Unsetenv("TEST_ENV_VAR_NESTED")
+
+	r := strings.NewReader("Bill\nbaz\n\n\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(v, jc.DeepEquals, map[string]interface{}{
+		"name": "Bill",
+		"nested": map[string]interface{}{
+			"baz": map[string]interface{}{
+				"name": "",
+			},
+		},
+	})
+}
