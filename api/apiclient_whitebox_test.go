@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api
@@ -48,8 +48,10 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiTimeout(c *gc.C) {
 		Addrs: []string{addr},
 	}
 	opts := DialOpts{
-		Timeout:     10 * time.Millisecond,
-		DialTimeout: 5 * time.Millisecond,
+		DialAddressInterval: 1 * time.Millisecond,
+		RetryDelay:          1 * time.Millisecond,
+		Timeout:             10 * time.Millisecond,
+		DialTimeout:         5 * time.Millisecond,
 	}
 	_, err = dialAPI(ctx, info, opts)
 	c.Assert(err, jc.ErrorIsNil)
