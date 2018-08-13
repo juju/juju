@@ -504,6 +504,76 @@ Select one or more numbers separated by commas:
 	c.Check(s, jc.SameContents, []string{"one", "three"})
 }
 
+func (PollsterSuite) TestQueryArraySchemaDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "number",
+		Plural:   "numbers",
+		Type:     []jsonschema.Type{jsonschema.ArrayType},
+		Default:  "two",
+		Items: &jsonschema.ItemSpec{
+			Schemas: []*jsonschema.Schema{{
+				Type: []jsonschema.Type{jsonschema.StringType},
+				Enum: []interface{}{
+					"one",
+					"two",
+					"three",
+				},
+			}},
+		},
+	}
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w.String(), gc.Equals, `
+Numbers
+  one
+  two
+  three
+
+Select one or more numbers separated by commas [two]: 
+`[1:])
+	s, ok := v.([]string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, jc.SameContents, []string{"two"})
+}
+
+func (PollsterSuite) TestQueryArraySchemaNotDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "number",
+		Plural:   "numbers",
+		Type:     []jsonschema.Type{jsonschema.ArrayType},
+		Default:  "two",
+		Items: &jsonschema.ItemSpec{
+			Schemas: []*jsonschema.Schema{{
+				Type: []jsonschema.Type{jsonschema.StringType},
+				Enum: []interface{}{
+					"one",
+					"two",
+					"three",
+				},
+			}},
+		},
+	}
+	r := strings.NewReader("three")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w.String(), gc.Equals, `
+Numbers
+  one
+  two
+  three
+
+Select one or more numbers separated by commas [two]: 
+`[1:])
+	s, ok := v.([]string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, jc.SameContents, []string{"three"})
+}
+
 func (PollsterSuite) TestQueryEnum(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Singular: "number",

@@ -530,10 +530,22 @@ func (p *Pollster) queryArray(schema *jsonschema.Schema) (interface{}, error) {
 		}
 		return nil, errors.Errorf("unsupported schema for an array: %s", b)
 	}
+	var def string
+	if schema.Default != nil {
+		def = schema.Default.(string)
+	}
+	if schema.PromptDefault != nil {
+		def = schema.PromptDefault.(string)
+	}
+	var array []string
+	if def != "" {
+		array = []string{def}
+	}
 	return p.MultiSelect(MultiList{
 		Singular: schema.Singular,
 		Plural:   schema.Plural,
 		Options:  optFromEnum(schema.Items.Schemas[0]),
+		Default:  array,
 	})
 }
 
