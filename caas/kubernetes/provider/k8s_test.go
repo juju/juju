@@ -11,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -269,6 +270,208 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	podSpec := basicPodspec
+	podSpec.CustomResourceDefinition = caas.CustomResourceDefinition{
+		Kind:    "TFJob",
+		Group:   "kubeflow.org",
+		Version: "v1alpha2",
+		Scope:   "Namespaced",
+		Validation: caas.CrdTemplateValidation{
+			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+				"tfReplicaSpecs": {
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"Worker": apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": apiextensionsv1beta1.JSONSchemaProps{
+									Type:    "integer",
+									Minimum: float64Ptr(1),
+								},
+							},
+						},
+						"PS": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": {
+									Type: "integer", Minimum: float64Ptr(1),
+								},
+							},
+						},
+						"Chief": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": {
+									Type:    "integer",
+									Minimum: float64Ptr(1),
+									Maximum: float64Ptr(1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	crd := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "tfjob.kubeflow.org",
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Scope:   "Namespaced",
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
+			},
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": apiextensionsv1beta1.JSONSchemaProps{
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": apiextensionsv1beta1.JSONSchemaProps{
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockCrd.EXPECT().Create(crd).Times(1).Return(crd, nil),
+	)
+	err := s.broker.EnsureCrd("test", podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	podSpec := basicPodspec
+	podSpec.CustomResourceDefinition = caas.CustomResourceDefinition{
+		Kind:    "TFJob",
+		Group:   "kubeflow.org",
+		Version: "v1alpha2",
+		Scope:   "Namespaced",
+		Validation: caas.CrdTemplateValidation{
+			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+				"tfReplicaSpecs": {
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"Worker": apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": apiextensionsv1beta1.JSONSchemaProps{
+									Type:    "integer",
+									Minimum: float64Ptr(1),
+								},
+							},
+						},
+						"PS": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": {
+									Type: "integer", Minimum: float64Ptr(1),
+								},
+							},
+						},
+						"Chief": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": {
+									Type:    "integer",
+									Minimum: float64Ptr(1),
+									Maximum: float64Ptr(1),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	crd := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "tfjob.kubeflow.org",
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Scope:   "Namespaced",
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
+			},
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": apiextensionsv1beta1.JSONSchemaProps{
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": apiextensionsv1beta1.JSONSchemaProps{
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	gomock.InOrder(
+		s.mockCrd.EXPECT().Create(crd).Times(1).Return(nil, s.k8sAlreadyExistError()),
+		s.mockCrd.EXPECT().Update(crd).Times(1).Return(crd, nil),
+	)
+	err := s.broker.EnsureCrd("test", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -22,6 +22,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	k8sstorage "k8s.io/api/storage/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	// crdmetav1 "github.com/juju/juju/caas/kubernetes/provider/crd/apimachinery/pkg/apis/meta/v1"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs"
@@ -68,6 +68,8 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+
+	apiextensionsClient apiextensionsclientset.Interface
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -79,7 +81,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
-type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, error)
+type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK8sClientFunc) (caas.Broker, error) {
@@ -87,11 +89,15 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := newClient(config)
+	k8sClient, apiextensionsClient, err := newClient(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &kubernetesClient{Interface: client, namespace: namespace}, nil
+	return &kubernetesClient{
+		Interface:           k8sClient,
+		namespace:           namespace,
+		apiextensionsClient: apiextensionsClient,
+	}, nil
 }
 
 func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
@@ -509,16 +515,18 @@ func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) erro
 	if err := podSpec.CustomResourceDefinition.Validate(); err != nil {
 		return errors.Annotate(err, "validating custom resource definition.")
 	}
-	if err := k.ensureCrdTemplate(podSpec); err != nil {
+	crd, err := k.ensureCrdTemplate(podSpec)
+	if err != nil {
 		return errors.Annotate(err, "ensuring custom resource definition template.")
 	}
+	logger.Debugf("created crd %#v", crd)
 	return nil
 }
 
-func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) error {
+func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	t := podSpec.CustomResourceDefinition
 	name := strings.ToLower(t.Kind)
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{
+	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name: fmt.Sprintf("%s.%s", name, t.Group),
 		},
@@ -532,15 +540,18 @@ func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) error {
 				Singular: name,
 			},
 			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				// OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps(t.Validation.OpenAPIV3Schema),
 				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 					Properties: t.Validation.Properties,
 				},
 			},
 		},
 	}
-	logger.Debugf("crd ->", crd.Spec)
-	return nil
+	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
+	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
+	if k8serrors.IsAlreadyExists(err) {
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
+	}
+	return
 }
 
 // EnsureService creates or updates a service for pods with the given params.

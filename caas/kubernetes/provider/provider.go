@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 type kubernetesEnvironProvider struct {
@@ -30,9 +31,9 @@ func (kubernetesEnvironProvider) Version() int {
 	return 0
 }
 
-func newK8sClient(c *rest.Config) (kubernetes.Interface, error) {
+func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 	client, err := kubernetes.NewForConfig(c)
-	return client, err
+	return client, apiextensionsclientset.New(client.CoreV1().RESTClient()), err
 }
 
 // Open is part of the ContainerEnvironProvider interface.

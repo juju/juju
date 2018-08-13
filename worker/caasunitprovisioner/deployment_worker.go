@@ -152,7 +152,7 @@ func (w *deploymentWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("custom resource definition has been ensured for application %q:\n%#v", w.application, spec.CustomResourceDefinition)
+			logger.Debugf("created/updated custom resource definition for %q:\n%#v", w.application, spec.CustomResourceDefinition)
 		}
 		if len(spec.Containers) > 0 {
 			serviceParams := &caas.ServiceParams{
