@@ -275,10 +275,10 @@ var relationSetInitTests = []relationSetInitTest{
 		content: "[haha]",
 		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into map.*",
 	}, {
-		summary: "multiple maps",
-		args:    []string{"--file", "spam"},
-		content: "{a: b}\n{c: d}",
-		err:     `.*yaml: .*`,
+		summary:  "multiple maps",
+		args:     []string{"--file", "spam"},
+		content:  "{a: b}\n{c: d}",
+		settings: map[string]string{"a": "b"},
 	}, {
 		summary:  "value with a space",
 		args:     []string{"--file", "spam"},

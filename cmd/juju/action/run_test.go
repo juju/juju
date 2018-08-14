@@ -263,7 +263,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidParams.yml",
 		},
-		expectedErr: "yaml: line 3: mapping values are not allowed in this context",
+		expectedErr: "yaml: line 4: mapping values are not allowed in this context",
 	}, {
 		should: "fail with invalid UTF in file",
 		withArgs: []string{validUnitId, "some-action",

@@ -176,12 +176,12 @@ func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 		"- user-name: adam\n"+
 		"  display-name: Adam Zulu\n"+
 		"  access: login\n"+
-		"  date-created: 2012-10-08\n"+
-		"  last-connection: 2014-01-01\n"+
+		"  date-created: \"2012-10-08\"\n"+
+		"  last-connection: \"2014-01-01\"\n"+
 		"- user-name: barbara\n"+
 		"  display-name: Barbara Yellow\n"+
 		"  access: add-model\n"+
-		"  date-created: 2013-05-02\n"+
+		"  date-created: \"2013-05-02\"\n"+
 		"  last-connection: just now\n"+
 		"- user-name: charlie\n"+
 		"  display-name: Charlie Xavier\n"+
@@ -218,10 +218,10 @@ func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *gc.C) {
 		"adam:\n"+
 		"  display-name: Adam\n"+
 		"  access: read\n"+
-		"  last-connection: 2015-03-01\n"+
+		"  last-connection: \"2015-03-01\"\n"+
 		"admin:\n"+
 		"  access: write\n"+
-		"  last-connection: 2015-03-20\n"+
+		"  last-connection: \"2015-03-20\"\n"+
 		"charlie@ubuntu.com:\n"+
 		"  display-name: Charlie\n"+
 		"  access: read\n"+

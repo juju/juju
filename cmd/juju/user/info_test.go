@@ -73,8 +73,8 @@ func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: current-user
 access: add-model
-date-created: 1981-02-27
-last-connection: 2014-01-01
+date-created: "1981-02-27"
+last-connection: "2014-01-01"
 `)
 }
 
@@ -94,8 +94,8 @@ func (s *UserInfoCommandSuite) TestUserInfoWithUsername(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: foobar
 display-name: Foo Bar
 access: login
-date-created: 1981-02-27
-last-connection: 2014-01-01
+date-created: "1981-02-27"
+last-connection: "2014-01-01"
 `)
 }
 
@@ -134,8 +134,8 @@ func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: current-user
 access: add-model
-date-created: 1981-02-27
-last-connection: 2014-01-01
+date-created: "1981-02-27"
+last-connection: "2014-01-01"
 `)
 }
 
