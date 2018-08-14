@@ -78,3 +78,20 @@ func (s *State) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	}
 	return results.Results[0].Error
 }
+
+func (s *State) CompleteUnitUpgradeSeries() error {
+	var results params.ErrorResults
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatus{{
+			Entity: params.Entity{Tag: s.authTag.String()},
+		}},
+	}
+	err := s.facade.FacadeCall("CompleteUnitUpgradeSeries", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	return results.Results[0].Error
+}
