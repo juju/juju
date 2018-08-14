@@ -2212,6 +2212,59 @@ func (m *Machine) CompleteUpgradeSeries() error {
 	return nil
 }
 
+// CompleteUnitUpgradeSeries notifies units and machines that an upgrade series is
+// ready for its "completion" phase.
+func (m *Machine) CompleteUnitUpgradeSeries() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		readyForCompletion, err := m.isReadyForCompletion()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !readyForCompletion {
+			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
+		}
+		lock, err := m.getUpgradeSeriesLock()
+		if err != nil {
+			return nil, err
+		}
+		for i, _ := range lock.CompleteUnits {
+			lock.CompleteUnits[i].Status = model.UnitStarted
+		}
+		return completeUnitUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
+func completeUnitUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocID,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"complete-status", model.MachineSeriesUpgradeStarted}}}}},
+			Update: bson.D{{"$set", bson.D{{"complete-units", units}}}},
+		},
+	}
+}
+
 // MachineUpgradeSeriesStatus returns the upgrade-series status of a machine.
 // TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
 // and the unit-based methods renamed to indicate their context.

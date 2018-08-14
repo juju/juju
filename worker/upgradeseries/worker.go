@@ -240,8 +240,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 }
 
 // transitionUnitsStarted iterates over units managed by this machine.
-// It changes each unit state start the completion of the series upgrade,
-// then starts the unit's agent service.
+// starts the unit's agent service.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
 
@@ -252,13 +251,6 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
-
-		// TODO (manadart 2018-08-09): Add a method to the API to do this for
-		// all units at once.
-		if err := w.setUnitStatus(unit, model.CompleteStatus, model.UnitStarted); err != nil {
-			return errors.Trace(err)
-		}
-
 		running, err := svc.Running()
 		if err != nil {
 			return errors.Trace(err)
