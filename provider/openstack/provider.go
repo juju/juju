@@ -121,9 +121,7 @@ var cloudSchema = &jsonschema.Schema{
 			Singular: "region",
 			Plural:   "regions",
 			Default:  "",
-			// TODO (hml) 2018-08-02
-			// It'd be nice to have the EnvVars work with ObjectTypes, like they do for StringType.
-			// EnvVars:  []string{"OS_REGION_NAME"},
+			EnvVars:  []string{"OS_REGION_NAME"},
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
 				Required:      []string{cloud.EndpointKey},

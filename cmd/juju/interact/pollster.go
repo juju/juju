@@ -396,6 +396,15 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		return true, "", nil
 	}
 
+	localEnvVars := func(envVars []string) string {
+		for _, envVar := range envVars {
+			if value, ok := os.LookupEnv(envVar); ok && value != "" {
+				return value
+			}
+		}
+		return ""
+	}
+
 	// Currently we assume we always prompt for at least one value for
 	// additional properties, but we may want to change this to ask if they want
 	// to enter any at all.
@@ -405,26 +414,39 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 		// (i.e. map key) is the "name" of the thing.
 		var name string
 		var err error
-		if schema.Default != nil {
+
+		// Note: here we check that schema.Default is empty as well.
+		defFromEnvVar := localEnvVars(schema.EnvVars)
+		if (schema.Default == nil || schema.Default == "") && defFromEnvVar == "" {
+			name, err = p.EnterVerify(schema.Singular+" name", verifyName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			// If we set a prompt default, that'll get returned as the value,
+			// but it's not the actual value that is the default, so fix that,
+			// if an environment variable wasn't used.
 			var def string
 			if schema.PromptDefault != nil {
 				def = fmt.Sprintf("%v", schema.PromptDefault)
-			} else {
+			}
+			if defFromEnvVar != "" {
+				def = defFromEnvVar
+			}
+			if def == "" {
 				def = fmt.Sprintf("%v", schema.Default)
 			}
-			name, err = p.EnterVerifyDefault(schema.Singular+" name", verifyName, def)
 
-			// If we set a prompt default, that'll get returned as the value,
-			// but it's not the actual value that is the default, so fix that.
-			if err == nil && name == def && schema.PromptDefault != nil {
+			name, err = p.EnterVerifyDefault(schema.Singular, verifyName, def)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			if name == def && schema.PromptDefault != nil && name != defFromEnvVar {
 				name = fmt.Sprintf("%v", schema.Default)
 			}
-		} else {
-			name, err = p.EnterVerify(schema.Singular+" name", verifyName)
 		}
-		if err != nil {
-			return errors.Trace(err)
-		}
+
 		v, err := p.queryObjectSchema(schema.AdditionalProperties)
 		if err != nil {
 			return errors.Trace(err)
