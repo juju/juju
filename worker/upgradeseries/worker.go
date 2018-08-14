@@ -239,8 +239,8 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareComplete))
 }
 
-// transitionUnitsStarted iterates over units managed by this machine.
-// starts the unit's agent service.
+// transitionUnitsStarted iterates over units managed by this machine. Starts
+// the unit's agent service, and transitions all unit subordinate statuses.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
 
@@ -258,10 +258,13 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 		if running {
 			continue
 		}
-
 		if err := svc.Start(); err != nil {
 			return errors.Annotatef(err, "starting %q unit agent after series upgrade", unit)
 		}
+	}
+	err = w.CompleteUnitUpgradeSeries()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -282,12 +285,6 @@ func (w *upgradeSeriesWorker) unitAgentServices(statusCount int) (map[string]str
 			statusCount, len(unitServices))
 	}
 	return unitServices, nil
-}
-
-func (w *upgradeSeriesWorker) setUnitStatus(
-	unitName string, statusType model.UpgradeSeriesStatusType, status model.UnitSeriesUpgradeStatus,
-) error {
-	return errors.Trace(w.facadeFactory(names.NewUnitTag(unitName)).SetUpgradeSeriesStatus(string(status), statusType))
 }
 
 func unitsCompleted(statuses []string) bool {

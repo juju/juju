@@ -2224,16 +2224,12 @@ func (m *Machine) CompleteUnitUpgradeSeries() error {
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		readyForCompletion, err := m.isReadyForCompletion()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !readyForCompletion {
-			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
-		}
 		lock, err := m.getUpgradeSeriesLock()
 		if err != nil {
 			return nil, err
+		}
+		if lock.CompleteStatus != model.MachineSeriesUpgradeStarted {
+			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		for i, _ := range lock.CompleteUnits {
 			lock.CompleteUnits[i].Status = model.UnitStarted
