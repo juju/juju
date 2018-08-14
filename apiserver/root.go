@@ -406,10 +406,11 @@ func (ctx *facadeContext) Presence() facade.Presence {
 
 // ModelPresence implements facade.ModelPresence.
 func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
-	if ctx.r.shared.featureEnabled(feature.NewPresence) {
-		return ctx.r.shared.presence.Connections().ForModel(modelUUID)
+	if ctx.r.shared.featureEnabled(feature.OldPresence) {
+		// Used in presence.go in this package to determine which code path to follow.
+		return nil
 	}
-	return nil
+	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
 }
 
 // Hub implements facade.Context.

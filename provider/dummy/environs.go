@@ -256,6 +256,7 @@ type environState struct {
 	apiServer      *apiserver.Server
 	apiState       *state.State
 	apiStatePool   *state.StatePool
+	presence       *fakePresence
 	creator        string
 }
 
@@ -852,6 +853,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 			machineTag := names.NewMachineTag("0")
 			estate.httpServer.StartTLS()
+			estate.presence = &fakePresence{make(map[string]presence.Status)}
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:       statePool,
 				Authenticator:   stateAuthenticator,
@@ -862,7 +864,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				LogDir:          LogDir,
 				Mux:             estate.mux,
 				Hub:             centralhub.New(machineTag),
-				Presence:        presence.New(clock.WallClock),
+				Presence:        estate.presence,
 				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
@@ -1796,4 +1798,45 @@ func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []networ
 // SuperSubnets implements environs.SuperSubnets
 func (*environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")
+}
+
+// SetAgentStatus sets the presence for a particular agent in the fake presence implementation.
+func (e *environ) SetAgentStatus(agent string, status presence.Status) {
+	estate, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	estate.presence.agent[agent] = status
+}
+
+// fakePresence returns alive for all agent alive requests.
+type fakePresence struct {
+	agent map[string]presence.Status
+}
+
+func (*fakePresence) Disable()        {}
+func (*fakePresence) Enable()         {}
+func (*fakePresence) IsEnabled() bool { return true }
+func (*fakePresence) Connect(server, model, agent string, id uint64, controllerAgent bool, userData string) {
+}
+func (*fakePresence) Disconnect(server string, id uint64)                            {}
+func (*fakePresence) Activity(server string, id uint64)                              {}
+func (*fakePresence) ServerDown(server string)                                       {}
+func (*fakePresence) UpdateServer(server string, connections []presence.Value) error { return nil }
+func (f *fakePresence) Connections() presence.Connections                            { return f }
+
+func (f *fakePresence) ForModel(model string) presence.Connections   { return f }
+func (f *fakePresence) ForServer(server string) presence.Connections { return f }
+func (f *fakePresence) ForAgent(agent string) presence.Connections   { return f }
+func (*fakePresence) Count() int                                     { return 0 }
+func (*fakePresence) Models() []string                               { return nil }
+func (*fakePresence) Servers() []string                              { return nil }
+func (*fakePresence) Agents() []string                               { return nil }
+func (*fakePresence) Values() []presence.Value                       { return nil }
+
+func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
+	if status, found := f.agent[agent]; found {
+		return status, nil
+	}
+	return presence.Alive, nil
 }
