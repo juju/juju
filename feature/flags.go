@@ -38,10 +38,10 @@ const DeveloperMode = "developer-mode"
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
 
-// NewPresence indicates that the new in-memory presence implementation
+// OldPresence indicates that the old database presence implementation
 // should be used by the API server to determine agent presence.
 // This value is only checked using the controller config "features" attrubite.
-const NewPresence = "new-presence"
+const OldPresence = "old-presence"
 
 // DisableRaft will prevent the raft workers from running. At the
 // moment the raft cluster isn't managing leadership, so we want the

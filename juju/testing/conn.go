@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -753,4 +754,12 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{key: value}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type agentStatusSetter interface {
+	SetAgentStatus(agent string, status presence.Status)
+}
+
+func (s *JujuConnSuite) SetAgentPresence(agent string, status presence.Status) {
+	s.Environ.(agentStatusSetter).SetAgentStatus(agent, status)
 }
