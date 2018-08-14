@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
-	corepresence "github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -99,21 +98,17 @@ type stepper interface {
 //
 
 func newContext(st *state.State, env environs.Environ, presenceSetter presenceSetter, adminUserTag string) *context {
-	// We make changes in the API server's state so that
-	// our changes to presence are immediately noticed
-	// in the status.
 	return &context{
 		st:             st,
 		env:            env,
 		presenceSetter: presenceSetter,
 		charms:         make(map[string]*state.Charm),
-		pingers:        make(map[string]*presence.Pinger),
 		adminUserTag:   adminUserTag,
 	}
 }
 
 type presenceSetter interface {
-	SetAgentPresence(agent string, status corepresence.Status)
+	SetAgentPresence(agent string, status presence.Status)
 }
 
 type context struct {
@@ -121,16 +116,8 @@ type context struct {
 	env            environs.Environ
 	presenceSetter presenceSetter
 	charms         map[string]*state.Charm
-	pingers        map[string]*presence.Pinger
 	adminUserTag   string // A string repr of the tag.
 	expectIsoTime  bool
-}
-
-func (ctx *context) reset(c *gc.C) {
-	for _, up := range ctx.pingers {
-		err := up.KillForTesting()
-		c.Check(err, jc.ErrorIsNil)
-	}
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -141,29 +128,20 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	}
 }
 
-func (ctx *context) setAgentPresence(c *gc.C, p presence.Agent) *presence.Pinger {
-	pinger, err := p.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.st.StartSync()
-	err = p.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-	agentPresence, err := p.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agentPresence, jc.IsTrue)
-	return pinger
+func (ctx *context) setAgentAlive(tag names.Tag) {
+	ctx.presenceSetter.SetAgentPresence(tag.String(), presence.Alive)
+}
+
+func (ctx *context) setAgentMissing(tag names.Tag) {
+	ctx.presenceSetter.SetAgentPresence(tag.String(), presence.Missing)
 }
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
-
-	// We make changes in the API server's state so that
-	// our changes to presence are immediately noticed
-	// in the status.
 	return newContext(st, s.Environ, s, s.AdminUserTag(c).String())
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
-	ctx.reset(c)
 	s.JujuConnSuite.Reset(c)
 }
 
@@ -3567,7 +3545,7 @@ type startMachine struct {
 func (sm startMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.presenceSetter.SetAgentPresence(m.Tag().String(), corepresence.Missing)
+	ctx.setAgentMissing(m.Tag())
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3584,7 +3562,7 @@ type startMissingMachine struct {
 func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.presenceSetter.SetAgentPresence(m.Tag().String(), corepresence.Missing)
+	ctx.setAgentMissing(m.Tag())
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3610,8 +3588,7 @@ type startAliveMachine struct {
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.presenceSetter.SetAgentPresence(m.Tag().String(), corepresence.Alive)
-	pinger := ctx.setAgentPresence(c, m)
+	ctx.setAgentAlive(m.Tag())
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3619,7 +3596,6 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[m.Id()] = pinger
 }
 
 type startMachineWithHardware struct {
@@ -3630,8 +3606,7 @@ type startMachineWithHardware struct {
 func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.presenceSetter.SetAgentPresence(m.Tag().String(), corepresence.Alive)
-	pinger := ctx.setAgentPresence(c, m)
+	ctx.setAgentAlive(m.Tag())
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3639,7 +3614,6 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[m.Id()] = pinger
 }
 
 type setMachineInstanceStatus struct {
@@ -3932,7 +3906,7 @@ func (au addUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.presenceSetter.SetAgentPresence(u.Tag().String(), corepresence.Missing)
+	ctx.setAgentMissing(u.Tag())
 	m, err := ctx.st.Machine(au.machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
@@ -3949,13 +3923,11 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.presenceSetter.SetAgentPresence(u.Tag().String(), corepresence.Alive)
-	pinger := ctx.setAgentPresence(c, u)
+	ctx.setAgentAlive(u.Tag())
 	m, err := ctx.st.Machine(aau.machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[u.Name()] = pinger
 }
 
 type setUnitsAlive struct {
@@ -3968,8 +3940,7 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	us, err := s.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range us {
-		ctx.presenceSetter.SetAgentPresence(u.Tag().String(), corepresence.Alive)
-		ctx.pingers[u.Name()] = ctx.setAgentPresence(c, u)
+		ctx.setAgentAlive(u.Tag())
 	}
 }
 
