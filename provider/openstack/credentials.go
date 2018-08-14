@@ -117,7 +117,7 @@ func (c OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error
 func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, string, error) {
 	creds := identity.CredentialsFromEnv()
 	if creds.TenantName == "" {
-		return nil, "", "", errors.NewNotFound(nil, "OS_TENANT_NAME environment variable not set")
+		logger.Debugf("OS_TENANT_NAME environment variable not set")
 	}
 	if creds.User == "" {
 		return nil, "", "", errors.NewNotFound(nil, "neither OS_USERNAME nor OS_ACCESS_KEY environment variable not set")
