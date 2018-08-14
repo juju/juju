@@ -8,7 +8,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/watcher"
-	upgradeseries "github.com/juju/juju/worker/upgradeseries"
 	loggo "github.com/juju/loggo"
 	reflect "reflect"
 )
@@ -36,6 +35,18 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
+// CompleteUnitUpgradeSeries mocks base method
+func (m *MockFacade) CompleteUnitUpgradeSeries() error {
+	ret := m.ctrl.Call(m, "CompleteUnitUpgradeSeries")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CompleteUnitUpgradeSeries indicates an expected call of CompleteUnitUpgradeSeries
+func (mr *MockFacadeMockRecorder) CompleteUnitUpgradeSeries() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteUnitUpgradeSeries", reflect.TypeOf((*MockFacade)(nil).CompleteUnitUpgradeSeries))
+}
+
 // MachineStatus mocks base method
 func (m *MockFacade) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "MachineStatus")
@@ -59,18 +70,6 @@ func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus) error {
 // SetMachineStatus indicates an expected call of SetMachineStatus
 func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0)
-}
-
-// SetUpgradeSeriesStatus mocks base method
-func (m *MockFacade) SetUpgradeSeriesStatus(arg0 string, arg1 model.UpgradeSeriesStatusType) error {
-	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus
-func (mr *MockFacadeMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockFacade)(nil).SetUpgradeSeriesStatus), arg0, arg1)
 }
 
 // UpgradeSeriesStatus mocks base method
@@ -251,9 +250,9 @@ func (m *MockServiceAccess) EXPECT() *MockServiceAccessMockRecorder {
 }
 
 // DiscoverService mocks base method
-func (m *MockServiceAccess) DiscoverService(arg0 string) (upgradeseries.AgentService, error) {
+func (m *MockServiceAccess) DiscoverService(arg0 string) (AgentService, error) {
 	ret := m.ctrl.Call(m, "DiscoverService", arg0)
-	ret0, _ := ret[0].(upgradeseries.AgentService)
+	ret0, _ := ret[0].(AgentService)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
