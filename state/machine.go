@@ -2231,7 +2231,7 @@ func (m *Machine) CompleteUnitUpgradeSeries() error {
 		if lock.CompleteStatus != model.MachineSeriesUpgradeStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
-		for i, _ := range lock.CompleteUnits {
+		for i := range lock.CompleteUnits {
 			lock.CompleteUnits[i].Status = model.UnitStarted
 		}
 		return completeUnitUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
