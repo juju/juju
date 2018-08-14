@@ -122,17 +122,21 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 			return err
 		}
 	}
+
+	credentialsProvider, err := environs.Provider(c.cloud.Type)
+	if err != nil {
+		return errors.Annotate(err, "getting provider for cloud")
+	}
+
 	if len(c.cloud.AuthTypes) == 0 {
 		return errors.Errorf("cloud %q does not require credentials", c.CloudName)
 	}
 
+	schemas := credentialsProvider.CredentialSchemas()
 	if c.CredentialsFile == "" {
-		credentialsProvider, err := environs.Provider(c.cloud.Type)
-		if err != nil {
-			return errors.Annotate(err, "getting provider for cloud")
-		}
-		return c.interactiveAddCredential(ctxt, credentialsProvider.CredentialSchemas())
+		return c.interactiveAddCredential(ctxt, schemas)
 	}
+
 	data, err := ioutil.ReadFile(c.CredentialsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading credentials file")
@@ -155,8 +159,15 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("local credentials for cloud %q already exist; use --replace to overwrite / merge", c.CloudName)
 	}
 
+	// We could get a duplicate "interactive" entry for the validAuthType() call,
+	// however it doesn't matter for the validation, so just add it.
+	authTypeNames := c.cloud.AuthTypes
+	if _, ok := schemas[jujucloud.InteractiveAuthType]; ok {
+		authTypeNames = append(authTypeNames, jujucloud.InteractiveAuthType)
+	}
+
 	validAuthType := func(authType jujucloud.AuthType) bool {
-		for _, authT := range c.cloud.AuthTypes {
+		for _, authT := range authTypeNames {
 			if authT == authType {
 				return true
 			}
@@ -242,7 +253,21 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		}
 		verb = "updated"
 	}
-	authType, err := c.promptAuthType(pollster, c.cloud.AuthTypes, ctxt.Stdout)
+	authTypeNames := c.cloud.AuthTypes
+	// Check the credential schema for "interactive", add to list of
+	// possible authTypes for add-credential
+	if _, ok := schemas[jujucloud.InteractiveAuthType]; ok {
+		foundIt := false
+		for _, name := range authTypeNames {
+			if name == jujucloud.InteractiveAuthType {
+				foundIt = true
+			}
+		}
+		if !foundIt {
+			authTypeNames = append(authTypeNames, jujucloud.InteractiveAuthType)
+		}
+	}
+	authType, err := c.promptAuthType(pollster, authTypeNames, ctxt.Stdout)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -309,16 +334,21 @@ func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []
 		fmt.Fprintf(out, "Using auth-type %q.\n\n", authTypes[0])
 		return authTypes[0], nil
 	}
-	authType := ""
 	choices := make([]string, len(authTypes))
 	for i, a := range authTypes {
 		choices[i] = string(a)
+	}
+	// If "interactive" is a valid credential type, choose by default
+	// o.w. take the top of the slice
+	def := string(jujucloud.InteractiveAuthType)
+	if !strings.Contains(strings.Join(choices, " "), def) {
+		def = choices[0]
 	}
 	authType, err := p.Select(interact.List{
 		Singular: "auth type",
 		Plural:   "auth types",
 		Options:  choices,
-		Default:  choices[0],
+		Default:  def,
 	})
 	if err != nil {
 		return "", errors.Trace(err)

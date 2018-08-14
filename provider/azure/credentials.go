@@ -30,7 +30,7 @@ const (
 
 	// deviceCodeAuthType is the auth-type for the interactive
 	// "device code" OAuth flow.
-	deviceCodeAuthType cloud.AuthType = "interactive"
+	deviceCodeAuthType cloud.AuthType = cloud.InteractiveAuthType
 )
 
 type ServicePrincipalCreator interface {

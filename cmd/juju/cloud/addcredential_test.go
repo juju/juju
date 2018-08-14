@@ -305,6 +305,53 @@ Credential "bobscreds" added locally for cloud "somecloud".
 	})
 }
 
+func (s *addCredentialSuite) TestAddCredentialCredSchemaInteractive(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		"interactive": {{"username", jujucloud.CredentialAttr{}}},
+		jujucloud.UserPassAuthType: {
+			{
+				"username", jujucloud.CredentialAttr{Optional: false},
+			}, {
+				"password", jujucloud.CredentialAttr{Hidden: true},
+			},
+		},
+	}
+
+	stdin := strings.NewReader("bobscreds\n\nbob\n")
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// there's an extra line return after Using auth-type because the rest get a
+	// second line return from the user hitting return when they enter a value
+	// (which is not shown here), but that one does not.
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Enter credential name: 
+Auth Types
+  userpass
+  interactive
+
+Select auth type [interactive]: 
+Enter username: 
+Credential "bobscreds" added locally for cloud "somecloud".
+
+`[1:])
+
+	// FinalizeCredential should have generated a userpass credential
+	// based on the input from the interactive credential.
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"bobscreds": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
+					"username":             "bob",
+					"password":             "cloud-endpoint",
+					"application-password": "cloud-identity-endpoint",
+				}),
+			},
+		},
+	})
+}
+
 func (s *addCredentialSuite) TestAddCredentialReplace(c *gc.C) {
 	s.store.Credentials = map[string]jujucloud.CloudCredential{
 		"somecloud": {

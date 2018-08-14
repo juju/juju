@@ -31,11 +31,6 @@ const (
 	credAttrClientCert    = "client-cert"
 	credAttrClientKey     = "client-key"
 	credAttrTrustPassword = "trust-password"
-
-	// interactiveAuthType is a credential auth-type provided as an option to
-	// "juju add-credential", which takes the user through the process of
-	// generating a certificate credential.
-	interactiveAuthType = "interactive"
 )
 
 // CertificateReadWriter groups methods that is required to read and write
@@ -103,7 +98,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				},
 			},
 		},
-		interactiveAuthType: {
+		cloud.InteractiveAuthType: {
 			{
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
@@ -273,7 +268,7 @@ func (p environProviderCredentials) FinalizeCredential(
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
-	case interactiveAuthType:
+	case cloud.InteractiveAuthType:
 		credAttrs := args.Credential.Attributes()
 		// We don't care if the password is empty, just that it exists. Empty
 		// passwords can be valid ones...
