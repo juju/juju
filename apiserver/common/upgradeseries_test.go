@@ -195,16 +195,16 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()
 
-	mockApplication := mocks.NewMockUpgradeSeriesMachine(ctrl)
+	mockMachine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 	mockUnit1 := mocks.NewMockUpgradeSeriesUnit(ctrl)
 	mockUnit2 := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	exp := mockBackend.EXPECT()
-	exp.Machine(s.machineTag1.Id()).Return(mockApplication, nil)
+	exp.Machine(s.machineTag1.Id()).Return(mockMachine, nil)
 	exp.Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
 	exp.Unit(s.unitTag2.Id()).Return(mockUnit2, nil)
 
-	mockApplication.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
+	mockMachine.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
 	mockUnit1.EXPECT().Tag().Return(s.unitTag1)
 	mockUnit1.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitStarted, nil)
 	mockUnit2.EXPECT().Tag().Return(s.unitTag2)
@@ -220,14 +220,8 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
-			{
-				Status: string(model.UnitStarted),
-				Error:  nil,
-			},
-			{
-				Status: string(model.UnitCompleted),
-				Error:  nil,
-			},
+			{Status: string(model.UnitStarted)},
+			{Status: string(model.UnitCompleted)},
 		},
 	})
 }
