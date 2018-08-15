@@ -152,7 +152,7 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
-		UpgradeSeriesPrepareStatus: model.UnitNotStarted,
+		UpgradeSeriesPrepareStatus: model.NotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -160,7 +160,7 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitStarted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.PrepareStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
@@ -171,8 +171,8 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
-		UpgradeSeriesCompleteStatus: model.UnitNotStarted,
-		//		UpgradeSeriesPrepareStatus:  model.UnitCompleted,
+		UpgradeSeriesCompleteStatus: model.NotStarted,
+		//		UpgradeSeriesPrepareStatus:  model.PrepareCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -180,8 +180,8 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesCompleteStatus = model.UnitStarted
-	//	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitCompleted
+	s.remoteState.UpgradeSeriesCompleteStatus = model.CompleteStarted
+	//	s.remoteState.UpgradeSeriesPrepareStatus = model.PrepareCompleted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
@@ -190,13 +190,13 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
 	c.Skip("This test should be skipped unitl machine agent can shutdown the uniter for a series upgrade.")
 	localState := resolver.LocalState{
-		UpgradeSeriesPrepareStatus: model.UnitCompleted,
+		UpgradeSeriesPrepareStatus: model.PrepareCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 		},
 	}
-	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitCompleted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.PrepareCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 

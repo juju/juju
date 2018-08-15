@@ -165,7 +165,7 @@ func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
 	return nil
 }
 
-func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error {
+func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(model.UpgradeSeriesStatus) error {
 	return nil
 }
 

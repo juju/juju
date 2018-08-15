@@ -4,15 +4,12 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 )
 
@@ -52,22 +49,13 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 }
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) ([]string, error) {
+func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() ([]string, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 
-	var err error
-	switch statusType {
-	case model.PrepareStatus:
-		err = u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
-	case model.CompleteStatus:
-		err = u.facade.FacadeCall("UpgradeSeriesCompleteStatus", args, &results)
-	default:
-		err = fmt.Errorf("encountered invalid upgrade series type %q", statusType)
-	}
-
+	err := u.facade.FacadeCall("GetUpgradeSeriesStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +76,12 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesSta
 	}
 	// TODO (manadart 2018-08-02) Should we be converting these back to
 	// model.UnitSeriesUpgradeStatus and reporting an error if that fails?
+	// (externalreality): validation does take place a few levels down.
 	return statuses, nil
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string, statusType model.UpgradeSeriesStatusType) error {
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
 	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
 		Params: []params.SetUpgradeSeriesStatusParam{{
@@ -100,15 +89,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string, statusType mode
 			Status: status,
 		}},
 	}
-	var err error
-	switch statusType {
-	case model.PrepareStatus:
-		err = u.facade.FacadeCall("SetUpgradeSeriesPrepareStatus", args, &results)
-	case model.CompleteStatus:
-		err = u.facade.FacadeCall("SetUpgradeSeriesCompleteStatus", args, &results)
-	default:
-		err = fmt.Errorf("encountered invalid upgrade series type %q", statusType)
-	}
+	err := u.facade.FacadeCall("SetUpgradeSeriesStatus", args, &results)
 	if err != nil {
 		return err
 	}

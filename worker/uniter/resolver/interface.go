@@ -102,9 +102,9 @@ type LocalState struct {
 
 	// UpgradeSeriesPrepareStatus is the current preparation state of any currently running
 	// upgrade series prepare or the empty string if no upgrade series prepare has been started.
-	UpgradeSeriesPrepareStatus model.UnitSeriesUpgradeStatus
+	UpgradeSeriesPrepareStatus model.UpgradeSeriesStatus
 
 	// UpgradeSeriesCompleteStatus is the current completion state of any currently running
 	// upgrade series or the empty string if no upgrade series complete has been started.
-	UpgradeSeriesCompleteStatus model.UnitSeriesUpgradeStatus
+	UpgradeSeriesCompleteStatus model.UpgradeSeriesStatus
 }
