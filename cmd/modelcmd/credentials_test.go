@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
-
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"

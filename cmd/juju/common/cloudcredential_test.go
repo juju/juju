@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	cloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
