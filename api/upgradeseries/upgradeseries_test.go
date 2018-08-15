@@ -41,7 +41,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	resultSource := params.UpgradeSeriesStatusResultsNew{
 		Results: []params.UpgradeSeriesStatusResultNew{{
-			Status: params.UpgradeSeriesStatus{Status: model.UpgradeSeriesPrepareStarted, Entity: s.args.Entities[0]}},
+			Status: params.UpgradeSeriesStatus{Status: model.PrepareStarted, Entity: s.args.Entities[0]}},
 		},
 	}
 	fCaller.EXPECT().FacadeCall("MachineStatus", s.args, gomock.Any()).SetArg(2, resultSource)
@@ -49,7 +49,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
 	c.Assert(err, gc.IsNil)
-	c.Check(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
+	c.Check(status, gc.Equals, model.PrepareStarted)
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
@@ -83,13 +83,13 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatus{
-			{Status: model.UpgradeSeriesCompleteStarted, Entity: s.args.Entities[0]},
+			{Status: model.CompleteStarted, Entity: s.args.Entities[0]},
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
 	fCaller.EXPECT().FacadeCall("SetMachineStatus", args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted)
+	err := api.SetMachineStatus(model.CompleteStarted)
 	c.Assert(err, gc.IsNil)
 }

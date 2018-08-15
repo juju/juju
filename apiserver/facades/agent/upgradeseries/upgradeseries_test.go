@@ -84,32 +84,6 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	api, backend := s.newAPI(c, ctrl)
-
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
-	unit := mocks.NewMockUpgradeSeriesUnit(ctrl)
-
-	exp := backend.EXPECT()
-	exp.Machine(s.machineTag.Id()).Return(machine, nil)
-	exp.Unit(s.unitTag.Id()).Return(unit, nil)
-
-	machine.EXPECT().Units().Return([]common.UpgradeSeriesUnit{unit}, nil)
-	unit.EXPECT().Tag().Return(s.unitTag)
-	unit.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitStarted, nil)
-
-	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
-
-	results, err := api.UpgradeSeriesPrepareStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
-		Results: []params.UpgradeSeriesStatusResult{{Status: string(model.UnitStarted)}},
-	})
-}
-
 func (s *upgradeSeriesSuite) newAPI(
 	c *gc.C, ctrl *gomock.Controller,
 ) (*upgradeseries.API, *mocks.MockUpgradeSeriesBackend) {

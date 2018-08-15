@@ -74,16 +74,16 @@ func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0 interface{}) *gomock.Cal
 }
 
 // UpgradeSeriesStatus mocks base method
-func (m *MockFacade) UpgradeSeriesStatus(arg0 model.UpgradeSeriesStatusType) ([]string, error) {
-	ret := m.ctrl.Call(m, "UpgradeSeriesStatus", arg0)
+func (m *MockFacade) UpgradeSeriesStatus() ([]string, error) {
+	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus
-func (mr *MockFacadeMockRecorder) UpgradeSeriesStatus(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockFacade)(nil).UpgradeSeriesStatus), arg0)
+func (mr *MockFacadeMockRecorder) UpgradeSeriesStatus() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockFacade)(nil).UpgradeSeriesStatus))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method
