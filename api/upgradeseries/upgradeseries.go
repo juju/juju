@@ -52,14 +52,15 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	}
 
 	r := results.Results[0]
-	if r.Error != nil {
-		if params.IsCodeNotFound(r.Error) {
-			return "", errors.NewNotFound(r.Error, "")
-		}
-		return "", r.Error
+	if r.Error == nil {
+		return r.Status.Status, nil
 	}
 
-	return r.Status.Status, nil
+	if params.IsCodeNotFound(r.Error) {
+		return "", errors.NewNotFound(r.Error, "")
+	}
+
+	return "", r.Error
 }
 
 // SetMachineStatus sets the machine status in remote state.
