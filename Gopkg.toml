@@ -514,7 +514,7 @@
 
 [[constraint]]
   name = "gopkg.in/yaml.v2"
-  revision = "1be3d31502d6eabc0dd7ce5b0daab022e14a5538"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
 
 [[constraint]]
   name = "github.com/docker/distribution"
