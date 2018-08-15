@@ -675,7 +675,6 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 			// the addresses are checked with Info.Validate
 			// beforehand.
 			err := errors.Errorf("invalid address %q: %v", addr, err)
-			logger.Criticalf("dialWebsocketMulti got: %v", err)
 			recordTryError(try, err)
 			continue
 		}
@@ -689,7 +688,6 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 			ips, err = lookupIPAddr(ctx, host, opts.IPAddrResolver)
 			if err != nil {
 				err := errors.Errorf("cannot resolve %q: %v", host, err)
-				logger.Criticalf("lookupIPAddr got: %v", err)
 				recordTryError(try, err)
 				continue
 			}
@@ -704,11 +702,9 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 			tried[ipStr] = true
 			err := startDialWebsocket(ctx, try, ipStr, addr, path, opts)
 			if err == parallel.ErrStopped {
-				logger.Criticalf("startDialWebsocket return ErrStopped")
 				break
 			}
 			if err != nil {
-				logger.Criticalf("startDialWebsocket failed with got: %v", err)
 				return nil, errors.Trace(err)
 			}
 			select {
@@ -720,7 +716,6 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 	try.Close()
 	result, err := try.Result()
 	if err != nil {
-		logger.Criticalf("try.Result returned error: %v", err)
 		return nil, errors.Trace(err)
 	}
 	return result.(*dialResult), nil
@@ -848,13 +843,11 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 	} else {
 		tlsConfig.ServerName = d.serverName
 	}
-	logger.Criticalf("dialing %v", d.urlStr)
 	conn, err := d.opts.DialWebsocket(d.ctx, d.urlStr, tlsConfig, d.ipAddr)
 	if err == nil {
 		logger.Debugf("successfully dialed %q", d.urlStr)
 		return conn, tlsConfig, nil
 	}
-	logger.Criticalf("dial errored: %v", err)
 	if !isX509Error(err) {
 		return nil, nil, errors.Trace(err)
 	}

@@ -7,13 +7,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"regexp"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jtesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
 )
 
 type apiclientWhiteboxSuite struct {
@@ -56,7 +57,7 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *gc.C) {
 	// Close before we connect
 	listen.Close()
 	_, err = dialAPI(ctx, info, opts)
-	c.Check(err.Error(), gc.Equals, fmt.Sprintf("dial tcp %s: operation was canceled", addr))
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("dial tcp %s:.*", regexp.QuoteMeta(addr)))
 }
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *gc.C) {
@@ -76,5 +77,5 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *gc.C) {
 	}
 	listen.Close()
 	_, _, err = DialAPI(info, opts)
-	c.Check(err.Error(), gc.Equals, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", addr))
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", regexp.QuoteMeta(addr)))
 }
