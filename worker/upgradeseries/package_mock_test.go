@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/watcher"
+	upgradeseries "github.com/juju/juju/worker/upgradeseries"
 	loggo "github.com/juju/loggo"
 	reflect "reflect"
 )
@@ -250,9 +251,9 @@ func (m *MockServiceAccess) EXPECT() *MockServiceAccessMockRecorder {
 }
 
 // DiscoverService mocks base method
-func (m *MockServiceAccess) DiscoverService(arg0 string) (AgentService, error) {
+func (m *MockServiceAccess) DiscoverService(arg0 string) (upgradeseries.AgentService, error) {
 	ret := m.ctrl.Call(m, "DiscoverService", arg0)
-	ret0, _ := ret[0].(AgentService)
+	ret0, _ := ret[0].(upgradeseries.AgentService)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
