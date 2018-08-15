@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api"
@@ -29,6 +30,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/presence"
+	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -244,4 +246,24 @@ func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocke
 		TLSClientConfig: tlsConfig,
 	}
 	return dialer.Dial(server, header)
+}
+
+type apiserverSuite struct {
+	apiserverBaseSuite
+}
+
+var _ = gc.Suite(&apiserverSuite{})
+
+func (s *apiserverSuite) TestCleanStop(c *gc.C) {
+	workertest.CleanKill(c, s.apiServer)
+}
+
+func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
+	_, err := s.config.Hub.Publish(psapiserver.RestartTopic, psapiserver.Restart{
+		LocalOnly: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, s.apiServer)
+	c.Assert(err, gc.Equals, dependency.ErrBounce)
 }

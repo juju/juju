@@ -89,6 +89,7 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	clock.Advance(apiserver.MaxClientPingInterval * 2)
+	time.Sleep(coretesting.ShortWait)
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
 }
 
