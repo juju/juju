@@ -21,7 +21,7 @@ type Facade interface {
 	SetMachineStatus(status model.UpgradeSeriesStatus) error
 }
 
-// NewFacade creates a *upgradeseries.State and returns it as a Facade.
+// NewFacade creates a *upgradeseries.Client and returns it as a Facade.
 func NewFacade(apiCaller base.APICaller, tag names.Tag) Facade {
 	return upgradeseries.NewState(apiCaller, tag)
 }
