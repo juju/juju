@@ -124,7 +124,7 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 				Name:     "default",
 				Endpoint: "https://10.0.0.1:8443",
 			}},
-			Description: "LXD Container Hypervisor",
+			Description: "LXD Cluster",
 		},
 	})
 }
@@ -191,7 +191,7 @@ func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
 			Name:     "default",
 			Endpoint: "https://10.0.0.1:8443",
 		}},
-		Description: "LXD Container Hypervisor",
+		Description: "LXD Cluster",
 	})
 }
 

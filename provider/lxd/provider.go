@@ -221,7 +221,7 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 				Name:        name,
 				Type:        lxdnames.ProviderType,
 				Endpoint:    remote.Addr,
-				Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
+				Description: "LXD Cluster",
 				AuthTypes: []cloud.AuthType{
 					cloud.CertificateAuthType,
 				},
@@ -257,7 +257,7 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 				Name:        name,
 				Type:        lxdnames.ProviderType,
 				Endpoint:    remote.Addr,
-				Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
+				Description: "LXD Cluster",
 				AuthTypes: []cloud.AuthType{
 					cloud.CertificateAuthType,
 				},
