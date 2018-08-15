@@ -218,12 +218,11 @@ type instanceData struct {
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLockDoc struct {
-	Id             string                    `bson:"machine-id"`
-	ToSeries       string                    `bson:"to-series"`
-	FromSeries     string                    `bson:"from-series"`
-	PrepareStatus  model.UpgradeSeriesStatus `bson:"prepare-status"`
-	UnitStatuses   []unitStatus              `bson:"unit-statuses"`
-	CompleteStatus model.UpgradeSeriesStatus `bson:"complete-status"`
+	Id            string                    `bson:"machine-id"`
+	ToSeries      string                    `bson:"to-series"`
+	FromSeries    string                    `bson:"from-series"`
+	MachineStatus model.UpgradeSeriesStatus `bson:"machine-status"`
+	UnitStatuses  []unitStatus              `bson:"unit-statuses"`
 }
 
 type unitStatus struct {
@@ -2146,12 +2145,11 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		completeUnits[i] = unitStatus{Id: name, Status: model.NotStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
-		Id:             m.Id(),
-		ToSeries:       toSeries,
-		FromSeries:     m.Series(),
-		PrepareStatus:  model.PrepareStarted,
-		UnitStatuses:   prepareUnits,
-		CompleteStatus: model.NotStarted,
+		Id:            m.Id(),
+		ToSeries:      toSeries,
+		FromSeries:    m.Series(),
+		MachineStatus: model.PrepareStarted,
+		UnitStatuses:  prepareUnits,
 	}
 }
 
@@ -2228,7 +2226,7 @@ func (m *Machine) CompleteUnitUpgradeSeries() error {
 		if err != nil {
 			return nil, err
 		}
-		if lock.PrepareStatus != model.CompleteStarted {
+		if lock.MachineStatus != model.CompleteStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		for i := range lock.UnitStatuses {
@@ -2279,7 +2277,7 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 		return "", errors.Trace(err)
 	}
 
-	return lock.PrepareStatus, errors.Trace(err)
+	return lock.MachineStatus, errors.Trace(err)
 }
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
@@ -2369,11 +2367,11 @@ func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStat
 		return false, err
 	}
 
-	return lock.PrepareStatus == status, nil
+	return lock.MachineStatus == status, nil
 }
 
 func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus) []txn.Op {
-	field := "prepare-status"
+	field := "machine-status"
 
 	return []txn.Op{
 		{
@@ -2399,8 +2397,8 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Assert: bson.D{{"prepare-status", model.PrepareCompleted}},
-			Update: bson.D{{"$set", bson.D{{"prepare-status", model.CompleteStarted}}}},
+			Assert: bson.D{{"machine-status", model.PrepareCompleted}},
+			Update: bson.D{{"$set", bson.D{{"machine-status", model.CompleteStarted}}}},
 		},
 	}
 }
@@ -2479,7 +2477,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return lock.PrepareStatus == model.PrepareCompleted, nil
+	return lock.MachineStatus == model.PrepareCompleted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
