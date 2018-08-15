@@ -1042,7 +1042,7 @@
   revision = "05504416e95561e1478196d7058721c827a7bb8c"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:53c4b75f22ea7757dea07eae380ea42de547ae6865a5e3b41866754a8a8219c9"
   name = "golang.org/x/crypto"
   packages = [
     "acme",
@@ -1471,11 +1471,11 @@
   revision = "14b3d72120e8d10ea6e6b7f87f7175734b1faab8"
 
 [[projects]]
-  digest = "1:fb5632d5b9b7d7b28498017fd6535c22075b27511273f3f6bcaf8eee29875b5b"
+  digest = "1:f0620375dd1f6251d9973b5f2596228cc8042e887cd7f827e4220bc1ce8c30e2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "1be3d31502d6eabc0dd7ce5b0daab022e14a5538"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
 
 [[projects]]
   digest = "1:09ea5dbe52206b2d102fe418b840ca297f63883101c596039d68391596fe9bf1"

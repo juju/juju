@@ -654,7 +654,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
-	err:     `cannot unmarshal bundle data: yaml: .*`,
+	err:     `(?s)cannot unmarshal bundle data: yaml: .*`,
 }, {
 	about: "invalid bundle data",
 	content: `
@@ -1977,7 +1977,7 @@ func (s *ProcessBundleOverlaySuite) TestBadFile(c *gc.C) {
 func (s *ProcessBundleOverlaySuite) TestGoodYAML(c *gc.C) {
 	filename := s.writeFile(c, "bad:\n\tindent")
 	err := processBundleOverlay(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": cannot unmarshal bundle data: yaml: line 1: found character that cannot start any token`)
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": cannot unmarshal bundle data: yaml: line 2: found character that cannot start any token`)
 }
 
 func (s *ProcessBundleOverlaySuite) TestReplaceZeroValues(c *gc.C) {

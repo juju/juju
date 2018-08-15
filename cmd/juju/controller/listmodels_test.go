@@ -599,7 +599,7 @@ models:
   users:
     admin:
       access: read
-      last-connection: 2015-03-20
+      last-connection: "2015-03-20"
   agent-version: 2.55.5
 - name: carlotta/test-model2
   short-name: test-model2
@@ -615,7 +615,7 @@ models:
   users:
     admin:
       access: write
-      last-connection: 2015-03-01
+      last-connection: "2015-03-01"
   agent-version: 2.55.5
 - name: daiwik@external/test-model3
   short-name: test-model3
@@ -692,7 +692,7 @@ models:
   status:
     current: active
   access: read
-  last-connection: 2015-03-20
+  last-connection: "2015-03-20"
   agent-version: 2.55.5
 - name: carlotta/test-model2
   short-name: test-model2
@@ -710,7 +710,7 @@ models:
   status:
     current: active
   access: write
-  last-connection: 2015-03-01
+  last-connection: "2015-03-01"
   agent-version: 2.55.5
 - name: daiwik@external/test-model3
   short-name: test-model3
