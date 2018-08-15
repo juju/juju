@@ -14,7 +14,7 @@ parts:
     plugin: dump
     source: snap/
   juju:
-    plugin: go
+    plugin: dep
     go-importpath: github.com/juju/juju
     # The source can be your local tree or github
     # source: https://github.com/juju/juju.git
@@ -23,7 +23,7 @@ parts:
     # source: file:///full/file/path
     # By default, reuse existing tree
     source: .
-    # source-type: git
+    source-type: git
     # this is for building in a docker container
     build-packages: [gcc, libc6-dev]
     build-attributes: [no-patchelf]
@@ -32,16 +32,16 @@ parts:
     # source-commit: a83896d913d7e43c960e441c1e41612116d92d46
     # source-branch: develop
     # apply patches before building
-    prepare: |
-      make dep
-      cat patches/*.diff | patch -f -u -p1 -r- -d ./vendor
     go-packages:
       - github.com/juju/juju/cmd/juju
       # If you are releasing a build with public streams, you don't need to build the agent
       # Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
-    install: |
+    override-build: |
+      cat patches/*.diff patches/*.patch | patch -f -u -p1 -r- -d ../go/src/github.com/juju/juju/vendor
+      snapcraftctl build
+
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
       # If you are releasing a build with public streams, copy in the agent directly
