@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/api/common"
 )
 
-func NewStateFromCaller(caller base.FacadeCaller, authTag names.Tag) *State {
-	return &State{
+func NewStateFromCaller(caller base.FacadeCaller, authTag names.Tag) *Client {
+	return &Client{
 		facade:           caller,
 		authTag:          authTag,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(caller, authTag),

@@ -14,8 +14,8 @@ import (
 
 const upgradeSeriesFacade = "UpgradeSeries"
 
-// State provides access to the UpgradeSeries API facade.
-type State struct {
+// Client provides access to the UpgradeSeries API facade.
+type Client struct {
 	*common.UpgradeSeriesAPI
 
 	facade base.FacadeCaller
@@ -23,19 +23,19 @@ type State struct {
 	authTag names.Tag
 }
 
-func NewState(caller base.APICaller, authTag names.Tag) *State {
+func NewState(caller base.APICaller, authTag names.Tag) *Client {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		upgradeSeriesFacade,
 	)
-	return &State{
+	return &Client{
 		facade:           facadeCaller,
 		authTag:          authTag,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
 	}
 }
 
-func (s *State) MachineStatus() (model.UpgradeSeriesStatus, error) {
+func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResultsNew
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
@@ -60,7 +60,7 @@ func (s *State) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	return r.Status.Status, nil
 }
 
-func (s *State) SetMachineStatus(status model.UpgradeSeriesStatus) error {
+func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatus{{
@@ -79,7 +79,7 @@ func (s *State) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	return results.Results[0].Error
 }
 
-func (s *State) CompleteUnitUpgradeSeries() error {
+func (s *Client) CompleteUnitUpgradeSeries() error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatus{{
