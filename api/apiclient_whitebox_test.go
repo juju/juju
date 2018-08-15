@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -21,7 +22,7 @@ type apiclientWhiteboxSuite struct {
 
 var _ = gc.Suite(&apiclientWhiteboxSuite{})
 
-func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiTimeout(c *gc.C) {
+func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *gc.C) {
 	ctx := context.TODO()
 	ctx, cancel := context.WithCancel(ctx)
 	started := make(chan struct{})
@@ -39,7 +40,6 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiTimeout(c *gc.C) {
 	}()
 	listen, err := net.Listen("tcp4", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	defer listen.Close()
 	addr := listen.Addr().String()
 	c.Logf("listening at: %s", addr)
 	// Note that we Listen, but we never Accept
@@ -48,11 +48,33 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiTimeout(c *gc.C) {
 		Addrs: []string{addr},
 	}
 	opts := DialOpts{
-		DialAddressInterval: 1 * time.Millisecond,
-		RetryDelay:          1 * time.Millisecond,
-		Timeout:             10 * time.Millisecond,
-		DialTimeout:         5 * time.Millisecond,
+		DialAddressInterval: 50 * time.Millisecond,
+		RetryDelay:          40 * time.Millisecond,
+		Timeout:             100 * time.Millisecond,
+		DialTimeout:         100 * time.Millisecond,
 	}
+	// Close before we connect
+	listen.Close()
 	_, err = dialAPI(ctx, info, opts)
+	c.Check(err.Error(), gc.Equals, fmt.Sprintf("dial tcp %s: operation was canceled", addr))
+}
+
+func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *gc.C) {
+	listen, err := net.Listen("tcp4", ":0")
 	c.Assert(err, jc.ErrorIsNil)
+	addr := listen.Addr().String()
+	c.Logf("listening at: %s", addr)
+	// Note that we Listen, but we never Accept
+	info := &Info{
+		Addrs: []string{addr},
+	}
+	opts := DialOpts{
+		DialAddressInterval: 1 * time.Second,
+		RetryDelay:          1 * time.Second,
+		Timeout:             2 * time.Second,
+		DialTimeout:         3 * time.Second,
+	}
+	listen.Close()
+	_, _, err = DialAPI(info, opts)
+	c.Check(err.Error(), gc.Equals, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", addr))
 }
