@@ -24,7 +24,7 @@ type Client struct {
 }
 
 // NewClient Constructs an API caller.
-func NewState(caller base.APICaller, authTag names.Tag) *Client {
+func NewClient(caller base.APICaller, authTag names.Tag) *Client {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		upgradeSeriesFacade,
