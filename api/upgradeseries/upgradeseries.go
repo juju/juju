@@ -23,6 +23,7 @@ type Client struct {
 	authTag names.Tag
 }
 
+// NewClient Constructs an API caller.
 func NewState(caller base.APICaller, authTag names.Tag) *Client {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
@@ -35,6 +36,7 @@ func NewState(caller base.APICaller, authTag names.Tag) *Client {
 	}
 }
 
+// Machine status retrieves the machine status from remote state.
 func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResultsNew
 	args := params.Entities{
@@ -60,6 +62,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	return r.Status.Status, nil
 }
 
+// SetMachineStatus sets the machine status in remote state.
 func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
@@ -79,6 +82,7 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	return results.Results[0].Error
 }
 
+// CompleteUnitUpgradeSeries starts the complete phase for all subordinate units.
 func (s *Client) CompleteUnitUpgradeSeries() error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
