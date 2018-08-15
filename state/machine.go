@@ -2228,7 +2228,7 @@ func (m *Machine) CompleteUnitUpgradeSeries() error {
 		if err != nil {
 			return nil, err
 		}
-		if lock.CompleteStatus != model.CompleteStarted {
+		if lock.PrepareStatus != model.CompleteStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		for i := range lock.UnitStatuses {
@@ -2255,7 +2255,7 @@ func completeUnitUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Assert: bson.D{{"complete-status", model.CompleteStarted}},
+			Assert: bson.D{{"prepate-status", model.CompleteStarted}},
 			Update: bson.D{{"$set", bson.D{{statusField, units}}}},
 		},
 	}
@@ -2479,7 +2479,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return lock.CompleteStatus == model.NotStarted, nil
+	return lock.PrepareStatus == model.PrepareCompleted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
