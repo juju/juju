@@ -799,18 +799,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
-
-		// TODO: (hml) 2018-07-17
-		// Remove when upgrade-series feature flag removed.
-		//upgradeSeriesEnabledName: featureflag.Manifold(featureflag.ManifoldConfig{
-		//	StateName: stateName,
-		//	FlagName:  feature.UpgradeSeries,
-		//	Invert:    false,
-		//	Logger:    loggo.GetLogger("juju.worker.upgradeseries.enabled"),
-		//	NewWorker: featureflag.NewWorker,
-		//}),
 	}
-	//  is there an ifNotCAAS?
 	if utilsfeatureflag.Enabled(feature.UpgradeSeries) {
 		manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
 			AgentName:     agentName,
@@ -820,7 +809,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     upgradeseries.NewWorker,
 		}))
 	}
-
 	return manifolds
 }
 
@@ -868,12 +856,6 @@ var ifRaftLeader = engine.Housing{
 var ifRaftEnabled = engine.Housing{
 	Flags: []string{
 		raftEnabledName,
-	},
-}.Decorate
-
-var ifUpgradeSeriesEnabled = engine.Housing{
-	Flags: []string{
-		upgradeSeriesEnabledName,
 	},
 }.Decorate
 
