@@ -91,6 +91,8 @@ class DepPlugin(snapcraft.BasePlugin):
 
         try:
             shutil.rmtree(os.path.dirname(self._path_in_gopath))
+        except:  # noqa: E722
+            pass
         finally:
             os.makedirs(os.path.dirname(self._path_in_gopath), exist_ok=True)
 
