@@ -140,47 +140,44 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	}
 	w.logger.Logf(loggo.DEBUG, "series upgrade lock changed")
 
-	preparation, err := w.UpgradeSeriesStatus(model.PrepareStatus)
+	unitStatuses, err := w.UpgradeSeriesStatus()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	prepared := unitsCompleted(preparation)
+
+	// TODO(externalreality): We are looping through all the states twice
+	// here. This does not need to be done.
+	prepared := unitsPrepareCompleted(unitStatuses)
+	completed := unitsCompleted(unitStatuses)
 
 	// Units are completed, but not yet stopped - shut them down.
-	if machineStatus == model.UpgradeSeriesPrepareStarted && prepared {
-		return errors.Trace(w.transitionPrepareMachine(len(preparation)))
+	if machineStatus == model.PrepareStarted && prepared {
+		err = w.transitionPrepareMachine(len(unitStatuses))
+		return errors.Trace(err)
 	}
 
 	// Units are stopped, but not updated for the new init system.
 	// Perform the required unit file manipulation.
-	if machineStatus == model.UpgradeSeriesPrepareMachine && prepared {
-		return errors.Trace(w.transitionPrepareComplete(len(preparation)))
-	}
-
-	// TODO (manadart 2018-08-06): We don't need this once we have a single
-	// list of statuses.
-	completion, err := w.UpgradeSeriesStatus(model.CompleteStatus)
-	if err != nil {
+	if machineStatus == model.PrepareMachine && prepared {
+		err = w.transitionPrepareComplete(len(unitStatuses))
 		return errors.Trace(err)
 	}
 
-	started := unitsStarted(completion)
-	completed := unitsCompleted(completion)
-
 	// User has done the required manual work and run upgrade-series complete.
 	// Restart the unit agents.
-	if machineStatus == model.UpgradeSeriesCompleteStarted && prepared && !started && !completed {
-		return errors.Trace(w.transitionUnitsStarted(len(preparation)))
+	if machineStatus == model.CompleteStarted && prepared {
+		err = w.transitionUnitsStarted(len(unitStatuses))
+		return errors.Trace(err)
 	}
 
 	// All the units have run their series-upgrade complete hooks and indicated
 	// that they are completed. Transition the machine to completed too.
-	if machineStatus == model.UpgradeSeriesCompleteStarted && completed {
+	if machineStatus == model.CompleteStarted && completed {
 		// TODO (manadart 2018-08-09): Do we remove the lock at some point?
 		w.logger.Logf(loggo.INFO, "series upgrade complete")
-		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesComplete))
+		err = w.SetMachineStatus(model.Completed)
+		return errors.Trace(err)
 	}
-
 	return nil
 }
 
@@ -219,7 +216,7 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
 		}
 	}
 
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine))
+	return errors.Trace(w.SetMachineStatus(model.PrepareMachine))
 }
 
 // transitionPrepareMachine rewrites service unit files for unit agents running
@@ -235,8 +232,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 
 	// TODO (manadart 2018-08-09): Unit file wrangling to come.
 	// For now we just update the machine status to progress the workflow.
-
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareComplete))
+	return errors.Trace(w.SetMachineStatus(model.PrepareCompleted))
 }
 
 // transitionUnitsStarted iterates over units managed by this machine. Starts
@@ -287,16 +283,16 @@ func (w *upgradeSeriesWorker) unitAgentServices(statusCount int) (map[string]str
 	return unitServices, nil
 }
 
+func unitsPrepareCompleted(statuses []string) bool {
+	return unitsAllWithStatus(statuses, model.PrepareCompleted)
+}
+
 func unitsCompleted(statuses []string) bool {
-	return unitsAllWithStatus(statuses, model.UnitCompleted)
+	return unitsAllWithStatus(statuses, model.Completed)
 }
 
-func unitsStarted(statuses []string) bool {
-	return unitsAllWithStatus(statuses, model.UnitStarted)
-}
-
-func unitsAllWithStatus(statuses []string, target model.UnitSeriesUpgradeStatus) bool {
-	t := string(target)
+func unitsAllWithStatus(statuses []string, status model.UpgradeSeriesStatus) bool {
+	t := string(status)
 	for _, s := range statuses {
 		if s != t {
 			return false

@@ -70,9 +70,8 @@ func (s *workerSuite) TestInconsistentStateNoChange(c *gc.C) {
 	s.setupMocks(ctrl)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
-	exp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"nope"}, nil)
-	exp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"nope"}, nil)
+	exp.MachineStatus().Return(model.PrepareStarted, nil)
+	exp.UpgradeSeriesStatus().Return([]string{"nope"}, nil)
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
@@ -87,9 +86,9 @@ func (s *workerSuite) TestPrepareStatusCompleteUnitsStoppedPrepareMachine(c *gc.
 	agentMySQL := NewMockAgentService(ctrl)
 
 	fExp := s.facade.EXPECT()
-	fExp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
-	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
-	fExp.SetMachineStatus(model.UpgradeSeriesPrepareMachine).Return(nil)
+	fExp.MachineStatus().Return(model.PrepareStarted, nil)
+	fExp.UpgradeSeriesStatus().Return([]string{string(model.PrepareCompleted), string(model.PrepareCompleted)}, nil)
+	fExp.SetMachineStatus(model.PrepareMachine).Return(nil)
 
 	sExp := s.service.EXPECT()
 	sExp.ListServices().Return([]string{
@@ -115,12 +114,12 @@ func (s *workerSuite) TestPrepareMachineUnitFilesWrittenPrepareComplete(c *gc.C)
 	s.setupMocks(ctrl)
 
 	fExp := s.facade.EXPECT()
-	fExp.MachineStatus().Return(model.UpgradeSeriesPrepareMachine, nil)
-	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
+	fExp.MachineStatus().Return(model.PrepareMachine, nil)
+	fExp.UpgradeSeriesStatus().Return([]string{string(model.PrepareCompleted), string(model.PrepareCompleted)}, nil)
 
 	// TODO (manadart 2018-08-09): Assertions for service unit manipulation.
 
-	fExp.SetMachineStatus(model.UpgradeSeriesPrepareComplete).Return(nil)
+	fExp.SetMachineStatus(model.PrepareCompleted).Return(nil)
 
 	sExp := s.service.EXPECT()
 	sExp.ListServices().Return([]string{
@@ -142,9 +141,8 @@ func (s *workerSuite) TestCompleteStartedUnitsNotStartedUnitsStarted(c *gc.C) {
 	agentMySQL := NewMockAgentService(ctrl)
 
 	fExp := s.facade.EXPECT()
-	fExp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
-	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
-	fExp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"Not Started", "Not Started"}, nil)
+	fExp.MachineStatus().Return(model.CompleteStarted, nil)
+	fExp.UpgradeSeriesStatus().Return([]string{string(model.PrepareCompleted), string(model.PrepareCompleted)}, nil)
 	fExp.CompleteUnitUpgradeSeries().Return(nil).Times(1)
 
 	sExp := s.service.EXPECT()
@@ -171,10 +169,9 @@ func (s *workerSuite) TestCompleteStartedUnitsCompleteComplete(c *gc.C) {
 	s.setupMocks(ctrl)
 
 	fExp := s.facade.EXPECT()
-	fExp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
-	fExp.UpgradeSeriesStatus(model.PrepareStatus).Return([]string{"Completed", "Completed"}, nil)
-	fExp.UpgradeSeriesStatus(model.CompleteStatus).Return([]string{"Completed", "Completed"}, nil)
-	fExp.SetMachineStatus(model.UpgradeSeriesComplete).Return(nil)
+	fExp.MachineStatus().Return(model.CompleteStarted, nil)
+	fExp.UpgradeSeriesStatus().Return([]string{string(model.Completed), string(model.Completed)}, nil)
+	fExp.SetMachineStatus(model.Completed).Return(nil)
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
