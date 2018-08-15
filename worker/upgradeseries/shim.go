@@ -23,5 +23,5 @@ type Facade interface {
 
 // NewFacade creates a *upgradeseries.Client and returns it as a Facade.
 func NewFacade(apiCaller base.APICaller, tag names.Tag) Facade {
-	return upgradeseries.NewState(apiCaller, tag)
+	return upgradeseries.NewClient(apiCaller, tag)
 }
