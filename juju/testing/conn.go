@@ -15,6 +15,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
+	"github.com/juju/pubsub"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -101,9 +102,10 @@ type JujuConnSuite struct {
 	APIState            api.Connection
 	apiStates           []api.Connection // additional api.Connections to close on teardown
 	ControllerStore     jujuclient.ClientStore
-	BackingState        *state.State     // The State being used by the API server
-	BackingStatePool    *state.StatePool // The StatePool being used by the API server
-	RootDir             string           // The faked-up root directory.
+	BackingState        *state.State          // The State being used by the API server
+	BackingStatePool    *state.StatePool      // The StatePool being used by the API server
+	Hub                 *pubsub.StructuredHub // The central hub being used by the API server.
+	RootDir             string                // The faked-up root directory.
 	LogDir              string
 	oldHome             string
 	oldJujuXDGDataHome  string
@@ -399,6 +401,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	getStater := environ.(GetStater)
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
+	s.Hub = getStater.GetHubInAPIServer()
 
 	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -622,6 +625,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 type GetStater interface {
 	GetStateInAPIServer() *state.State
 	GetStatePoolInAPIServer() *state.StatePool
+	GetHubInAPIServer() *pubsub.StructuredHub
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {

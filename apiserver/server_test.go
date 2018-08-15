@@ -46,6 +46,15 @@ type serverSuite struct {
 
 var _ = gc.Suite(&serverSuite{})
 
+func (s *serverSuite) SetUpTest(c *gc.C) {
+	// Tests here check that pingers are started. We need to inject
+	// the feature flags into the controller very early.
+	s.ControllerConfigAttrs = map[string]interface{}{
+		"features": []string{feature.OldPresence},
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
+
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
@@ -211,12 +220,6 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
-	// The pingers that are created here are the old presence pingers
-	// and only created when the feature flag is set.
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []string{feature.OldPresence},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
 	// This is the same steps as OpenAPIAsNewMachine but we need to assert
 	// the agent is not alive before we actually open the API.
 	// Create a new machine to verify "agent alive" behavior.
@@ -238,12 +241,6 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 }
 
 func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
-	// The pingers that are created here are the old presence pingers
-	// and only created when the feature flag is set.
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []string{feature.OldPresence},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
 	// Create a new application and unit to verify "agent alive" behavior.
 	unit, password := s.Factory.MakeUnitReturningPassword(c, nil)
 
