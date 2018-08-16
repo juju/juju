@@ -115,7 +115,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 // CompleteStatus starts the upgrade series completion phase for all subordinate
 // units of a given machine.
-func (a *API) CompleteUnitUpgradeSeries(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -125,7 +125,7 @@ func (a *API) CompleteUnitUpgradeSeries(args params.SetUpgradeSeriesStatusParams
 	}
 	for i, param := range args.Params {
 		machine, err := a.authAndMachine(param.Entity, canAccess)
-		err = machine.CompleteUnitUpgradeSeries()
+		err = machine.StartUnitUpgradeSeriesCompletionPhase()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

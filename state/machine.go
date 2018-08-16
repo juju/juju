@@ -2212,9 +2212,9 @@ func (m *Machine) CompleteUpgradeSeries() error {
 	return nil
 }
 
-// CompleteUnitUpgradeSeries notifies units and machines that an upgrade series is
+// StartUnitUpgradeSeriesCompletionPhase notifies units and machines that an upgrade series is
 // ready for its "completion" phase.
-func (m *Machine) CompleteUnitUpgradeSeries() error {
+func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {

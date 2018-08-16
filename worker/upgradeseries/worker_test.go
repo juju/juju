@@ -143,7 +143,7 @@ func (s *workerSuite) TestCompleteStartedUnitsNotStartedUnitsStarted(c *gc.C) {
 	fExp := s.facade.EXPECT()
 	fExp.MachineStatus().Return(model.CompleteStarted, nil)
 	fExp.UpgradeSeriesStatus().Return([]string{string(model.PrepareCompleted), string(model.PrepareCompleted)}, nil)
-	fExp.CompleteUnitUpgradeSeries().Return(nil).Times(1)
+	fExp.StartUnitUpgradeSeriesCompletionPhase().Return(nil).Times(1)
 
 	sExp := s.service.EXPECT()
 	sExp.ListServices().Return([]string{

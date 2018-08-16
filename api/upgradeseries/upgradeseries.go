@@ -83,15 +83,15 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	return results.Results[0].Error
 }
 
-// CompleteUnitUpgradeSeries starts the complete phase for all subordinate units.
-func (s *Client) CompleteUnitUpgradeSeries() error {
+// StartUnitUpgradeSeriesCompletionPhase starts the complete phase for all subordinate units.
+func (s *Client) StartUnitUpgradeSeriesCompletionPhase() error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatus{{
 			Entity: params.Entity{Tag: s.authTag.String()},
 		}},
 	}
-	err := s.facade.FacadeCall("CompleteUnitUpgradeSeries", args, &results)
+	err := s.facade.FacadeCall("StartUnitUpgradeSeriesCompletionPhase", args, &results)
 	if err != nil {
 		return err
 	}
