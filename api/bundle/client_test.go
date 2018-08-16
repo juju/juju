@@ -46,7 +46,7 @@ func (s *bundleMockSuite) TestFailExportBundlev1(c *gc.C) {
 	)
 	result, err := client.ExportBundle()
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "ExportBundle() on v1 is not supported")
+	c.Assert(err.Error(), gc.Equals, "this controller version does not support bundle export feature.")
 	c.Assert(result, jc.DeepEquals, "")
 }
 

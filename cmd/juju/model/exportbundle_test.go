@@ -86,26 +86,26 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "|\n"+
-		"  applications:\n"+
-		"    mysql:\n"+
-		"      charm: \"\"\n"+
-		"      num_units: 1\n"+
-		"      to:\n"+
-		"      - \"0\"\n"+
-		"    wordpress:\n"+
-		"      charm: \"\"\n"+
-		"      num_units: 2\n"+
-		"      to:\n"+
-		"      - \"0\"\n"+
-		"      - \"1\"\n"+
-		"  machines:\n"+
-		"    \"0\": {}\n"+
-		"    \"1\": {}\n"+
-		"  series: xenial\n"+
-		"  relations:\n"+
-		"  - - wordpress:db\n"+
-		"    - mysql:mysql\n")
+	c.Assert(out, gc.Equals, ""+
+		"applications:\n"+
+		"  mysql:\n"+
+		"    charm: \"\"\n"+
+		"    num_units: 1\n"+
+		"    to:\n"+
+		"    - \"0\"\n"+
+		"  wordpress:\n"+
+		"    charm: \"\"\n"+
+		"    num_units: 2\n"+
+		"    to:\n"+
+		"    - \"0\"\n"+
+		"    - \"1\"\n"+
+		"machines:\n"+
+		"  \"0\": {}\n"+
+		"  \"1\": {}\n"+
+		"series: xenial\n"+
+		"relations:\n"+
+		"- - wordpress:db\n"+
+		"  - mysql:mysql\n")
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
@@ -129,8 +129,8 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel.yaml\n")
-	output, err := ioutil.ReadFile("mymodel.yaml")
+	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel\n")
+	output, err := ioutil.ReadFile("mymodel")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "applications:\n"+
 		"  magic:\n"+
@@ -163,8 +163,8 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel.yaml\n")
-	output, err := ioutil.ReadFile("mymodel.yaml")
+	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel\n")
+	output, err := ioutil.ReadFile("mymodel")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }
