@@ -33,6 +33,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
@@ -256,6 +257,7 @@ type environState struct {
 	apiServer      *apiserver.Server
 	apiState       *state.State
 	apiStatePool   *state.StatePool
+	hub            *pubsub.StructuredHub
 	presence       *fakePresence
 	creator        string
 }
@@ -357,6 +359,7 @@ func (state *environState) destroyLocked() {
 	state.apiStatePool = nil
 	state.apiState = nil
 	state.bootstrapped = false
+	state.hub = nil
 
 	// Release the lock while we close resources. In particular,
 	// we must not hold the lock while the API server is being
@@ -416,6 +419,15 @@ func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
 		panic(err)
 	}
 	return st.apiStatePool
+}
+
+// GetHubInAPIServer returns the central hub used by the API server.
+func (e *environ) GetHubInAPIServer() *pubsub.StructuredHub {
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.hub
 }
 
 // newState creates the state for a new environment with the given name.
@@ -854,6 +866,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			machineTag := names.NewMachineTag("0")
 			estate.httpServer.StartTLS()
 			estate.presence = &fakePresence{make(map[string]presence.Status)}
+			estate.hub = centralhub.New(machineTag)
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:       statePool,
 				Authenticator:   stateAuthenticator,
@@ -863,7 +876,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				DataDir:         DataDir,
 				LogDir:          LogDir,
 				Mux:             estate.mux,
-				Hub:             centralhub.New(machineTag),
+				Hub:             estate.hub,
 				Presence:        estate.presence,
 				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),

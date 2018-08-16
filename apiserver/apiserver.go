@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/tomb.v2"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -297,11 +299,19 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		}
 	}
 
+	unsubscribe, err := cfg.Hub.Subscribe(apiserver.RestartTopic, func(string, map[string]interface{}) {
+		srv.tomb.Kill(dependency.ErrBounce)
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to subscribe to restart message")
+	}
+
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
 		defer srv.dbloggers.dispose()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
+		defer unsubscribe()
 		return srv.loop(ready)
 	})
 

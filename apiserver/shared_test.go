@@ -15,6 +15,7 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -85,7 +86,20 @@ func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
 	return ctx
 }
 
+type stubHub struct {
+	*pubsub.StructuredHub
+
+	published []string
+}
+
+func (s *stubHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
+	s.published = append(s.published, topic)
+	return nil, nil
+}
+
 func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
+	stub := &stubHub{StructuredHub: s.hub}
+	s.config.centralHub = stub
 	ctx := s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{
@@ -106,4 +120,57 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Check(ctx.featureEnabled("foo"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
+	c.Check(stub.published, gc.HasLen, 0)
+}
+
+func (s *sharedServerContextSuite) TestAddingOldPresenceFeature(c *gc.C) {
+	// Adding the feature.OldPresence to the feature list will cause
+	// a message to be published on the hub to request an apiserver restart.
+	stub := &stubHub{StructuredHub: s.hub}
+	s.config.centralHub = stub
+	s.newContext(c)
+
+	msg := controller.ConfigChangedMessage{
+		corecontroller.Config{
+			corecontroller.Features: []string{"foo", "bar", feature.OldPresence},
+		},
+	}
+	done, err := s.hub.Publish(controller.ConfigChanged, msg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("handler didn't")
+	}
+
+	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
+}
+
+func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"features": []string{feature.OldPresence},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Removing the feature.OldPresence to the feature list will cause
+	// a message to be published on the hub to request an apiserver restart.
+	stub := &stubHub{StructuredHub: s.hub}
+	s.config.centralHub = stub
+	s.newContext(c)
+
+	msg := controller.ConfigChangedMessage{
+		corecontroller.Config{
+			corecontroller.Features: []string{"foo", "bar"},
+		},
+	}
+	done, err := s.hub.Publish(controller.ConfigChanged, msg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("handler didn't")
+	}
+
+	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
 }
