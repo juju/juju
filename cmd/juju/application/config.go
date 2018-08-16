@@ -33,6 +33,11 @@ Output includes the name of the charm used to deploy the application and a
 listing of the application-specific configuration settings.
 See ` + "`juju status`" + ` for application names.
 
+When only one configuration value is desired, the command will ignore --format
+option and will output the value unformatted. This is provided to support 
+scripts where the output of "juju config <application name> <setting name>" 
+can be used as an input to an expression or a function.
+
 Examples:
     juju config apache2
     juju config --format=json apache2
@@ -330,17 +335,13 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		return err
 	}
 	if len(c.keys) == 1 {
+		logger.Infof("format %v is ignored", c.out.Name())
 		key := c.keys[0]
 		info, found := results.Config[key].(map[string]interface{})
 		if !found {
 			return errors.Errorf("key %q not found in %q application settings.", key, c.applicationName)
 		}
-		out := &bytes.Buffer{}
-		err := cmd.FormatYaml(out, info["value"])
-		if err != nil {
-			return err
-		}
-		fmt.Fprint(ctx.Stdout, out.String())
+		fmt.Fprintln(ctx.Stdout, info["value"])
 		return nil
 	}
 
