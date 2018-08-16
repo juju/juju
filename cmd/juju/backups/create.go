@@ -83,30 +83,28 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, noDownloadOption, false, "Do not download the archive, implies keep-copy")
-	f.BoolVar(&c.KeepCopy, keepCopyOption, false, "Keep a copy of the archive on the controller")
+	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, implies keep-copy")
+	f.BoolVar(&c.KeepCopy, "keep-copy", false, "Keep a copy of the archive on the controller")
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
 	c.fs = f
 }
 
-var (
-	noDownloadOption = "no-download"
-	keepCopyOption   = "keep-copy"
-)
-
 // Init implements Command.Init.
 func (c *createCommand) Init(args []string) error {
-	noDownloadSet, keepCopySet := false, false
-	c.fs.Visit(func(blah *gnuflag.Flag) {
-		if blah.Name == noDownloadOption {
-			noDownloadSet = true
+	// If user specifies that a download is not desired (i.e. no-download == true),
+	// and they have EXPLICITLY not wanted to store a remote backup file copy
+	// (i.e keep-copy == false), then there is no point for us to proceed as
+	// all the backup will not be stored anywhere.
+	if c.NoDownload {
+		keepCopySet := false
+		c.fs.Visit(func(blah *gnuflag.Flag) {
+			if blah.Name == "keep-copy" {
+				keepCopySet = true
+			}
+		})
+		if keepCopySet && !c.KeepCopy {
+			return errors.Errorf("--no-download cannot be set when --keep-copy is not: the backup will not be created")
 		}
-		if blah.Name == keepCopyOption {
-			keepCopySet = true
-		}
-	})
-	if keepCopySet && noDownloadSet {
-		return errors.Errorf("cannot mix --no-download and --keep-copy")
 	}
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
