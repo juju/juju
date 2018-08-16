@@ -46,6 +46,11 @@ var getTests = []struct {
 			"application": "dummy-application",
 			"charm":       "dummy",
 			"settings": map[string]interface{}{
+				"multiline-value": map[string]interface{}{
+					"description": "Specifies multiline-value",
+					"type":        "string",
+					"value":       "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
+				},
 				"title": map[string]interface{}{
 					"description": "Specifies title",
 					"type":        "string",
@@ -75,10 +80,11 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeApplicationAPI{name: "dummy-application", charmName: "dummy",
 		values: map[string]interface{}{
-			"title":       "Nearly There",
-			"skill-level": 100,
-			"username":    "admin001",
-			"outlook":     "true",
+			"title":           "Nearly There",
+			"skill-level":     100,
+			"username":        "admin001",
+			"outlook":         "true",
+			"multiline-value": "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
 		}}
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
@@ -131,12 +137,28 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 	}
 }
 
-func (s *configCommandSuite) TestGetConfigKey(c *gc.C) {
+func (s *configCommandSuite) TestGetCharmConfigKey(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "title"})
 	c.Check(code, gc.Equals, 0)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "Nearly There\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Nearly There\n")
+}
+
+func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValue(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "multiline-value"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n")
+}
+
+func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValueJSON(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "multiline-value", "--format", "json"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n")
 }
 
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
