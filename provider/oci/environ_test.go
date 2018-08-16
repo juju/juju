@@ -632,7 +632,7 @@ func (e *environSuite) TestStopInstancesMultipleFail(c *gc.C) {
 	}
 	err := e.env.StopInstances(nil, ids...)
 	// order in which the instances are returned or fail is not guaranteed
-	c.Assert(err, gc.ErrorMatches, "failed to stop instances \\[fakeInstance[24] fakeInstance[24]\\]: \\[I failed to terminate fakeInstance[24] I failed to terminate fakeInstance[24]\\]")
+	c.Assert(err, gc.ErrorMatches, `failed to stop instances \[fakeInstance[24] fakeInstance[24]\]: \[I failed to terminate fakeInstance[24] I failed to terminate fakeInstance[24]\]`)
 
 }
 
