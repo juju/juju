@@ -93,3 +93,22 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	err := api.SetMachineStatus(model.CompleteStarted)
 	c.Assert(err, gc.IsNil)
 }
+
+func (s *upgradeSeriesSuite) TestStartUpgradeSeriesCompletionPhase(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatus{
+			{Entity: s.args.Entities[0]},
+		},
+	}
+	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	fCaller.EXPECT().FacadeCall("StartUnitUpgradeSeriesCompletionPhase", args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	err := api.StartUnitUpgradeSeriesCompletionPhase()
+	c.Assert(err, gc.IsNil)
+}
