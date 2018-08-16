@@ -104,6 +104,28 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
 }
 
+func (s *MachineInternalSuite) TestStartUnitUpgradeSeriesCompletionPhaseTxnOps(c *gc.C) {
+	arbitraryMachineID := "id"
+	arbitraryUnitStatuses := []unitStatus{}
+	expectedOps := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     arbitraryMachineID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     arbitraryMachineID,
+			Assert: bson.D{{"machine-status", model.CompleteStarted}},
+			Update: bson.D{{"$set", bson.D{{"unit-statuses", arbitraryUnitStatuses}}}},
+		},
+	}
+	actualOps := startUnitUpgradeSeriesCompletionPhaseTxnOps(arbitraryMachineID, arbitraryUnitStatuses)
+	expectedOpsSt := fmt.Sprint(expectedOps)
+	actualOpsSt := fmt.Sprint(actualOps)
+	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)
+}
+
 func assertConstainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
 	var found bool
 	for _, actualOp := range actualOps {
