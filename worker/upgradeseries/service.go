@@ -33,10 +33,12 @@ type serviceAccess struct{}
 
 var _ ServiceAccess = &serviceAccess{}
 
+// ListServices lists all the running services on a machine.
 func (s *serviceAccess) ListServices() ([]string, error) {
 	return service.ListServices()
 }
 
+// DiscoverService returns the interface for a service running on a the machine.
 func (s *serviceAccess) DiscoverService(name string) (AgentService, error) {
 	return service.DiscoverService(name, common.Conf{})
 }
