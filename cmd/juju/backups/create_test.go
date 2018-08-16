@@ -252,7 +252,13 @@ func (s *createSuite) TestKeepCopy(c *gc.C) {
 func (s *createSuite) TestFailKeepCopyNoDownload(c *gc.C) {
 	s.setDownload()
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy", "--no-download")
-	c.Check(err, gc.ErrorMatches, "cannot mix --no-download and --keep-copy")
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *createSuite) TestFailKeepCopyFalseNoDownload(c *gc.C) {
+	s.setDownload()
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--keep-copy=false", "--no-download")
+	c.Check(err, gc.ErrorMatches, "--no-download cannot be set when --keep-copy is not: the backup will not be created")
 }
 
 func (s *createSuite) TestKeepCopyV1Fail(c *gc.C) {
