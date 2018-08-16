@@ -2232,7 +2232,7 @@ func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 		for i := range lock.UnitStatuses {
 			lock.UnitStatuses[i].Status = model.CompleteStarted
 		}
-		return completeUnitUpgradeSeriesTxnOps(m.doc.Id, lock.UnitStatuses), nil
+		return startUnitUpgradeSeriesCompletionPhaseTxnOps(m.doc.Id, lock.UnitStatuses), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2242,7 +2242,7 @@ func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 	return nil
 }
 
-func completeUnitUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.Op {
+func startUnitUpgradeSeriesCompletionPhaseTxnOps(machineDocID string, units []unitStatus) []txn.Op {
 	statusField := "unit-statuses"
 	return []txn.Op{
 		{
