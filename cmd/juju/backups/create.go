@@ -97,8 +97,8 @@ func (c *createCommand) Init(args []string) error {
 	// all the backup will not be stored anywhere.
 	if c.NoDownload {
 		keepCopySet := false
-		c.fs.Visit(func(blah *gnuflag.Flag) {
-			if blah.Name == "keep-copy" {
+		c.fs.Visit(func(flag *gnuflag.Flag) {
+			if flag.Name == "keep-copy" {
 				keepCopySet = true
 			}
 		})
