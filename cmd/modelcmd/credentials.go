@@ -188,17 +188,17 @@ func DetectCredential(cloudName string, provider environs.EnvironProvider) (*clo
 
 // RegisterCredentials returns any credentials that need to be registered for
 // a provider.
-func RegisterCredentials(cloudName string, provider environs.EnvironProvider) (*cloud.CloudCredential, error) {
+func RegisterCredentials(provider environs.EnvironProvider) (map[string]*cloud.CloudCredential, error) {
 	if register, ok := provider.(environs.ProviderCredentialsRegister); ok {
 		found, err := register.RegisterCredentials()
 		if err != nil {
 			return nil, errors.Annotatef(
-				err, "registering credentials for %q cloud provider", cloudName,
+				err, "registering credentials for provider",
 			)
 		}
 		logger.Tracef("provider registered credentials: %v", found)
-		if len(found.AuthCredentials) == 0 {
-			return nil, errors.NotFoundf("credentials for cloud %q", cloudName)
+		if len(found) == 0 {
+			return nil, errors.NotFoundf("credentials for provider")
 		}
 		return found, errors.Trace(err)
 	}

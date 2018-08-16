@@ -846,7 +846,7 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 
 	// When looking for credentials, we should attempt to see if there are any
 	// credentials that should be registered, before we get or detect them
-	err = common.RegisterCredentials(ctx, store, provider, cloud.Name)
+	err = common.RegisterCredentials(ctx, store, provider)
 	if err != nil {
 		logger.Errorf("registering credentials errored %s", err)
 	}

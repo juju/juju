@@ -67,7 +67,9 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 	}
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials().Return(credential, nil)
+	mockProvider.EXPECT().RegisterCredentials().Return(map[string]*cloud.CloudCredential{
+		"fake": credential,
+	}, nil)
 	mockStore := common.NewMockCredentialStore(ctrl)
 	mockStore.EXPECT().UpdateCredential("fake", *credential).Return(nil)
 
@@ -75,7 +77,7 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 
 	err := common.RegisterCredentials(&cmd.Context{
 		Stderr: stderr,
-	}, mockStore, mockProvider, "fake")
+	}, mockStore, mockProvider)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr.String(), gc.Equals, "updating credential store\n")
 }
@@ -84,19 +86,15 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	credential := &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{},
-	}
-
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials().Return(credential, nil)
+	mockProvider.EXPECT().RegisterCredentials().Return(map[string]*cloud.CloudCredential{}, nil)
 	mockStore := common.NewMockCredentialStore(ctrl)
 
 	stderr := new(bytes.Buffer)
 
 	err := common.RegisterCredentials(&cmd.Context{
 		Stderr: stderr,
-	}, mockStore, mockProvider, "fake")
+	}, mockStore, mockProvider)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -112,6 +110,6 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 
 	err := common.RegisterCredentials(&cmd.Context{
 		Stderr: stderr,
-	}, mockStore, mockProvider, "fake")
+	}, mockStore, mockProvider)
 	c.Assert(errors.Cause(err).Error(), gc.Matches, "bad")
 }

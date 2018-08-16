@@ -113,9 +113,9 @@ func (mr *MockTestCloudProviderMockRecorder) PrepareConfig(arg0 interface{}) *go
 }
 
 // RegisterCredentials mocks base method
-func (m *MockTestCloudProvider) RegisterCredentials() (*cloud.CloudCredential, error) {
+func (m *MockTestCloudProvider) RegisterCredentials() (map[string]*cloud.CloudCredential, error) {
 	ret := m.ctrl.Call(m, "RegisterCredentials")
-	ret0, _ := ret[0].(*cloud.CloudCredential)
+	ret0, _ := ret[0].(map[string]*cloud.CloudCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

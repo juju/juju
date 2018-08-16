@@ -30,22 +30,25 @@ func RegisterCredentials(
 	ctx *cmd.Context,
 	store jujuclient.CredentialStore,
 	provider environs.EnvironProvider,
-	cloudName string,
 ) error {
-	credential, err := modelcmd.RegisterCredentials(cloudName, provider)
+	credentials, err := modelcmd.RegisterCredentials(provider)
 	switch {
 	case errors.IsNotFound(err):
 		return nil
 	case err != nil:
 		return errors.Trace(err)
-	case credential == nil:
+	case credentials == nil:
 		return nil
 	}
 
 	ctx.Infof("updating credential store")
 
-	err = store.UpdateCredential(cloudName, *credential)
-	return errors.Trace(err)
+	for name, credential := range credentials {
+		if err := store.UpdateCredential(name, *credential); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // GetOrDetectCredential returns a credential to use for given cloud. This

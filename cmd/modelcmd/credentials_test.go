@@ -167,18 +167,20 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 
 	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
 
-	credential := &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			"admin": cloud.NewCredential("certificate", map[string]string{
-				"cert": "certificate",
-			}),
+	credential := map[string]*cloud.CloudCredential{
+		"fake": {
+			AuthCredentials: map[string]cloud.Credential{
+				"admin": cloud.NewCredential("certificate", map[string]string{
+					"cert": "certificate",
+				}),
+			},
 		},
 	}
 
 	exp := mockProvider.EXPECT()
 	exp.RegisterCredentials().Return(credential, nil)
 
-	credentials, err := modelcmd.RegisterCredentials("fake", mockProvider)
+	credentials, err := modelcmd.RegisterCredentials(mockProvider)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.DeepEquals, credential)
 }
@@ -189,15 +191,13 @@ func (s *credentialsSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 
 	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
 
-	credential := &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{},
-	}
+	credential := map[string]*cloud.CloudCredential{}
 
 	exp := mockProvider.EXPECT()
 	exp.RegisterCredentials().Return(credential, nil)
 
-	credentials, err := modelcmd.RegisterCredentials("fake", mockProvider)
-	c.Assert(errors.Cause(err).Error(), gc.Matches, `credentials for cloud "fake" not found`)
+	credentials, err := modelcmd.RegisterCredentials(mockProvider)
+	c.Assert(errors.Cause(err).Error(), gc.Matches, `credentials for provider not found`)
 	c.Assert(credentials, gc.IsNil)
 }
 
@@ -210,7 +210,7 @@ func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 	exp := mockProvider.EXPECT()
 	exp.RegisterCredentials().Return(nil, errors.New("bad"))
 
-	credentials, err := modelcmd.RegisterCredentials("fake", mockProvider)
-	c.Assert(err.Error(), gc.Matches, `registering credentials for "fake" cloud provider: bad`)
+	credentials, err := modelcmd.RegisterCredentials(mockProvider)
+	c.Assert(err.Error(), gc.Matches, `registering credentials for provider: bad`)
 	c.Assert(credentials, gc.IsNil)
 }

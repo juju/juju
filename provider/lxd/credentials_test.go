@@ -256,7 +256,7 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
-	credential := cloud.NewCredential(
+	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,
 		map[string]string{
 			"client-cert": coretesting.CACert,
@@ -264,15 +264,17 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 			"server-cert": "server-cert",
 		},
 	)
-	credential.Label = `LXD credential "localhost"`
+	expected.Label = `LXD credential "localhost"`
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
 	credentials, err := provider.RegisterCredentials()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": credential,
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"localhost": {
+			DefaultCredential: "localhost",
+			AuthCredentials: map[string]cloud.Credential{
+				"localhost": expected,
+			},
 		},
 	})
 }
@@ -303,15 +305,17 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
 	)
 	expected.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": expected,
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"localhost": {
+			DefaultCredential: "localhost",
+			AuthCredentials: map[string]cloud.Credential{
+				"localhost": expected,
+			},
 		},
 	})
 }
 
-func (s *credentialsSuite) RegisterCredentialsUsesLXCCert(c *gc.C) {
+func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -340,10 +344,12 @@ func (s *credentialsSuite) RegisterCredentialsUsesLXCCert(c *gc.C) {
 	)
 	expected.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": expected,
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"localhost": {
+			DefaultCredential: "localhost",
+			AuthCredentials: map[string]cloud.Credential{
+				"localhost": expected,
+			},
 		},
 	})
 }
