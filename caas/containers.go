@@ -65,7 +65,7 @@ type PodSpec struct {
 
 // CrdTemplateValidation defines the custom resource definition validation schema.
 type CrdTemplateValidation struct {
-	Properties map[string]apiextensionsv1beta1.JSONSchemaProps `yaml:"properties,omitempty"`
+	Properties map[string]apiextensionsv1beta1.JSONSchemaProps `yaml:"properties"`
 }
 
 // CustomResourceDefinition defines the custom resource definition template and content format in podspec.
@@ -79,7 +79,15 @@ type CustomResourceDefinition struct {
 
 // Validate returns an error if the crd is not valid.
 func (crd *CustomResourceDefinition) Validate() error {
-	// do validation.
+	if crd.Group == "" {
+		return errors.New("group is missing")
+	}
+	if crd.Version == "" {
+		return errors.New("version is missing")
+	}
+	if crd.Scope == "" {
+		return errors.New("scope is missing")
+	}
 	return nil
 }
 
@@ -92,6 +100,11 @@ func (crd *CustomResourceDefinition) IsPresent() bool {
 func (spec *PodSpec) Validate() error {
 	for _, c := range spec.Containers {
 		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if spec.CustomResourceDefinition.IsPresent() {
+		if err := spec.CustomResourceDefinition.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}

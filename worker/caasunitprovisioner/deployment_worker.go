@@ -146,44 +146,41 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-
+		logger.Criticalf("spec ---> \n%q, spec.CustomResourceDefinition ----> \n%#v", specStr, spec.CustomResourceDefinition)
 		if spec.CustomResourceDefinition.IsPresent() {
+			logger.Debugf("created/updated custom resource definition for %q:\n%#v", w.application, spec.CustomResourceDefinition)
 			err = w.broker.EnsureCrd(w.application, spec)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("created/updated custom resource definition for %q:\n%#v", w.application, spec.CustomResourceDefinition)
 		}
-		if len(spec.Containers) > 0 {
-			serviceParams := &caas.ServiceParams{
-				PodSpec:      spec,
-				Constraints:  info.Constraints,
-				ResourceTags: info.Tags,
-				Filesystems:  info.Filesystems,
-				Devices:      info.Devices,
+		serviceParams := &caas.ServiceParams{
+			PodSpec:      spec,
+			Constraints:  info.Constraints,
+			ResourceTags: info.Tags,
+			Filesystems:  info.Filesystems,
+			Devices:      info.Devices,
+		}
+		err = w.broker.EnsureService(w.application, serviceParams, currentScale, appConfig)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
+		if !serviceUpdated && !spec.OmitServiceFrontend {
+			// TODO(caas) - add a service watcher
+			service, err := w.broker.Service(w.application)
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Annotate(err, "cannot get new service details")
 			}
-			err = w.broker.EnsureService(w.application, serviceParams, currentScale, appConfig)
+			err = w.applicationUpdater.UpdateApplicationService(params.UpdateApplicationServiceArg{
+				ApplicationTag: names.NewApplicationTag(w.application).String(),
+				ProviderId:     service.Id,
+				Addresses:      params.FromNetworkAddresses(service.Addresses...),
+			})
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
-			if !serviceUpdated && !spec.OmitServiceFrontend {
-				// TODO(caas) - add a service watcher
-				service, err := w.broker.Service(w.application)
-				if err != nil && !errors.IsNotFound(err) {
-					return errors.Annotate(err, "cannot get new service details")
-					err = w.applicationUpdater.UpdateApplicationService(params.UpdateApplicationServiceArg{
-						ApplicationTag: names.NewApplicationTag(w.application).String(),
-						ProviderId:     service.Id,
-						Addresses:      params.FromNetworkAddresses(service.Addresses...),
-					})
-					if err != nil {
-						return errors.Trace(err)
-					}
-					serviceUpdated = true
-				}
-			}
-
+			serviceUpdated = true
 		}
 	}
 }

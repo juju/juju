@@ -287,9 +287,9 @@ func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
 			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 				"tfReplicaSpecs": {
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"Worker": apiextensionsv1beta1.JSONSchemaProps{
+						"Worker": {
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": {
 									Type:    "integer",
 									Minimum: float64Ptr(1),
 								},
@@ -335,9 +335,9 @@ func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 						"tfReplicaSpecs": {
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": {
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
 											Type:    "integer",
 											Minimum: float64Ptr(1),
 										},
@@ -388,9 +388,9 @@ func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
 			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 				"tfReplicaSpecs": {
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"Worker": apiextensionsv1beta1.JSONSchemaProps{
+						"Worker": {
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": apiextensionsv1beta1.JSONSchemaProps{
+								"replicas": {
 									Type:    "integer",
 									Minimum: float64Ptr(1),
 								},
@@ -436,9 +436,9 @@ func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 						"tfReplicaSpecs": {
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": {
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
 											Type:    "integer",
 											Minimum: float64Ptr(1),
 										},

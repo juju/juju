@@ -527,8 +527,13 @@ func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiext
 	t := podSpec.CustomResourceDefinition
 	name := strings.ToLower(t.Kind)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", name, t.Group),
+			Name:      fmt.Sprintf("%s.%s", name, t.Group),
+			Namespace: k.namespace,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   t.Group,
@@ -546,9 +551,11 @@ func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiext
 			},
 		},
 	}
+	logger.Criticalf("crdIn ---> \n%#v", crdIn)
 	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
 	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	if k8serrors.IsAlreadyExists(err) {
+		logger.Infof("updating crd %#v", crdIn)
 		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
 	}
 	return
