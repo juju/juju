@@ -1440,7 +1440,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1470,17 +1470,17 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/rails-0", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/mem-47", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/rails-0", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: cs:bionic/mem-47
                 num_units: 3
                 to: [1, 2, 3]
             django:
-                charm: cs:xenial/django-42
+                charm: cs:bionic/django-42
                 num_units: 4
                 to:
                     - 1
@@ -1516,17 +1516,17 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	content := `
         applications:
             memcached:
-                charm: cs:xenial/mem-47
+                charm: cs:bionic/mem-47
                 num_units: 3
                 to: [1, 2, 3]
             django:
-                charm: cs:xenial/django-42
+                charm: cs:bionic/django-42
                 num_units: 4
                 to:
                     - 1
                     - lxd:memcached
             node:
-                charm: cs:xenial/django-42
+                charm: cs:bionic/django-42
                 num_units: 1
                 to:
                     - lxd:memcached
@@ -1539,7 +1539,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- deploy application node on xenial using cs:xenial/django-42\n"+
+		"- deploy application node on bionic using cs:bionic/django-42\n"+
 		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	)
 
@@ -1563,8 +1563,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCorrect(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/mem-47", "dummy")
 	stdOut, stdErr, err := s.DeployBundleYAMLWithOutput(c, `
         applications:
             django:
@@ -1575,7 +1575,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
                     key2: value2
                 to: [1]
             memcached:
-                charm: xenial/mem-47
+                charm: bionic/mem-47
                 num_units: 1
         machines:
             1:
@@ -1585,11 +1585,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:xenial/django-42 for series xenial\n"+
-		"- deploy application django on xenial using cs:xenial/django-42\n"+
+		"- upload charm cs:bionic/django-42 for series bionic\n"+
+		"- deploy application django on bionic using cs:bionic/django-42\n"+
 		"- set annotations for django\n"+
-		"- upload charm cs:xenial/mem-47 for series xenial\n"+
-		"- deploy application memcached on xenial using cs:xenial/mem-47\n"+
+		"- upload charm cs:bionic/mem-47 for series bionic\n"+
+		"- deploy application memcached on bionic using cs:bionic/mem-47\n"+
 		"- add new machine 0 (bundle machine 1)\n"+
 		"- set annotations for new machine 0\n"+
 		"- add unit django/0 to new machine 0\n"+
@@ -1597,14 +1597,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 	)
 	c.Check(stdErr, gc.Equals, ""+
 		"Resolving charm: cs:django\n"+
-		"Resolving charm: xenial/mem-47\n"+
+		"Resolving charm: bionic/mem-47\n"+
 		"Deploy of bundle completed.",
 	)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "bionic/mem-47", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1615,7 +1615,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
                     key2: value2
                 to: [1]
             memcached:
-                charm: xenial/mem-47
+                charm: bionic/mem-47
                 num_units: 1
         machines:
             1:

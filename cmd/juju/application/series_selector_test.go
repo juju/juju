@@ -58,12 +58,12 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 		},
 		expectedSeries: "precise",
 	}, {
-		title: "juju deploy simple --force   # no default series, no supported series, use LTS (xenial)",
+		title: "juju deploy simple --force   # no default series, no supported series, use LTS (bionic)",
 		seriesSelector: seriesSelector{
 			force: true,
 			conf:  defaultSeries{},
 		},
-		expectedSeries: "xenial",
+		expectedSeries: "bionic",
 	}, {
 		// Now charms with supported series.
 
@@ -150,8 +150,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 		expectedSeries: "precise",
 	}}
 
-	// Use xenial for LTS for all calls.
-	previous := series.SetLatestLtsForTesting("xenial")
+	// Use bionic for LTS for all calls.
+	previous := series.SetLatestLtsForTesting("bionic")
 	defer series.SetLatestLtsForTesting(previous)
 
 	for i, test := range deploySeriesTests {
