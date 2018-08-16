@@ -1,12 +1,12 @@
 # network-health-2-machines-vipl:
 machines:
   '0':
-    series: xenial
+    series: bionic
     constraints: tags=bonded
   '1':
-    series: xenial
+    series: bionic
     constraints: tags=qa-node-1
-series: xenial
+series: bionic
 services:
   dummy-source-a:
     charm: ~juju-qa/dummy-source

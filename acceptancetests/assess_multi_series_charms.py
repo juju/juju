@@ -80,12 +80,14 @@ def assess_multi_series_charms(client, devel_series):
              machine='1', juju1x_supported=True),
         Test(series="xenial", service='test3', force=False, success=True,
              machine='2', juju1x_supported=False),
-        Test(series=devel_series, service='test4', force=True, success=True,
+        Test(series="bionic", service='test4', force=False, success=True,
+             machine='2', juju1x_supported=False),
+        Test(series=devel_series, service='test5', force=True, success=True,
              machine='3', juju1x_supported=False),
     ]
     with temp_dir() as repository:
         charm_name = 'dummy'
-        charm = Charm(charm_name, 'Test charm', series=['trusty', 'xenial'])
+        charm = Charm(charm_name, 'Test charm', series=['trusty', 'xenial', 'bionic'])
         charm_dir = charm.to_repo_dir(repository)
         charm_path = local_charm_path(
             charm=charm_name, juju_ver=client.version, series='trusty',

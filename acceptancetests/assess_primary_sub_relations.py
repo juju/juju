@@ -201,7 +201,7 @@ def get_subordinate_unit_name(client, primary_app_name):
     return 'jujud-unit-{}'.format(sub_unit_name.replace('/', '-'))
 
 
-def deploy_primary_charm(client, charm_name, series='xenial'):
+def deploy_primary_charm(client, charm_name, series='bionic'):
     charm_path = local_charm_path(
         charm=charm_name, juju_ver=client.version, series=series)
     _, deploy_complete = client.deploy(charm_path, series)

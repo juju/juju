@@ -103,11 +103,11 @@ def assess_model_defaults(client, other_region):
     if region is not None:
         log.info('Checking region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'xenial', region=region)
+            client, 'default-series', 'bionic', region=region)
     if other_region is not None:
         log.info('Checking other region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'xenial', region=other_region)
+            client, 'default-series', 'bionic', region=other_region)
 
 
 def parse_args(argv):
