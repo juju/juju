@@ -20,9 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 )
 
-var usageAddUnitSummary = `
-Adds one or more units to a deployed application.
-`[1:]
+var usageAddUnitSummary = `Adds one or more units to a deployed application.`
 
 var usageAddUnitDetails = `
 The add-unit is used to scale out an application for improved performance or
