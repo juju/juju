@@ -355,7 +355,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		return err
 	}
 	if len(c.keys) == 1 {
-		ctx.Infof("format %v is ignored", c.out.Name())
+		logger.Infof("format %v is ignored", c.out.Name())
 		key := c.keys[0]
 		info, found := results.CharmConfig[key].(map[string]interface{})
 		if !found && len(results.ApplicationConfig) > 0 {
