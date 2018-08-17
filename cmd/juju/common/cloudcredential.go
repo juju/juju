@@ -41,7 +41,7 @@ func RegisterCredentials(
 		return nil
 	}
 
-	ctx.Infof("updating credential store")
+	ctx.Verbosef("updating credential store")
 
 	for name, credential := range credentials {
 		if err := store.UpdateCredential(name, *credential); err != nil {

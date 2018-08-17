@@ -79,7 +79,7 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 		Stderr: stderr,
 	}, mockStore, mockProvider)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stderr.String(), gc.Equals, "updating credential store\n")
+	c.Assert(stderr.String(), gc.Equals, "")
 }
 
 func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
