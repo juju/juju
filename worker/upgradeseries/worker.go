@@ -26,6 +26,7 @@ type Logger interface {
 	Errorf(message string, args ...interface{})
 }
 
+// Config is the configuration needed to constuct an UpgradeSeries worker.
 type Config struct {
 	// FacadeFactory is used to acquire back-end state with
 	// the input tag context.
@@ -107,8 +108,10 @@ func (w *upgradeSeriesWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.catacomb.Add(uw)
-
+	err = w.catacomb.Add(uw)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -202,7 +205,9 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
 	// partial state.
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
-
+		if err != nil {
+			return errors.Trace(err)
+		}
 		running, err := svc.Running()
 		if err != nil {
 			return errors.Trace(err)
@@ -247,6 +252,9 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		running, err := svc.Running()
 		if err != nil {
 			return errors.Trace(err)
