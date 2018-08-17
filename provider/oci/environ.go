@@ -635,29 +635,40 @@ func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...insta
 	return nil
 }
 
+type instError struct {
+	id  instance.Id
+	err error
+}
+
 func (o *Environ) terminateInstances(instances ...*ociInstance) error {
 	wg := sync.WaitGroup{}
 	wg.Add(len(instances))
-	errs := []error{}
-	instIds := []instance.Id{}
+	errCh := make(chan instError, len(instances))
 	for _, oInst := range instances {
 		go func(inst *ociInstance) {
 			defer wg.Done()
 			if err := inst.deleteInstance(); err != nil {
-				instIds = append(instIds, inst.Id())
-				errs = append(errs, err)
-			} else {
-				err := inst.waitForMachineStatus(
-					ociCore.InstanceLifecycleStateTerminated,
-					resourcePollTimeout)
-				if err != nil && !errors.IsNotFound(err) {
-					instIds = append(instIds, inst.Id())
-					errs = append(errs, err)
-				}
+				errCh <- instError{id: inst.Id(), err: err}
+				return
+			}
+			err := inst.waitForMachineStatus(
+				ociCore.InstanceLifecycleStateTerminated,
+				resourcePollTimeout)
+			if err != nil && !errors.IsNotFound(err) {
+				errCh <- instError{id: inst.Id(), err: err}
 			}
 		}(oInst)
 	}
 	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	var instIds []instance.Id
+	for item := range errCh {
+		errs = append(errs, item.err)
+		instIds = append(instIds, item.id)
+	}
+
 	switch len(errs) {
 	case 0:
 		return nil
