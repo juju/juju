@@ -60,7 +60,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 		return "", errors.NewNotFound(r.Error, "")
 	}
 
-	return "", r.Error
+	return "", errors.Trace(r.Error)
 }
 
 // SetMachineStatus sets the machine status in remote state.
