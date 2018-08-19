@@ -512,19 +512,17 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 }
 
 func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) error {
-	if err := podSpec.CustomResourceDefinition.Validate(); err != nil {
-		return errors.Annotate(err, "validating custom resource definition")
+	for _, t := range podSpec.CustomResourceDefinitions {
+		crd, err := k.ensureCrdTemplate(&t)
+		if err != nil {
+			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", t.Kind))
+		}
+		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
 	}
-	crd, err := k.ensureCrdTemplate(podSpec)
-	if err != nil {
-		return errors.Annotate(err, "ensuring custom resource definition template")
-	}
-	logger.Debugf("created crd %#v", crd)
 	return nil
 }
 
-func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
-	t := podSpec.CustomResourceDefinition
+func (k *kubernetesClient) ensureCrdTemplate(t *caas.CustomResourceDefinition) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	singularName := strings.ToLower(t.Kind)
 	pluralName := fmt.Sprintf("%ss", singularName)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{

@@ -162,30 +162,30 @@ containers:
             [config]
             foo: bar
 crd:
-  group: kubeflow.org
-  version: v1alpha2
-  scope: Namespaced
-  kind: TFJob
-  validation:
-    properties:
-      tfReplicaSpecs:
-        properties:
-          Worker:
-            properties:
-              replicas:
-                type: integer
-                minimum: 1
-          PS:
-            properties:
-              replicas:
-                type: integer
-                minimum: 1
-          Chief:
-            properties:
-              replicas:
-                type: integer
-                minimum: 1
-                maximum: 1
+  - group: kubeflow.org
+    version: v1alpha2
+    scope: Namespaced
+    kind: TFJob
+    validation:
+      properties:
+        tfReplicaSpecs:
+          properties:
+            Worker:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+            PS:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+            Chief:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+                  maximum: 1
 `[1:]
 
 	expectedFileContent := `
@@ -239,36 +239,38 @@ foo: bar
 				},
 			},
 		}},
-		CustomResourceDefinition: caas.CustomResourceDefinition{
-			Kind:    "TFJob",
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Scope:   "Namespaced",
-			Validation: caas.CrdTemplateValidation{
-				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-					"tfReplicaSpecs": {
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"PS": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type: "integer", Minimum: float64Ptr(1),
+		CustomResourceDefinitions: []caas.CustomResourceDefinition{
+			{
+				Kind:    "TFJob",
+				Group:   "kubeflow.org",
+				Version: "v1alpha2",
+				Scope:   "Namespaced",
+				Validation: caas.CrdTemplateValidation{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
 									},
 								},
-							},
-							"Chief": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type:    "integer",
-										Minimum: float64Ptr(1),
-										Maximum: float64Ptr(1),
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
 									},
 								},
-							},
-							"Worker": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"replicas": {
-										Type:    "integer",
-										Minimum: float64Ptr(1),
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
 									},
 								},
 							},

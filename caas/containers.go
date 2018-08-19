@@ -58,9 +58,9 @@ type ContainerSpec struct {
 // PodSpec defines the data values used to configure
 // a pod on the CAAS substrate.
 type PodSpec struct {
-	Containers               []ContainerSpec          `yaml:"-"`
-	OmitServiceFrontend      bool                     `yaml:"omitServiceFrontend"`
-	CustomResourceDefinition CustomResourceDefinition `yaml:"crd,omitempty"`
+	Containers                []ContainerSpec            `yaml:"-"`
+	OmitServiceFrontend       bool                       `yaml:"omitServiceFrontend"`
+	CustomResourceDefinitions []CustomResourceDefinition `yaml:"crd,omitempty"`
 }
 
 // CrdTemplateValidation defines the custom resource definition validation schema.
@@ -79,6 +79,9 @@ type CustomResourceDefinition struct {
 
 // Validate returns an error if the crd is not valid.
 func (crd *CustomResourceDefinition) Validate() error {
+	if crd.Kind == "" {
+		return errors.New("kind is missing")
+	}
 	if crd.Group == "" {
 		return errors.New("group is missing")
 	}
@@ -91,11 +94,6 @@ func (crd *CustomResourceDefinition) Validate() error {
 	return nil
 }
 
-// IsPresent checks if CustomResourceDefinition is empty.
-func (crd *CustomResourceDefinition) IsPresent() bool {
-	return crd.Kind != ""
-}
-
 // Validate returns an error if the spec is not valid.
 func (spec *PodSpec) Validate() error {
 	for _, c := range spec.Containers {
@@ -103,8 +101,8 @@ func (spec *PodSpec) Validate() error {
 			return errors.Trace(err)
 		}
 	}
-	if spec.CustomResourceDefinition.IsPresent() {
-		if err := spec.CustomResourceDefinition.Validate(); err != nil {
+	for _, crd := range spec.CustomResourceDefinitions {
+		if err := crd.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}

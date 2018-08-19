@@ -278,36 +278,38 @@ func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
 	defer ctrl.Finish()
 
 	podSpec := basicPodspec
-	podSpec.CustomResourceDefinition = caas.CustomResourceDefinition{
-		Kind:    "TFJob",
-		Group:   "kubeflow.org",
-		Version: "v1alpha2",
-		Scope:   "Namespaced",
-		Validation: caas.CrdTemplateValidation{
-			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-				"tfReplicaSpecs": {
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"Worker": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": {
-									Type:    "integer",
-									Minimum: float64Ptr(1),
+	podSpec.CustomResourceDefinitions = []caas.CustomResourceDefinition{
+		{
+			Kind:    "TFJob",
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Scope:   "Namespaced",
+			Validation: caas.CrdTemplateValidation{
+				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+					"tfReplicaSpecs": {
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"Worker": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type:    "integer",
+										Minimum: float64Ptr(1),
+									},
 								},
 							},
-						},
-						"PS": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": {
-									Type: "integer", Minimum: float64Ptr(1),
+							"PS": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type: "integer", Minimum: float64Ptr(1),
+									},
 								},
 							},
-						},
-						"Chief": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": {
-									Type:    "integer",
-									Minimum: float64Ptr(1),
-									Maximum: float64Ptr(1),
+							"Chief": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type:    "integer",
+										Minimum: float64Ptr(1),
+										Maximum: float64Ptr(1),
+									},
 								},
 							},
 						},
@@ -319,7 +321,8 @@ func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "tfjob.kubeflow.org",
+			Name:      "tfjobs.kubeflow.org",
+			Namespace: "test",
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -379,36 +382,38 @@ func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
 	defer ctrl.Finish()
 
 	podSpec := basicPodspec
-	podSpec.CustomResourceDefinition = caas.CustomResourceDefinition{
-		Kind:    "TFJob",
-		Group:   "kubeflow.org",
-		Version: "v1alpha2",
-		Scope:   "Namespaced",
-		Validation: caas.CrdTemplateValidation{
-			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-				"tfReplicaSpecs": {
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"Worker": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": {
-									Type:    "integer",
-									Minimum: float64Ptr(1),
+	podSpec.CustomResourceDefinitions = []caas.CustomResourceDefinition{
+		{
+			Kind:    "TFJob",
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Scope:   "Namespaced",
+			Validation: caas.CrdTemplateValidation{
+				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+					"tfReplicaSpecs": {
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"Worker": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type:    "integer",
+										Minimum: float64Ptr(1),
+									},
 								},
 							},
-						},
-						"PS": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": {
-									Type: "integer", Minimum: float64Ptr(1),
+							"PS": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type: "integer", Minimum: float64Ptr(1),
+									},
 								},
 							},
-						},
-						"Chief": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"replicas": {
-									Type:    "integer",
-									Minimum: float64Ptr(1),
-									Maximum: float64Ptr(1),
+							"Chief": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"replicas": {
+										Type:    "integer",
+										Minimum: float64Ptr(1),
+										Maximum: float64Ptr(1),
+									},
 								},
 							},
 						},
@@ -420,7 +425,8 @@ func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "tfjob.kubeflow.org",
+			Name:      "tfjobs.kubeflow.org",
+			Namespace: "test",
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",

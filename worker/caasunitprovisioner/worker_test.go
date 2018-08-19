@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
@@ -351,6 +352,88 @@ containers:
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+}
+
+func (s *WorkerSuite) TestNewPodSpecChangeCrd(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
+	defer workertest.CleanKill(c, w)
+
+	s.serviceBroker.ResetCalls()
+
+	// Same spec, nothing happens.
+	s.sendContainerSpecChange(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
+	select {
+	case <-s.serviceEnsured:
+		c.Fatal("service/unit ensured unexpectedly")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	float64Ptr := func(f float64) *float64 { return &f }
+
+	var (
+		anotherSpec = `
+crd:
+  - group: kubeflow.org
+    version: v1alpha2
+    scope: Namespaced
+    kind: TFJob
+    validation:
+      properties:
+        tfReplicaSpecs:
+          properties:
+            Worker:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+`[1:]
+
+		anotherParsedSpec = caas.PodSpec{
+			CustomResourceDefinitions: []caas.CustomResourceDefinition{
+				{
+					Kind:    "TFJob",
+					Group:   "kubeflow.org",
+					Version: "v1alpha2",
+					Scope:   "Namespaced",
+					Validation: caas.CrdTemplateValidation{
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"tfReplicaSpecs": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"Worker": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type:    "integer",
+												Minimum: float64Ptr(1),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	)
+
+	s.serviceBroker.podSpec = &anotherParsedSpec
+
+	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
+		PodSpec: anotherSpec,
+		Tags:    map[string]string{"foo": "bar"},
+	})
+	s.sendContainerSpecChange(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
+
+	select {
+	case <-s.serviceEnsured:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be ensured")
+	}
+
+	s.serviceBroker.CheckCallNames(c, "EnsureCrd", "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureCrd", "gitlab", &anotherParsedSpec)
 }
 
 func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
