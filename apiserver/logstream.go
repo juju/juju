@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/params"

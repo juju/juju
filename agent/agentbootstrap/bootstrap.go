@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 
 	coreraft "github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 

@@ -6,10 +6,10 @@ package storageprovisioner_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/clock"
 	"gopkg.in/goose.v2/neutron"
 
 	"github.com/juju/juju/environs"

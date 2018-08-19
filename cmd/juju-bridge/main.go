@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/juju/network/debinterfaces"
-	"github.com/juju/utils/clock"
 )
 
 const usage = `

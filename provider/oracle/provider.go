@@ -4,12 +4,12 @@
 package oracle
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"

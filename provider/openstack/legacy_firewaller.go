@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"

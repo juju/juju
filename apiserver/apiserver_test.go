@@ -12,10 +12,10 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/dependency"

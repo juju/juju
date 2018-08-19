@@ -6,7 +6,7 @@ package meterstatus
 import (
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 )
 
 type TriggerCreator func(WorkerState, string, time.Time, clock.Clock, time.Duration, time.Duration) (<-chan time.Time, <-chan time.Time)

@@ -1718,7 +1718,7 @@
     "github.com/juju/utils",
     "github.com/juju/utils/arch",
     "github.com/juju/utils/cert",
-    "github.com/juju/utils/clock",
+    "github.com/juju/clock",
     "github.com/juju/utils/deque",
     "github.com/juju/utils/du",
     "github.com/juju/utils/exec",

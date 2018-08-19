@@ -6,7 +6,7 @@ package lxd
 import (
 	"errors"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"

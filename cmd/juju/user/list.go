@@ -7,11 +7,11 @@ import (
 	"io"
 
 	"github.com/juju/ansiterm"
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"

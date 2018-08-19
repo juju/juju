@@ -15,8 +15,8 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/kr/pretty"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"

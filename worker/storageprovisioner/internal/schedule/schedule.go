@@ -7,8 +7,8 @@ import (
 	"container/heap"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 )
 
 // Schedule provides a schedule for storage operations, with the following

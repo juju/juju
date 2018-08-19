@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"

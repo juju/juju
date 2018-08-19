@@ -12,11 +12,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
-	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/core/actions"

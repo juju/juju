@@ -4,8 +4,8 @@
 package azure
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/environs"

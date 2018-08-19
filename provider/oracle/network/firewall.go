@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"

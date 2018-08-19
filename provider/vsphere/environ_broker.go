@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

@@ -14,9 +14,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"

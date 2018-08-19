@@ -5,10 +5,10 @@ package azure
 
 import (
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

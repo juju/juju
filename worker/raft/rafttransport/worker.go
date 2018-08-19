@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
