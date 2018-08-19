@@ -32,8 +32,16 @@ func (kubernetesEnvironProvider) Version() int {
 }
 
 func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
-	client, err := kubernetes.NewForConfig(c)
-	return client, apiextensionsclientset.New(client.CoreV1().RESTClient()), err
+	k8sClient, err := kubernetes.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	var apiextensionsclient *apiextensionsclientset.Clientset
+	apiextensionsclient, err = apiextensionsclientset.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return k8sClient, apiextensionsclient, nil
 }
 
 // Open is part of the ContainerEnvironProvider interface.

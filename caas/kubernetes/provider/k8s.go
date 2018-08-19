@@ -513,11 +513,11 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 
 func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) error {
 	if err := podSpec.CustomResourceDefinition.Validate(); err != nil {
-		return errors.Annotate(err, "validating custom resource definition.")
+		return errors.Annotate(err, "validating custom resource definition")
 	}
 	crd, err := k.ensureCrdTemplate(podSpec)
 	if err != nil {
-		return errors.Annotate(err, "ensuring custom resource definition template.")
+		return errors.Annotate(err, "ensuring custom resource definition template")
 	}
 	logger.Debugf("created crd %#v", crd)
 	return nil
@@ -525,14 +525,11 @@ func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) erro
 
 func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	t := podSpec.CustomResourceDefinition
-	name := strings.ToLower(t.Kind)
+	singularName := strings.ToLower(t.Kind)
+	pluralName := fmt.Sprintf("%ss", singularName)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "CustomResourceDefinition",
-			APIVersion: "apiextensions.k8s.io/v1beta1",
-		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      fmt.Sprintf("%s.%s", name, t.Group),
+			Name:      fmt.Sprintf("%s.%s", pluralName, t.Group),
 			Namespace: k.namespace,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -540,9 +537,9 @@ func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiext
 			Version: t.Version,
 			Scope:   apiextensionsv1beta1.ResourceScope(t.Scope),
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   fmt.Sprintf("%ss", name),
+				Plural:   pluralName,
 				Kind:     t.Kind,
-				Singular: name,
+				Singular: singularName,
 			},
 			Validation: &apiextensionsv1beta1.CustomResourceValidation{
 				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
@@ -551,7 +548,6 @@ func (k *kubernetesClient) ensureCrdTemplate(podSpec *caas.PodSpec) (crd *apiext
 			},
 		},
 	}
-	logger.Criticalf("crdIn ---> \n%#v", crdIn)
 	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
 	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	if k8serrors.IsAlreadyExists(err) {

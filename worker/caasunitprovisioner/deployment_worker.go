@@ -146,7 +146,6 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-		logger.Criticalf("spec ---> \n%q, spec.CustomResourceDefinition ----> \n%#v", specStr, spec.CustomResourceDefinition)
 		if spec.CustomResourceDefinition.IsPresent() {
 			logger.Debugf("created/updated custom resource definition for %q:\n%#v", w.application, spec.CustomResourceDefinition)
 			err = w.broker.EnsureCrd(w.application, spec)
