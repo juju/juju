@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 )
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that

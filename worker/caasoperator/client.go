@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
 )
 
 // Client provides an interface for interacting

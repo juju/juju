@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/watcher"
 )
 
 // New returns a new notify watch handler that will convert the given machine &

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasfirewaller"
 )
 

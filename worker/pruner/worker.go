@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.pruner")

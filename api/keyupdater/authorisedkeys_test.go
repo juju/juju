@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/keyupdater"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type keyupdaterSuite struct {

@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
 )
 
 // This module implements a subset of the interface provided by

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.externalcontrollerupdater")

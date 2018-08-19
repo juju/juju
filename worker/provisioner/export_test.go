@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/watcher"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {

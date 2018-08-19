@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/cleaner"
 )
 

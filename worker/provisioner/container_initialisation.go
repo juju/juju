@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher"
 	workercommon "github.com/juju/juju/worker/common"
 )
 

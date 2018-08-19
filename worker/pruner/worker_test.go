@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/statushistorypruner"
 )

@@ -23,12 +23,12 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/common"
 )
 

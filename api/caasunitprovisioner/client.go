@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/watcher"
 )
 
 // Client allows access to the CAAS unit provisioner API endpoint.

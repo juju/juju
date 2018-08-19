@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // NewLeadershipSettingsAccessor returns a new LeadershipSettingsAccessor.

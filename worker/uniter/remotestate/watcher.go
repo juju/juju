@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
 )
 

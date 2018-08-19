@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type machineSuite struct {

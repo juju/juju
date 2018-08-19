@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.api.credentialvalidator")

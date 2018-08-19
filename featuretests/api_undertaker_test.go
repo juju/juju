@@ -13,12 +13,12 @@ import (
 	"github.com/juju/juju/api/undertaker"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/watcher/watchertest"
 	"gopkg.in/juju/names.v2"
 )
 

@@ -7,7 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 type Watcher interface {

@@ -34,9 +34,9 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
 )
 

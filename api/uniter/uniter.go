@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
 )
 
 const uniterFacade = "Uniter"

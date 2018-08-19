@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/wrench"
 )
 

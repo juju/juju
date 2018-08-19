@@ -14,7 +14,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 	"gopkg.in/macaroon.v2-unstable"
 )
 

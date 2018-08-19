@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationminion"
 )

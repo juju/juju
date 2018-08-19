@@ -12,9 +12,9 @@ import (
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
 )
 
 // Machine represents a juju machine as seen by the provisioner worker.
