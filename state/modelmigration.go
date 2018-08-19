@@ -17,8 +17,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/status"
 )
 
 // This file contains functionality for managing the state documents

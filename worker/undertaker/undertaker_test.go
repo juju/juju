@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 // UndertakerSuite is *not* complete. But it's a lot more so

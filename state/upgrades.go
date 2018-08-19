@@ -20,11 +20,11 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/globalclock"
 	"github.com/juju/juju/state/lease"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider"
 )
 

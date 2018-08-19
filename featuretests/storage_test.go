@@ -16,10 +16,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"

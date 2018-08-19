@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 func (s *ListSuite) TestFilesystemListEmpty(c *gc.C) {

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 // An instance Id is a provider-specific identifier associated with an

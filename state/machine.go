@@ -22,12 +22,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 

@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 

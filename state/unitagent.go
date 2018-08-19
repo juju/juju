@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 // UnitAgent represents the state of an application's unit agent.

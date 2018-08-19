@@ -17,7 +17,7 @@ import (
 	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 // FormatSummary writes a summary of the current environment

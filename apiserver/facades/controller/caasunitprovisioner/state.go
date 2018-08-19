@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // CAASUnitProvisionerState provides the subset of global state

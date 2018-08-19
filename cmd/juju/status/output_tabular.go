@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	environscontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 

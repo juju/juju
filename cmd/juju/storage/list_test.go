@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/status"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/status"
 )
 
 type ListSuite struct {

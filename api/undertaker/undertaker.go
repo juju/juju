@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/status"
 )
 
 // NewWatcherFunc exists to let us test Watch properly.
