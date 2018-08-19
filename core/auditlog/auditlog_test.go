@@ -77,7 +77,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 	var log fakeLog
 	logTime, err := time.Parse(time.RFC3339, "2017-11-27T15:45:23Z")
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(logTime)
+	clock := testclock.NewClock(logTime)
 	rec, err := auditlog.NewRecorder(&log, clock, auditlog.ConversationArgs{
 		Who:          "wildbirds and peacedrums",
 		What:         "Doubt/Hope",

@@ -45,7 +45,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		},
 	}
 	s.authenticator = &mockAuthenticator{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.stub.ResetCalls()

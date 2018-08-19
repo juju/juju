@@ -28,7 +28,7 @@ var _ = gc.Suite(&observerSuite{})
 
 func (s *observerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.registry = prometheus.NewPedanticRegistry()
 
 	var err error

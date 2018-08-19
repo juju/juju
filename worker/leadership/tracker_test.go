@@ -48,7 +48,7 @@ func (s *TrackerSuite) refreshes(count int) {
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
-	s.clock = testing.NewClock(time.Date(2016, 10, 9, 12, 0, 0, 0, time.UTC))
+	s.clock = testclock.NewClock(time.Date(2016, 10, 9, 12, 0, 0, 0, time.UTC))
 	s.claimer = &StubClaimer{
 		Stub:     &testing.Stub{},
 		releases: make(chan struct{}),

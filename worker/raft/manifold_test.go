@@ -62,7 +62,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		s.transport.Close()
 	})
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 
 	s.context = s.newContext(nil)
 	s.manifold = raft.Manifold(raft.ManifoldConfig{

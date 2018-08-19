@@ -25,7 +25,7 @@ var _ = gc.Suite(&observerFactorySuite{})
 
 func (s *observerFactorySuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.registerer = fakePrometheusRegisterer{}
 }
 

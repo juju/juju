@@ -78,7 +78,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
 
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {

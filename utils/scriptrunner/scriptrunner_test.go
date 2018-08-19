@@ -36,21 +36,21 @@ func (s *ScriptRunnerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerFails(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
+	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("exit 1", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 1)
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerSucceeds(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
+	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("exit 0", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 0)
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
+	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand("echo -n 42", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 0)
@@ -59,7 +59,7 @@ func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *gc.C) {
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
+	clock := testclock.NewClock(coretesting.ZeroTime())
 	result, err := scriptrunner.RunCommand(">&2 echo -n 3.141", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 0)

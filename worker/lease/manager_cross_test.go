@@ -176,7 +176,7 @@ func (s *CrossSuite) TestCheckAcrossModels(c *gc.C) {
 }
 
 func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
-	clock := testing.NewClock(defaultClockStart)
+	clock := testclock.NewClock(defaultClockStart)
 	store := NewStore(nil, nil)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,

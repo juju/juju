@@ -35,7 +35,7 @@ func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testing.Clock) {
 	c.Assert(err, jc.ErrorIsNil)
 	facade.modelConfig = cfg
 
-	testClock := testing.NewClock(time.Time{})
+	testClock := testclock.NewClock(time.Time{})
 	conf := pruner.Config{
 		Facade:        facade,
 		PruneInterval: coretesting.ShortWait,

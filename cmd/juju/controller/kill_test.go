@@ -38,7 +38,7 @@ var _ = gc.Suite(&KillSuite{})
 
 func (s *KillSuite) SetUpTest(c *gc.C) {
 	s.baseDestroySuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -48,7 +48,7 @@ func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error
 func (s *KillSuite) newKillCommand() cmd.Command {
 	clock := s.clock
 	if clock == nil {
-		clock = testing.NewClock(time.Now())
+		clock = testclock.NewClock(time.Now())
 	}
 	return controller.NewKillCommandForTest(
 		s.api, s.clientapi, s.store, s.apierror, clock, nil,

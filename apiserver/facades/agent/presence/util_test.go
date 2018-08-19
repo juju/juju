@@ -68,7 +68,7 @@ func run(c *gc.C, stub *testing.Stub, test FixtureTest) {
 	context := &context{
 		c:       c,
 		stub:    stub,
-		clock:   testing.NewClock(time.Now()),
+		clock:   testclock.NewClock(time.Now()),
 		timeout: time.After(time.Second),
 		starts:  make(chan worker.Worker, 1000),
 	}

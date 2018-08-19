@@ -42,7 +42,7 @@ func (s *RemoteServerSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 	s.connectionOpener = &fakeConnectionOpener{}
 	tag := names.NewMachineTag("42")
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = centralhub.New(tag)
 	s.origin = tag.String()
 	s.config = psworker.RemoteServerConfig{

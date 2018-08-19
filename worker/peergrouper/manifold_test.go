@@ -40,7 +40,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.agent = &mockAgent{conf: mockAgentConfig{
 		info: &params.StateServingInfo{
 			StatePort: 1234,

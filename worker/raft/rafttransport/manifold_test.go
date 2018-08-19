@@ -63,7 +63,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.worker = &mockTransportWorker{
 		Transport: &raft.InmemTransport{},
 	}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 
 	s.context = s.newContext(nil)
 	s.manifold = rafttransport.Manifold(rafttransport.ManifoldConfig{

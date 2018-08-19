@@ -26,7 +26,7 @@ type BufferedLoggerSuite struct {
 func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mock = mockLogger{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 }
 
 func (s *BufferedLoggerSuite) waitFlush(c *gc.C) []state.LogRecord {

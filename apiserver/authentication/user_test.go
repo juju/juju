@@ -167,7 +167,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
-	clock := testing.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	_, err := authentication.CreateLocalLoginMacaroon(
 		names.NewUserTag("bobbrown"), &service, clock,
 	)
@@ -181,7 +181,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
-	clock := testing.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	authenticator := &authentication.UserAuthenticator{
 		Service: &service,
 		Clock:   clock,

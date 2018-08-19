@@ -29,7 +29,7 @@ type pingerSuite struct {
 var _ = gc.Suite(&pingerSuite{})
 
 func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testing.Clock) {
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	config := s.config
 	config.PingClock = clock
 	server := s.newServer(c, config)

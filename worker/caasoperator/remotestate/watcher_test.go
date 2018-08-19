@@ -28,7 +28,7 @@ var _ = gc.Suite(&WatcherSuite{})
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.appWatcher = newMockNotifyWatcher()
 	s.charmGetter = &mockCharmGetter{}
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{

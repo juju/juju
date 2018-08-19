@@ -35,7 +35,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:              "agent",
 		CentralHubName:         "central-hub",
 		StateConfigWatcherName: "state-config",
-		Recorder:               corepresence.New(testing.NewClock(time.Now())),
+		Recorder:               corepresence.New(testclock.NewClock(time.Now())),
 		Logger:                 loggo.GetLogger("test"),
 		NewWorker: func(presence.WorkerConfig) (worker.Worker, error) {
 			return nil, errors.New("boom")

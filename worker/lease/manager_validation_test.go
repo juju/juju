@@ -64,7 +64,7 @@ func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 		Secretary: func(string) (lease.Secretary, error) {
 			return nil, nil
 		},
-		Clock: testing.NewClock(time.Now()),
+		Clock: testclock.NewClock(time.Now()),
 	})
 	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -74,7 +74,7 @@ func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Store: NewStore(nil, nil),
-		Clock: testing.NewClock(time.Now()),
+		Clock: testclock.NewClock(time.Now()),
 		Secretary: func(string) (lease.Secretary, error) {
 			return nil, nil
 		},

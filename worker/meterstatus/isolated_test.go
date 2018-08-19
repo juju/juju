@@ -52,13 +52,13 @@ func (s *IsolatedWorkerConfigSuite) TestConfigValidation(c *gc.C) {
 		expected: "clock not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:     testing.NewClock(time.Now()),
+			Clock:     testclock.NewClock(time.Now()),
 			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
 		},
 		expected: "hook runner not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:  testing.NewClock(time.Now()),
+			Clock:  testclock.NewClock(time.Now()),
 			Runner: &stubRunner{stub: s.stub},
 		},
 		expected: "state file not provided",
@@ -104,7 +104,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 		return meterstatus.GetTriggers(state, status, disconectedAt, clk, amber, red)
 	}
 
-	s.clk = testing.NewClock(time.Now())
+	s.clk = testclock.NewClock(time.Now())
 	wrk, err := meterstatus.NewIsolatedStatusWorker(
 		meterstatus.IsolatedConfig{
 			Runner:           &stubRunner{stub: s.stub, ran: s.hookRan},

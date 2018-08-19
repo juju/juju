@@ -54,7 +54,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
-		Clock: testing.NewClock(time.Time{}),
+		Clock: testclock.NewClock(time.Time{}),
 	}
 }
 

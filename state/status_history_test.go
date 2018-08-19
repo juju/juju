@@ -28,7 +28,7 @@ type StatusHistorySuite struct {
 var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
-	clock := testing.NewClock(coretesting.NonZeroTime())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -68,7 +68,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
-	clock := testing.NewClock(coretesting.NonZeroTime())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{})

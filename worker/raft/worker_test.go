@@ -36,7 +36,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		StorageDir: c.MkDir(),
 		LocalID:    "123",
 		Transport:  s.newTransport("123"),
-		Clock:      testing.NewClock(time.Time{}),
+		Clock:      testclock.NewClock(time.Time{}),
 	}
 }
 
@@ -138,7 +138,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	// Make a new clock so the waits from the bootstrap aren't hanging
 	// around. Use time.Now() as the start so the time can be compared
 	// to raft.LastContact(), which unfortunately uses wallclock time.
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.config.Clock = s.clock
 	s.config.NoLeaderTimeout = 4 * time.Second
 
@@ -375,7 +375,7 @@ func (s *WorkerTimeoutSuite) TestNewWorkerTimesOut(c *gc.C) {
 	// object we don't want to just hang - that can make it really
 	// hard to work out what's going on. Instead we should timeout if
 	// the raft loop doesn't get started.
-	testClock := testing.NewClock(time.Time{})
+	testClock := testclock.NewClock(time.Time{})
 	s.config.Clock = testClock
 	_, underlying := coreraft.NewInmemTransport("something")
 	s.config.Transport = &hangingTransport{

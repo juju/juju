@@ -51,7 +51,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			dataDir: s.dataDir,
 		},
 	}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)

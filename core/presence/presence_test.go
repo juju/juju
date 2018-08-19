@@ -30,7 +30,7 @@ func (*suite) assertConnections(c *gc.C, connections presence.Connections, expec
 }
 
 func (s *suite) TestEmptyRecorder(c *gc.C) {
-	r := presence.New(testing.NewClock(time.Time{}))
+	r := presence.New(testclock.NewClock(time.Time{}))
 	c.Assert(r.IsEnabled(), jc.IsFalse)
 	r.Enable()
 	s.assertEmptyConnections(c, r.Connections())
@@ -272,7 +272,7 @@ func bootstrap(initialTime ...time.Time) (presence.Recorder, *testing.Clock) {
 		t = initialTime[0]
 	}
 	// By using a testing clock with a zero time, the times are always empty.
-	clock := testing.NewClock(t)
+	clock := testclock.NewClock(t)
 	r := presence.New(clock)
 	r.Enable()
 	connect(r, ha0)

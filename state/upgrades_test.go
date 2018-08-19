@@ -2071,7 +2071,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
 func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 	// Set a test clock so we can dictate the
 	// time set in the new status doc.
-	clock := testing.NewClock(time.Unix(0, 123))
+	clock := testclock.NewClock(time.Unix(0, 123))
 	s.state.SetClockForTesting(clock)
 
 	relations, closer := s.state.db().GetRawCollection(relationsC)

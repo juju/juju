@@ -93,7 +93,7 @@ type workerFixture struct {
 func newFixture(period time.Duration) workerFixture {
 	return workerFixture{
 		revisionUpdater: newMockRevisionUpdater(),
-		clock:           testing.NewClock(coretesting.ZeroTime()),
+		clock:           testclock.NewClock(coretesting.ZeroTime()),
 		period:          period,
 	}
 }

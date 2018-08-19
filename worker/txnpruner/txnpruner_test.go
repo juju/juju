@@ -23,7 +23,7 @@ var _ = gc.Suite(&TxnPrunerSuite{})
 
 func (s *TxnPrunerSuite) TestPrunes(c *gc.C) {
 	fakePruner := newFakeTransactionPruner()
-	testClock := testing.NewClock(time.Now())
+	testClock := testclock.NewClock(time.Now())
 	interval := time.Minute
 	p := txnpruner.New(fakePruner, interval, testClock)
 	defer p.Kill()

@@ -30,7 +30,7 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.stub.ResetCalls()
-	s.localClock = testing.NewClock(time.Time{})
+	s.localClock = testclock.NewClock(time.Time{})
 	s.updater = stubUpdater{
 		added: make(chan time.Duration, 1),
 	}

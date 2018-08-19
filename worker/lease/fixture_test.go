@@ -83,7 +83,7 @@ type Fixture struct {
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
 func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) {
-	clock := testing.NewClock(defaultClockStart)
+	clock := testclock.NewClock(defaultClockStart)
 	store := NewStore(fix.leases, fix.expectCalls)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,

@@ -34,7 +34,7 @@ type testFunc func(*singular.FlagWorker, *testing.Clock, func())
 
 func (fix *fixture) Run(c *gc.C, test testFunc) {
 	facade := newStubFacade(&fix.Stub)
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	flagWorker, err := singular.NewFlagWorker(singular.FlagConfig{
 		Facade:   facade,
 		Clock:    clock,

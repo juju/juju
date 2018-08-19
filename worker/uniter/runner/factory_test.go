@@ -170,7 +170,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            testing.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(

@@ -57,7 +57,7 @@ func (s *ExternalControllerUpdaterSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(*gc.C) { s.watcher.watcher.Stop() })
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 
 	s.stub.ResetCalls()
 	s.newWatcher = func(apiInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {

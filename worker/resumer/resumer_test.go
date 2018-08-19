@@ -80,7 +80,7 @@ func (fix fixture) Run(c *gc.C, test TestFunc) *testing.Stub {
 
 	stub := &testing.Stub{}
 	stub.SetErrors(fix.errors...)
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	facade := newMockFacade(stub)
 
 	worker, err := resumer.NewResumer(resumer.Config{

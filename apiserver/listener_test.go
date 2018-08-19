@@ -35,7 +35,7 @@ func (s *listenerSuite) SetUpTest(c *gc.C) {
 	s.lowerThreshold = 1000
 	s.upperThreshold = 10000
 
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.listener = &mockListener{}
 }
 

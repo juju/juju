@@ -27,7 +27,7 @@ var _ = gc.Suite(&recorderSuite{})
 func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
@@ -66,7 +66,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
@@ -99,7 +99,7 @@ func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 func (s *recorderSuite) TestServerReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
@@ -201,7 +201,7 @@ func (s *recorderSuite) TestReplyResultSlice(c *gc.C) {
 func (s *recorderSuite) checkServerReplyErrors(c *gc.C, result interface{}, expected []*auditlog.Error) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})

@@ -162,7 +162,7 @@ func (s *InteractiveSuite) SetUpTest(c *gc.C) {
 		uuids = uuids[1:]
 		return uuid, nil
 	}
-	s.clock = testing.NewClock(clockStartTime())
+	s.clock = testclock.NewClock(clockStartTime())
 }
 
 func (s *InteractiveSuite) TestInteractive(c *gc.C) {

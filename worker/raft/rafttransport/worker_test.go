@@ -42,7 +42,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	tag := names.NewMachineTag("123")
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.config = rafttransport.Config{
 		APIInfo: &api.Info{
 			Tag:      tag,

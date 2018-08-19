@@ -25,7 +25,7 @@ var _ = gc.Suite(&RequestObserverSuite{})
 func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *connectionHub) {
 	hub := &connectionHub{c: c}
 	return observer.NewRequestObserver(observer.RequestObserverContext{
-		Clock:  testing.NewClock(time.Now()),
+		Clock:  testclock.NewClock(time.Now()),
 		Hub:    hub,
 		Logger: loggo.GetLogger("test"),
 	}), hub

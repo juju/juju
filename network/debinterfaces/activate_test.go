@@ -49,7 +49,7 @@ func (s *BridgeSuite) TestActivateEth0(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            testing.NewClock(time.Now()),
+		Clock:            testclock.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
@@ -76,7 +76,7 @@ func (s *BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            testing.NewClock(time.Now()),
+		Clock:            testclock.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
@@ -104,7 +104,7 @@ func (s *BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            testing.NewClock(time.Now()),
+		Clock:            testclock.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
