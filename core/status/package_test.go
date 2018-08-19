@@ -22,6 +22,6 @@ var _ = gc.Suite(&ImportTest{})
 func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/status")
 
-	// This package brings in nothing else from juju/juju
+	// This package brings in nothing else from juju/juju/core
 	c.Assert(found, gc.HasLen, 0)
 }
