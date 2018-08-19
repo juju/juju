@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/credentialvalidator"
 )
 

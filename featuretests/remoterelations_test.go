@@ -12,13 +12,13 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 // TODO(axw) this suite should be re-written as end-to-end tests using the

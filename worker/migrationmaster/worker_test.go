@@ -28,11 +28,11 @@ import (
 	servercommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/resource/resourcetesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 )

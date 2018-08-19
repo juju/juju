@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"

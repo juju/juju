@@ -22,10 +22,10 @@ import (
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/wrench"
 )

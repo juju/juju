@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/watcher"
 )
 
 // storageEntityLife queries the lifecycle state of each specified

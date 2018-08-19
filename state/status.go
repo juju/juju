@@ -17,9 +17,9 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/status"
 )
 
 // ModelStatus holds all the current status values for a given model

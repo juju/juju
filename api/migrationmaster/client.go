@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/watcher"
 )
 
 // NewWatcherFunc exists to let us unit test Facade without patching.

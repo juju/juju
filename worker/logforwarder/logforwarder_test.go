@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/logfwd/syslog"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/logforwarder"
 )
 

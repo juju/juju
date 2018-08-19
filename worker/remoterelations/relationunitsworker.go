@@ -14,7 +14,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 type relationUnitsSettingsFunc func([]string) ([]params.SettingsResult, error)

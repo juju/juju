@@ -6,7 +6,7 @@ package caasunitprovisioner
 import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 type ContainerBroker interface {

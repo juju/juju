@@ -9,8 +9,8 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
 )
 
 // UserModel holds information about a model and the last

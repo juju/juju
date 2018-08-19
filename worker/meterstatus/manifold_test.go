@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/uniter/runner"
 )

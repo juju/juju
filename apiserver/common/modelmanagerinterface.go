@@ -11,11 +11,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // ModelManagerBackend defines methods provided by a state

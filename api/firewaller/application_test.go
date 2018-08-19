@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 type applicationSuite struct {

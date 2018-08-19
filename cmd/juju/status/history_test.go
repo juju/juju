@@ -16,7 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	statuscmd "github.com/juju/juju/cmd/juju/status"
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 )
 
 type StatusHistorySuite struct {

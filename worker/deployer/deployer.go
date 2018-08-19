@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.deployer")

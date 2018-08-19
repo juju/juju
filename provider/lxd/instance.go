@@ -8,10 +8,10 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 type environInstance struct {

@@ -8,9 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/watchertest"
 )
 
 type stateSuite struct {

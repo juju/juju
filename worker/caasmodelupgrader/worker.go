@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/status"
+	"github.com/juju/juju/core/status"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 )
