@@ -70,7 +70,9 @@ func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c *gc.C) {
 	s.PatchEnvironment("USER", "fred")
+	s.PatchEnvironment("OS_AUTH_VERSION", "2")
 	s.PatchEnvironment("OS_TENANT_NAME", "gary")
+	s.PatchEnvironment("OS_TENANT_ID", "abcd123")
 	s.PatchEnvironment("OS_ACCESS_KEY", "key-id")
 	s.PatchEnvironment("OS_SECRET_KEY", "secret-access-key")
 	s.PatchEnvironment("OS_REGION_NAME", "east")
@@ -80,9 +82,11 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	c.Assert(credentials.DefaultRegion, gc.Equals, "east")
 	expected := cloud.NewCredential(
 		cloud.AccessKeyAuthType, map[string]string{
+			"version":     "2",
 			"access-key":  "key-id",
 			"secret-key":  "secret-access-key",
 			"tenant-name": "gary",
+			"tenant-id":   "abcd123",
 		},
 	)
 	expected.Label = `openstack region "east" project "gary" user "fred"`
@@ -90,8 +94,10 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *gc.C) {
+	s.PatchEnvironment("OS_IDENTITY_API_VERSION", "3")
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
+	s.PatchEnvironment("OS_PROJECT_ID", "xyz")
 	s.PatchEnvironment("OS_USERNAME", "bob")
 	s.PatchEnvironment("OS_PASSWORD", "dobbs")
 	s.PatchEnvironment("OS_REGION_NAME", "west")
@@ -102,9 +108,11 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
+			"version":             "3",
 			"username":            "bob",
 			"password":            "dobbs",
 			"tenant-name":         "gary",
+			"tenant-id":           "xyz",
 			"domain-name":         "",
 			"project-domain-name": "",
 			"user-domain-name":    "user-domain",
@@ -115,6 +123,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
+	s.PatchEnvironment("OS_AUTH_VERSION", "3")
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
 	s.PatchEnvironment("OS_USERNAME", "bob")
@@ -127,9 +136,11 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
 	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
+			"version":             "3",
 			"username":            "bob",
 			"password":            "dobbs",
 			"tenant-name":         "gary",
+			"tenant-id":           "",
 			"domain-name":         "",
 			"project-domain-name": "default-domain",
 			"user-domain-name":    "default-domain",
@@ -154,7 +165,9 @@ func (s *credentialsSuite) TestDetectCredentialsNovarc(c *gc.C) {
 
 	content := `
 # Some secrets
+export OS_AUTH_VERSION=3
 export OS_TENANT_NAME=gary
+export OS_TENANT_ID=xyz
 EXPORT OS_USERNAME=bob
   export  OS_PASSWORD = dobbs
 OS_REGION_NAME=region
@@ -168,9 +181,11 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
+			"version":             "3",
 			"username":            "bob",
 			"password":            "dobbs",
 			"tenant-name":         "gary",
+			"tenant-id":           "xyz",
 			"domain-name":         "",
 			"project-domain-name": "project-domain",
 			"user-domain-name":    "",

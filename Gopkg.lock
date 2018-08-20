@@ -1208,7 +1208,7 @@
   revision = "442357a80af5c6bf9b6d51ae791a39c3421004f3"
 
 [[projects]]
-  digest = "1:5a413549c9d62d1d2c052fdbe403d79661ad305c518a94a2ee77308d563c87f2"
+  digest = "1:9a9b8033b631d8cf0d16e71fd815a6e90a8133efc81543784127a1e8d8b4687e"
   name = "gopkg.in/goose.v2"
   packages = [
     ".",
@@ -1217,6 +1217,7 @@
     "errors",
     "http",
     "identity",
+    "internal/gooseio",
     "internal/httpfile",
     "logging",
     "neutron",
@@ -1233,7 +1234,7 @@
     "testservices/swiftservice",
   ]
   pruneopts = ""
-  revision = "9cc2ac8f3ac3904725fe9bef85d30b53713b3be9"
+  revision = "cf9b64132d71c47930543f2add6ddab0fc402147"
 
 [[projects]]
   digest = "1:445becf3878aa9bd50dfa972bd65f974ed2468c09350ab9ce28b1e4adce464df"
