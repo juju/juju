@@ -40,12 +40,20 @@ func (st *State) ResumeTransactions() error {
 func (st *State) MaybePruneTransactions() error {
 	runner, closer := st.database.TransactionRunner()
 	defer closer()
+	cfg, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	maxBatchSize := cfg.MaxPruneTxnBatchSize()
+	maxPasses := cfg.MaxPruneTxnPasses()
 	// Prune txns when txn count has increased by 10% since last prune.
 	return runner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor:        1.1,
-		MinNewTransactions: 1000,
-		MaxNewTransactions: 100000,
-		MaxTime:            time.Now().Add(-time.Hour),
+		PruneFactor:          1.1,
+		MinNewTransactions:   1000,
+		MaxNewTransactions:   100000,
+		MaxTime:              time.Now().Add(-time.Hour),
+		MaxBatchTransactions: uint64(maxBatchSize),
+		MaxBatches:           maxPasses,
 	})
 }
 

@@ -111,6 +111,16 @@ const (
 	// MaxTxnLogSize is the maximum size the of capped txn log collection, eg "10M"
 	MaxTxnLogSize = "max-txn-log-size"
 
+	// MaxPruneTxnBatchSize is the maximum number of transactions we will evaluate in one go when pruning
+	// Default is 1M transactions. A value <= 0 indicates to do all transactions at once.
+	MaxPruneTxnBatchSize = "max-prune-txn-batch-size"
+
+	// MaxPruneTxnPasses is the maximum number of batches that we will process. So total number of transactions that can
+	// be processed is MaxPruneTxnBatchSize * MaxPruneTxnPasses.
+	// A value <= 0 implies 'do a single pass'. If both MaxPruneTxnBatchSize and MaxPruneTxnPasses are 0, then the
+	// default value of 1M BatchSize and 100 passes will be used instead.
+	MaxPruneTxnPasses = "max-prune-txn-passes"
+
 	// Attribute Defaults
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -151,6 +161,12 @@ const (
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
+
+	// DefaultMaxPruneTxnBatchSize is the normal number of transaction we will prune in a given pass (1M)
+	DefaultMaxPruneTxnBatchSize = 1 * 1000 * 1000
+
+	// DefaultMaxPruneTxnPasses is the default number of batches we will process
+	DefaultMaxPruneTxnPasses = 100
 )
 
 var (
@@ -171,6 +187,8 @@ var (
 		MaxLogsSize,
 		MaxLogsAge,
 		MaxTxnLogSize,
+		MaxPruneTxnBatchSize,
+		MaxPruneTxnPasses,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
 		AuditLogMaxSize,
@@ -252,6 +270,13 @@ func (c Config) mustInt(name string) int {
 	return value
 }
 
+func (c Config) intOrDefault(name string, defaultVal int) int {
+	if _, ok := c[name]; ok {
+		return c.mustInt(name)
+	}
+	return defaultVal
+}
+
 // asString is a private helper method to keep the ugly string casting
 // in once place. It returns the given named attribute as a string,
 // returning "" if it isn't found.
@@ -309,14 +334,7 @@ func (c Config) AuditLogMaxSizeMB() int {
 // AuditLogMaxBackups returns the maximum number of backup audit log
 // files to keep.
 func (c Config) AuditLogMaxBackups() int {
-	if value, ok := c[AuditLogMaxBackups]; ok {
-		// Values obtained over the API are encoded as float64.
-		if floatValue, ok := value.(float64); ok {
-			return int(floatValue)
-		}
-		return value.(int)
-	}
-	return DefaultAuditLogMaxBackups
+	return c.intOrDefault(AuditLogMaxBackups, DefaultAuditLogMaxBackups)
 }
 
 // AuditLogExcludeMethods returns the set of method names that are
@@ -426,6 +444,16 @@ func (c Config) MaxTxnLogSizeMB() int {
 	// Value has already been validated.
 	val, _ := utils.ParseSize(c.mustString(MaxTxnLogSize))
 	return int(val)
+}
+
+// MaxPruneTxnBatchSize is the maximum size of the txn log collection.
+func (c Config) MaxPruneTxnBatchSize() int {
+	return c.intOrDefault(MaxPruneTxnBatchSize, DefaultMaxPruneTxnBatchSize)
+}
+
+// MaxPruneTxnPasses is the maximum number of batches of the txn log collection we will process at a time.
+func (c Config) MaxPruneTxnPasses() int {
+	return c.intOrDefault(MaxPruneTxnPasses, DefaultMaxPruneTxnPasses)
 }
 
 // Validate ensures that config is a valid configuration.
@@ -548,6 +576,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
+	MaxPruneTxnBatchSize:    schema.ForceInt(),
+	MaxPruneTxnPasses:       schema.ForceInt(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -566,4 +596,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
+	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
+	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
 })
