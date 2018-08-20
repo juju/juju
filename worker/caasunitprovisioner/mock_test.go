@@ -57,8 +57,8 @@ func (m *mockServiceBroker) EnsureService(appName string, params *caas.ServicePa
 	return m.NextErr()
 }
 
-func (m *mockServiceBroker) EnsureCrd(appName string, podSpec *caas.PodSpec) error {
-	m.MethodCall(m, "EnsureCrd", appName, podSpec)
+func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
+	m.MethodCall(m, "EnsureCustomResourceDefinition", appName, podSpec)
 	return m.NextErr()
 }
 

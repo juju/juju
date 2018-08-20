@@ -273,7 +273,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -284,7 +284,7 @@ func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
 			Group:   "kubeflow.org",
 			Version: "v1alpha2",
 			Scope:   "Namespaced",
-			Validation: caas.CrdTemplateValidation{
+			Validation: caas.CustomResourceDefinitionValidation{
 				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 					"tfReplicaSpecs": {
 						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
@@ -371,13 +371,14 @@ func (s *K8sBrokerSuite) TestEnsureCrdCreate(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockCrd.EXPECT().Create(crd).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Update(crd).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, nil),
 	)
-	err := s.broker.EnsureCrd("test", podSpec)
+	err := s.broker.EnsureCustomResourceDefinition("test", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -388,7 +389,7 @@ func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
 			Group:   "kubeflow.org",
 			Version: "v1alpha2",
 			Scope:   "Namespaced",
-			Validation: caas.CrdTemplateValidation{
+			Validation: caas.CustomResourceDefinitionValidation{
 				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 					"tfReplicaSpecs": {
 						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
@@ -474,10 +475,9 @@ func (s *K8sBrokerSuite) TestEnsureCrdUpdate(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		s.mockCrd.EXPECT().Create(crd).Times(1).Return(nil, s.k8sAlreadyExistError()),
-		s.mockCrd.EXPECT().Update(crd).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Update(crd).Times(1).Return(crd, nil),
 	)
-	err := s.broker.EnsureCrd("test", podSpec)
+	err := s.broker.EnsureCustomResourceDefinition("test", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

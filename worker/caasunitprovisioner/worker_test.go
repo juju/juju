@@ -396,7 +396,7 @@ crd:
 					Group:   "kubeflow.org",
 					Version: "v1alpha2",
 					Scope:   "Namespaced",
-					Validation: caas.CrdTemplateValidation{
+					Validation: caas.CustomResourceDefinitionValidation{
 						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 							"tfReplicaSpecs": {
 								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
@@ -432,8 +432,8 @@ crd:
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
-	s.serviceBroker.CheckCallNames(c, "EnsureCrd", "EnsureService")
-	s.serviceBroker.CheckCall(c, 0, "EnsureCrd", "gitlab", &anotherParsedSpec)
+	s.serviceBroker.CheckCallNames(c, "EnsureCustomResourceDefinition", "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureCustomResourceDefinition", "gitlab", &anotherParsedSpec)
 }
 
 func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {

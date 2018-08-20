@@ -60,36 +60,36 @@ type ContainerSpec struct {
 type PodSpec struct {
 	Containers                []ContainerSpec            `yaml:"-"`
 	OmitServiceFrontend       bool                       `yaml:"omitServiceFrontend"`
-	CustomResourceDefinitions []CustomResourceDefinition `yaml:"crd,omitempty"`
+	CustomResourceDefinitions []CustomResourceDefinition `yaml:"customResourceDefinition,omitempty"`
 }
 
-// CrdTemplateValidation defines the custom resource definition validation schema.
-type CrdTemplateValidation struct {
+// CustomResourceDefinitionValidation defines the custom resource definition validation schema.
+type CustomResourceDefinitionValidation struct {
 	Properties map[string]apiextensionsv1beta1.JSONSchemaProps `yaml:"properties"`
 }
 
 // CustomResourceDefinition defines the custom resource definition template and content format in podspec.
 type CustomResourceDefinition struct {
-	Kind       string                `yaml:"kind"`
-	Group      string                `yaml:"group"`
-	Version    string                `yaml:"version"`
-	Scope      string                `yaml:"scope"`
-	Validation CrdTemplateValidation `yaml:"validation,omitempty"`
+	Kind       string                             `yaml:"kind"`
+	Group      string                             `yaml:"group"`
+	Version    string                             `yaml:"version"`
+	Scope      string                             `yaml:"scope"`
+	Validation CustomResourceDefinitionValidation `yaml:"validation,omitempty"`
 }
 
 // Validate returns an error if the crd is not valid.
 func (crd *CustomResourceDefinition) Validate() error {
 	if crd.Kind == "" {
-		return errors.New("kind is missing")
+		return errors.NotValidf("missing kind")
 	}
 	if crd.Group == "" {
-		return errors.New("group is missing")
+		return errors.NotValidf("missing group")
 	}
 	if crd.Version == "" {
-		return errors.New("version is missing")
+		return errors.NotValidf("missing version")
 	}
 	if crd.Scope == "" {
-		return errors.New("scope is missing")
+		return errors.NotValidf("missing scope")
 	}
 	return nil
 }

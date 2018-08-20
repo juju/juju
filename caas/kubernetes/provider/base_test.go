@@ -42,9 +42,9 @@ type BaseSuite struct {
 	mockStorageClass           *mocks.MockStorageClassInterface
 	mockIngressInterface       *mocks.MockIngressInterface
 
-	mockApiextensionsV1     *mocks.MockApiextensionsV1beta1Interface
-	mockApiextensionsClient *mocks.MockApiExtensionsClientInterface
-	mockCrd                 *mocks.MockCustomResourceDefinitionInterface
+	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
+	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
+	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
 }
 
 const testNamespace = "test"
@@ -108,9 +108,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 	s.mockApiextensionsClient = mocks.NewMockApiExtensionsClientInterface(ctrl)
 	s.mockApiextensionsV1 = mocks.NewMockApiextensionsV1beta1Interface(ctrl)
-	s.mockCrd = mocks.NewMockCustomResourceDefinitionInterface(ctrl)
+	s.mockCustomResourceDefinition = mocks.NewMockCustomResourceDefinitionInterface(ctrl)
 	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
-	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCrd)
+	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
 
 	// Set up the mock k8sClient we pass to our broker under test.
 	newClient := func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
@@ -134,10 +134,6 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
-}
-
-func (s *BaseSuite) k8sAlreadyExistError() *k8serrors.StatusError {
-	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 
 func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {

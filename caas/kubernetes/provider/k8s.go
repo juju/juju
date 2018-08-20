@@ -64,12 +64,11 @@ var defaultPropagationPolicy = v1.DeletePropagationForeground
 
 type kubernetesClient struct {
 	kubernetes.Interface
+	apiextensionsClient apiextensionsclientset.Interface
 
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
-
-	apiextensionsClient apiextensionsclientset.Interface
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -95,8 +94,8 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK
 	}
 	return &kubernetesClient{
 		Interface:           k8sClient,
-		namespace:           namespace,
 		apiextensionsClient: apiextensionsClient,
+		namespace:           namespace,
 	}, nil
 }
 
@@ -511,9 +510,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(appName))
 }
 
-func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) error {
+// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
+func (k *kubernetesClient) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
 	for _, t := range podSpec.CustomResourceDefinitions {
-		crd, err := k.ensureCrdTemplate(&t)
+		crd, err := k.ensureCustomResourceDefinitionTemplate(&t)
 		if err != nil {
 			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", t.Kind))
 		}
@@ -522,7 +522,8 @@ func (k *kubernetesClient) EnsureCrd(appName string, podSpec *caas.PodSpec) erro
 	return nil
 }
 
-func (k *kubernetesClient) ensureCrdTemplate(t *caas.CustomResourceDefinition) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
+func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.CustomResourceDefinition) (
+	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	singularName := strings.ToLower(t.Kind)
 	pluralName := fmt.Sprintf("%ss", singularName)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
@@ -547,10 +548,11 @@ func (k *kubernetesClient) ensureCrdTemplate(t *caas.CustomResourceDefinition) (
 		},
 	}
 	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
-	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
-	if k8serrors.IsAlreadyExists(err) {
-		logger.Infof("updating crd %#v", crdIn)
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
+	logger.Debugf("try to update crd %#v", crdIn)
+	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
+	if k8serrors.IsNotFound(err) {
+		logger.Debugf("no existing crd, so create one %#v", crdIn)
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	}
 	return
 }
@@ -743,7 +745,6 @@ func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []device
 			}
 		}
 		unitSpec.Pod.Containers[i].Resources = resources
-
 	}
 	nodeLabel, err := getNodeSelectorFromDeviceConstraints(devices)
 	if err != nil {

@@ -161,7 +161,7 @@ containers:
           file1: |
             [config]
             foo: bar
-crd:
+customResourceDefinition:
   - group: kubeflow.org
     version: v1alpha2
     scope: Namespaced
@@ -245,7 +245,7 @@ foo: bar
 				Group:   "kubeflow.org",
 				Version: "v1alpha2",
 				Scope:   "Namespaced",
-				Validation: caas.CrdTemplateValidation{
+				Validation: caas.CustomResourceDefinitionValidation{
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 						"tfReplicaSpecs": {
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
