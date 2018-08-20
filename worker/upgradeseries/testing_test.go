@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker/upgradeseries"
+	. "github.com/juju/juju/worker/upgradeseries/mocks"
 )
 
 // validManifoldConfig returns a valid manifold config created from mocks based

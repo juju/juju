@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/upgradeseries"
+	. "github.com/juju/juju/worker/upgradeseries/mocks"
 )
 
 type fakeWatcher struct {
