@@ -33,6 +33,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AllowModelAccessKey,
 		controller.MongoMemoryProfile,
 		controller.AuditLogExcludeMethods,
+		controller.MaxPruneTxnBatchSize,
+		controller.MaxPruneTxnPasses,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

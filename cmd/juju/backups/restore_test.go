@@ -263,7 +263,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 	})
 }
 
-func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
+func (s *restoreSuite) TestRestoreRebootstrapControllerConfigDefaults(c *gc.C) {
 	metadata := params.BackupsMetadataResult{
 		CACert:       testing.CACert,
 		CAPrivateKey: testing.CAKey,
@@ -292,6 +292,8 @@ func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
 			"max-logs-age":              "72h",
 			"max-logs-size":             "4096M",
 			"max-txn-log-size":          "10M",
+			"max-prune-txn-batch-size":  1000000,
+			"max-prune-txn-passes":      100,
 			"auditing-enabled":          true,
 			"audit-log-capture-args":    false,
 			"audit-log-max-size":        "300M",
