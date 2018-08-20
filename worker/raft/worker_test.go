@@ -9,6 +9,7 @@ import (
 
 	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

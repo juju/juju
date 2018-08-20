@@ -6,6 +6,7 @@ package pubsub_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"

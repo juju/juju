@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"

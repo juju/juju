@@ -5,10 +5,11 @@
 package jujuc
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	relation "github.com/juju/juju/core/relation"
-	reflect "reflect"
 )
 
 // MockContextRelation is a mock of ContextRelation interface

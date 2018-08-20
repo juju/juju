@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/testing"

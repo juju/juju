@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"

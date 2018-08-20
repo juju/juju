@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	amzec2 "gopkg.in/amz.v3/ec2"

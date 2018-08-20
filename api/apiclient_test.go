@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/testing"

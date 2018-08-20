@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"

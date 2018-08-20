@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
