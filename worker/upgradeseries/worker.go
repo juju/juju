@@ -15,9 +15,9 @@ import (
 )
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
-//go:generate mockgen -package upgradeseries_test -destination worker_mock_test.go gopkg.in/juju/worker.v1 Worker
+//go:generate mockgen -package upgradeseries_test -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
 
-//go:generate mockgen -package upgradeseries_test -destination package_mock_test.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess
+//go:generate mockgen -package upgradeseries_test -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {

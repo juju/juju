@@ -36,18 +36,6 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
-// StartUnitUpgradeSeriesCompletionPhase mocks base method
-func (m *MockFacade) StartUnitUpgradeSeriesCompletionPhase() error {
-	ret := m.ctrl.Call(m, "StartUnitUpgradeSeriesCompletionPhase")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StartUnitUpgradeSeriesCompletionPhase indicates an expected call of StartUnitUpgradeSeriesCompletionPhase
-func (mr *MockFacadeMockRecorder) StartUnitUpgradeSeriesCompletionPhase() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitUpgradeSeriesCompletionPhase", reflect.TypeOf((*MockFacade)(nil).StartUnitUpgradeSeriesCompletionPhase))
-}
-
 // MachineStatus mocks base method
 func (m *MockFacade) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "MachineStatus")
@@ -71,6 +59,18 @@ func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus) error {
 // SetMachineStatus indicates an expected call of SetMachineStatus
 func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0)
+}
+
+// StartUnitUpgradeSeriesCompletionPhase mocks base method
+func (m *MockFacade) StartUnitUpgradeSeriesCompletionPhase() error {
+	ret := m.ctrl.Call(m, "StartUnitUpgradeSeriesCompletionPhase")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartUnitUpgradeSeriesCompletionPhase indicates an expected call of StartUnitUpgradeSeriesCompletionPhase
+func (mr *MockFacadeMockRecorder) StartUnitUpgradeSeriesCompletionPhase() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitUpgradeSeriesCompletionPhase", reflect.TypeOf((*MockFacade)(nil).StartUnitUpgradeSeriesCompletionPhase))
 }
 
 // UpgradeSeriesStatus mocks base method

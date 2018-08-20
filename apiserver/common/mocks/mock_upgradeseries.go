@@ -85,18 +85,6 @@ func (m *MockUpgradeSeriesMachine) EXPECT() *MockUpgradeSeriesMachineMockRecorde
 	return m.recorder
 }
 
-// StartUnitUpgradeSeriesCompletionPhase mocks base method
-func (m *MockUpgradeSeriesMachine) StartUnitUpgradeSeriesCompletionPhase() error {
-	ret := m.ctrl.Call(m, "StartUnitUpgradeSeriesCompletionPhase")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StartUnitUpgradeSeriesCompletionPhase indicates an expected call of StartUnitUpgradeSeriesCompletionPhase
-func (mr *MockUpgradeSeriesMachineMockRecorder) StartUnitUpgradeSeriesCompletionPhase() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitUpgradeSeriesCompletionPhase", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).StartUnitUpgradeSeriesCompletionPhase))
-}
-
 // MachineUpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesMachine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "MachineUpgradeSeriesStatus")
@@ -120,6 +108,18 @@ func (m *MockUpgradeSeriesMachine) SetMachineUpgradeSeriesStatus(arg0 model.Upgr
 // SetMachineUpgradeSeriesStatus indicates an expected call of SetMachineUpgradeSeriesStatus
 func (mr *MockUpgradeSeriesMachineMockRecorder) SetMachineUpgradeSeriesStatus(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).SetMachineUpgradeSeriesStatus), arg0)
+}
+
+// StartUnitUpgradeSeriesCompletionPhase mocks base method
+func (m *MockUpgradeSeriesMachine) StartUnitUpgradeSeriesCompletionPhase() error {
+	ret := m.ctrl.Call(m, "StartUnitUpgradeSeriesCompletionPhase")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartUnitUpgradeSeriesCompletionPhase indicates an expected call of StartUnitUpgradeSeriesCompletionPhase
+func (mr *MockUpgradeSeriesMachineMockRecorder) StartUnitUpgradeSeriesCompletionPhase() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitUpgradeSeriesCompletionPhase", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).StartUnitUpgradeSeriesCompletionPhase))
 }
 
 // Units mocks base method
