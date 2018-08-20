@@ -206,6 +206,8 @@ var (
 		AuditingEnabled,
 		AuditLogCaptureArgs,
 		AuditLogExcludeMethods,
+		MaxPruneTxnBatchSize,
+		MaxPruneTxnPasses,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
