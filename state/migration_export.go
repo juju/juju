@@ -28,15 +28,19 @@ const maxStatusHistoryEntries = 20
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	SkipActions            bool
-	SkipAnnotations        bool
-	SkipCloudImageMetadata bool
-	SkipCredentials        bool
-	SkipIPAddresses        bool
-	SkipSettings           bool
-	SkipSSHHostKeys        bool
-	SkipStatusHistory      bool
-	SkipLinkLayerDevices   bool
+	SkipActions              bool
+	SkipAnnotations          bool
+	SkipCloudImageMetadata   bool
+	SkipCredentials          bool
+	SkipIPAddresses          bool
+	SkipSettings             bool
+	SkipSSHHostKeys          bool
+	SkipStatusHistory        bool
+	SkipLinkLayerDevices     bool
+	SkipUnitAgentBinaries    bool
+	SkipMachineAgentBinaries bool
+	SkipRelationScope        bool
+	SkipInstanceData         bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -406,7 +410,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	// We fully expect the machine to have tools set, and that there is
 	// some instance data.
 	instData, found := instances[machine.doc.Id]
-	if !found {
+	if !found && !e.cfg.SkipInstanceData {
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
@@ -446,18 +450,20 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	exMachine.SetStatus(statusArgs)
 	exMachine.SetStatusHistory(e.statusHistoryArgs(globalKey))
 
-	tools, err := machine.AgentTools()
-	if err != nil {
-		// This means the tools aren't set, but they should be.
-		return nil, errors.Trace(err)
-	}
+	if !e.cfg.SkipMachineAgentBinaries {
+		tools, err := machine.AgentTools()
+		if err != nil {
+			// This means the tools aren't set, but they should be.
+			return nil, errors.Trace(err)
+		}
 
-	exMachine.SetTools(description.AgentToolsArgs{
-		Version: tools.Version,
-		URL:     tools.URL,
-		SHA256:  tools.SHA256,
-		Size:    tools.Size,
-	})
+		exMachine.SetTools(description.AgentToolsArgs{
+			Version: tools.Version,
+			URL:     tools.URL,
+			SHA256:  tools.SHA256,
+			Size:    tools.Size,
+		})
+	}
 
 	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
 		exMachine.AddOpenedPorts(args)
@@ -744,85 +750,87 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Trace(err)
 	}
 
-	for _, unit := range ctx.units {
-		agentKey := unit.globalAgentKey()
-		unitMeterStatus, found := ctx.meterStatus[agentKey]
-		if !found {
-			return errors.Errorf("missing meter status for unit %s", unit.Name())
-		}
-
-		workloadVersion, err := e.unitWorkloadVersion(unit)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		args := description.UnitArgs{
-			Tag:             unit.UnitTag(),
-			Type:            string(unit.modelType),
-			Machine:         names.NewMachineTag(unit.doc.MachineId),
-			WorkloadVersion: workloadVersion,
-			PasswordHash:    unit.doc.PasswordHash,
-			MeterStatusCode: unitMeterStatus.Code,
-			MeterStatusInfo: unitMeterStatus.Info,
-		}
-		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
-			args.Principal = names.NewUnitTag(principalName)
-		}
-		if subs := unit.SubordinateNames(); len(subs) > 0 {
-			for _, subName := range subs {
-				args.Subordinates = append(args.Subordinates, names.NewUnitTag(subName))
+	if !e.cfg.SkipUnitAgentBinaries {
+		for _, unit := range ctx.units {
+			agentKey := unit.globalAgentKey()
+			unitMeterStatus, found := ctx.meterStatus[agentKey]
+			if !found {
+				return errors.Errorf("missing meter status for unit %s", unit.Name())
 			}
-		}
-		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
-			args.CloudContainer = e.cloudContainer(cloudContainer)
-		}
-		exUnit := exApplication.AddUnit(args)
 
-		e.setUnitResources(exUnit, ctx.resources.UnitResources)
-
-		if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
-			return errors.Trace(err)
-		}
-
-		// workload uses globalKey, agent uses globalAgentKey,
-		// workload version uses globalWorkloadVersionKey.
-		globalKey := unit.globalKey()
-		statusArgs, err := e.statusArgs(globalKey)
-		if err != nil {
-			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
-		}
-		exUnit.SetWorkloadStatus(statusArgs)
-		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
-
-		statusArgs, err = e.statusArgs(agentKey)
-		if err != nil {
-			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
-		}
-		exUnit.SetAgentStatus(statusArgs)
-		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
-
-		workloadVersionKey := unit.globalWorkloadVersionKey()
-		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
-
-		if e.dbModel.Type() != ModelTypeCAAS {
-			tools, err := unit.AgentTools()
+			workloadVersion, err := e.unitWorkloadVersion(unit)
 			if err != nil {
-				// This means the tools aren't set, but they should be.
 				return errors.Trace(err)
 			}
-			exUnit.SetTools(description.AgentToolsArgs{
-				Version: tools.Version,
-				URL:     tools.URL,
-				SHA256:  tools.SHA256,
-				Size:    tools.Size,
-			})
-		}
-		exUnit.SetAnnotations(e.getAnnotations(globalKey))
+			args := description.UnitArgs{
+				Tag:             unit.UnitTag(),
+				Type:            string(unit.modelType),
+				Machine:         names.NewMachineTag(unit.doc.MachineId),
+				WorkloadVersion: workloadVersion,
+				PasswordHash:    unit.doc.PasswordHash,
+				MeterStatusCode: unitMeterStatus.Code,
+				MeterStatusInfo: unitMeterStatus.Info,
+			}
+			if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
+				args.Principal = names.NewUnitTag(principalName)
+			}
+			if subs := unit.SubordinateNames(); len(subs) > 0 {
+				for _, subName := range subs {
+					args.Subordinates = append(args.Subordinates, names.NewUnitTag(subName))
+				}
+			}
+			if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
+				args.CloudContainer = e.cloudContainer(cloudContainer)
+			}
+			exUnit := exApplication.AddUnit(args)
 
-		constraintsArgs, err := e.constraintsArgs(agentKey)
-		if err != nil {
-			return errors.Trace(err)
+			e.setUnitResources(exUnit, ctx.resources.UnitResources)
+
+			if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
+				return errors.Trace(err)
+			}
+
+			// workload uses globalKey, agent uses globalAgentKey,
+			// workload version uses globalWorkloadVersionKey.
+			globalKey := unit.globalKey()
+			statusArgs, err := e.statusArgs(globalKey)
+			if err != nil {
+				return errors.Annotatef(err, "workload status for unit %s", unit.Name())
+			}
+			exUnit.SetWorkloadStatus(statusArgs)
+			exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
+
+			statusArgs, err = e.statusArgs(agentKey)
+			if err != nil {
+				return errors.Annotatef(err, "agent status for unit %s", unit.Name())
+			}
+			exUnit.SetAgentStatus(statusArgs)
+			exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
+
+			workloadVersionKey := unit.globalWorkloadVersionKey()
+			exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
+
+			if e.dbModel.Type() != ModelTypeCAAS {
+				tools, err := unit.AgentTools()
+				if err != nil {
+					// This means the tools aren't set, but they should be.
+					return errors.Trace(err)
+				}
+				exUnit.SetTools(description.AgentToolsArgs{
+					Version: tools.Version,
+					URL:     tools.URL,
+					SHA256:  tools.SHA256,
+					Size:    tools.Size,
+				})
+			}
+			exUnit.SetAnnotations(e.getAnnotations(globalKey))
+
+			constraintsArgs, err := e.constraintsArgs(agentKey)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			exUnit.SetConstraints(constraintsArgs)
 		}
-		exUnit.SetConstraints(constraintsArgs)
 	}
 
 	// Set Tools for application - this is only for CAAS models.
@@ -988,33 +996,35 @@ func (e *exporter) relations() error {
 			if isRemote {
 				continue
 			}
-			units := e.units[ep.ApplicationName]
-			for _, unit := range units {
-				ru, err := relation.Unit(unit)
-				if err != nil {
-					return errors.Trace(err)
+			if !e.cfg.SkipRelationScope {
+				units := e.units[ep.ApplicationName]
+				for _, unit := range units {
+					ru, err := relation.Unit(unit)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					valid, err := ru.Valid()
+					if err != nil {
+						return errors.Trace(err)
+					}
+					if !valid {
+						// It doesn't make sense for this application to have a
+						// relations scope for this endpoint. For example the
+						// situation where we have a subordinate charm related to
+						// two different principals.
+						continue
+					}
+					key := ru.key()
+					if !relationScopes.Contains(key) {
+						return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
+					}
+					settingsDoc, found := e.modelSettings[key]
+					if !found && !e.cfg.SkipSettings {
+						return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
+					}
+					delete(e.modelSettings, key)
+					exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 				}
-				valid, err := ru.Valid()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if !valid {
-					// It doesn't make sense for this application to have a
-					// relations scope for this endpoint. For example the
-					// situation where we have a subordinate charm related to
-					// two different principals.
-					continue
-				}
-				key := ru.key()
-				if !relationScopes.Contains(key) {
-					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
-				}
-				settingsDoc, found := e.modelSettings[key]
-				if !found && !e.cfg.SkipSettings {
-					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
-				}
-				delete(e.modelSettings, key)
-				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
 	}
