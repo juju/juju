@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -30,9 +31,17 @@ func (kubernetesEnvironProvider) Version() int {
 	return 0
 }
 
-func newK8sClient(c *rest.Config) (kubernetes.Interface, error) {
-	client, err := kubernetes.NewForConfig(c)
-	return client, err
+func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+	k8sClient, err := kubernetes.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	var apiextensionsclient *apiextensionsclientset.Clientset
+	apiextensionsclient, err = apiextensionsclientset.NewForConfig(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	return k8sClient, apiextensionsclient, nil
 }
 
 // Open is part of the ContainerEnvironProvider interface.

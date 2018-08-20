@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
@@ -160,6 +161,31 @@ containers:
           file1: |
             [config]
             foo: bar
+customResourceDefinition:
+  - group: kubeflow.org
+    version: v1alpha2
+    scope: Namespaced
+    kind: TFJob
+    validation:
+      properties:
+        tfReplicaSpecs:
+          properties:
+            Worker:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+            PS:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+            Chief:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+                  maximum: 1
 `[1:]
 
 	expectedFileContent := `
@@ -212,7 +238,52 @@ foo: bar
 					},
 				},
 			},
-		}}})
+		}},
+		CustomResourceDefinitions: []caas.CustomResourceDefinition{
+			{
+				Kind:    "TFJob",
+				Group:   "kubeflow.org",
+				Version: "v1alpha2",
+				Scope:   "Namespaced",
+				Validation: caas.CustomResourceDefinitionValidation{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
+									},
+								},
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
 }
 
 func (s *providerSuite) TestValidateMissingContainers(c *gc.C) {

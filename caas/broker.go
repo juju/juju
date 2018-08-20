@@ -109,6 +109,9 @@ type Broker interface {
 	// EnsureService creates or updates a service for pods with the given params.
 	EnsureService(appName string, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
 
+	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
+	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
+
 	// Service returns the service for the specified application.
 	Service(appName string) (*Service, error)
 

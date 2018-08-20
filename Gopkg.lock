@@ -339,12 +339,12 @@
   revision = "0da0d5f1342065321c97812b1f4ac0c2b0bab56c"
 
 [[projects]]
-  digest = "1:53ac4e911e12dde0ab68655e2006449d207a5a681f084974da2b06e5dbeaca72"
+  digest = "1:b79fc583e4dc7055ed86742e22164ac41bf8c0940722dbcb600f1a3ace1a8cb5"
   name = "github.com/json-iterator/go"
   packages = ["."]
   pruneopts = ""
-  revision = "ab8a2e0c74be9d3be70b3184d9acc634935ded82"
-  version = "1.1.4"
+  revision = "1624edc4454b8682399def8740d46db5e4362ba4"
+  version = "1.1.5"
 
 [[projects]]
   digest = "1:b908542539fe1e9eabf4f1e7dc0493ba4c159c49d8532f6ea445d427e6058a65"
@@ -907,6 +907,7 @@
   packages = ["."]
   pruneopts = ""
   revision = "b2a7479cf26fa841ff90dd932d0221cb5c50782d"
+  version = "v1.0.39"
 
 [[projects]]
   branch = "master"
@@ -1009,12 +1010,12 @@
   revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
 
 [[projects]]
-  digest = "1:8e243c568f36b09031ec18dff5f7d2769dcf5ca4d624ea511c8e3197dc3d352d"
+  digest = "1:0a52bcb568386d98f4894575d53ce3e456f56471de6897bb8b9de13c33d9340e"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = ""
-  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
-  version = "v1.0.1"
+  revision = "9a97c102cda95a86cec2345a6f09f55a939babf5"
+  version = "v1.0.2"
 
 [[projects]]
   digest = "1:e5396b66ff8c90a824413a27fd41ed4413161c949fa681869bd2caf714a155f9"
@@ -1516,6 +1517,19 @@
   revision = "183f3326a9353bd6d41430fc80f96259331d029c"
 
 [[projects]]
+  digest = "1:d232fe6e80c619535099d2c79f953b362f7ae8a176eb2226c609fda385a2a2da"
+  name = "k8s.io/apiextensions-apiserver"
+  packages = [
+    "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+  ]
+  pruneopts = ""
+  revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
+
+[[projects]]
   digest = "1:c4a1a585962341863994f38e614b990c55602f81ff6807eb042eae0ddf158b44"
   name = "k8s.io/apimachinery"
   packages = [
@@ -1840,6 +1854,9 @@
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/policy/v1beta1",
     "k8s.io/api/storage/v1",
+    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
@@ -1884,6 +1901,7 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
+    "k8s.io/client-go/util/flowcontrol",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
