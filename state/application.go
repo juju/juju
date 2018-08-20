@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
@@ -1738,6 +1739,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
+		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
@@ -2391,11 +2393,12 @@ func (a *Application) PasswordValid(password string) bool {
 // UnitUpdateProperties holds information used to update
 // the state model for the unit.
 type UnitUpdateProperties struct {
-	ProviderId  *string
-	Address     *string
-	Ports       *[]string
-	AgentStatus *status.StatusInfo
-	UnitStatus  *status.StatusInfo
+	ProviderId           *string
+	Address              *string
+	Ports                *[]string
+	AgentStatus          *status.StatusInfo
+	UnitStatus           *status.StatusInfo
+	CloudContainerStatus *status.StatusInfo
 }
 
 // UpdateUnits applies the given application unit update operations.
@@ -2492,8 +2495,22 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	op.unitName = name
 	ops = append(ops, addOps...)
+
+	if op.props.CloudContainerStatus != nil {
+		now := op.application.st.clock().Now()
+		doc := statusDoc{
+			Status:     op.props.CloudContainerStatus.Status,
+			StatusInfo: op.props.CloudContainerStatus.Message,
+			StatusData: mgoutils.EscapeKeys(op.props.CloudContainerStatus.Data),
+			Updated:    now.UnixNano(),
+		}
+
+		newStatusOps := createStatusOp(op.application.st, globalCloudContainerKey(name), doc)
+		ops = append(ops, newStatusOps)
+	}
 
 	return ops, nil
 }
@@ -2503,7 +2520,7 @@ func (op *AddUnitOperation) Done(err error) error {
 	if err != nil {
 		return errors.Annotatef(err, "adding unit to %q", op.application.Name())
 	}
-	if op.props.AgentStatus == nil && op.props.UnitStatus == nil {
+	if op.props.AgentStatus == nil && op.props.CloudContainerStatus == nil {
 		return nil
 	}
 	// We do a separate status update here because we require all units to be
@@ -2527,17 +2544,29 @@ func (op *AddUnitOperation) Done(err error) error {
 			return errors.Trace(err)
 		}
 	}
-	if op.props.UnitStatus != nil {
-		now := op.application.st.clock().Now()
-		if err := u.SetStatus(status.StatusInfo{
-			Status:  op.props.UnitStatus.Status,
-			Message: op.props.UnitStatus.Message,
-			Data:    op.props.UnitStatus.Data,
-			Since:   &now,
-		}); err != nil {
+	if op.props.CloudContainerStatus != nil {
+		// Ensure unit history is updated correctly
+		unitStatus, err := getStatus(op.application.st.db(), unitGlobalKey(op.unitName), "unit")
+		if err != nil {
 			return errors.Trace(err)
 		}
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, op.application.st.clock())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if newHistory != nil {
+			err = setStatus(op.application.st.db(), setStatusParams{
+				badge:            "unit",
+				globalKey:        unitGlobalKey(op.unitName),
+				status:           unitStatus.Status,
+				message:          unitStatus.Message,
+				rawData:          unitStatus.Data,
+				updated:          timeOrNow(unitStatus.Since, u.st.clock()),
+				historyOverwrite: newHistory,
+			})
+		}
 	}
+
 	return nil
 }
 

@@ -488,44 +488,49 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 	return result, nil
 }
 
-// updateStatus constructs the unit and agent status values based on the pod status.
+// updateStatus constructs the agent and cloud container status values.
 func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 	agentStatus *status.StatusInfo,
-	unitStatus *status.StatusInfo,
-	_ error,
+	cloudContainerStatus *status.StatusInfo,
 ) {
+	var containerStatus status.Status
 	switch status.Status(params.Status) {
 	case status.Unknown:
 		// The container runtime can spam us with unimportant
 		// status updates, so ignore any irrelevant ones.
-		return nil, nil, nil
+		return nil, nil
 	case status.Allocating:
 		// The container runtime has decided to restart the pod.
 		agentStatus = &status.StatusInfo{
 			Status:  status.Allocating,
 			Message: params.Info,
 		}
-		unitStatus = &status.StatusInfo{
-			Status:  status.Waiting,
-			Message: status.MessageWaitForContainer,
-		}
+		containerStatus = status.Waiting
 	case status.Running:
 		// A pod has finished starting so the workload is now active.
 		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
 		}
-		unitStatus = &status.StatusInfo{
-			Status:  status.Active,
-			Message: params.Info,
-		}
+		containerStatus = status.Running
 	case status.Error:
 		agentStatus = &status.StatusInfo{
 			Status:  status.Error,
 			Message: params.Info,
 			Data:    params.Data,
 		}
+		containerStatus = status.Error
+	case status.Blocked:
+		containerStatus = status.Blocked
+		agentStatus = &status.StatusInfo{
+			Status: status.Idle,
+		}
 	}
-	return agentStatus, unitStatus, nil
+	cloudContainerStatus = &status.StatusInfo{
+		Status:  containerStatus,
+		Message: params.Info,
+		Data:    params.Data,
+	}
+	return agentStatus, cloudContainerStatus
 }
 
 // updateUnitsFromCloud takes a slice of unit information provided by an external
@@ -719,7 +724,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		// occur when a pod is restarted external to Juju, or permanent if the pod has
 		// been deleted external to Juju. In the latter case, juju remove-unit will be
 		// need to clean things up on the Juju side.
-		unitStatus := &status.StatusInfo{
+		cloudContainerStatus := &status.StatusInfo{
 			Status:  status.Terminated,
 			Message: "unit stopped by the cloud",
 		}
@@ -727,25 +732,22 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			Status: status.Idle,
 		}
 		updateProps := state.UnitUpdateProperties{
-			UnitStatus:  unitStatus,
-			AgentStatus: agentStatus,
+			CloudContainerStatus: cloudContainerStatus,
+			AgentStatus:          agentStatus,
 		}
 		unitUpdate.Updates = append(unitUpdate.Updates,
 			u.UpdateOperation(updateProps))
 	}
 
-	processUnitParams := func(unitParams params.ApplicationUnitParams) (*state.UnitUpdateProperties, error) {
-		agentStatus, unitStatus, err := a.updateStatus(unitParams)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	processUnitParams := func(unitParams params.ApplicationUnitParams) *state.UnitUpdateProperties {
+		agentStatus, cloudContainerStatus := a.updateStatus(unitParams)
 		return &state.UnitUpdateProperties{
-			ProviderId:  &unitParams.ProviderId,
-			Address:     &unitParams.Address,
-			Ports:       &unitParams.Ports,
-			AgentStatus: agentStatus,
-			UnitStatus:  unitStatus,
-		}, nil
+			ProviderId:           &unitParams.ProviderId,
+			Address:              &unitParams.Address,
+			Ports:                &unitParams.Ports,
+			AgentStatus:          agentStatus,
+			CloudContainerStatus: cloudContainerStatus,
+		}
 	}
 
 	processFilesystemParams := func(processedFilesystemIds set.Strings, unitTag names.UnitTag, unitParams params.ApplicationUnitParams) error {
@@ -848,10 +850,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			logger.Warningf("unexpected unit parameters %+v not in state", unitParams)
 			continue
 		}
-		updateProps, err := processUnitParams(unitParams)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		updateProps := processUnitParams(unitParams)
 		if len(unitParams.FilesystemInfo) > 0 {
 			unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
 		}
@@ -866,10 +865,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	for _, unitParams := range unitInfo.addedCloudPods {
 		if idx < len(unitInfo.unassociatedUnits) {
 			u := unitInfo.unassociatedUnits[idx]
-			updateProps, err := processUnitParams(unitParams)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			updateProps := processUnitParams(unitParams)
 			unitUpdate.Updates = append(unitUpdate.Updates,
 				u.UpdateOperation(*updateProps))
 			idx += 1
@@ -880,10 +876,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		}
 
 		// Process units added directly in the cloud instead of via Juju.
-		updateProps, err := processUnitParams(unitParams)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		updateProps := processUnitParams(unitParams)
 		if len(unitParams.FilesystemInfo) > 0 {
 			unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
 		}

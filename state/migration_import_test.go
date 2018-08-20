@@ -710,22 +710,29 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, exported, status.Active, 5)
-	s.primeStatusHistory(c, exported.Agent(), status.Idle, 5)
 
 	if model.Type() == state.ModelTypeCAAS {
 		var updateUnits state.UpdateUnitsOperation
+		// need to set a cloud container status so that SetStatus for
+		// the unit doesn't throw away the history writes.
 		updateUnits.Updates = []*state.UpdateUnitOperation{
 			exported.UpdateOperation(state.UnitUpdateProperties{
 				ProviderId: strPtr("provider-id"),
 				Address:    strPtr("192.168.1.2"),
 				Ports:      &[]string{"80"},
+				CloudContainerStatus: &status.StatusInfo{
+					Status:  status.Active,
+					Message: "cloud container active",
+				},
 			})}
 		app, err := exported.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		err = app.UpdateUnits(&updateUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	s.primeStatusHistory(c, exported, status.Active, 5)
+	s.primeStatusHistory(c, exported.Agent(), status.Idle, 5)
+
 	newModel, newSt := s.importModel(c, st)
 
 	importedApplications, err := newSt.AllApplications()

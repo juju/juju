@@ -3424,6 +3424,8 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
+	noContainerUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("never-cloud-container")})
+	c.Assert(err, jc.ErrorIsNil)
 	if !aliveApp {
 		err := s.app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -3431,32 +3433,56 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
-	updateUnits.Adds = []*state.AddUnitOperation{s.app.AddOperation(state.UnitUpdateProperties{
-		ProviderId: strPtr("new-unit-uuid"),
-		Address:    strPtr("192.168.1.1"),
-		Ports:      &[]string{"80"},
-		AgentStatus: &status.StatusInfo{
-			Status:  status.Running,
-			Message: "new running",
-		},
-		UnitStatus: &status.StatusInfo{
-			Status:  status.Active,
-			Message: "new active",
-		},
-	})}
-	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: strPtr("unit-uuid"),
-		Address:    strPtr("192.168.1.2"),
-		Ports:      &[]string{"443"},
-		AgentStatus: &status.StatusInfo{
-			Status:  status.Running,
-			Message: "existing running",
-		},
-		UnitStatus: &status.StatusInfo{
-			Status:  status.Active,
-			Message: "existing active",
-		},
-	})}
+	updateUnits.Adds = []*state.AddUnitOperation{
+		s.app.AddOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("new-unit-uuid"),
+			Address:    strPtr("192.168.1.1"),
+			Ports:      &[]string{"80"},
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new running",
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new container running",
+			},
+		}),
+		s.app.AddOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("add-never-cloud-container"),
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new running",
+			},
+			// Status history should not show this as active.
+			UnitStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit active",
+			},
+		}),
+	}
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		noContainerUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("never-cloud-container"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"443"},
+			UnitStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit active",
+			},
+		}),
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("unit-uuid"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"443"},
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "existing running",
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "existing container running",
+			},
+		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	if !aliveApp {
 		c.Assert(err, jc.Satisfies, state.IsNotAlive)
@@ -3466,7 +3492,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 
 	units, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 2)
+	c.Assert(units, gc.HasLen, 4)
 
 	unitsById := make(map[string]*state.Unit)
 	containerInfoById := make(map[string]state.CloudContainer)
@@ -3506,13 +3532,39 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	}
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "existing active")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, "waiting for container")
+	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "existing container running")
+	unitHistory, err := u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(unitHistory[0].Message, gc.Equals, "existing container running")
+
+	u, ok = unitsById["never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	info, ok = containerInfoById["never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
+
+	u, ok = unitsById["add-never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	info, ok = containerInfoById["add-never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
 
 	u, ok = unitsById["new-unit-uuid"]
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(u.Name(), gc.Equals, "gitlab/2")
+	c.Assert(u.Name(), gc.Equals, "gitlab/3")
 	c.Check(info.Address(), gc.NotNil)
 	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
@@ -3525,8 +3577,12 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	})
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "new active")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, status.MessageWaitForContainer)
+	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "new container running")
 	statusInfo, err = u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -3544,6 +3600,11 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 		c.Assert(history[0].Status, gc.Equals, status.Allocating)
 		c.Assert(history[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
 	}
+	// container status history must have overridden the unit status.
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(unitHistory[0].Message, gc.Equals, "new container running")
 
 	err = removedUnit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

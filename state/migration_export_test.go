@@ -535,24 +535,31 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.SetAnnotations(unit, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
-	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
+		// need to set a cloud container status so that SetStatus for
+		// the unit doesn't throw away the history writes.
 		var updateUnits state.UpdateUnitsOperation
 		updateUnits.Updates = []*state.UpdateUnitOperation{
 			unit.UpdateOperation(state.UnitUpdateProperties{
 				ProviderId: strPtr("provider-id"),
 				Address:    strPtr("192.168.1.1"),
 				Ports:      &[]string{"80"},
+				CloudContainerStatus: &status.StatusInfo{
+					Status:  status.Running,
+					Message: "cloud container running",
+				},
 			})}
 		app, err := unit.Application()
 		c.Assert(err, jc.ErrorIsNil)
 		err = app.UpdateUnits(&updateUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	err = dbModel.SetAnnotations(unit, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
+	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
 	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -579,7 +586,16 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 
 	workloadHistory := exported.WorkloadStatusHistory()
-	c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
+	if dbModel.Type() == state.ModelTypeCAAS {
+		// Account for the extra cloud container status history addition.
+		c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount+1)
+		c.Assert(workloadHistory[expectedHistoryCount].Message(), gc.Equals, "waiting for container")
+		c.Assert(workloadHistory[expectedHistoryCount].Value(), gc.Equals, "waiting")
+		c.Assert(workloadHistory[expectedHistoryCount-1].Message(), gc.Equals, "cloud container running")
+		c.Assert(workloadHistory[expectedHistoryCount-1].Value(), gc.Equals, "running")
+	} else {
+		c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
+	}
 	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], status.Active)
 
 	agentHistory := exported.AgentStatusHistory()

@@ -74,6 +74,12 @@ func (c *cloudContainer) Ports() []string {
 	return c.doc.Ports
 }
 
+// globalCloudContainerKey returns the global database key for the
+// cloud container status key for this unit.
+func globalCloudContainerKey(name string) string {
+	return unitGlobalKey(name) + "#container"
+}
+
 func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
 	coll, closer := u.st.db().GetCollection(cloudContainersC)
 	defer closer()

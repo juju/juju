@@ -200,6 +200,12 @@ func (u *Unit) globalWorkloadVersionKey() string {
 	return globalWorkloadVersionKey(u.doc.Name)
 }
 
+// globalCloudContainerKey returns the global database key for the unit's
+// Cloud Container info.
+func (u *Unit) globalCloudContainerKey() string {
+	return globalCloudContainerKey(u.doc.Name)
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
@@ -316,7 +322,7 @@ func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation 
 	}
 }
 
-// UpdateUnitsOperation is a model operation for updating a unit.
+// UpdateUnitOperation is a model operation for updating a unit.
 type UpdateUnitOperation struct {
 	unit  *Unit
 	props UnitUpdateProperties
@@ -371,7 +377,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		ops = append(ops, containerOps...)
 	}
 
-	updateStatus := func(key string, status *status.StatusInfo) error {
+	updateStatus := func(key, badge string, status *status.StatusInfo) error {
 		now := op.unit.st.clock().Now()
 		doc := statusDoc{
 			Status:     status.Status,
@@ -380,22 +386,56 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 			Updated:    now.UnixNano(),
 		}
 		op.setStatusDocs[key] = doc
-		statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
+		// It's possible we're getting a first status update (i.e. cloud container)
+		_, err = getStatus(op.unit.st.db(), key, badge)
 		if err != nil {
-			return errors.Trace(err)
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			statusOps := createStatusOp(op.unit.st, key, doc)
+			ops = append(ops, statusOps)
+		} else {
+			statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, statusOps...)
 		}
-		ops = append(ops, statusOps...)
 		return nil
 	}
 	if op.props.AgentStatus != nil {
-		if err := updateStatus(op.unit.globalAgentKey(), op.props.AgentStatus); err != nil {
+		if err := updateStatus(op.unit.globalAgentKey(), "agent", op.props.AgentStatus); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	if op.props.UnitStatus != nil {
-		if err := updateStatus(op.unit.globalKey(), op.props.UnitStatus); err != nil {
+
+	var cloudContainerStatus status.StatusInfo
+	if op.props.CloudContainerStatus != nil {
+		if err := updateStatus(op.unit.globalCloudContainerKey(), "cloud container", op.props.CloudContainerStatus); err != nil {
 			return nil, errors.Trace(err)
 		}
+		cloudContainerStatus = *op.props.CloudContainerStatus
+	}
+	if cloudContainerStatus.Status != "" {
+		// Since we have updated cloud container, that may impact on
+		// the perceived unit status. we'll update status history if the
+		// unit status is different due to having a cloud container status.
+		// This correctly ensures the status history goes from "waiting for
+		// container" to <something else>.
+		unitStatus, err := getStatus(op.unit.st.db(), op.unit.globalKey(), "unit")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		modifiedStatus := caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
+		now := op.unit.st.clock().Now()
+		doc := statusDoc{
+			Status:     modifiedStatus.Status,
+			StatusInfo: modifiedStatus.Message,
+			StatusData: mgoutils.EscapeKeys(modifiedStatus.Data),
+			Updated:    now.UnixNano(),
+		}
+		op.setStatusDocs[op.unit.globalKey()] = doc
 	}
 	return ops, nil
 }
@@ -1124,10 +1164,6 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	if info.Status != status.Error {
 		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
-			// CAAS units don't have any unit status.
-			if errors.IsNotFound(err) {
-				return status.StatusInfo{}, nil
-			}
 			return status.StatusInfo{}, err
 		}
 	}
@@ -1143,13 +1179,33 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
+
+	var newHistory *statusDoc
+	if u.modelType == ModelTypeCAAS {
+		// Caas Charms currently have no way to query workload status;
+		// Cloud container status might contradict what the charm is
+		// attempting to set, make sure the right history is set.
+		cloudContainerStatus, err := getStatus(u.st.db(), globalCloudContainerKey(u.Name()), "cloud container")
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+		}
+
+		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, u.st.clock())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return setStatus(u.st.db(), setStatusParams{
-		badge:     "unit",
-		globalKey: u.globalKey(),
-		status:    unitStatus.Status,
-		message:   unitStatus.Message,
-		rawData:   unitStatus.Data,
-		updated:   timeOrNow(unitStatus.Since, u.st.clock()),
+		badge:            "unit",
+		globalKey:        u.globalKey(),
+		status:           unitStatus.Status,
+		message:          unitStatus.Message,
+		rawData:          unitStatus.Data,
+		updated:          timeOrNow(unitStatus.Since, u.st.clock()),
+		historyOverwrite: newHistory,
 	})
 }
 
