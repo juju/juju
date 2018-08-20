@@ -52,7 +52,7 @@ func (st *State) MaybePruneTransactions() error {
 		MinNewTransactions:   1000,
 		MaxNewTransactions:   100000,
 		MaxTime:              time.Now().Add(-time.Hour),
-		MaxBatchTransactions: uint64(maxBatchSize),
+		MaxBatchTransactions: maxBatchSize,
 		MaxBatches:           maxPasses,
 	})
 }
