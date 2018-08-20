@@ -26,6 +26,7 @@ type UpgradeSeriesMachine interface {
 	Units() ([]UpgradeSeriesUnit, error)
 	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
+	StartUnitUpgradeSeriesCompletionPhase() error
 }
 
 type UpgradeSeriesUnit interface {
@@ -57,7 +58,7 @@ type upgradeSeriesMachine struct {
 // Units maintains the UpgradeSeriesMachine indirection by wrapping the call to
 // state.Machine.Units().
 func (m *upgradeSeriesMachine) Units() ([]UpgradeSeriesUnit, error) {
-	units, err := m.Units()
+	units, err := m.Machine.Units()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

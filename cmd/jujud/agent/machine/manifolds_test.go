@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 )
@@ -23,6 +24,11 @@ type ManifoldsSuite struct {
 }
 
 var _ = gc.Suite(&ManifoldsSuite{})
+
+func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.UpgradeSeries)
+	s.BaseSuite.SetUpTest(c)
+}
 
 func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
@@ -97,6 +103,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"unit-agent-deployer",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-series",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
@@ -146,6 +153,8 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-series",
+		"upgrade-series-enabled",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
@@ -735,6 +744,18 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
+
+	"upgrade-series": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
