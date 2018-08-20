@@ -7,7 +7,7 @@ package upgradeseries_test
 import (
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
-	watcher "github.com/juju/juju/watcher"
+	watcher "github.com/juju/juju/core/watcher"
 	upgradeseries "github.com/juju/juju/worker/upgradeseries"
 	loggo "github.com/juju/loggo"
 	reflect "reflect"

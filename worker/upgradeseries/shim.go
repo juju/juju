@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgradeseries"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Facade exposes the API surface required by the upgrade-series worker.
