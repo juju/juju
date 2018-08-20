@@ -20,13 +20,15 @@ var (
 
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
+	credsRegister environs.ProviderCredentialsRegister,
 	serverFactory ServerFactory,
 	configReader LXCConfigReader,
 ) environs.EnvironProvider {
 	return &environProvider{
-		ProviderCredentials: creds,
-		serverFactory:       serverFactory,
-		lxcConfigReader:     configReader,
+		ProviderCredentials:         creds,
+		ProviderCredentialsRegister: credsRegister,
+		serverFactory:               serverFactory,
+		lxcConfigReader:             configReader,
 	}
 }
 
