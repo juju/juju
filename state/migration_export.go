@@ -415,15 +415,16 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 			return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 		}
 		exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
+		instance := exMachine.Instance()
+		instanceKey := machine.globalInstanceKey()
+		statusArgs, err := e.statusArgs(instanceKey)
+		if err != nil {
+			return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+		}
+		instance.SetStatus(statusArgs)
+		instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 	}
-	instance := exMachine.Instance()
-	instanceKey := machine.globalInstanceKey()
-	statusArgs, err := e.statusArgs(instanceKey)
-	if err != nil {
-		return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
-	}
-	instance.SetStatus(statusArgs)
-	instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -445,7 +446,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
-	statusArgs, err = e.statusArgs(globalKey)
+	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
