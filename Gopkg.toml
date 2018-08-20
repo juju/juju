@@ -221,6 +221,10 @@
   revision = "01aeca54ebda6e0fbfafd0a524d234159c05ec20"
 
 [[constraint]]
+  name = "github.com/docker/distribution"
+  revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
+
+[[constraint]]
   name = "github.com/dustin/go-humanize"
   revision = "145fabdb1ab757076a70a886d092a3af27f66f4c"
 
@@ -275,6 +279,10 @@
 [[constraint]]
   name = "github.com/juju/ansiterm"
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
+
+[[constraint]]
+  name = "github.com/juju/clock"
+  revision = "bab88fc672997ef02d03f85310182d97a93dee21"
 
 [[constraint]]
   name = "github.com/juju/cmd"
@@ -515,11 +523,3 @@
 [[constraint]]
   name = "gopkg.in/yaml.v2"
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-
-[[constraint]]
-  name = "github.com/docker/distribution"
-  revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
-
-[[constraint]]
-  name = "github.com/juju/clock"
-  revision = "d293bb356ca441f16b59562295cca74478966757"
