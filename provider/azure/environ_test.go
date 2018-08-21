@@ -22,6 +22,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -132,7 +133,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 	s.sender = nil
 	s.requests = nil
-	s.retryClock = mockClock{Clock: gitjujutesting.NewClock(time.Time{})}
+	s.retryClock = mockClock{Clock: testclock.NewClock(time.Time{})}
 
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
@@ -477,7 +478,7 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 
 type mockClock struct {
 	gitjujutesting.Stub
-	*gitjujutesting.Clock
+	*testclock.Clock
 }
 
 func (c *mockClock) After(d time.Duration) <-chan time.Time {

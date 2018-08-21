@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	test "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
@@ -985,7 +985,7 @@ type ActionPruningSuite struct {
 var _ = gc.Suite(&ActionPruningSuite{})
 
 func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
-	clock := test.NewClock(coretesting.NonZeroTime())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1016,7 +1016,7 @@ func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
 }
 
 func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
-	clock := test.NewClock(coretesting.NonZeroTime())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1057,7 +1057,7 @@ func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
 }
 
 func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
-	clock := test.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1088,7 +1088,7 @@ func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
 // Pruner should not prune actions with age of epoch time since the epoch is a
 // special value denoting an incomplete action.
 func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
-	clock := test.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)

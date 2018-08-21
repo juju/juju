@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -681,7 +682,7 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 	defer s.srv.Nova.SetServerStatus("")
 
 	// Make time advance in zero time
-	clk := gitjujutesting.NewClock(time.Time{})
+	clk := testclock.NewClock(time.Time{})
 	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
@@ -777,7 +778,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	assertSecurityGroups(c, env, allSecurityGroups)
 
 	// Make time advance in zero time
-	clk := gitjujutesting.NewClock(time.Time{})
+	clk := testclock.NewClock(time.Time{})
 	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
@@ -4678,7 +4679,7 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 
 func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
 	now := testing.NonZeroTime()
-	clock := gitjujutesting.NewClock(now)
+	clock := testclock.NewClock(now)
 
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
