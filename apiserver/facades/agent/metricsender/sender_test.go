@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -36,7 +36,7 @@ func (s *SenderSuite) SetUpTest(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	s.meteredService = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 // startServer starts a test HTTP server, returning a function that should be

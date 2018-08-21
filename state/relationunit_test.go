@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -954,7 +954,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
-	clk := jujutesting.NewClock(time.Now())
+	clk := testclock.NewClock(time.Now())
 	attemptMade := make(chan struct{}, 10)
 	s.PatchValue(&state.PreferredAddressRetryArgs, func() retry.CallArgs {
 		return retry.CallArgs{

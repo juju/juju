@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -55,7 +55,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	instancepoller.PatchState(s, s.st)
 
 	var err error
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.api, err = instancepoller.NewInstancePollerAPI(nil, nil, s.resources, s.authoriser, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 

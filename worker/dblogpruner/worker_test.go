@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -71,7 +72,7 @@ func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
 	var ctlr *state.Controller
 	ctlr, s.state = statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
 		Owner:            names.NewLocalUserTag("test-admin"),
-		Clock:            jujutesting.NewClock(testing.NonZeroTime()),
+		Clock:            testclock.NewClock(testing.NonZeroTime()),
 		ControllerConfig: controllerConfig,
 	})
 	ctlr.Close()

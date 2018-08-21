@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -25,7 +25,7 @@ import (
 type MigrationSuite struct {
 	ConnSuite
 	State2  *state.State
-	clock   *jujutesting.Clock
+	clock   *testclock.Clock
 	stdSpec state.MigrationSpec
 }
 
@@ -33,7 +33,7 @@ var _ = gc.Suite(new(MigrationSuite))
 
 func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.clock = jujutesting.NewClock(truncateDBTime(time.Now()))
+	s.clock = testclock.NewClock(truncateDBTime(time.Now()))
 	err := s.State.SetClockForTesting(s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
