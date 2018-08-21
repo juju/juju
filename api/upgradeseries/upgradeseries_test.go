@@ -106,9 +106,9 @@ func (s *upgradeSeriesSuite) TestStartUpgradeSeriesCompletionPhase(c *gc.C) {
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("StartUnitUpgradeSeriesCompletionPhase", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall("StartUnitCompletion", args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.StartUnitUpgradeSeriesCompletionPhase()
+	err := api.StartUnitCompletion()
 	c.Assert(err, gc.IsNil)
 }

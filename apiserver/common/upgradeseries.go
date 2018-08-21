@@ -26,7 +26,7 @@ type UpgradeSeriesMachine interface {
 	Units() ([]UpgradeSeriesUnit, error)
 	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
-	StartUnitUpgradeSeriesCompletionPhase() error
+	StartUpgradeSeriesUnitCompletion() error
 	UpgradeSeriesUnitStatuses() ([]state.UpgradeSeriesUnitStatus, error)
 }
 

@@ -142,9 +142,9 @@ func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockD
 	}
 }
 
-// StartUnitUpgradeSeriesCompletionPhase notifies units and machines that an upgrade series is
-// ready for its "completion" phase.
-func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
+// StartUpgradeSeriesUnitCompletion notifies units and machines that an
+// upgrade-series workflow is ready for its "completion" phase.
+func (m *Machine) StartUpgradeSeriesUnitCompletion() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -165,7 +165,7 @@ func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 			us.Status = model.CompleteStarted
 			lock.UnitStatuses[unitName] = us
 		}
-		return startUnitUpgradeSeriesCompletionPhaseTxnOps(m.doc.Id, lock.UnitStatuses), nil
+		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock.UnitStatuses), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -175,7 +175,7 @@ func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 	return nil
 }
 
-func startUnitUpgradeSeriesCompletionPhaseTxnOps(machineDocID string, units map[string]UpgradeSeriesUnitStatus) []txn.Op {
+func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, units map[string]UpgradeSeriesUnitStatus) []txn.Op {
 	statusField := "unit-statuses"
 	return []txn.Op{
 		{

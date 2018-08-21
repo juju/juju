@@ -16,10 +16,12 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 
+// State exposes methods from state required by this API.
 type State interface {
 	common.UpgradeSeriesBackend
 }
 
+// API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
 
@@ -116,7 +118,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 // CompleteStatus starts the upgrade series completion phase for all subordinate
 // units of a given machine.
-func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (a *API) StartUnitCompletion(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -130,7 +132,7 @@ func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeries
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.StartUnitUpgradeSeriesCompletionPhase()
+		err = machine.StartUpgradeSeriesUnitCompletion()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

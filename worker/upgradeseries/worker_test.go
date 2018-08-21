@@ -58,8 +58,9 @@ func (s *workerSuite) TestLockNotFound(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
-	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
+	// If the lock is not found. no further processing occurs.
+	// This is the only call we expect to see.
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
@@ -144,7 +145,7 @@ func (s *workerSuite) TestCompleteStartedUnitsNotStartedUnitsStarted(c *gc.C) {
 	fExp := s.facade.EXPECT()
 	fExp.MachineStatus().Return(model.CompleteStarted, nil)
 	fExp.UpgradeSeriesStatus().Return([]string{string(model.PrepareCompleted), string(model.PrepareCompleted)}, nil)
-	fExp.StartUnitUpgradeSeriesCompletionPhase().Return(nil).Times(1)
+	fExp.StartUnitCompletion().Return(nil)
 
 	sExp := s.service.EXPECT()
 	sExp.ListServices().Return([]string{

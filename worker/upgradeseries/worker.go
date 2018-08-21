@@ -266,7 +266,7 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 			return errors.Annotatef(err, "starting %q unit agent after series upgrade", unit)
 		}
 	}
-	err = w.StartUnitUpgradeSeriesCompletionPhase()
+	err = w.StartUnitCompletion()
 	if err != nil {
 		return errors.Trace(err)
 	}
