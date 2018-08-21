@@ -531,7 +531,7 @@ class AzureARMAccount:
         vm_ids = []
         for machine_name in instance_ids:
             rgd, vm = winazurearm.find_vm_deployment(
-                resources, machine_name, resource_group)
+                resource_group, machine_name)
             vm_ids.append(vm.vm_id)
         return vm_ids
 
