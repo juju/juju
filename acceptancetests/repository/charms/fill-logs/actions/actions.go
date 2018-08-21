@@ -111,6 +111,11 @@ func writeSizes(glob string) error {
 	// but it's a lot more convenient for parsing if it's first in the output.
 	for i, j := len(paths)-1, 0; i >= 0; i-- {
 		path := paths[i]
+		// Skip any log files that start with machine-lock as these aren't interesting
+		// for fill logs.
+		if strings.HasPrefix(filepath.Base(path), "machine-lock") {
+			continue
+		}
 		info, err := os.Stat(path)
 		if err != nil {
 			return fmt.Errorf("error stating log %q: %s", path, err)
