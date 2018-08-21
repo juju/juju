@@ -5,7 +5,6 @@ package upgradeseries
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -21,7 +20,8 @@ import (
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
-	Logf(level loggo.Level, message string, args ...interface{})
+	Debugf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 }
@@ -137,11 +137,12 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		if errors.IsNotFound(err) {
 			// No upgrade-series lock.
 			// This can only happen on the first watch call.
+			// Does it happen if the lock is deleted?
 			return nil
 		}
 		return errors.Trace(err)
 	}
-	w.logger.Logf(loggo.DEBUG, "series upgrade lock changed")
+	w.logger.Debugf("series upgrade lock changed")
 
 	unitStatuses, err := w.UpgradeSeriesStatus()
 	if err != nil {
@@ -177,7 +178,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	// that they are completed. Transition the machine to completed too.
 	if machineStatus == model.CompleteStarted && completed {
 		// TODO (manadart 2018-08-09): Do we remove the lock at some point?
-		w.logger.Logf(loggo.INFO, "series upgrade complete")
+		w.logger.Infof("series upgrade complete")
 		err = w.SetMachineStatus(model.Completed)
 		return errors.Trace(err)
 	}
@@ -191,7 +192,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 // TODO (manadart 2018-08-09): Rename when a better name is contrived for
 // UpgradeSeriesPrepareMachine
 func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
-	w.logger.Logf(loggo.INFO, "stopping units for series upgrade")
+	w.logger.Infof("stopping units for series upgrade")
 
 	unitServices, err := w.unitAgentServices(statusCount)
 	if err != nil {
@@ -228,7 +229,7 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
 // on this machine so that they are compatible with the init system of the
 // series upgrade target
 func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
-	w.logger.Logf(loggo.INFO, "preparing service units for series upgrade")
+	w.logger.Infof("preparing service units for series upgrade")
 
 	_, err := w.unitAgentServices(statusCount)
 	if err != nil {
@@ -243,7 +244,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
 // transitionUnitsStarted iterates over units managed by this machine. Starts
 // the unit's agent service, and transitions all unit subordinate statuses.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
-	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
+	w.logger.Infof("starting units after series upgrade")
 
 	unitServices, err := w.unitAgentServices(statusCount)
 	if err != nil {

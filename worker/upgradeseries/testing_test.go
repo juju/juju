@@ -49,8 +49,9 @@ func voidLogger(ctrl *gomock.Controller) upgradeseries.Logger {
 
 	exp := log.EXPECT()
 	any := gomock.Any()
-	exp.Logf(any, any, any).AnyTimes()
-	exp.Errorf(any, any).AnyTimes()
+	exp.Debugf(any, any).AnyTimes()
+	exp.Infof(any, any).AnyTimes()
+	exp.Warningf(any, any).AnyTimes()
 	exp.Errorf(any, any).AnyTimes()
 
 	return log

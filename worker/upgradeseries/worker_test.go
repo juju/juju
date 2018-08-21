@@ -217,28 +217,6 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 	workertest.CleanKill(c, w)
 }
 
-// ignoreLogging turns the suite's mock logger into a sink, with no validation.
-// Logs are still emitted via the test logger.
-func ignoreLogging(c *gc.C) suiteBehaviour {
-	logIt := func(level loggo.Level, message string, args ...interface{}) {
-		nArgs := append([]interface{}{level}, args)
-		c.Logf("%s "+message, nArgs...)
-	}
-	warnIt := func(message string, args ...interface{}) {
-		logIt(loggo.WARNING, message, args...)
-	}
-	errorIt := func(message string, args ...interface{}) {
-		logIt(loggo.ERROR, message, args...)
-	}
-
-	return func(s *workerSuite) {
-		e := s.logger.EXPECT()
-		e.Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(logIt)
-		e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
-		e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
-	}
-}
-
 // notify returns a suite behaviour that will cause the upgrade-series watcher
 // to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
@@ -262,4 +240,26 @@ func notify(times int) suiteBehaviour {
 				ch:     ch,
 			}, nil)
 	}
+}
+
+// ignoreLogging turns the suite's mock logger into a sink, with no validation.
+// Logs are still emitted via the test logger.
+func ignoreLogging(c *gc.C) suiteBehaviour {
+	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args...) }
+	infoIt := func(message string, args ...interface{}) { logIt(c, loggo.INFO, message, args...) }
+	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args...) }
+	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args...) }
+
+	return func(s *workerSuite) {
+		e := s.logger.EXPECT()
+		e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
+		e.Infof(gomock.Any(), gomock.Any()).AnyTimes().Do(infoIt)
+		e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
+		e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
+	}
+}
+
+func logIt(c *gc.C, level loggo.Level, message string, args ...interface{}) {
+	nArgs := append([]interface{}{level}, args)
+	c.Logf("%s "+message, nArgs...)
 }
