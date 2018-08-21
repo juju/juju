@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
 )
 
@@ -135,6 +136,44 @@ func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeries
 			continue
 		}
 	}
+	return result, nil
+}
+
+// UnitsReadyToStop returns the units running on this machine that have
+// completed their upgrade-series preparation, and are ready to be stopped and
+// have their unit agent services converted for the target series.
+func (a *API) UnitsReadyToStop(args params.Entities) (params.EntitiesResults, error) {
+	result := params.EntitiesResults{}
+	//
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	results := make([]params.EntitiesResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machine, err := a.authAndMachine(entity, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		statuses, err := machine.UpgradeSeriesUnitStatuses()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		var entities []params.Entity
+		for _, s := range statuses {
+			if s.Status == model.PrepareCompleted {
+				entities = append(entities, params.Entity{Tag: names.NewUnitTag(s.Id).String()})
+			}
+		}
+		results[i].Entities = entities
+	}
+
+	result.Results = results
 	return result, nil
 }
 
