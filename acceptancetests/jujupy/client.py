@@ -542,7 +542,7 @@ def get_version_string_parts(version_string):
 class ModelClient:
     """Wraps calls to a juju instance, associated with a single model.
 
-    Note: A model is often called an enviroment (Juju 1 legacy).
+    Note: A model is often called an environment (Juju 1 legacy).
 
     This class represents the latest Juju version.
     """
