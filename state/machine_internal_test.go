@@ -72,13 +72,11 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 		Id: arbitraryMachineID,
 		Assert: bson.D{{"$and", []bson.D{
 			{{"unit-statuses", bson.D{{"$exists", true}}}},
-			{{"unit-statuses.0.id", "application/0"}},
-			{{"unit-statuses.0.status", bson.D{{"$ne", arbitraryStatus}}}}}}},
+			{{"unit-statuses.application/0.status", bson.D{{"$ne", arbitraryStatus}}}}}}},
 		Update: bson.D{
-			{"$set", bson.D{{"unit-statuses.0.status", arbitraryStatus}, {"unit-statuses.0.timestamp", arbitraryUpdateTime}}}},
+			{"$set", bson.D{{"unit-statuses.application/0.status", arbitraryStatus}, {"unit-statuses.application/0.timestamp", arbitraryUpdateTime}}}},
 	}
-
-	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, 0, arbitraryStatus, arbitraryUpdateTime)
+	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp.Update)
 	actualOpSt := fmt.Sprint(actualOps[1].Update)
@@ -89,7 +87,6 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 	arbitraryMachineID := "id"
 	arbitraryStatus := model.PrepareStarted
 	arbitraryUnitName := "application/0"
-	arbitraryUnitIndex := 0
 	arbitraryUpdateTime := bson.Now()
 	expectedOp := txn.Op{
 		C:      machinesC,
@@ -97,7 +94,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 		Assert: isAliveDoc,
 	}
 
-	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryUnitIndex, arbitraryStatus, arbitraryUpdateTime)
+	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp)
 	actualOpSt := fmt.Sprint(actualOps[0])
@@ -106,7 +103,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 
 func (s *MachineInternalSuite) TestStartUnitUpgradeSeriesCompletionPhaseTxnOps(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryUnitStatuses := []unitStatus{}
+	arbitraryUnitStatuses := map[string]unitStatus{}
 	expectedOps := []txn.Op{
 		{
 			C:      machinesC,
