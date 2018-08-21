@@ -186,6 +186,10 @@ def storage_pool_list(client):
 def create_storage_charm(charm_dir, name, summary, storage):
     """Manually create a temporary charm to test with storage."""
     storage_charm = Charm(name, summary, storage=storage, series=['trusty'])
+    # Valid charms require at least one hook.
+    # Add a dummy install hook.
+    install = '#!/bin/sh\necho install'
+    storage_charm.add_hook_script('install', install)
     charm_root = storage_charm.to_repo_dir(charm_dir)
     return charm_root
 
