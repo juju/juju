@@ -45,7 +45,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 
 	err := s.facade.FacadeCall("MachineStatus", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -59,8 +59,39 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	if params.IsCodeNotFound(r.Error) {
 		return "", errors.NewNotFound(r.Error, "")
 	}
-
 	return "", errors.Trace(r.Error)
+}
+
+// UnitsReadyToStop returns the units running on this machine that have
+// completed their upgrade-series preparation, and are ready to be stopped and
+// have their unit agent services converted for the target series.
+func (s *Client) UnitsReadyToStop() ([]names.UnitTag, error) {
+	var results params.EntitiesResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.authTag.String()}},
+	}
+
+	err := s.facade.FacadeCall("UnitsReadyToStop", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	r := results.Results[0]
+	if r.Error == nil {
+		tags := make([]names.UnitTag, len(r.Entities))
+		for i, e := range r.Entities {
+			tags[i] = names.NewUnitTag(e.Tag)
+		}
+		return tags, nil
+	}
+
+	if params.IsCodeNotFound(r.Error) {
+		return nil, errors.NewNotFound(r.Error, "")
+	}
+	return nil, errors.Trace(r.Error)
 }
 
 // SetMachineStatus sets the machine status in remote state.

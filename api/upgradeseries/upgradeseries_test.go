@@ -94,7 +94,32 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestStartUpgradeSeriesCompletionPhase(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsReadyToStop(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	r0 := "redis/0"
+	r1 := "redis/1"
+
+	resultSource := params.EntitiesResults{
+		Results: []params.EntitiesResult{{Entities: []params.Entity{
+			{Tag: r0},
+			{Tag: r1},
+		}}},
+	}
+	fCaller.EXPECT().FacadeCall("UnitsReadyToStop", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	units, err := api.UnitsReadyToStop()
+	c.Assert(err, gc.IsNil)
+
+	expected := []names.UnitTag{names.NewUnitTag(r0), names.NewUnitTag(r1)}
+	c.Check(units, jc.SameContents, expected)
+}
+
+func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
