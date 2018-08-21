@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -360,8 +359,8 @@ func hasHooksFolder(name string) (bool, error) {
 	}
 	defer zipr.Close()
 	count := 0
-	// Cater for file separator differences between operating systems.
-	hooksPath := filepath.FromSlash("hooks/")
+	// zip file spec 4.4.17.1 says that separators are always "/" even on Windows.
+	hooksPath := "hooks/"
 	for _, f := range zipr.File {
 		if strings.Contains(f.Name, hooksPath) {
 			count++
