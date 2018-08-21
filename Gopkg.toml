@@ -166,7 +166,7 @@
 
 [[constraint]]
   name = "gopkg.in/retry.v1"
-  revision = "2d7c7c65cc71d024968d9ff4385d5e7ad3a83fcc"
+  revision = "87155f248cf6ea9e38ae7613f9ea1e5bb397ac83"
 
 [[constraint]]
   revision = "183f3326a9353bd6d41430fc80f96259331d029c"
@@ -326,7 +326,7 @@
 
 [[constraint]]
   name = "github.com/juju/retry"
-  revision = "62c62032529169c7ec02fa48f93349604c345e1f"
+  revision = "9058e192b216b21e4741c2eeb20ac798ba1ea80a"
 
 [[constraint]]
   name = "github.com/juju/schema"
@@ -338,7 +338,7 @@
 
 [[constraint]]
   name = "github.com/juju/txn"
-  revision = "f50b17d1ff3c31b7ea1c70e0d38a83f19af6d334"
+  revision = "f08211fa34f20cae79efd3dde0f54c77238292c3"
 
 [[override]]
   name = "github.com/juju/usso"
