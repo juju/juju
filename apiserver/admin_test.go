@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -1033,7 +1033,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 			Target:  log,
 		}
 	}
-	cfg.Clock = jt.NewClock(cfg.Clock.Now())
+	cfg.Clock = testclock.NewClock(cfg.Clock.Now())
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.Model.Tag().(names.ModelTag)
