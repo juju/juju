@@ -2137,18 +2137,16 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 }
 
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
-	prepareUnits := make(map[string]unitStatus, len(unitNames))
-	completeUnits := make(map[string]unitStatus, len(unitNames))
+	unitStatuses := make(map[string]unitStatus, len(unitNames))
 	for _, name := range unitNames {
-		prepareUnits[name] = unitStatus{Id: name, Status: model.PrepareStarted, Timestamp: bson.Now()}
-		completeUnits[name] = unitStatus{Id: name, Status: model.NotStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = unitStatus{Id: name, Status: model.PrepareStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
 		FromSeries:    m.Series(),
 		MachineStatus: model.PrepareStarted,
-		UnitStatuses:  prepareUnits,
+		UnitStatuses:  unitStatuses,
 	}
 }
 
