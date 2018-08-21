@@ -226,11 +226,8 @@ type upgradeSeriesLockDoc struct {
 }
 
 type unitStatus struct {
-	Id     string
-	Status model.UpgradeSeriesStatus
-
-	// The time that the status was set
-	Timestamp time.Time
+	Status    model.UpgradeSeriesStatus
+	Timestamp time.Time // The time that the status was last updated.
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -2139,7 +2136,7 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
 	unitStatuses := make(map[string]unitStatus, len(unitNames))
 	for _, name := range unitNames {
-		unitStatuses[name] = unitStatus{Id: name, Status: model.PrepareStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = unitStatus{Status: model.PrepareStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
@@ -2226,9 +2223,9 @@ func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 		if lock.MachineStatus != model.CompleteStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
-		for _, us := range lock.UnitStatuses {
+		for unitName, us := range lock.UnitStatuses {
 			us.Status = model.CompleteStarted
-			lock.UnitStatuses[us.Id] = us
+			lock.UnitStatuses[unitName] = us
 		}
 		return startUnitUpgradeSeriesCompletionPhaseTxnOps(m.doc.Id, lock.UnitStatuses), nil
 	}
@@ -2292,13 +2289,11 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatu
 		return "", errors.Trace(err)
 	}
 
-	for _, unit := range lock.UnitStatuses {
-		if unit.Id == unitName {
-			return unit.Status, nil
-		}
+	if _, ok := lock.UnitStatuses[unitName]; !ok {
+		return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 	}
 
-	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
+	return lock.UnitStatuses[unitName].Status, nil
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
