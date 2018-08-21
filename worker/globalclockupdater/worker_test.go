@@ -21,7 +21,7 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 	stub       testing.Stub
-	localClock *testing.Clock
+	localClock *testclock.Clock
 	updater    stubUpdater
 	config     globalclockupdater.Config
 }

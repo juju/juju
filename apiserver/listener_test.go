@@ -25,7 +25,7 @@ type listenerSuite struct {
 	maxPause       time.Duration
 	lowerThreshold int
 	upperThreshold int
-	clock          *testing.Clock
+	clock          *testclock.Clock
 }
 
 var _ = gc.Suite(&listenerSuite{})

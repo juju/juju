@@ -37,7 +37,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	}
 
 	args := baseCreateVirtualMachineParams(c)
-	testClock := args.Clock.(*testing.Clock)
+	testClock := args.Clock.(*testclock.Clock)
 	s.onImageUpload = func(r *http.Request) {
 		dequeueStatusUpdates()
 

@@ -36,7 +36,7 @@ type workerFixture struct {
 	testing.IsolationSuite
 	config   rafttransport.Config
 	authInfo httpcontext.AuthInfo
-	clock    *testing.Clock
+	clock    *testclock.Clock
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {

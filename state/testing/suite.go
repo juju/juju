@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"github.com/juju/clock/testclock"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,7 +35,7 @@ type StateSuite struct {
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
 	RegionConfig              cloud.RegionConfig
-	Clock                     *jujutesting.Clock
+	Clock                     *testclock.Clock
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -52,7 +53,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.Clock = jujutesting.NewClock(testing.NonZeroTime())
+	s.Clock = testclock.NewClock(testing.NonZeroTime())
 	s.Controller, s.State = InitializeWithArgs(c, InitializeArgs{
 		Owner:                     s.Owner,
 		InitialConfig:             s.InitialConfig,

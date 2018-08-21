@@ -115,7 +115,7 @@ func (s *WorkerValidationSuite) TestBootstrapTransport(c *gc.C) {
 type WorkerSuite struct {
 	workerFixture
 	worker *raft.Worker
-	clock  *testing.Clock
+	clock  *testclock.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})

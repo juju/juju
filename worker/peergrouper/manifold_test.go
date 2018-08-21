@@ -28,7 +28,7 @@ type ManifoldSuite struct {
 
 	manifold     dependency.Manifold
 	context      dependency.Context
-	clock        *testing.Clock
+	clock        *testclock.Clock
 	agent        *mockAgent
 	hub          *mockHub
 	stateTracker stubStateTracker

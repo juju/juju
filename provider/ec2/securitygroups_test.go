@@ -90,7 +90,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 }
 
 type autoAdvancingClock struct {
-	*testing.Clock
+	*testclock.Clock
 }
 
 func (c autoAdvancingClock) After(d time.Duration) <-chan time.Time {

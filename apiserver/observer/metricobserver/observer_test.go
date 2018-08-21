@@ -20,7 +20,7 @@ import (
 
 type observerSuite struct {
 	testing.IsolationSuite
-	clock    *testing.Clock
+	clock    *testclock.Clock
 	registry *prometheus.Registry
 	factory  observer.ObserverFactory
 }

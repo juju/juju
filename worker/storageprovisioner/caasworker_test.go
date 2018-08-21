@@ -6,6 +6,7 @@ package storageprovisioner_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +32,7 @@ type WorkerSuite struct {
 
 	applicationChanges chan []string
 
-	clock *testing.Clock
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})

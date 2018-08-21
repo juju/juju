@@ -30,7 +30,7 @@ type PresenceSuite struct {
 	testing.IsolationSuite
 	server   string
 	hub      *pubsub.StructuredHub
-	clock    *testing.Clock
+	clock    *testclock.Clock
 	recorder corepresence.Recorder
 	config   presence.WorkerConfig
 }

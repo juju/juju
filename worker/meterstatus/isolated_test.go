@@ -77,7 +77,7 @@ type IsolatedWorkerSuite struct {
 	stub *testing.Stub
 
 	dataDir string
-	clk     *testing.Clock
+	clk     *testclock.Clock
 
 	hookRan         chan struct{}
 	triggersCreated chan struct{}

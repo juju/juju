@@ -88,7 +88,7 @@ func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
 
 func (s *ValidationSuite) TestClaim_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("INVALID", "bar/0", time.Minute)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -97,7 +97,7 @@ func (s *ValidationSuite) TestClaim_LeaseName(c *gc.C) {
 
 func (s *ValidationSuite) TestClaim_HolderName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("foo", "INVALID", time.Minute)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -106,7 +106,7 @@ func (s *ValidationSuite) TestClaim_HolderName(c *gc.C) {
 
 func (s *ValidationSuite) TestClaim_Duration(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).Claim("foo", "bar/0", time.Second)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease for 1s: time not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -115,7 +115,7 @@ func (s *ValidationSuite) TestClaim_Duration(c *gc.C) {
 
 func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("INVALID", "bar/0")
 		err := token.Check(nil)
 		c.Check(err, gc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
@@ -125,7 +125,7 @@ func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 
 func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("foo", "INVALID")
 		err := token.Check(nil)
 		c.Check(err, gc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
@@ -152,7 +152,7 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
 		err := token.Check(&expectKey)
 		cause := errors.Cause(err)
@@ -162,7 +162,7 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 
 func (s *ValidationSuite) TestWaitUntilExpired_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		err := getClaimer(c, manager).WaitUntilExpired("INVALID", nil)
 		c.Check(err, gc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)

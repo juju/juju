@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -22,7 +21,7 @@ type WatcherSuite struct {
 	watcher     *remotestate.RemoteStateWatcher
 	appWatcher  *mockNotifyWatcher
 	charmGetter *mockCharmGetter
-	clock       *testing.Clock
+	clock       *testclock.Clock
 }
 
 var _ = gc.Suite(&WatcherSuite{})

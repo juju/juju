@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -264,7 +263,7 @@ func (s *suite) TestConnections(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func bootstrap(initialTime ...time.Time) (presence.Recorder, *testing.Clock) {
+func bootstrap(initialTime ...time.Time) (presence.Recorder, *testclock.Clock) {
 	if len(initialTime) > 1 {
 		panic("initialTime should be zero or one values")
 	}

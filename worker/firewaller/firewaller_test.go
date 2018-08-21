@@ -925,7 +925,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 
 	// Give the worker time to restart and try again.
 	apiErr = false
-	s.clock.(*testing.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
+	s.clock.(*testclock.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")

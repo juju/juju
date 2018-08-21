@@ -87,7 +87,7 @@ func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
 // workerFixture isolates a charmrevision worker for testing.
 type workerFixture struct {
 	revisionUpdater mockRevisionUpdater
-	clock           *testing.Clock
+	clock           *testclock.Clock
 	period          time.Duration
 }
 

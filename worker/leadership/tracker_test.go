@@ -23,7 +23,7 @@ type TrackerSuite struct {
 	testing.IsolationSuite
 	unitTag names.UnitTag
 	claimer *StubClaimer
-	clock   *testing.Clock
+	clock   *testclock.Clock
 }
 
 var _ = gc.Suite(&TrackerSuite{})

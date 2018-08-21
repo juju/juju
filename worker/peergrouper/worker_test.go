@@ -15,7 +15,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	"github.com/kr/pretty"
@@ -54,7 +53,7 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock *testing.Clock
+	clock *testclock.Clock
 	hub   Hub
 }
 

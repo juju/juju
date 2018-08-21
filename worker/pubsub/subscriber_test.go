@@ -122,7 +122,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 type SubscriberSuite struct {
 	testing.IsolationSuite
 	config  psworker.WorkerConfig
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	hub     *pubsub.StructuredHub
 	origin  string
 	remotes *fakeRemoteTracker

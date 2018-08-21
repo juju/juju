@@ -91,7 +91,7 @@ func run(c *gc.C, stub *testing.Stub, test FixtureTest) {
 type context struct {
 	c       *gc.C
 	stub    *testing.Stub
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	timeout <-chan time.Time
 
 	starts  chan worker.Worker

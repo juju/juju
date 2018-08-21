@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
@@ -22,7 +21,7 @@ import (
 type CleanerSuite struct {
 	coretesting.BaseSuite
 	mockState *cleanerMock
-	mockClock *testing.Clock
+	mockClock *testclock.Clock
 }
 
 var _ = gc.Suite(&CleanerSuite{})

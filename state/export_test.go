@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time" // Only used for time types.
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
@@ -636,7 +636,7 @@ func RemoveRelationStatus(c *gc.C, rel *Relation) {
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
-	c *gc.C, clock *testing.Clock,
+	c *gc.C, clock *testclock.Clock,
 	unit *Unit, statusVal status.Status,
 	count, batchSize int,
 	nextData func(int) map[string]interface{},

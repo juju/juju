@@ -29,7 +29,7 @@ type ManifoldSuite struct {
 	context   dependency.Context
 	agent     *mockAgent
 	transport *coreraft.InmemTransport
-	clock     *testing.Clock
+	clock     *testclock.Clock
 	fsm       *raft.SimpleFSM
 	logger    loggo.Logger
 	worker    *mockRaftWorker

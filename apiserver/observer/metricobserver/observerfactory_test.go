@@ -18,7 +18,7 @@ import (
 
 type observerFactorySuite struct {
 	testing.IsolationSuite
-	clock      *testing.Clock
+	clock      *testclock.Clock
 	registerer fakePrometheusRegisterer
 }
 

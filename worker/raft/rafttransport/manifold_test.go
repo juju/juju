@@ -39,7 +39,7 @@ type ManifoldSuite struct {
 	mux      *apiserverhttp.Mux
 	worker   worker.Worker
 	stub     testing.Stub
-	clock    *testing.Clock
+	clock    *testclock.Clock
 }
 
 var _ = gc.Suite(&ManifoldSuite{})

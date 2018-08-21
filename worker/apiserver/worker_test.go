@@ -27,7 +27,7 @@ type workerFixture struct {
 	testing.IsolationSuite
 	agentConfig          mockAgentConfig
 	authenticator        *mockAuthenticator
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	hub                  pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
 	prometheusRegisterer stubPrometheusRegisterer

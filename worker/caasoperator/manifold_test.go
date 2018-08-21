@@ -35,7 +35,7 @@ type ManifoldSuite struct {
 	apiCaller       fakeAPICaller
 	charmDownloader fakeDownloader
 	client          fakeClient
-	clock           *testing.Clock
+	clock           *testclock.Clock
 	dataDir         string
 	stub            testing.Stub
 }

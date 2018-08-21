@@ -29,7 +29,7 @@ type ExternalControllerUpdaterSuite struct {
 	updater mockExternalControllerUpdaterClient
 	watcher mockExternalControllerWatcherClient
 
-	clock *testing.Clock
+	clock *testclock.Clock
 
 	stub       testing.Stub
 	newWatcher externalcontrollerupdater.NewExternalControllerWatcherClientFunc

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -83,7 +82,7 @@ type Fixture struct {
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
-func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) {
+func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)) {
 	clock := testclock.NewClock(defaultClockStart)
 	store := NewStore(fix.leases, fix.expectCalls)
 	manager, err := lease.NewManager(lease.ManagerConfig{
@@ -109,7 +108,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) 
 	test(manager, clock)
 }
 
-func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
+func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {
 	timeout := time.After(coretesting.LongWait)
 	for i := 0; i < count; i++ {
 		select {

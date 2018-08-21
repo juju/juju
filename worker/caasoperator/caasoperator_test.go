@@ -43,7 +43,7 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 
-	clock                 *testing.Clock
+	clock                 *testclock.Clock
 	config                caasoperator.Config
 	unitsChanges          chan []string
 	appChanges            chan struct{}

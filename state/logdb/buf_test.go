@@ -21,7 +21,7 @@ type BufferedLoggerSuite struct {
 	testing.IsolationSuite
 
 	mock  mockLogger
-	clock *testing.Clock
+	clock *testclock.Clock
 }
 
 func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {

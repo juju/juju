@@ -34,7 +34,7 @@ func clockStartTime() time.Time {
 
 type InteractiveSuite struct {
 	testing.IsolationSuite
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	newUUID func() (utils.UUID, error)
 }
 

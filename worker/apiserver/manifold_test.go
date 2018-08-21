@@ -39,7 +39,7 @@ type ManifoldSuite struct {
 	context              dependency.Context
 	agent                *mockAgent
 	authenticator        *mockAuthenticator
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	mux                  *apiserverhttp.Mux
 	state                stubStateTracker
 	prometheusRegisterer stubPrometheusRegisterer

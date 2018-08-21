@@ -30,7 +30,7 @@ type RemoteServerSuite struct {
 	testing.IsolationSuite
 	connectionOpener *fakeConnectionOpener
 	config           psworker.RemoteServerConfig
-	clock            *testing.Clock
+	clock            *testclock.Clock
 	hub              *pubsub.StructuredHub
 	origin           string
 }
