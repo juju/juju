@@ -16,11 +16,23 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
-	err = mach.CreateUpgradeSeriesLock([]string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}, "xenial")
+
+	unitIds := []string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}
+	err = mach.CreateUpgradeSeriesLock(unitIds, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
+
 	locked, err = mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
+
+	units, err := mach.UpgradeSeriesUnitStatuses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	lockedUnitsIds := make([]string, len(units))
+	for i, u := range units {
+		lockedUnitsIds[i] = u.Id
+	}
+	c.Assert(lockedUnitsIds, jc.SameContents, unitIds)
 }
 
 func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {

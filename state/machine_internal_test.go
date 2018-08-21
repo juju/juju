@@ -103,7 +103,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 
 func (s *MachineInternalSuite) TestStartUnitUpgradeSeriesCompletionPhaseTxnOps(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryUnitStatuses := map[string]unitStatus{}
+	arbitraryUnitStatuses := map[string]UpgradeSeriesUnitStatus{}
 	expectedOps := []txn.Op{
 		{
 			C:      machinesC,

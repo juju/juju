@@ -20,15 +20,14 @@ import (
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLockDoc struct {
-	Id            string                    `bson:"machine-id"`
-	ToSeries      string                    `bson:"to-series"`
-	FromSeries    string                    `bson:"from-series"`
-	MachineStatus model.UpgradeSeriesStatus `bson:"machine-status"`
-	UnitStatuses  map[string]unitStatus     `bson:"unit-statuses"`
+	Id            string                             `bson:"machine-id"`
+	ToSeries      string                             `bson:"to-series"`
+	FromSeries    string                             `bson:"from-series"`
+	MachineStatus model.UpgradeSeriesStatus          `bson:"machine-status"`
+	UnitStatuses  map[string]UpgradeSeriesUnitStatus `bson:"unit-statuses"`
 }
 
-type unitStatus struct {
-	Id     string
+type UpgradeSeriesUnitStatus struct {
 	Status model.UpgradeSeriesStatus
 
 	// The time that the status was set
@@ -84,18 +83,14 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 
 // IsLocked determines if a machine is locked for upgrade series.
 func (m *Machine) IsLocked() (bool, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-	defer closer()
-
-	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
-	if err == mgo.ErrNotFound {
+	_, err := m.getUpgradeSeriesLock()
+	if err == nil {
+		return true, nil
+	}
+	if errors.IsBadRequest(err) {
 		return false, nil
 	}
-	if err != nil {
-		return false, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
-	}
-	return true, nil
+	return false, errors.Trace(err)
 }
 
 func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
@@ -118,9 +113,9 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 }
 
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
-	unitStatuses := make(map[string]unitStatus, len(unitNames))
+	unitStatuses := make(map[string]UpgradeSeriesUnitStatus, len(unitNames))
 	for _, name := range unitNames {
-		unitStatuses[name] = unitStatus{Status: model.PrepareStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.PrepareStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
@@ -180,7 +175,7 @@ func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
 	return nil
 }
 
-func startUnitUpgradeSeriesCompletionPhaseTxnOps(machineDocID string, units []unitStatus) []txn.Op {
+func startUnitUpgradeSeriesCompletionPhaseTxnOps(machineDocID string, units map[string]UpgradeSeriesUnitStatus) []txn.Op {
 	statusField := "unit-statuses"
 	return []txn.Op{
 		{
@@ -312,38 +307,20 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatus, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-	defer closer()
-
-	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
-	if err == mgo.ErrNotFound {
-		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
-	}
+	statuses, err := m.UpgradeSeriesUnitStatuses()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	if _, ok := lock.UnitStatuses[unitName]; !ok {
-		return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
+	if u, ok := statuses[unitName]; ok {
+		return u.Status, nil
 	}
-
-	return lock.UnitStatuses[unitName].Status, nil
+	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 }
 
-func (m *Machine) UpgradeSeriesUnitStatuses(unitName string) ([]unitStatus, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-	defer closer()
-
-	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("upgrade series lock for machine %q", m.Id())
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return lock.UnitStatuses, nil
+func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatus, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	return lock.UnitStatuses, errors.Trace(err)
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
@@ -460,7 +437,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 		return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v: %v", m.Id())
 	}
 	return &lock, nil
 }
