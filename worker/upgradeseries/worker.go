@@ -161,7 +161,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.PrepareStarted)
 
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsReadyToStop)
+	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -213,7 +213,7 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 
 	// This is a sanity check.
 	// The units should all still be in the "PrepareComplete" state.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsReadyToStop)
+	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -246,7 +246,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	// manual tasks have been run and an operator has executed the
 	// upgrade-series completion command; start all the unit agents,
 	// and progress the workflow.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsReadyToStop)
+	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}

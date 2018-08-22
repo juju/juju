@@ -94,7 +94,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestUnitsReadyToStop(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -109,10 +109,10 @@ func (s *upgradeSeriesSuite) TestUnitsReadyToStop(c *gc.C) {
 			{Tag: r1},
 		}}},
 	}
-	fCaller.EXPECT().FacadeCall("UnitsReadyToStop", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall("UnitsPrepared", s.args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	units, err := api.UnitsReadyToStop()
+	units, err := api.UnitsPrepared()
 	c.Assert(err, gc.IsNil)
 
 	expected := []names.UnitTag{names.NewUnitTag(r0), names.NewUnitTag(r1)}

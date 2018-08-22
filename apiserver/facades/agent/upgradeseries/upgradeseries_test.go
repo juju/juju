@@ -83,7 +83,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUnitsReadyToStop(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -98,7 +98,7 @@ func (s *upgradeSeriesSuite) TestUnitsReadyToStop(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
 
-	results, err := api.UnitsReadyToStop(args)
+	results, err := api.UnitsPrepared(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},

@@ -63,16 +63,16 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	return "", errors.Trace(r.Error)
 }
 
-// UnitsReadyToStop returns the units running on this machine that have
+// UnitsPrepared returns the units running on this machine that have
 // completed their upgrade-series preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
-func (s *Client) UnitsReadyToStop() ([]names.UnitTag, error) {
+func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
 	var results params.EntitiesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall("UnitsReadyToStop", args, &results)
+	err := s.facade.FacadeCall("UnitsPrepared", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

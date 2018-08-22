@@ -73,17 +73,17 @@ func (mr *MockFacadeMockRecorder) StartUnitCompletion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion))
 }
 
-// UnitsReadyToStop mocks base method
-func (m *MockFacade) UnitsReadyToStop() ([]names_v2.UnitTag, error) {
-	ret := m.ctrl.Call(m, "UnitsReadyToStop")
+// UnitsPrepared mocks base method
+func (m *MockFacade) UnitsPrepared() ([]names_v2.UnitTag, error) {
+	ret := m.ctrl.Call(m, "UnitsPrepared")
 	ret0, _ := ret[0].([]names_v2.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// UnitsReadyToStop indicates an expected call of UnitsReadyToStop
-func (mr *MockFacadeMockRecorder) UnitsReadyToStop() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsReadyToStop", reflect.TypeOf((*MockFacade)(nil).UnitsReadyToStop))
+// UnitsPrepared indicates an expected call of UnitsPrepared
+func (mr *MockFacadeMockRecorder) UnitsPrepared() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared))
 }
 
 // UpgradeSeriesStatus mocks base method

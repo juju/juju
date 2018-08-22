@@ -141,10 +141,10 @@ func (a *API) StartUnitCompletion(args params.SetUpgradeSeriesStatusParams) (par
 	return result, nil
 }
 
-// UnitsReadyToStop returns the units running on this machine that have
-// completed their upgrade-series preparation, and are ready to be stopped and
-// have their unit agent services converted for the target series.
-func (a *API) UnitsReadyToStop(args params.Entities) (params.EntitiesResults, error) {
+// UnitsPrepared returns the units running on this machine that have completed
+// their upgrade-series preparation, and are ready to be stopped and have their
+// unit agent services converted for the target series.
+func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error) {
 	result := params.EntitiesResults{}
 	//
 	canAccess, err := a.AccessMachine()

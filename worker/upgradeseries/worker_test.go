@@ -89,7 +89,7 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.PrepareStarted, nil)
 	// Only one of the two units has completed preparation.
-	exp.UnitsReadyToStop().Return([]names.UnitTag{names.NewUnitTag("wordpress/0")}, nil)
+	exp.UnitsPrepared().Return([]names.UnitTag{names.NewUnitTag("wordpress/0")}, nil)
 
 	// After comparing the prepare-complete units with the services,
 	// no further action is taken.
@@ -107,7 +107,7 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.PrepareStarted, nil)
 	// All known units have completed preparation - the workflow progresses.
-	exp.UnitsReadyToStop().Return([]names.UnitTag{
+	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
@@ -131,7 +131,7 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.PrepareMachine, nil)
-	exp.UnitsReadyToStop().Return([]names.UnitTag{
+	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
@@ -153,7 +153,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.CompleteStarted, nil)
-	exp.UnitsReadyToStop().Return([]names.UnitTag{
+	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
@@ -179,7 +179,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	exp.MachineStatus().Return(model.CompleteStarted, nil)
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
-	exp.UnitsReadyToStop().Return([]names.UnitTag{}, nil)
+	exp.UnitsPrepared().Return([]names.UnitTag{}, nil)
 	exp.UpgradeSeriesStatus().Return([]string{string(model.Completed), string(model.Completed)}, nil)
 	exp.SetMachineStatus(model.Completed).Return(nil)
 
