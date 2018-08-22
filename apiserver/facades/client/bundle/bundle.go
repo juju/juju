@@ -125,7 +125,7 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
-	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
+	if err := data.Verify(verifyConstraints, verifyStorage, nil); err != nil {
 		if err, ok := err.(*charm.VerificationError); ok {
 			results.Errors = make([]string, len(err.Errors))
 			for i, e := range err.Errors {

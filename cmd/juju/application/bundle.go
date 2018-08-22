@@ -88,13 +88,13 @@ func deployBundle(
 		if err := processBundleIncludes(ctx.Dir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.Verify(verifyConstraints, verifyStorage)
+		verifyError = data.Verify(verifyConstraints, verifyStorage, nil)
 	} else {
 		// Process includes in the bundle data.
 		if err := processBundleIncludes(bundleDir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage)
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, nil)
 	}
 	if verifyError != nil {
 		if verr, ok := verifyError.(*charm.VerificationError); ok {
