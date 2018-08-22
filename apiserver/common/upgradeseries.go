@@ -229,75 +229,34 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 
 func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	u.logger.Tracef("Starting GetUpgradeSeriesStatus with %+v", args)
-	result := params.UpgradeSeriesStatusResults{}
 
-	canAccess, err := u.accessUnitOrMachine()
+	canAccess, err := u.accessUnit()
 	if err != nil {
-		return result, err
+		return params.UpgradeSeriesStatusResults{}, err
 	}
 
-	for _, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
+	results := make([]params.UpgradeSeriesStatusResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results = append(result.Results, params.UpgradeSeriesStatusResult{Error: ServerError(err)})
+			results[i].Error = ServerError(ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results = append(result.Results, params.UpgradeSeriesStatusResult{Error: ServerError(ErrPerm)})
+			results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		switch tag.Kind() {
-		case names.MachineTagKind:
-			// TODO (manadart 2018-08-01) If multiple machine entities are
-			// passed in the call, the return will not distinguish between
-			// What unit status results belong to which machine.
-			// At this stage we do not anticipate this, so... YAGNI.
-			result.Results = append(result.Results, u.upgradeSeriesMachineStatus(tag)...)
-		case names.UnitTagKind:
-			result.Results = append(result.Results, u.upgradeSeriesUnitStatus(tag))
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			results[i].Error = ServerError(err)
+			continue
 		}
+		status, err := unit.UpgradeSeriesStatus()
+		if err != nil {
+			results[i].Error = ServerError(err)
+			continue
+		}
+		results[i].Status = string(status)
 	}
-
-	return result, nil
-}
-
-// upgradeSeriesMachineStatus returns a result containing the upgrade-series
-// status of all units managed by the input machine, for the input status type.
-func (u *UpgradeSeriesAPI) upgradeSeriesMachineStatus(machineTag names.Tag) []params.UpgradeSeriesStatusResult {
-	machine, err := u.GetMachine(machineTag)
-	if err != nil {
-		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
-	}
-
-	units, err := machine.Units()
-	if err != nil {
-		return []params.UpgradeSeriesStatusResult{{Error: ServerError(err)}}
-	}
-
-	results := make([]params.UpgradeSeriesStatusResult, len(units))
-	for i, unit := range units {
-		results[i] = u.upgradeSeriesUnitStatus(unit.Tag())
-	}
-	return results
-}
-
-// upgradeSeriesUnitStatus returns a result containing the upgrade-series
-// status of the input unit, for the input status type.
-func (u *UpgradeSeriesAPI) upgradeSeriesUnitStatus(unitTag names.Tag) params.UpgradeSeriesStatusResult {
-	result := params.UpgradeSeriesStatusResult{}
-
-	unit, err := u.getUnit(unitTag)
-	if err != nil {
-		result.Error = ServerError(err)
-		return result
-	}
-
-	status, err := unit.UpgradeSeriesStatus()
-	if err != nil {
-		result.Error = ServerError(err)
-		return result
-	}
-
-	result.Status = string(status)
-	return result
+	return params.UpgradeSeriesStatusResults{Results: results}, nil
 }
