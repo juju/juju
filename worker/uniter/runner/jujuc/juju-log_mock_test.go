@@ -5,10 +5,9 @@
 package jujuc
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	loggo "github.com/juju/loggo"
+	reflect "reflect"
 )
 
 // MockJujuLogCommandLogger is a mock of JujuLogCommandLogger interface

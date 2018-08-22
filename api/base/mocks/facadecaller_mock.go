@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
+	reflect "reflect"
 )
 
 // MockFacadeCaller is a mock of FacadeCaller interface
