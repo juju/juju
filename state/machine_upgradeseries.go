@@ -305,22 +305,34 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 	return lock.MachineStatus, errors.Trace(err)
 }
 
-// UpgradeSeriesStatus returns the status of a series upgrade.
+// UpgradeSeriesStatus returns the series upgrade status for the input unit.
 func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatus, error) {
-	statuses, err := m.UpgradeSeriesUnitStatuses()
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
+	}
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
-	if u, ok := statuses[unitName]; ok {
-		return u.Status, nil
+	if _, ok := lock.UnitStatuses[unitName]; !ok {
+		return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 	}
-	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
+
+	return lock.UnitStatuses[unitName].Status, nil
 }
 
+// UpgradeSeriesStatus returns the unit statuses from the upgrade-series lock
+// for this machine.
 func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatus, error) {
 	lock, err := m.getUpgradeSeriesLock()
-	return lock.UnitStatuses, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return lock.UnitStatuses, nil
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
@@ -364,7 +376,9 @@ func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.Upg
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
-func setUpgradeSeriesTxnOps(machineDocID, unitName string, status model.UpgradeSeriesStatus, timestamp time.Time) ([]txn.Op, error) {
+func setUpgradeSeriesTxnOps(
+	machineDocID, unitName string, status model.UpgradeSeriesStatus, timestamp time.Time,
+) ([]txn.Op, error) {
 	statusField := "unit-statuses"
 	unitStatusField := fmt.Sprintf("%s.%s.status", statusField, unitName)
 	unitTimestampField := fmt.Sprintf("%s.%s.timestamp", statusField, unitName)
