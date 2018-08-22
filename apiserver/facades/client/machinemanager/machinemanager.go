@@ -489,7 +489,7 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 		return err
 	}
 	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s", machineTag, currentSeries, argumentSeries)
+		return errors.Errorf("machine %s is running %s which is a newer series than %s.", machineTag, currentSeries, argumentSeries)
 	}
 
 	return nil

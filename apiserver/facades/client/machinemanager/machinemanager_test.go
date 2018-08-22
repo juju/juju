@@ -465,7 +465,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareOlderSeriesShouldError(c *
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "machine machine-1 is running trusty which is a newer series than precise")
+	c.Assert(result.Error, gc.ErrorMatches, "machine machine-1 is running trusty which is a newer series than precise.")
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.C) {
