@@ -9,6 +9,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	upgradeseries "github.com/juju/juju/worker/upgradeseries"
+	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -70,6 +71,19 @@ func (m *MockFacade) StartUnitCompletion() error {
 // StartUnitCompletion indicates an expected call of StartUnitCompletion
 func (mr *MockFacadeMockRecorder) StartUnitCompletion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion))
+}
+
+// UnitsReadyToStop mocks base method
+func (m *MockFacade) UnitsReadyToStop() ([]names_v2.UnitTag, error) {
+	ret := m.ctrl.Call(m, "UnitsReadyToStop")
+	ret0, _ := ret[0].([]names_v2.UnitTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitsReadyToStop indicates an expected call of UnitsReadyToStop
+func (mr *MockFacadeMockRecorder) UnitsReadyToStop() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsReadyToStop", reflect.TypeOf((*MockFacade)(nil).UnitsReadyToStop))
 }
 
 // UpgradeSeriesStatus mocks base method

@@ -126,13 +126,9 @@ func (w *upgradeSeriesWorker) loop() error {
 	}
 }
 
-// handleUpgradeSeriesChange retrieves the upgrade-series status for this
-// machine and all of its units.
-// Based on the status, actions are taken.
-// TODO (manadart 2018-08-06): This needs upstream work to streamline.
-// We should effectively be getting the whole upgrade-series lock - machine
-// and unit data, to properly assess the current state and to transition as
-// required.
+// handleUpgradeSeriesChange retrieves the current upgrade-series status for
+// this machine and based on the status, calls methods that will progress
+// the workflow accordingly.
 func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	machineStatus, err := w.MachineStatus()
 	if err != nil {
@@ -140,6 +136,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 			// No upgrade-series lock.
 			// This can only happen on the first watch call.
 			// Does it happen if the lock is deleted?
+			w.logger.Warningf("no series upgrade lock present")
 			return nil
 		}
 		return errors.Trace(err)
