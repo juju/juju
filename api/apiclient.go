@@ -840,6 +840,7 @@ type dialer struct {
 // when appropriate.
 func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
 	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, d.ctx.Done())
+	var lastErr error = nil
 	for a.Next() {
 		conn, tlsConfig, err := d.dial1()
 		if err == nil {
@@ -853,11 +854,15 @@ func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
 		}
 		if isX509Error(err) || !a.More() {
 			// certificate errors don't improve with retries.
-			logger.Debugf("error dialing websocket: %v", err)
 			return nil, errors.Annotatef(err, "unable to connect to API")
 		}
+		lastErr = err
 	}
-	return nil, parallel.ErrStopped
+	if lastErr == nil {
+		logger.Debugf("no error, but not connected, probably cancelled before we started")
+		return nil, parallel.ErrStopped
+	}
+	return nil, errors.Trace(lastErr)
 }
 
 // dial1 makes a single dial attempt.

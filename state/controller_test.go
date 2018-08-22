@@ -36,6 +36,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.JujuHASpace,
 		controller.JujuManagementSpace,
 		controller.AuditLogExcludeMethods,
+		controller.MaxPruneTxnBatchSize,
+		controller.MaxPruneTxnPasses,
 		controller.CAASOperatorImagePath,
 		controller.Features,
 	)
