@@ -3,7 +3,10 @@
 
 package caas
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+)
 
 // FileSet defines a set of files to mount
 // into the container.
@@ -55,14 +58,51 @@ type ContainerSpec struct {
 // PodSpec defines the data values used to configure
 // a pod on the CAAS substrate.
 type PodSpec struct {
-	Containers          []ContainerSpec `yaml:"-"`
-	OmitServiceFrontend bool            `yaml:"omitServiceFrontend"`
+	Containers                []ContainerSpec            `yaml:"-"`
+	OmitServiceFrontend       bool                       `yaml:"omitServiceFrontend"`
+	CustomResourceDefinitions []CustomResourceDefinition `yaml:"customResourceDefinition,omitempty"`
+}
+
+// CustomResourceDefinitionValidation defines the custom resource definition validation schema.
+type CustomResourceDefinitionValidation struct {
+	Properties map[string]apiextensionsv1beta1.JSONSchemaProps `yaml:"properties"`
+}
+
+// CustomResourceDefinition defines the custom resource definition template and content format in podspec.
+type CustomResourceDefinition struct {
+	Kind       string                             `yaml:"kind"`
+	Group      string                             `yaml:"group"`
+	Version    string                             `yaml:"version"`
+	Scope      string                             `yaml:"scope"`
+	Validation CustomResourceDefinitionValidation `yaml:"validation,omitempty"`
+}
+
+// Validate returns an error if the crd is not valid.
+func (crd *CustomResourceDefinition) Validate() error {
+	if crd.Kind == "" {
+		return errors.NotValidf("missing kind")
+	}
+	if crd.Group == "" {
+		return errors.NotValidf("missing group")
+	}
+	if crd.Version == "" {
+		return errors.NotValidf("missing version")
+	}
+	if crd.Scope == "" {
+		return errors.NotValidf("missing scope")
+	}
+	return nil
 }
 
 // Validate returns an error if the spec is not valid.
 func (spec *PodSpec) Validate() error {
 	for _, c := range spec.Containers {
 		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, crd := range spec.CustomResourceDefinitions {
+		if err := crd.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}

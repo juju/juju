@@ -66,8 +66,9 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 		factory,
 		configReader,
 	)
+	credsRegister := creds.(environs.ProviderCredentialsRegister)
 
-	provider := lxd.NewProviderWithMocks(creds, factory, configReader)
+	provider := lxd.NewProviderWithMocks(creds, credsRegister, factory, configReader)
 	return credentialsSuiteDeps{
 		provider:       provider,
 		creds:          creds,
@@ -78,40 +79,6 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 		netLookup:      lookup,
 		configReader:   configReader,
 	}
-}
-
-func (s *credentialsSuite) TestDetectCredentialsUsesJujuCert(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	deps := s.createProvider(ctrl)
-
-	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	deps.server.EXPECT().ServerCertificate().Return("server-cert")
-
-	path := osenv.JujuXDGDataHomePath("lxd")
-	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
-	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
-
-	credentials, err := deps.provider.DetectCredentials()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{
-			"client-cert": coretesting.CACert,
-			"client-key":  coretesting.CAKey,
-			"server-cert": "server-cert",
-		},
-	)
-	expected.Label = `LXD credential "localhost"`
-
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": expected,
-		},
-	})
 }
 
 func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
@@ -125,43 +92,6 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
 
 	_, err := deps.provider.DetectCredentials()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "certs not valid")
-}
-
-func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	deps := s.createProvider(ctrl)
-
-	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	deps.server.EXPECT().ServerCertificate().Return("server-cert")
-
-	path := osenv.JujuXDGDataHomePath("lxd")
-	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-
-	path = filepath.Join(utils.Home(), ".config", "lxc")
-	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
-	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
-
-	credentials, err := deps.provider.DetectCredentials()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{
-			"client-cert": coretesting.CACert,
-			"client-key":  coretesting.CAKey,
-			"server-cert": "server-cert",
-		},
-	)
-	expected.Label = `LXD credential "localhost"`
-
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": expected,
-		},
-	})
 }
 
 func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C) {
@@ -178,45 +108,6 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 
 	_, err := deps.provider.DetectCredentials()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "certs not valid")
-}
-
-func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	deps := s.createProvider(ctrl)
-
-	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	deps.server.EXPECT().ServerCertificate().Return("server-cert")
-
-	path := osenv.JujuXDGDataHomePath("lxd")
-	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(nil)
-
-	path = filepath.Join(utils.Home(), ".config", "lxc")
-	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
-
-	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
-
-	credential := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{
-			"client-cert": coretesting.CACert,
-			"client-key":  coretesting.CAKey,
-			"server-cert": "server-cert",
-		},
-	)
-	credential.Label = `LXD credential "localhost"`
-
-	credentials, err := deps.provider.DetectCredentials()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": credential,
-		},
-	})
 }
 
 func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError(c *gc.C) {
@@ -257,9 +148,6 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertifica
 }
 
 func (s *credentialsSuite) setupLocalhost(deps credentialsSuiteDeps, c *gc.C) {
-	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	deps.server.EXPECT().ServerCertificate().Return("server-cert")
-
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 
@@ -272,7 +160,6 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
-
 	s.setupLocalhost(deps, c)
 
 	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
@@ -291,16 +178,6 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 
-	localCredential := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{
-			"client-cert": coretesting.CACert,
-			"client-key":  coretesting.CAKey,
-			"server-cert": "server-cert",
-		},
-	)
-	localCredential.Label = `LXD credential "localhost"`
-
 	nuc1Credential := cloud.NewCredential(
 		cloud.CertificateAuthType,
 		map[string]string{
@@ -312,10 +189,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	nuc1Credential.Label = `LXD credential "nuc1"`
 
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
-			"localhost": localCredential,
-			"nuc1":      nuc1Credential,
+			"nuc1": nuc1Credential,
 		},
 	})
 }
@@ -332,22 +207,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C)
 
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
-
-	localCredential := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{
-			"client-cert": coretesting.CACert,
-			"client-key":  coretesting.CAKey,
-			"server-cert": "server-cert",
-		},
-	)
-	localCredential.Label = `LXD credential "localhost"`
-
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": localCredential,
-		},
+		AuthCredentials: map[string]cloud.Credential{},
 	})
 }
 
@@ -356,7 +217,6 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
-
 	s.setupLocalhost(deps, c)
 
 	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
@@ -374,8 +234,29 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{},
+	})
+}
 
-	localCredential := cloud.NewCredential(
+func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(nil)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,
 		map[string]string{
 			"client-cert": coretesting.CACert,
@@ -383,12 +264,92 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 			"server-cert": "server-cert",
 		},
 	)
-	localCredential.Label = `LXD credential "localhost"`
+	expected.Label = `LXD credential "localhost"`
 
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: "localhost",
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": localCredential,
+	provider := deps.provider.(environs.ProviderCredentialsRegister)
+	credentials, err := provider.RegisterCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"localhost": {
+			DefaultCredential: "localhost",
+			AuthCredentials: map[string]cloud.Credential{
+				"localhost": expected,
+			},
+		},
+	})
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	provider := deps.provider.(environs.ProviderCredentialsRegister)
+	credentials, err := provider.RegisterCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": "server-cert",
+		},
+	)
+	expected.Label = `LXD credential "localhost"`
+
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"localhost": {
+			DefaultCredential: "localhost",
+			AuthCredentials: map[string]cloud.Credential{
+				"localhost": expected,
+			},
+		},
+	})
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	provider := deps.provider.(environs.ProviderCredentialsRegister)
+	credentials, err := provider.RegisterCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": "server-cert",
+		},
+	)
+	expected.Label = `LXD credential "localhost"`
+
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"localhost": {
+			DefaultCredential: "localhost",
+			AuthCredentials: map[string]cloud.Credential{
+				"localhost": expected,
+			},
 		},
 	})
 }

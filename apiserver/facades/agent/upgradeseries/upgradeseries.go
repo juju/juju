@@ -30,7 +30,7 @@ type API struct {
 // NewAPI creates a new instance of the API server.
 // It has a signature suitable for external registration.
 func NewAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{st}, resources, authorizer)
+	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: st}, resources, authorizer)
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
@@ -110,6 +110,31 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 	}
 
 	result.Results = results
+	return result, nil
+}
+
+// CompleteStatus starts the upgrade series completion phase for all subordinate
+// units of a given machine.
+func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Params)),
+	}
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, param := range args.Params {
+		machine, err := a.authAndMachine(param.Entity, canAccess)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = machine.StartUnitUpgradeSeriesCompletionPhase()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
 	return result, nil
 }
 

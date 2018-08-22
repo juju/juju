@@ -131,9 +131,9 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	}
 }
 
-// DetectCredentials is part of the environs.ProviderCredentials interface.
-func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	nopLogf := func(string, ...interface{}) {}
+// RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
+func (p environProviderCredentials) RegisterCredentials() (map[string]*cloud.CloudCredential, error) {
+	nopLogf := func(msg string, args ...interface{}) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -144,8 +144,22 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		return nil, errors.Trace(err)
 	}
 
-	authCredentials := map[string]cloud.Credential{
-		lxdnames.DefaultCloud: *localCertCredential,
+	return map[string]*cloud.CloudCredential{
+		lxdnames.DefaultCloud: {
+			DefaultCredential: lxdnames.DefaultCloud,
+			AuthCredentials: map[string]cloud.Credential{
+				lxdnames.DefaultCloud: *localCertCredential,
+			},
+		},
+	}, nil
+}
+
+// DetectCredentials is part of the environs.ProviderCredentials interface.
+func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+	nopLogf := func(msg string, args ...interface{}) {}
+	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	remoteCertCredentials, err := p.detectRemoteCredentials(certPEM, keyPEM)
@@ -153,13 +167,12 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		logger.Errorf("unable to detect LXC credentials: %s", err)
 	}
 
+	authCredentials := make(map[string]cloud.Credential)
 	for k, v := range remoteCertCredentials {
 		authCredentials[k] = v
 	}
-
 	return &cloud.CloudCredential{
-		DefaultCredential: lxdnames.DefaultCloud,
-		AuthCredentials:   authCredentials,
+		AuthCredentials: authCredentials,
 	}, nil
 }
 

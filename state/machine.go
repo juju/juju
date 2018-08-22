@@ -218,20 +218,16 @@ type instanceData struct {
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLockDoc struct {
-	Id             string                    `bson:"machine-id"`
-	ToSeries       string                    `bson:"to-series"`
-	FromSeries     string                    `bson:"from-series"`
-	PrepareStatus  model.UpgradeSeriesStatus `bson:"prepare-status"`
-	UnitStatuses   []unitStatus              `bson:"unit-statuses"`
-	CompleteStatus model.UpgradeSeriesStatus `bson:"complete-status"`
+	Id            string                    `bson:"machine-id"`
+	ToSeries      string                    `bson:"to-series"`
+	FromSeries    string                    `bson:"from-series"`
+	MachineStatus model.UpgradeSeriesStatus `bson:"machine-status"`
+	UnitStatuses  map[string]unitStatus     `bson:"unit-statuses"`
 }
 
 type unitStatus struct {
-	Id     string
-	Status model.UpgradeSeriesStatus
-
-	// The time that the status was set
-	Timestamp time.Time
+	Status    model.UpgradeSeriesStatus
+	Timestamp time.Time // The time that the status was last updated.
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -2105,7 +2101,6 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 		if changed {
 			return nil, errors.Errorf("Units have changed, please retry (%v)", unitNames)
 		}
-
 		data := m.prepareUpgradeSeriesLock(unitNames, toSeries)
 		return createUpgradeSeriesLockTxnOps(m.doc.Id, data), nil
 	}
@@ -2139,19 +2134,16 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 }
 
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
-	prepareUnits := make([]unitStatus, len(unitNames))
-	completeUnits := make([]unitStatus, len(unitNames))
-	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: model.PrepareStarted, Timestamp: bson.Now()}
-		completeUnits[i] = unitStatus{Id: name, Status: model.NotStarted, Timestamp: bson.Now()}
+	unitStatuses := make(map[string]unitStatus, len(unitNames))
+	for _, name := range unitNames {
+		unitStatuses[name] = unitStatus{Status: model.PrepareStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
-		Id:             m.Id(),
-		ToSeries:       toSeries,
-		FromSeries:     m.Series(),
-		PrepareStatus:  model.PrepareStarted,
-		UnitStatuses:   prepareUnits,
-		CompleteStatus: model.NotStarted,
+		Id:            m.Id(),
+		ToSeries:      toSeries,
+		FromSeries:    m.Series(),
+		MachineStatus: model.PrepareStarted,
+		UnitStatuses:  unitStatuses,
 	}
 }
 
@@ -2202,14 +2194,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !readyForCompletion {
 			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
-		lock, err := m.getUpgradeSeriesLock()
-		if err != nil {
-			return nil, err
-		}
-		for i := range lock.UnitStatuses {
-			lock.UnitStatuses[i].Status = model.CompleteStarted
-		}
-		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.UnitStatuses), nil
+		return completeUpgradeSeriesTxnOps(m.doc.Id), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2217,6 +2202,56 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		return err
 	}
 	return nil
+}
+
+// StartUnitUpgradeSeriesCompletionPhase notifies units and machines that an upgrade series is
+// ready for its "completion" phase.
+func (m *Machine) StartUnitUpgradeSeriesCompletionPhase() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		lock, err := m.getUpgradeSeriesLock()
+		if err != nil {
+			return nil, err
+		}
+		if lock.MachineStatus != model.CompleteStarted {
+			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
+		}
+		for unitName, us := range lock.UnitStatuses {
+			us.Status = model.CompleteStarted
+			lock.UnitStatuses[unitName] = us
+		}
+		return startUnitUpgradeSeriesCompletionPhaseTxnOps(m.doc.Id, lock.UnitStatuses), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
+func startUnitUpgradeSeriesCompletionPhaseTxnOps(machineDocID string, units map[string]unitStatus) []txn.Op {
+	statusField := "unit-statuses"
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Assert: bson.D{{"machine-status", model.CompleteStarted}},
+			Update: bson.D{{"$set", bson.D{{statusField, units}}}},
+		},
+	}
 }
 
 // MachineUpgradeSeriesStatus returns the upgrade-series status of a machine.
@@ -2237,7 +2272,7 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 		return "", errors.Trace(err)
 	}
 
-	return lock.PrepareStatus, errors.Trace(err)
+	return lock.MachineStatus, errors.Trace(err)
 }
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
@@ -2254,13 +2289,11 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatu
 		return "", errors.Trace(err)
 	}
 
-	for _, unit := range lock.UnitStatuses {
-		if unit.Id == unitName {
-			return unit.Status, nil
-		}
+	if _, ok := lock.UnitStatuses[unitName]; !ok {
+		return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 	}
 
-	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
+	return lock.UnitStatuses[unitName].Status, nil
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
@@ -2274,12 +2307,14 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UpgradeSe
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		docIndex, err := m.getUnitIndex(unitName, status)
+		statusSet, err := m.isUnitUpgradeSeriesStatusSet(unitName, status)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO[externalreality]: check to see if status is already set to the requested state.
-		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, bson.Now())
+		if statusSet {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, status, bson.Now())
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2327,11 +2362,23 @@ func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStat
 		return false, err
 	}
 
-	return lock.PrepareStatus == status, nil
+	return lock.MachineStatus == status, nil
+}
+
+func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return false, err
+	}
+	us, ok := lock.UnitStatuses[unitName]
+	if !ok {
+		return false, errors.NotFoundf(unitName)
+	}
+	return us.Status == status, nil
 }
 
 func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus) []txn.Op {
-	field := "prepare-status"
+	field := "machine-status"
 
 	return []txn.Op{
 		{
@@ -2347,7 +2394,7 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeri
 	}
 }
 
-func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.Op {
+func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2355,11 +2402,10 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			Assert: isAliveDoc,
 		},
 		{
-			C:  machineUpgradeSeriesLocksC,
-			Id: machineDocID,
-			Assert: bson.D{{"$and", []bson.D{
-				{{"prepare-status", model.PrepareCompleted}}}}},
-			Update: bson.D{{"$set", bson.D{{"unit-statuses", units}, {"prepare-status", model.CompleteStarted}}}},
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Assert: bson.D{{"machine-status", model.PrepareCompleted}},
+			Update: bson.D{{"$set", bson.D{{"machine-status", model.CompleteStarted}}}},
 		},
 	}
 }
@@ -2392,12 +2438,10 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
-func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status model.UpgradeSeriesStatus, timestamp time.Time) ([]txn.Op, error) {
+func setUpgradeSeriesTxnOps(machineDocID, unitName string, status model.UpgradeSeriesStatus, timestamp time.Time) ([]txn.Op, error) {
 	statusField := "unit-statuses"
-	unitStatusField := fmt.Sprintf("%s.%d.status", statusField, unitIndex)
-	unitIDField := fmt.Sprintf("%s.%d.id", statusField, unitIndex)
-	unitTimestampField := fmt.Sprintf("%s.%d.timestamp", statusField, unitIndex)
-
+	unitStatusField := fmt.Sprintf("%s.%s.status", statusField, unitName)
+	unitTimestampField := fmt.Sprintf("%s.%s.timestamp", statusField, unitName)
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2409,7 +2453,6 @@ func setUpgradeSeriesTxnOps(machineDocID, unitName string, unitIndex int, status
 			Id: machineDocID,
 			Assert: bson.D{{"$and", []bson.D{
 				{{statusField, bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
-				{{unitIDField, unitName}},                  // assert that the unit id points to the correct unit (and not to some other unit)
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
 				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}}},
@@ -2438,36 +2481,12 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	// [TODO](externalreality) Do not forget to put in a check to see if prepare status is completed for the Machine.
-	// lock.PrepareStatus == model.MachineSeriesUpgradeComplete
-	return lock.CompleteStatus == model.NotStarted, nil
+	return lock.MachineStatus == model.PrepareCompleted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
 func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
-}
-
-func (m *Machine) getUnitIndex(unitName string, status model.UpgradeSeriesStatus) (int, error) {
-	docIndex := -1
-	lock, err := m.getUpgradeSeriesLock()
-	if err != nil {
-		return docIndex, err
-	}
-	for i, unitStatus := range lock.UnitStatuses {
-		if unitStatus.Id == unitName {
-			// short circuit if there is nothing to do
-			if unitStatus.Status == status {
-				return docIndex, jujutxn.ErrNoOperations
-			}
-			docIndex = i
-		}
-	}
-	if docIndex == -1 {
-		return docIndex, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
-	}
-	return docIndex, nil
 }
 
 func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {

@@ -41,23 +41,26 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 }
 
 type providerSuiteDeps struct {
-	provider     environs.EnvironProvider
-	creds        *testing.MockProviderCredentials
-	factory      *lxd.MockServerFactory
-	configReader *lxd.MockLXCConfigReader
+	provider      environs.EnvironProvider
+	creds         *testing.MockProviderCredentials
+	credsRegister *testing.MockProviderCredentialsRegister
+	factory       *lxd.MockServerFactory
+	configReader  *lxd.MockLXCConfigReader
 }
 
 func (s *providerSuite) createProvider(ctrl *gomock.Controller) providerSuiteDeps {
 	creds := testing.NewMockProviderCredentials(ctrl)
+	credsRegister := testing.NewMockProviderCredentialsRegister(ctrl)
 	factory := lxd.NewMockServerFactory(ctrl)
 	configReader := lxd.NewMockLXCConfigReader(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, factory, configReader)
+	provider := lxd.NewProviderWithMocks(creds, credsRegister, factory, configReader)
 	return providerSuiteDeps{
-		provider:     provider,
-		creds:        creds,
-		factory:      factory,
-		configReader: configReader,
+		provider:      provider,
+		creds:         creds,
+		credsRegister: credsRegister,
+		factory:       factory,
+		configReader:  configReader,
 	}
 }
 
@@ -121,7 +124,7 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 				Name:     "default",
 				Endpoint: "https://10.0.0.1:8443",
 			}},
-			Description: "LXD Container Hypervisor",
+			Description: "LXD Cluster",
 		},
 	})
 }
@@ -188,7 +191,7 @@ func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
 			Name:     "default",
 			Endpoint: "https://10.0.0.1:8443",
 		}},
-		Description: "LXD Container Hypervisor",
+		Description: "LXD Cluster",
 	})
 }
 

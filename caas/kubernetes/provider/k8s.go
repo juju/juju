@@ -21,6 +21,8 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	k8sstorage "k8s.io/api/storage/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,6 +64,7 @@ var defaultPropagationPolicy = v1.DeletePropagationForeground
 
 type kubernetesClient struct {
 	kubernetes.Interface
+	apiextensionsClient apiextensionsclientset.Interface
 
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
@@ -77,7 +80,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
-type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, error)
+type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK8sClientFunc) (caas.Broker, error) {
@@ -85,11 +88,15 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := newClient(config)
+	k8sClient, apiextensionsClient, err := newClient(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &kubernetesClient{Interface: client, namespace: namespace}, nil
+	return &kubernetesClient{
+		Interface:           k8sClient,
+		apiextensionsClient: apiextensionsClient,
+		namespace:           namespace,
+	}, nil
 }
 
 func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
@@ -503,6 +510,53 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(appName))
 }
 
+// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
+func (k *kubernetesClient) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
+	for _, t := range podSpec.CustomResourceDefinitions {
+		crd, err := k.ensureCustomResourceDefinitionTemplate(&t)
+		if err != nil {
+			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", t.Kind))
+		}
+		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
+	}
+	return nil
+}
+
+func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.CustomResourceDefinition) (
+	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
+	singularName := strings.ToLower(t.Kind)
+	pluralName := fmt.Sprintf("%ss", singularName)
+	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      fmt.Sprintf("%s.%s", pluralName, t.Group),
+			Namespace: k.namespace,
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   t.Group,
+			Version: t.Version,
+			Scope:   apiextensionsv1beta1.ResourceScope(t.Scope),
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:   pluralName,
+				Kind:     t.Kind,
+				Singular: singularName,
+			},
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: t.Validation.Properties,
+				},
+			},
+		},
+	}
+	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
+	logger.Debugf("try to update crd %#v", crdIn)
+	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
+	if k8serrors.IsNotFound(err) {
+		logger.Debugf("no existing crd, so create one %#v", crdIn)
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
+	}
+	return
+}
+
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
 	appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
@@ -691,7 +745,6 @@ func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []device
 			}
 		}
 		unitSpec.Pod.Containers[i].Resources = resources
-
 	}
 	nodeLabel, err := getNodeSelectorFromDeviceConstraints(devices)
 	if err != nil {

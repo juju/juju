@@ -22,29 +22,16 @@ type upgradeSeriesSuite struct {
 	testing.BaseSuite
 
 	machineTag names.MachineTag
+	unitTag    names.UnitTag
 }
 
 var _ = gc.Suite(&upgradeSeriesSuite{})
 
 func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	s.machineTag = names.NewMachineTag("1")
-}
-
-func (s *upgradeSeriesSuite) newAPI(
-	c *gc.C, ctrl *gomock.Controller,
-) (*upgradeseries.API, *mocks.MockUpgradeSeriesBackend) {
-	resources := common.NewResources()
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag: s.machineTag,
-	}
-
-	mockBackend := mocks.NewMockUpgradeSeriesBackend(ctrl)
-
-	api, err := upgradeseries.NewUpgradeSeriesAPI(mockBackend, resources, authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return api, mockBackend
+	s.unitTag = names.NewUnitTag("redis/1")
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
@@ -95,4 +82,20 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
+}
+
+func (s *upgradeSeriesSuite) newAPI(
+	c *gc.C, ctrl *gomock.Controller,
+) (*upgradeseries.API, *mocks.MockUpgradeSeriesBackend) {
+	resources := common.NewResources()
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag: s.machineTag,
+	}
+
+	mockBackend := mocks.NewMockUpgradeSeriesBackend(ctrl)
+
+	api, err := upgradeseries.NewUpgradeSeriesAPI(mockBackend, resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return api, mockBackend
 }

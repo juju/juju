@@ -17,10 +17,39 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// ErrMultipleCredentialsDetected is the error returned by
+// ErrMultipleDetectedCredentials is the error returned by
 // GetOrDetectCredential when multiple credentials are
 // detected, meaning Juju cannot choose one automatically.
 var ErrMultipleDetectedCredentials = errors.New("multiple detected credentials")
+
+//go:generate mockgen -package common -destination credentialstore_mock_test.go github.com/juju/juju/jujuclient CredentialStore
+
+// RegisterCredentials will attempt to register any credentials that a provider
+// has to offer.
+func RegisterCredentials(
+	ctx *cmd.Context,
+	store jujuclient.CredentialStore,
+	provider environs.EnvironProvider,
+) error {
+	credentials, err := modelcmd.RegisterCredentials(provider)
+	switch {
+	case errors.IsNotFound(err):
+		return nil
+	case err != nil:
+		return errors.Trace(err)
+	case credentials == nil:
+		return nil
+	}
+
+	ctx.Verbosef("updating credential store")
+
+	for name, credential := range credentials {
+		if err := store.UpdateCredential(name, *credential); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
 
 // GetOrDetectCredential returns a credential to use for given cloud. This
 // function first calls modelcmd.GetCredentials, and returns its results if it
@@ -103,4 +132,12 @@ func ResolveCloudCredentialTag(user names.UserTag, cloud names.CloudTag, credent
 		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential name %q", s)
 	}
 	return names.NewCloudCredentialTag(s), nil
+}
+
+//go:generate mockgen -package common -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/juju/common TestCloudProvider
+
+// TestCloudProvider is used for testing.
+type TestCloudProvider interface {
+	environs.EnvironProvider
+	environs.ProviderCredentialsRegister
 }
