@@ -254,22 +254,17 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(w.transitionUnitsStarted(units))
 	}
 
-	// TODO (manadart 2018-08-21): To complete this PR, the logic below here
-	// will be refactored to ask the API whether the units are completed.
-
-	unitStatuses, err := w.UpgradeSeriesStatus()
+	// If the units have all completed their workflow, then we are done.
+	// Make the final update to the lock to say the machine is completed.
+	units, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// All the units have run their series-upgrade complete hooks and indicated
-	// that they are completed. Transition the machine to completed too.
-	if unitsCompleted(unitStatuses) {
-		// TODO (manadart 2018-08-09): Do we remove the lock at some point?
+	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
-		err = w.SetMachineStatus(model.Completed)
-		return errors.Trace(err)
+		return errors.Trace(w.SetMachineStatus(model.Completed))
 	}
+
 	return nil
 }
 

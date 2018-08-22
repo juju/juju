@@ -17,7 +17,7 @@ type Facade interface {
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	MachineStatus() (model.UpgradeSeriesStatus, error)
 	UnitsPrepared() ([]names.UnitTag, error)
-	UpgradeSeriesStatus() ([]string, error)
+	UnitsCompleted() ([]names.UnitTag, error)
 	StartUnitCompletion() error
 	SetMachineStatus(status model.UpgradeSeriesStatus) error
 }

@@ -180,9 +180,15 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
 	exp.UnitsPrepared().Return([]names.UnitTag{}, nil)
-	exp.UpgradeSeriesStatus().Return([]string{string(model.Completed), string(model.Completed)}, nil)
+	exp.UnitsCompleted().Return([]names.UnitTag{
+		names.NewUnitTag("wordpress/0"),
+		names.NewUnitTag("mysql/0"),
+	}, nil)
 	exp.SetMachineStatus(model.Completed).Return(nil)
 
+	// TODO (manadart 2018-08-22): Modify the tested code so that the services
+	// are detected just the one time.
+	s.expectServiceDiscovery(false)
 	s.expectServiceDiscovery(false)
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
