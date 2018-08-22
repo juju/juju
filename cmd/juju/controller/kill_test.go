@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -31,14 +31,14 @@ import (
 type KillSuite struct {
 	baseDestroySuite
 
-	clock *testing.Clock
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&KillSuite{})
 
 func (s *KillSuite) SetUpTest(c *gc.C) {
 	s.baseDestroySuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -48,7 +48,7 @@ func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error
 func (s *KillSuite) newKillCommand() cmd.Command {
 	clock := s.clock
 	if clock == nil {
-		clock = testing.NewClock(time.Now())
+		clock = testclock.NewClock(time.Now())
 	}
 	return controller.NewKillCommandForTest(
 		s.api, s.clientapi, s.store, s.apierror, clock, nil,

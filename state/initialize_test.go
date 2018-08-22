@@ -4,9 +4,9 @@
 package state_test
 
 import (
+	"github.com/juju/clock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 

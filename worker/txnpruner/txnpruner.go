@@ -6,8 +6,8 @@ package txnpruner
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
 	jworker "github.com/juju/juju/worker"

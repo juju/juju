@@ -7,11 +7,11 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"

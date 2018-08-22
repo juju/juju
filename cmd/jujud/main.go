@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 
 	jujucmd "github.com/juju/juju/cmd"

@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"

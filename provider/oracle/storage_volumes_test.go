@@ -6,10 +6,10 @@ package oracle_test
 import (
 	"errors"
 
+	"github.com/juju/clock"
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/response"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 

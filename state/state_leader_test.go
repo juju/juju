@@ -6,8 +6,8 @@ package state_test
 import (
 	"time" // Only used for time types.
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
@@ -135,7 +135,7 @@ func (s *LeadershipSuite) TestCloseStateUnblocksClaimer(c *gc.C) {
 func (s *LeadershipSuite) TestLeadershipClaimerRestarts(c *gc.C) {
 	// SetClockForTesting will restart the workers, and
 	// will have replaced them by the time it returns.
-	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+	s.State.SetClockForTesting(testclock.NewClock(time.Time{}))
 
 	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +147,7 @@ func (s *LeadershipSuite) TestLeadershipCheckerRestarts(c *gc.C) {
 
 	// SetClockForTesting will restart the workers, and
 	// will have replaced them by the time it returns.
-	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+	s.State.SetClockForTesting(testclock.NewClock(time.Time{}))
 
 	token := s.checker.LeadershipCheck("application", "application/0")
 	err = token.Check(nil)

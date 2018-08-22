@@ -9,11 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -906,7 +907,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	published := make(chan bool)
 	ingressRequired := true
 	apiErr := true
-	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, testing.NewClock(time.Time{}))
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, testclock.NewClock(time.Time{}))
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
@@ -924,7 +925,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 
 	// Give the worker time to restart and try again.
 	apiErr = false
-	s.clock.(*testing.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
+	s.clock.(*testclock.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")

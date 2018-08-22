@@ -17,11 +17,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -233,7 +234,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 		return r.conn, nil
 	}
 	conn0 := fakeConn{}
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	openDone := make(chan struct{})
 	const dialAddressInterval = 50 * time.Millisecond
 	go func() {
@@ -742,7 +743,7 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 	defer srv.Close()
 	defer close(unblock)
 
-	clk := testing.NewClock(time.Now())
+	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
 		_, err := api.Open(&api.Info{
@@ -781,7 +782,7 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 		return nil, ctx.Err()
 	}
 
-	clk := testing.NewClock(time.Now())
+	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
 		_, err := api.Open(&api.Info{
@@ -812,7 +813,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 		return nil, ctx.Err()
 	}
 
-	clk := testing.NewClock(time.Now())
+	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
 		_, err := api.Open(&api.Info{
@@ -848,7 +849,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	defer srv.Close()
 	defer close(unblock)
 
-	clk := testing.NewClock(time.Now())
+	clk := testclock.NewClock(time.Now())
 	done := make(chan error, 1)
 	go func() {
 		_, err := api.Open(&api.Info{

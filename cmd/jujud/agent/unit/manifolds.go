@@ -6,9 +6,9 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"

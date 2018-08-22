@@ -4,8 +4,8 @@
 package meterstatus
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 

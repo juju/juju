@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -191,7 +192,7 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRateLimit(c *gc.C) {
-	testClock := testing.NewClock(time.Time{})
+	testClock := testclock.NewClock(time.Time{})
 	s.srv.Close()
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {

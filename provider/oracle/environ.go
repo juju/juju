@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/os"
 	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

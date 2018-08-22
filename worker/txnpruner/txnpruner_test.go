@@ -6,9 +6,9 @@ package txnpruner_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -23,7 +23,7 @@ var _ = gc.Suite(&TxnPrunerSuite{})
 
 func (s *TxnPrunerSuite) TestPrunes(c *gc.C) {
 	fakePruner := newFakeTransactionPruner()
-	testClock := testing.NewClock(time.Now())
+	testClock := testclock.NewClock(time.Now())
 	interval := time.Minute
 	p := txnpruner.New(fakePruner, interval, testClock)
 	defer p.Kill()

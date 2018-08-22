@@ -11,9 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -132,7 +133,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	}
 	died := make(chan machine)
 
-	clock := gitjujutesting.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	changed := make(chan struct{})
 	go runMachine(context, m, changed, died, clock)
 
@@ -486,11 +487,11 @@ func (m *testMachine) Life() params.Life {
 
 type testClock struct {
 	gitjujutesting.Stub
-	*gitjujutesting.Clock
+	*testclock.Clock
 }
 
 func newTestClock() *testClock {
-	clock := gitjujutesting.NewClock(time.Time{})
+	clock := testclock.NewClock(time.Time{})
 	return &testClock{Clock: clock}
 }
 

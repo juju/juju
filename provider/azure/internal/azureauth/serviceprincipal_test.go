@@ -16,6 +16,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -33,7 +34,7 @@ func clockStartTime() time.Time {
 
 type InteractiveSuite struct {
 	testing.IsolationSuite
-	clock   *testing.Clock
+	clock   *testclock.Clock
 	newUUID func() (utils.UUID, error)
 }
 
@@ -162,7 +163,7 @@ func (s *InteractiveSuite) SetUpTest(c *gc.C) {
 		uuids = uuids[1:]
 		return uuid, nil
 	}
-	s.clock = testing.NewClock(clockStartTime())
+	s.clock = testclock.NewClock(clockStartTime())
 }
 
 func (s *InteractiveSuite) TestInteractive(c *gc.C) {
@@ -369,7 +370,7 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 			roleAssignmentAlreadyExistsSender(),
 		},
 		RequestInspector: azuretesting.RequestRecorder(&requests),
-		Clock: &testing.AutoAdvancingClock{
+		Clock: &testclock.AutoAdvancingClock{
 			Clock:   s.clock,
 			Advance: s.clock.Advance,
 		},
@@ -414,7 +415,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 			roleAssignmentSender(),
 		},
 		RequestInspector: azuretesting.RequestRecorder(&requests),
-		Clock: &testing.AutoAdvancingClock{
+		Clock: &testclock.AutoAdvancingClock{
 			Clock:   s.clock,
 			Advance: s.clock.Advance,
 		},

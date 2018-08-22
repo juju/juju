@@ -364,11 +364,14 @@
   revision = "bc5b7e5db16683db8ddffa7eef67b53706a4618a"
 
 [[projects]]
-  digest = "1:f894e95bd3be02379085a60bb8d547f9434c6090e045583aee9975e0893997e8"
+  digest = "1:3d4df54c1d5e1be4d7aab3e6e3a3807b4ddbeebd0bf7a87ea363fe41e6aec0ac"
   name = "github.com/juju/clock"
-  packages = ["."]
+  packages = [
+    ".",
+    "testclock",
+  ]
   pruneopts = ""
-  revision = "d293bb356ca441f16b59562295cca74478966757"
+  revision = "bab88fc672997ef02d03f85310182d97a93dee21"
 
 [[projects]]
   digest = "1:f91efc16d7fdb155fdd939262bbfd972e83874c1f1e2d6e38b41de90ca242a2e"
@@ -583,11 +586,11 @@
   revision = "86037679224858cd82666e4877a8ac4c42cbda8b"
 
 [[projects]]
-  digest = "1:1e743b3846d118c0bec8363680bcb9bc2dc68ed514450a189b2bc25a94325764"
+  digest = "1:2876394b554fd2ea3a68d6585c529817b76a7e3c3c5e0f23e7bf93b6f9956bb8"
   name = "github.com/juju/retry"
   packages = ["."]
   pruneopts = ""
-  revision = "62c62032529169c7ec02fa48f93349604c345e1f"
+  revision = "9058e192b216b21e4741c2eeb20ac798ba1ea80a"
 
 [[projects]]
   digest = "1:e2b993391ea6fb2f045b011654c26502c82fbd6395e14a04e5eab1e1754c62a1"
@@ -634,7 +637,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:c166ffb030c2b5a2cd00350eeafa17813456a2eaa2e4c047313d00b9b42e1526"
+  digest = "1:f9aff56e3d2397b89b40efa9263a5fe88bc7119695f6e54ecbea0804b744947e"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -643,17 +646,17 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "c84dd6ba038a9012fb7830d206a006915b6e7937"
+  revision = "b0b89ba330f22548fba865dd0e1d85a44e9cd7dd"
 
 [[projects]]
-  digest = "1:65ea07a1e4b4dcbc0da808e39d74335046622faa6cbb1c038b46de34a6689aaa"
+  digest = "1:273673a748dc477c8e31ad23457f2d60a9629291b6a3e92eee6533d52689a110"
   name = "github.com/juju/txn"
   packages = [
     ".",
     "testing",
   ]
   pruneopts = ""
-  revision = "f50b17d1ff3c31b7ea1c70e0d38a83f19af6d334"
+  revision = "f08211fa34f20cae79efd3dde0f54c77238292c3"
 
 [[projects]]
   digest = "1:cf637806c17846b1660d388cfbee501ed64734526fe2e6176f16f9cd950e7c62"
@@ -663,14 +666,13 @@
   revision = "68a59c96c178fbbad65926e7f93db50a2cd14f33"
 
 [[projects]]
-  digest = "1:39fff475e45dee6fd6a8369fe041e7bfdc2187e260e967ef9abdb07fb6fc1f7c"
+  digest = "1:ed85b6356e8e1612c96e368bbe082173ebe3993f61adbd9f9fe1456279a18db5"
   name = "github.com/juju/utils"
   packages = [
     ".",
     "arch",
     "cache",
     "cert",
-    "clock",
     "debugstatus",
     "deque",
     "du",
@@ -695,7 +697,7 @@
     "zip",
   ]
   pruneopts = ""
-  revision = "c746c6e86f4fb2a04bc08d66b7a0f7e900d9cbab"
+  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
 
 [[projects]]
   digest = "1:eab278f98004677adf1d70d6cdaba1c01a446ab10dddb1cf7d83cfd1475c22cc"
@@ -1450,11 +1452,11 @@
   revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"
 
 [[projects]]
-  digest = "1:e854140e2b9d8ab828ff4471ce4ec53fd1af8141c872e5214a36955865f47093"
+  digest = "1:403dac309fe1f559300ee1be661063da2db59514a5fd8a552b8495725d6cf92f"
   name = "gopkg.in/retry.v1"
   packages = ["."]
   pruneopts = ""
-  revision = "2d7c7c65cc71d024968d9ff4385d5e7ad3a83fcc"
+  revision = "87155f248cf6ea9e38ae7613f9ea1e5bb397ac83"
 
 [[projects]]
   branch = "v1"
@@ -1679,6 +1681,7 @@
     "github.com/juju/ansiterm/tabwriter",
     "github.com/juju/bundlechanges",
     "github.com/juju/clock",
+    "github.com/juju/clock/testclock",
     "github.com/juju/cmd",
     "github.com/juju/cmd/cmdtesting",
     "github.com/juju/collections/deque",
@@ -1732,7 +1735,6 @@
     "github.com/juju/utils",
     "github.com/juju/utils/arch",
     "github.com/juju/utils/cert",
-    "github.com/juju/utils/clock",
     "github.com/juju/utils/deque",
     "github.com/juju/utils/du",
     "github.com/juju/utils/exec",

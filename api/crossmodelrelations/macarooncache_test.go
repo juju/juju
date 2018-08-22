@@ -6,7 +6,7 @@ package crossmodelrelations_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2-unstable"
@@ -26,13 +26,13 @@ type MacaroonCacheSuite struct {
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonMissing(c *gc.C) {
-	cache := crossmodelrelations.NewMacaroonCache(testing.NewClock(time.Now()))
+	cache := crossmodelrelations.NewMacaroonCache(testclock.NewClock(time.Now()))
 	_, ok := cache.Get("missing")
 	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroon(c *gc.C) {
-	cache := crossmodelrelations.NewMacaroonCache(testing.NewClock(time.Now()))
+	cache := crossmodelrelations.NewMacaroonCache(testclock.NewClock(time.Now()))
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	cache.Upsert("token", macaroon.Slice{mac})
@@ -42,7 +42,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroon(c *gc.C) {
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *gc.C) {
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
 	mac, err := apitesting.NewMacaroon("id")
@@ -59,7 +59,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *gc.C) {
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *gc.C) {
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
 	mac, err := apitesting.NewMacaroon("id")
@@ -75,7 +75,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *gc.C) {
 }
 
 func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *gc.C) {
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
 	mac, err := apitesting.NewMacaroon("id")
@@ -92,7 +92,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *gc.C) {
 }
 
 func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *gc.C) {
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
 	mac, err := apitesting.NewMacaroon("id")
@@ -108,7 +108,7 @@ func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *gc.C) {
 }
 
 func (s *MacaroonCacheSuite) TestCleanupIgnoresMacaroonsWithoutTimeBefore(c *gc.C) {
-	clock := testing.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
 	mac, err := apitesting.NewMacaroon("id")

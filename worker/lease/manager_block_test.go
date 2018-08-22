@@ -6,6 +6,7 @@ package lease_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,7 +23,7 @@ var _ = gc.Suite(&WaitUntilExpiredSuite{})
 
 func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		blockTest := newBlockTest(manager, key("redis"))
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
@@ -47,7 +48,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
@@ -80,7 +81,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
@@ -105,7 +106,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
@@ -150,7 +151,7 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			err:    corelease.ErrInvalid,
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		redisTest1 := newBlockTest(manager, key("redis"))
 		redisTest1.assertBlocked(c)
 		redisTest2 := newBlockTest(manager, key("redis"))
@@ -181,7 +182,7 @@ func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 			},
 		},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 
@@ -200,7 +201,7 @@ func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 			},
 		},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		blockTest := newBlockTest(manager, key("redis"))
 		blockTest.assertBlocked(c)
 		blockTest.cancelWait()

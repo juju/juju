@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"

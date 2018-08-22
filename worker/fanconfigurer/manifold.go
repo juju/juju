@@ -8,9 +8,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
+	"github.com/juju/clock"
 	"github.com/juju/juju/api/base"
 	apifanconfigurer "github.com/juju/juju/api/fanconfigurer"
-	"github.com/juju/utils/clock"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

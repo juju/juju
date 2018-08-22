@@ -6,11 +6,11 @@ package user_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/usermanager"

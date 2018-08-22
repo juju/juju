@@ -6,8 +6,8 @@ package meterstatus
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"

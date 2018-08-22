@@ -6,10 +6,10 @@
 package metricsender
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/state"
 )

@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"

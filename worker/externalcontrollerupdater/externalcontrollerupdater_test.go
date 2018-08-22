@@ -6,6 +6,7 @@ package externalcontrollerupdater_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,7 +29,7 @@ type ExternalControllerUpdaterSuite struct {
 	updater mockExternalControllerUpdaterClient
 	watcher mockExternalControllerWatcherClient
 
-	clock *testing.Clock
+	clock *testclock.Clock
 
 	stub       testing.Stub
 	newWatcher externalcontrollerupdater.NewExternalControllerWatcherClientFunc
@@ -57,7 +58,7 @@ func (s *ExternalControllerUpdaterSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(*gc.C) { s.watcher.watcher.Stop() })
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 
 	s.stub.ResetCalls()
 	s.newWatcher = func(apiInfo *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {

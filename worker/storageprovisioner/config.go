@@ -4,8 +4,8 @@
 package storageprovisioner
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	environscontext "github.com/juju/juju/environs/context"

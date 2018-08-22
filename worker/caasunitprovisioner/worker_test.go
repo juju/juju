@@ -6,6 +6,7 @@ package caasunitprovisioner_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -48,7 +49,7 @@ type WorkerSuite struct {
 	serviceDeleted          chan struct{}
 	serviceEnsured          chan struct{}
 	serviceUpdated          chan struct{}
-	clock                   *testing.Clock
+	clock                   *testclock.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})

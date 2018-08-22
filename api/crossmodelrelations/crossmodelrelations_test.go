@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"encoding/json"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2-unstable"
 

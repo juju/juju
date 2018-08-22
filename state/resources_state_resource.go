@@ -11,9 +11,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"

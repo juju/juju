@@ -6,9 +6,9 @@ package caasunitprovisioner_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -82,7 +82,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 
 	facade, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storageProviderRegistry, s.storagePoolManager, s.clock)

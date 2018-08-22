@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -39,7 +40,7 @@ import (
 
 type Suite struct {
 	coretesting.BaseSuite
-	clock         *jujutesting.Clock
+	clock         *testclock.Clock
 	stub          *jujutesting.Stub
 	connection    *stubConnection
 	connectionErr error
@@ -160,7 +161,7 @@ var (
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{
 		stub:          s.stub,

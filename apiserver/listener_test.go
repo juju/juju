@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,7 +25,7 @@ type listenerSuite struct {
 	maxPause       time.Duration
 	lowerThreshold int
 	upperThreshold int
-	clock          *testing.Clock
+	clock          *testclock.Clock
 }
 
 var _ = gc.Suite(&listenerSuite{})
@@ -35,7 +36,7 @@ func (s *listenerSuite) SetUpTest(c *gc.C) {
 	s.lowerThreshold = 1000
 	s.upperThreshold = 10000
 
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.listener = &mockListener{}
 }
 

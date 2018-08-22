@@ -6,6 +6,7 @@ package network_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
@@ -34,8 +35,8 @@ func (f *firewallSuite) SetUpTest(c *gc.C) {
 	f.callCtx = context.NewCloudCallContext()
 }
 
-var clk = gitjujutesting.NewClock(time.Time{})
-var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+var clk = testclock.NewClock(time.Time{})
+var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 type fakeEnvironConfig struct {
 	cfg *config.Config

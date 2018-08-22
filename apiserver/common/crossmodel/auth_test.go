@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -296,7 +296,7 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 func (s *authSuite) TestCheckOfferMacaroonsExpired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
+	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext = authContext.WithClock(clock)
 	offer := &params.ApplicationOfferDetails{
 		SourceModelTag: coretesting.ModelTag.String(),
@@ -316,7 +316,7 @@ func (s *authSuite) TestCheckOfferMacaroonsExpired(c *gc.C) {
 func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
+	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext = authContext.WithClock(clock)
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	offer := &params.ApplicationOfferDetails{
@@ -399,7 +399,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 func (s *authSuite) TestCheckRelationMacaroonsExpired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
+	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext = authContext.WithClock(clock)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(
@@ -417,7 +417,7 @@ func (s *authSuite) TestCheckRelationMacaroonsExpired(c *gc.C) {
 func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
+	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext = authContext.WithClock(clock)
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")

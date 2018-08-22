@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -26,7 +27,7 @@ type workerFixture struct {
 	testing.IsolationSuite
 	agentConfig          mockAgentConfig
 	authenticator        *mockAuthenticator
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	hub                  pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
 	prometheusRegisterer stubPrometheusRegisterer
@@ -45,7 +46,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		},
 	}
 	s.authenticator = &mockAuthenticator{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.stub.ResetCalls()

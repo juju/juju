@@ -6,7 +6,7 @@ package remotestate_test
 import (
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -26,7 +26,7 @@ type WatcherSuite struct {
 	st         *mockState
 	leadership *mockLeadershipTracker
 	watcher    *remotestate.RemoteStateWatcher
-	clock      *testing.Clock
+	clock      *testclock.Clock
 
 	applicationWatcher *mockNotifyWatcher
 }
@@ -78,7 +78,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
 
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {

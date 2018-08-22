@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -36,7 +37,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	}
 
 	args := baseCreateVirtualMachineParams(c)
-	testClock := args.Clock.(*testing.Clock)
+	testClock := args.Clock.(*testclock.Clock)
 	s.onImageUpload = func(r *http.Request) {
 		dequeueStatusUpdates()
 
@@ -450,7 +451,7 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		Constraints:            constraints.Value{},
 		UpdateProgress:         func(status string) {},
 		UpdateProgressInterval: time.Second,
-		Clock: testing.NewClock(time.Time{}),
+		Clock: testclock.NewClock(time.Time{}),
 	}
 }
 

@@ -6,8 +6,8 @@ package lease_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -17,7 +17,7 @@ import (
 // can be configured to Advance automatically whenever Now is called. Attempts
 // to call Alarm will panic: they're not useful to a clock.Client itself, but
 // are extremely helpful when driving one.
-// This differs from github.com/juju/testing.Clock in that it has a Reset() function.
+// This differs from github.com/juju/testclock.Clock in that it has a Reset() function.
 type Clock struct {
 	clock.Clock
 	now time.Time

@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 

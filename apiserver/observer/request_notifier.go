@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/pubsub/apiserver"

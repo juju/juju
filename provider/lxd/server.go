@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"

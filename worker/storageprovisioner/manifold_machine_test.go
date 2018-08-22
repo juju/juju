@@ -6,6 +6,7 @@ package storageprovisioner_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -45,7 +46,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = storageprovisioner.MachineManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
-		Clock:         testing.NewClock(defaultClockStart),
+		Clock:         testclock.NewClock(defaultClockStart),
 		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 	}
 }

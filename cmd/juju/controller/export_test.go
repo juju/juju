@@ -6,8 +6,8 @@ package controller
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

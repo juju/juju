@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -217,7 +218,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	ctlr, st := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
-			Clock: gitjujutesting.NewClock(coretesting.NonZeroTime()),
+			Clock: testclock.NewClock(coretesting.NonZeroTime()),
 		})
 	c.Assert(st.Close(), jc.ErrorIsNil)
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)

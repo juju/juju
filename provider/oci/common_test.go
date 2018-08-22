@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -24,8 +25,8 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-var clk = gitjujutesting.NewClock(time.Time{})
-var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+var clk = testclock.NewClock(time.Time{})
+var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 func makeToolsList(series string) tools.List {
 	var toolsVersion version.Binary

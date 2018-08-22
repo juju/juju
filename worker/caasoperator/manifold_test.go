@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -34,7 +35,7 @@ type ManifoldSuite struct {
 	apiCaller       fakeAPICaller
 	charmDownloader fakeDownloader
 	client          fakeClient
-	clock           *testing.Clock
+	clock           *testclock.Clock
 	dataDir         string
 	stub            testing.Stub
 }
@@ -51,7 +52,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			dataDir: s.dataDir,
 		},
 	}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)

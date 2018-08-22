@@ -6,7 +6,7 @@ package model
 import (
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"

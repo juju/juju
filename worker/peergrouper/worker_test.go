@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	"github.com/kr/pretty"
@@ -53,7 +53,7 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock *testing.Clock
+	clock *testclock.Clock
 	hub   Hub
 }
 
@@ -61,7 +61,7 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = nopHub{}
 	logger.SetLogLevel(loggo.TRACE)
 }
@@ -1042,7 +1042,7 @@ func (s *workerSuite) newWorker(
 ) worker.Worker {
 	// We create a new clock for the worker so we can wait on alarms even when
 	// a single test tests both ipv4 and 6 so is creating two workers.
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	w, err := New(Config{
 		Clock:              s.clock,
 		State:              st,

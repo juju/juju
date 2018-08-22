@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -35,14 +36,14 @@ type workerFixture struct {
 	testing.IsolationSuite
 	config   rafttransport.Config
 	authInfo httpcontext.AuthInfo
-	clock    *testing.Clock
+	clock    *testclock.Clock
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	tag := names.NewMachineTag("123")
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.config = rafttransport.Config{
 		APIInfo: &api.Info{
 			Tag:      tag,

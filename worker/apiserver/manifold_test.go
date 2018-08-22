@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -38,7 +39,7 @@ type ManifoldSuite struct {
 	context              dependency.Context
 	agent                *mockAgent
 	authenticator        *mockAuthenticator
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	mux                  *apiserverhttp.Mux
 	state                stubStateTracker
 	prometheusRegisterer stubPrometheusRegisterer
@@ -56,7 +57,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}

@@ -6,6 +6,7 @@ package lease_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -52,7 +53,7 @@ func (s *CrossSuite) testClaims(c *gc.C, lease1, lease2 corelease.Key) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		claimer1, err := manager.Claimer(lease1.Namespace, lease1.ModelUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		claimer2, err := manager.Claimer(lease2.Namespace, lease2.ModelUUID)
@@ -104,7 +105,7 @@ func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		b1 := newBlockTest(manager, lease1)
 		b2 := newBlockTest(manager, lease2)
 
@@ -146,7 +147,7 @@ func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 			method: "Refresh",
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		checker1, err := manager.Checker(lease1.Namespace, lease1.ModelUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		checker2, err := manager.Checker(lease2.Namespace, lease2.ModelUUID)
@@ -176,7 +177,7 @@ func (s *CrossSuite) TestCheckAcrossModels(c *gc.C) {
 }
 
 func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
-	clock := testing.NewClock(defaultClockStart)
+	clock := testclock.NewClock(defaultClockStart)
 	store := NewStore(nil, nil)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,

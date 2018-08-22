@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fs"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"

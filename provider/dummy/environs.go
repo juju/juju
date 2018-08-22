@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
@@ -39,7 +40,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"

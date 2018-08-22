@@ -4,9 +4,9 @@
 package oracle
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/storage"
 )

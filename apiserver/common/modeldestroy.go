@@ -4,8 +4,8 @@
 package common
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/state"

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/os/series"
@@ -42,7 +43,7 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 
-	clock                 *testing.Clock
+	clock                 *testclock.Clock
 	config                caasoperator.Config
 	unitsChanges          chan []string
 	appChanges            chan struct{}
@@ -78,7 +79,7 @@ func (s *WorkerSuite) SetUpSuite(c *gc.C) {
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.appWatched = make(chan struct{}, 1)
 	s.unitRemoved = make(chan struct{}, 1)
 	s.client = fakeClient{

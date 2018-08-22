@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -48,7 +49,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
 		MachineLock:             &fakemachinelock{},
-		Clock:                   testing.NewClock(time.Now()),
+		Clock:                   testclock.NewClock(time.Now()),
 		NewHookRunner:           meterstatus.NewHookRunner,
 		NewMeterStatusAPIClient: msapi.NewClient,
 

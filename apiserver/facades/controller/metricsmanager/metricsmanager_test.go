@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -26,7 +26,7 @@ import (
 type metricsManagerSuite struct {
 	jujujutesting.JujuConnSuite
 
-	clock          *jujutesting.Clock
+	clock          *testclock.Clock
 	metricsmanager *metricsmanager.MetricsManagerAPI
 	authorizer     apiservertesting.FakeAuthorizer
 	unit           *state.Unit
@@ -40,7 +40,7 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.StatePool, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
@@ -67,7 +67,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc
 		anAuthoriser.Controller = test.controller
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil,
-			anAuthoriser, s.StatePool, jujutesting.NewClock(time.Now()))
+			anAuthoriser, s.StatePool, testclock.NewClock(time.Now()))
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)

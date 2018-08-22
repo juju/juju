@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -89,7 +90,7 @@ func (s *AsyncSuite) TestExpirySlow(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		select {
 		case <-slowStarted:
 		case <-time.After(coretesting.LongWait):
@@ -143,7 +144,7 @@ func (s *AsyncSuite) TestExpiryTimeout(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		select {
 		case <-expireCalls:
 		case <-time.After(coretesting.LongWait):
@@ -197,7 +198,7 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 		expectCalls: calls,
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		select {
 		case <-expireCalls:
 		case <-time.After(coretesting.LongWait):
@@ -246,7 +247,7 @@ func (s *AsyncSuite) TestExpiryInterruptedRetry(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		select {
 		case <-expireCalls:
 		case <-time.After(coretesting.LongWait):
@@ -328,7 +329,7 @@ func (s *AsyncSuite) TestClaimSlow(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		claimer, err := manager.Claimer("namespace", "modelUUID")
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -403,7 +404,7 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
 		c.Assert(err, jc.ErrorIsNil)
@@ -462,7 +463,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 		expectCalls: calls,
 		expectDirty: true,
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
 		c.Assert(err, jc.ErrorIsNil)

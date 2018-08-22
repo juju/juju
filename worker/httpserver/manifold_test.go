@@ -7,10 +7,11 @@ import (
 	"crypto/tls"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -29,7 +30,7 @@ type ManifoldSuite struct {
 	manifold             dependency.Manifold
 	context              dependency.Context
 	agent                *mockAgent
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	state                stubStateTracker
 	prometheusRegisterer stubPrometheusRegisterer
 	certWatcher          stubCertWatcher
@@ -45,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 	s.state = stubStateTracker{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}

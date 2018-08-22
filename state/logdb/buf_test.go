@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,13 +21,13 @@ type BufferedLoggerSuite struct {
 	testing.IsolationSuite
 
 	mock  mockLogger
-	clock *testing.Clock
+	clock *testclock.Clock
 }
 
 func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mock = mockLogger{}
-	s.clock = testing.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Time{})
 }
 
 func (s *BufferedLoggerSuite) waitFlush(c *gc.C) []state.LogRecord {

@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/watcher"

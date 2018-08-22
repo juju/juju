@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/environschema.v1"
 	yaml "gopkg.in/yaml.v2"
 

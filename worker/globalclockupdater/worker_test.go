@@ -6,6 +6,7 @@ package globalclockupdater_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,7 +21,7 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 	stub       testing.Stub
-	localClock *testing.Clock
+	localClock *testclock.Clock
 	updater    stubUpdater
 	config     globalclockupdater.Config
 }
@@ -30,7 +31,7 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.stub.ResetCalls()
-	s.localClock = testing.NewClock(time.Time{})
+	s.localClock = testclock.NewClock(time.Time{})
 	s.updater = stubUpdater{
 		added: make(chan time.Duration, 1),
 	}

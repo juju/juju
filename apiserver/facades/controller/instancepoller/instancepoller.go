@@ -6,8 +6,8 @@ package instancepoller
 import (
 	"fmt"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"

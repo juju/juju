@@ -4,10 +4,10 @@
 package user
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"

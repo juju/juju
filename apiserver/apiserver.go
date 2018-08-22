@@ -14,11 +14,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/dependency"

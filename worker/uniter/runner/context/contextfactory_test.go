@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/testing"
@@ -52,7 +53,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            testing.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = contextFactory
@@ -231,7 +232,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            testing.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{
@@ -277,7 +278,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            testing.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{

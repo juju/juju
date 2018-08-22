@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 

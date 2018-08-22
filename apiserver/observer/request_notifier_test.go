@@ -6,6 +6,7 @@ package observer_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,7 +26,7 @@ var _ = gc.Suite(&RequestObserverSuite{})
 func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *connectionHub) {
 	hub := &connectionHub{c: c}
 	return observer.NewRequestObserver(observer.RequestObserverContext{
-		Clock:  testing.NewClock(time.Now()),
+		Clock:  testclock.NewClock(time.Now()),
 		Hub:    hub,
 		Logger: loggo.GetLogger("test"),
 	}), hub

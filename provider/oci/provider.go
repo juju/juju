@@ -9,11 +9,11 @@ import (
 	"net"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	"github.com/juju/utils/clock"
 	ociCore "github.com/oracle/oci-go-sdk/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 	"gopkg.in/ini.v1"

@@ -1,6 +1,6 @@
 package oci
 
-import "github.com/juju/utils/clock"
+import "github.com/juju/clock"
 
 var (
 	InstanceTypes     = instanceTypes

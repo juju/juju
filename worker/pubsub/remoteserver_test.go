@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -29,7 +30,7 @@ type RemoteServerSuite struct {
 	testing.IsolationSuite
 	connectionOpener *fakeConnectionOpener
 	config           psworker.RemoteServerConfig
-	clock            *testing.Clock
+	clock            *testclock.Clock
 	hub              *pubsub.StructuredHub
 	origin           string
 }
@@ -42,7 +43,7 @@ func (s *RemoteServerSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 	s.connectionOpener = &fakeConnectionOpener{}
 	tag := names.NewMachineTag("42")
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = centralhub.New(tag)
 	s.origin = tag.String()
 	s.config = psworker.RemoteServerConfig{

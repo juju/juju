@@ -6,8 +6,8 @@ package state
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/state/watcher"
 )

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -170,7 +170,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
-		Clock:            testing.NewClock(time.Time{}),
+		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(

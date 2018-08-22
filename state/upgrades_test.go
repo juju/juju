@@ -8,10 +8,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/kr/pretty"
@@ -2071,7 +2071,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
 func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 	// Set a test clock so we can dictate the
 	// time set in the new status doc.
-	clock := testing.NewClock(time.Unix(0, 123))
+	clock := testclock.NewClock(time.Unix(0, 123))
 	s.state.SetClockForTesting(clock)
 
 	relations, closer := s.state.db().GetRawCollection(relationsC)

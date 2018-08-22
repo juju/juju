@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -276,9 +277,9 @@ func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
 	loggingCB := func(msg string) {
 		cbLog = append(cbLog, msg)
 	}
-	clock := testing.NewClock(time.Date(2007, 1, 1, 10, 20, 30, 1234, time.UTC))
+	clock := testclock.NewClock(time.Date(2007, 1, 1, 10, 20, 30, 1234, time.UTC))
 	// We are using clock to actually measure time, not trigger an event, which
-	// causes the testing.Clock to think we're doing something wrong, so we
+	// causes the testclock.Clock to think we're doing something wrong, so we
 	// just create one waiter that we'll otherwise ignore.
 	ignored := clock.After(10 * time.Second)
 	_ = ignored

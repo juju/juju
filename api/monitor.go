@@ -6,7 +6,7 @@ package api
 import (
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 )
 
 // monitor performs regular pings of an API connection as well as

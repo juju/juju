@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
 	"github.com/juju/proxy"
@@ -23,7 +24,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"

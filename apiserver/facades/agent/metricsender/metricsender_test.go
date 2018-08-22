@@ -7,10 +7,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
@@ -52,7 +52,7 @@ func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
 	s.credUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
-	s.clock = jujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *MetricSenderSuite) TestToWire(c *gc.C) {
@@ -87,7 +87,7 @@ func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 	var sender testing.MockSender
 	now := time.Now()
-	clock := jujutesting.NewClock(time.Now())
+	clock := testclock.NewClock(time.Now())
 
 	state := s.Factory.MakeModel(c, &factory.ModelParams{Name: "test-model"})
 	defer state.Close()

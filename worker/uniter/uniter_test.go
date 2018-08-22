@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -44,7 +44,7 @@ type UniterSuite struct {
 
 var _ = gc.Suite(&UniterSuite{})
 
-var leaseClock *jujutesting.Clock
+var leaseClock *testclock.Clock
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -80,7 +80,7 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	zone, err := time.LoadLocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = jujutesting.NewClock(now)
+	leaseClock = testclock.NewClock(now)
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)

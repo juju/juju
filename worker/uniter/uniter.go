@@ -8,10 +8,10 @@ import (
 	"os"
 	"sync"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"

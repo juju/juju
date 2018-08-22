@@ -6,6 +6,7 @@ package watcher_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,7 +29,7 @@ type TxnWatcherSuite struct {
 	w            *watcher.TxnWatcher
 	ch           chan watcher.Change
 	iteratorFunc func() mongo.Iterator
-	clock        *gitjujutesting.Clock
+	clock        *testclock.Clock
 }
 
 var _ = gc.Suite(&TxnWatcherSuite{})
@@ -56,7 +57,7 @@ func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 	s.stash = db.C("txn.stash")
 	s.runner = txn.NewRunner(db.C("txn"))
 	s.runner.ChangeLog(s.log)
-	s.clock = gitjujutesting.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
