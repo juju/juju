@@ -11,6 +11,8 @@ TAGS
 parts/
 prime/
 stage/
+vendor/
+_vendor/
 *.snap
 .emacs.desktop
 .emacs.desktop.lock
