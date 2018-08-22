@@ -29,8 +29,10 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	lockedUnitsIds := make([]string, len(units))
-	for i, u := range units {
-		lockedUnitsIds[i] = u.Id
+	i := 0
+	for id := range units {
+		lockedUnitsIds[i] = id
+		i++
 	}
 	c.Assert(lockedUnitsIds, jc.SameContents, unitIds)
 }

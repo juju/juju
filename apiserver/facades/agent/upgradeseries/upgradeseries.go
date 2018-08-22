@@ -167,9 +167,9 @@ func (a *API) UnitsReadyToStop(args params.Entities) (params.EntitiesResults, er
 		}
 
 		var entities []params.Entity
-		for _, s := range statuses {
+		for id, s := range statuses {
 			if s.Status == model.PrepareCompleted {
-				entities = append(entities, params.Entity{Tag: names.NewUnitTag(s.Id).String()})
+				entities = append(entities, params.Entity{Tag: names.NewUnitTag(id).String()})
 			}
 		}
 		results[i].Entities = entities

@@ -91,9 +91,9 @@ func (s *upgradeSeriesSuite) TestUnitsReadyToStop(c *gc.C) {
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().UpgradeSeriesUnitStatuses().Return([]state.UpgradeSeriesUnitStatus{
-		{Id: "redis/0", Status: model.PrepareCompleted},
-		{Id: "redis/1", Status: model.PrepareStarted},
+	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
+		"redis/0": {Status: model.PrepareCompleted},
+		"redis/1": {Status: model.PrepareStarted},
 	}, nil)
 
 	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}

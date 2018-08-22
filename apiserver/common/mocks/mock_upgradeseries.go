@@ -136,9 +136,9 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) Units() *gomock.Call {
 }
 
 // UpgradeSeriesUnitStatuses mocks base method
-func (m *MockUpgradeSeriesMachine) UpgradeSeriesUnitStatuses() ([]state.UpgradeSeriesUnitStatus, error) {
+func (m *MockUpgradeSeriesMachine) UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error) {
 	ret := m.ctrl.Call(m, "UpgradeSeriesUnitStatuses")
-	ret0, _ := ret[0].([]state.UpgradeSeriesUnitStatus)
+	ret0, _ := ret[0].(map[string]state.UpgradeSeriesUnitStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
