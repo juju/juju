@@ -6,11 +6,11 @@ package migrationtarget
 import (
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
@@ -235,74 +235,30 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 // CheckMachines compares the machines in state with the ones reported
 // by the provider and reports any discrepancies.
 func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error) {
-	var empty params.ErrorResults
+	fail := func(original error) (params.ErrorResults, error) {
+		return params.ErrorResults{}, original
+	}
+
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	st, err := api.pool.Get(tag.Id())
 	if err != nil {
-		return empty, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 	defer st.Release()
 
-	machines, err := st.AllMachines()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	machinesByInstance := make(map[string]string)
-	for _, machine := range machines {
-		if machine.IsContainer() {
-			// Containers don't correspond to instances at the
-			// provider level.
-			continue
-		}
-		if manual, err := machine.IsManual(); err != nil {
-			return empty, errors.Trace(err)
-		} else if manual {
-			continue
-		}
-		instanceId, err := machine.InstanceId()
-		if err != nil {
-			return empty, errors.Annotatef(
-				err, "getting instance id for machine %s", machine.Id())
-		}
-		machinesByInstance[string(instanceId)] = machine.Id()
-	}
-
 	env, err := api.getEnviron(st.State)
 	if err != nil {
-		return empty, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
 
-	instances, err := env.AllInstances(api.callContext)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	var results []params.ErrorResult
-
-	instanceIds := set.NewStrings()
-	for _, instance := range instances {
-		id := string(instance.Id())
-		instanceIds.Add(id)
-		if _, found := machinesByInstance[id]; !found {
-			results = append(results, errorResult("no machine with instance %q", id))
-		}
-	}
-
-	for instanceId, name := range machinesByInstance {
-		if !instanceIds.Contains(instanceId) {
-			results = append(results, errorResult(
-				"couldn't find instance %q for machine %s", instanceId, name))
-		}
-	}
-
-	return params.ErrorResults{Results: results}, nil
-}
-
-func errorResult(format string, args ...interface{}) params.ErrorResult {
-	return params.ErrorResult{Error: common.ServerError(errors.Errorf(format, args...))}
+	return credentialcommon.ValidateModelCredential(
+		credentialcommon.NewPersistedCloudEntitiesBackend(st.State),
+		env,
+		api.callContext,
+	)
 }
 
 // CACert returns the certificate used to validate the state connection.
