@@ -105,6 +105,28 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	})
 }
 
+func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api, backend := s.newAPI(c, ctrl)
+	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+
+	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
+	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
+		"redis/0": {Status: model.Completed},
+		"redis/1": {Status: model.CompleteStarted},
+	}, nil)
+
+	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
+
+	results, err := api.UnitsCompleted(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
+		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
+	})
+}
+
 func (s *upgradeSeriesSuite) newAPI(
 	c *gc.C, ctrl *gomock.Controller,
 ) (*upgradeseries.API, *mocks.MockUpgradeSeriesBackend) {

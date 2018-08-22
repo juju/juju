@@ -7,6 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -145,8 +146,20 @@ func (a *API) StartUnitCompletion(args params.SetUpgradeSeriesStatusParams) (par
 // their upgrade-series preparation, and are ready to be stopped and have their
 // unit agent services converted for the target series.
 func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error) {
+	result, err := a.unitsInState(args, model.PrepareCompleted)
+	return result, errors.Trace(err)
+}
+
+// UnitsCompleted returns the units running on this machine that have completed
+// the upgrade-series workflow and are in their normal running state.
+func (a *API) UnitsCompleted(args params.Entities) (params.EntitiesResults, error) {
+	result, err := a.unitsInState(args, model.Completed)
+	return result, errors.Trace(err)
+}
+
+func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatus) (params.EntitiesResults, error) {
 	result := params.EntitiesResults{}
-	//
+
 	canAccess, err := a.AccessMachine()
 	if err != nil {
 		return result, err
@@ -168,7 +181,7 @@ func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error
 
 		var entities []params.Entity
 		for id, s := range statuses {
-			if s.Status == model.PrepareCompleted {
+			if s.Status == status {
 				entities = append(entities, params.Entity{Tag: names.NewUnitTag(id).String()})
 			}
 		}
