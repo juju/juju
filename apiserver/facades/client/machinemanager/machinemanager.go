@@ -360,15 +360,9 @@ func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if arg.Series == machine.Series() {
-		return errors.Errorf("%s is already running series %s", machineTag, arg.Series)
-	}
-	isOlderSeries, err := isSeriesLessThan(arg.Series, machine.Series())
+	err = mm.validateSeries(arg.Series, machine.Series(), machineTag)
 	if err != nil {
-		return err
-	}
-	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s", machineTag, machine.Series(), arg.Series)
+		return errors.Trace(err)
 	}
 	principals := machine.Principals()
 	units, err := machine.VerifyUnitsSeries(principals, arg.Series, arg.Force)
@@ -484,6 +478,21 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 		return errors.Trace(err)
 	}
 	return machine.RemoveUpgradeSeriesLock()
+}
+
+func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag names.MachineTag) error {
+	if argumentSeries == currentSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
+	}
+	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
+	if err != nil {
+		return err
+	}
+	if isOlderSeries {
+		return errors.Errorf("machine %s is running %s which is a newer series than %s", machineTag, currentSeries, argumentSeries)
+	}
+
+	return nil
 }
 
 // Is series less than return a bool indicating whether the first argument's
