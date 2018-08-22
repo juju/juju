@@ -217,7 +217,7 @@ var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
-		volume, err := s.createVolume(arg)
+		volume, err := s.createVolume(arg, ctx)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
@@ -227,7 +227,7 @@ func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args
 	return results, nil
 }
 
-func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Volume, error) {
+func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams, ctx context.ProviderCallContext) (*storage.Volume, error) {
 	cinderConfig, err := newCinderConfig(arg.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -262,7 +262,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 		if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
 			logger.Warningf("destroying volume %s: %s", volumeId, err)
 		}
-		return nil, errors.Errorf("waiting for volume to be provisioned: %s", err)
+		return nil, HandleCredentialError(errors.Errorf("waiting for volume to be provisioned: %s", err), ctx)
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
 	return &storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
@@ -341,29 +341,29 @@ func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, vo
 
 // DestroyVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
-	return foreachVolume(s.storageAdapter, volumeIds, destroyVolume), nil
+	return foreachVolume(s.storageAdapter, volumeIds, destroyVolume, ctx), nil
 }
 
 // ReleaseVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
-	return foreachVolume(s.storageAdapter, volumeIds, releaseVolume), nil
+	return foreachVolume(s.storageAdapter, volumeIds, releaseVolume, ctx), nil
 }
 
-func foreachVolume(storageAdapter OpenstackStorage, volumeIds []string, f func(OpenstackStorage, string) error) []error {
+func foreachVolume(storageAdapter OpenstackStorage, volumeIds []string, f func(OpenstackStorage, string, context.ProviderCallContext) error, ctx context.ProviderCallContext) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volumeIds))
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			results[i] = f(storageAdapter, volumeId)
+			results[i] = f(storageAdapter, volumeId, ctx)
 		}(i, volumeId)
 	}
 	wg.Wait()
 	return results
 }
 
-func destroyVolume(storageAdapter OpenstackStorage, volumeId string) error {
+func destroyVolume(storageAdapter OpenstackStorage, volumeId string, ctx context.ProviderCallContext) error {
 	logger.Debugf("destroying volume %q", volumeId)
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
@@ -412,12 +412,12 @@ func destroyVolume(storageAdapter OpenstackStorage, volumeId string) error {
 		return nil
 	}
 	if err := storageAdapter.DeleteVolume(volumeId); err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(err, ctx)
 	}
 	return nil
 }
 
-func releaseVolume(storageAdapter OpenstackStorage, volumeId string) error {
+func releaseVolume(storageAdapter OpenstackStorage, volumeId string, ctx context.ProviderCallContext) error {
 	logger.Debugf("releasing volume %q", volumeId)
 	_, err := waitVolume(storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		switch v.Status {
@@ -432,7 +432,7 @@ func releaseVolume(storageAdapter OpenstackStorage, volumeId string) error {
 		return false, nil
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot release volume %q", volumeId)
+		return HandleCredentialError(errors.Annotatef(err, "cannot release volume %q", volumeId), ctx)
 	}
 	// Drop the model and controller tags from the volume.
 	tags := map[string]string{
@@ -440,7 +440,7 @@ func releaseVolume(storageAdapter OpenstackStorage, volumeId string) error {
 		tags.JujuController: "",
 	}
 	_, err = storageAdapter.SetVolumeMetadata(volumeId, tags)
-	return errors.Annotate(err, "tagging volume")
+	return HandleCredentialError(errors.Annotate(err, "tagging volume"), ctx)
 }
 
 // ValidateVolumeParams implements storage.VolumeSource.
@@ -502,15 +502,15 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
 	volume, err := s.storageAdapter.GetVolume(volumeId)
 	if err != nil {
-		return storage.VolumeInfo{}, errors.Annotate(err, "getting volume")
+		return storage.VolumeInfo{}, HandleCredentialError(errors.Annotate(err, "getting volume"), ctx)
 	}
 	if volume.Status != volumeStatusAvailable {
-		return storage.VolumeInfo{}, errors.Errorf(
+		return storage.VolumeInfo{}, HandleCredentialError(errors.Errorf(
 			"cannot import volume %q with status %q", volumeId, volume.Status,
-		)
+		), ctx)
 	}
 	if _, err := s.storageAdapter.SetVolumeMetadata(volumeId, resourceTags); err != nil {
-		return storage.VolumeInfo{}, errors.Annotatef(err, "tagging volume %q", volumeId)
+		return storage.VolumeInfo{}, HandleCredentialError(errors.Annotatef(err, "tagging volume %q", volumeId), ctx)
 	}
 	return cinderToJujuVolumeInfo(volume), nil
 }
@@ -519,11 +519,12 @@ func waitVolume(
 	storageAdapter OpenstackStorage,
 	volumeId string,
 	pred func(*cinder.Volume) (bool, error),
+	ctx context.ProviderCallContext
 ) (*cinder.Volume, error) {
 	for a := cinderAttempt.Start(); a.Next(); {
 		volume, err := storageAdapter.GetVolume(volumeId)
 		if err != nil {
-			return nil, errors.Annotate(err, "getting volume")
+			return nil, HandleCredentialError(errors.Annotate(err, "getting volume"), ctx)
 		}
 		ok, err := pred(volume)
 		if err != nil {
