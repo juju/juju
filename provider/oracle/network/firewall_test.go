@@ -36,7 +36,7 @@ func (f *firewallSuite) SetUpTest(c *gc.C) {
 }
 
 var clk = testclock.NewClock(time.Time{})
-var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 type fakeEnvironConfig struct {
 	cfg *config.Config

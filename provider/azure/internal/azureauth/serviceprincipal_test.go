@@ -370,7 +370,7 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 			roleAssignmentAlreadyExistsSender(),
 		},
 		RequestInspector: azuretesting.RequestRecorder(&requests),
-		Clock: &testing.AutoAdvancingClock{
+		Clock: &testclock.AutoAdvancingClock{
 			Clock:   s.clock,
 			Advance: s.clock.Advance,
 		},
@@ -415,7 +415,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 			roleAssignmentSender(),
 		},
 		RequestInspector: azuretesting.RequestRecorder(&requests),
-		Clock: &testing.AutoAdvancingClock{
+		Clock: &testclock.AutoAdvancingClock{
 			Clock:   s.clock,
 			Advance: s.clock.Advance,
 		},

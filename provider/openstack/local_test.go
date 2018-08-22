@@ -683,7 +683,7 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 
 	// Make time advance in zero time
 	clk := testclock.NewClock(time.Time{})
-	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	clock := testclock.AutoAdvancingClock{clk, clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
 	inst, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
@@ -779,7 +779,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 
 	// Make time advance in zero time
 	clk := testclock.NewClock(time.Time{})
-	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	clock := testclock.AutoAdvancingClock{clk, clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
 	err := env.StopInstances(s.callCtx, inst.Id())

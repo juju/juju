@@ -26,7 +26,7 @@ import (
 )
 
 var clk = testclock.NewClock(time.Time{})
-var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 func makeToolsList(series string) tools.List {
 	var toolsVersion version.Binary

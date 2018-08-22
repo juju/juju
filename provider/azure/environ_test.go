@@ -139,7 +139,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: azuretesting.RequestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
-		RetryClock: &gitjujutesting.AutoAdvancingClock{
+		RetryClock: &testclock.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
 		RandomWindowsAdminPassword: func() string { return "sorandom" },

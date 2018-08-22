@@ -60,7 +60,7 @@ var _ = gc.Suite(&environSuite{})
 
 // shamelessly copied from one of the OpenStack tests
 var clk = testclock.NewClock(time.Time{})
-var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 func (e *environSuite) TestAvailabilityZone(c *gc.C) {
 	zones, err := e.env.AvailabilityZones(e.callCtx)
