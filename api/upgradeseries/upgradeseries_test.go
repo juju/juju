@@ -119,6 +119,33 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	c.Check(units, jc.SameContents, expected)
 }
 
+func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	p0 := "postgres/0"
+	p1 := "postgres/1"
+	p2 := "postgres/2"
+
+	resultSource := params.EntitiesResults{
+		Results: []params.EntitiesResult{{Entities: []params.Entity{
+			{Tag: p0},
+			{Tag: p1},
+			{Tag: p2},
+		}}},
+	}
+	fCaller.EXPECT().FacadeCall("UnitsCompleted", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	units, err := api.UnitsCompleted()
+	c.Assert(err, gc.IsNil)
+
+	expected := []names.UnitTag{names.NewUnitTag(p0), names.NewUnitTag(p1), names.NewUnitTag(p2)}
+	c.Check(units, jc.SameContents, expected)
+}
+
 func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

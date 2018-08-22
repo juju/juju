@@ -67,12 +67,24 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 // completed their upgrade-series preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
 func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
+	units, err := s.unitsInState("UnitsPrepared")
+	return units, errors.Trace(err)
+}
+
+// UnitsCompleted returns the units running on this machine that have completed
+// the upgrade-series workflow and are in their normal running state.
+func (s *Client) UnitsCompleted() ([]names.UnitTag, error) {
+	units, err := s.unitsInState("UnitsCompleted")
+	return units, errors.Trace(err)
+}
+
+func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 	var results params.EntitiesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall("UnitsPrepared", args, &results)
+	err := s.facade.FacadeCall(facadeMethod, args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
