@@ -11,6 +11,7 @@ TAGS
 parts/
 prime/
 stage/
+vendor/
 *.snap
 .emacs.desktop
 .emacs.desktop.lock
@@ -20,4 +21,3 @@ stage/
 .idea/
 *.pyc
 .vscode/
-vendor/

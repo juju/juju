@@ -772,7 +772,7 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	}
 	cred, authMode, err := newCredentials(spec)
 	if err != nil {
-		return nil, errors.Annotate(err, "cred.Version is not a valid integer type.")
+		return nil, errors.Annotate(err, "cannot create credential")
 	}
 	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
 
@@ -1055,12 +1055,20 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {
-			err = errors.New(noNetConfigMsg(err))
+			// If there is no network configured, we only throw out when the
+			// error reports multiple Openstack networks.
+			// If there are no Openstack networks at all (such as Canonistack),
+			// having no network config is not an error condition.
+			if strings.HasPrefix(err.Error(), "multiple networks") {
+				return nil, common.ZoneIndependentError(errors.New(noNetConfigMsg(err)))
+			}
+		} else {
+			return nil, common.ZoneIndependentError(err)
 		}
-		return nil, common.ZoneIndependentError(err)
+	} else {
+		logger.Debugf("using network id %q", networkId)
+		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 	}
-	logger.Debugf("using network id %q", networkId)
-	networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 
 	machineName := resourceName(
 		e.namespace,

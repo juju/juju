@@ -510,6 +510,15 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	})
 }
 
+func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
+	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
+	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	container := "lxd:" + machine.Id()
+	err = runDeploy(c, ch, "--to", container, "--storage", "data=machinescoped,1G")
+	c.Assert(err, gc.ErrorMatches, "adding storage to lxd container not supported")
+}
+
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
@@ -1734,6 +1743,30 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		"--attach-storage", "bar/1,baz/2",
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployUnitTestSuite) TestDeployAttachStorageFailContainer(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
+		"--attach-storage", "foo/0", "--to", "lxd",
+	)
+	c.Assert(err, gc.ErrorMatches, "adding storage to lxd container not supported")
 }
 
 func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {

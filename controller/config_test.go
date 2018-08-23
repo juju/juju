@@ -283,6 +283,27 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
 	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 8192)
 }
 
+func (s *ConfigSuite) TestMaxPruneTxnConfigDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.MaxPruneTxnBatchSize(), gc.Equals, 1*1000*1000)
+	c.Check(cfg.MaxPruneTxnPasses(), gc.Equals, 100)
+}
+
+func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-prune-txn-batch-size": "12345678",
+			"max-prune-txn-passes":     "10",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.MaxPruneTxnBatchSize(), gc.Equals, 12345678)
+	c.Check(cfg.MaxPruneTxnPasses(), gc.Equals, 10)
+}
+
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {
 	haSpace := "space1"
 	managementSpace := "space2"

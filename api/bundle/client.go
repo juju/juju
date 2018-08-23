@@ -34,7 +34,7 @@ func NewClient(st base.APICallCloser) *Client {
 func (c *Client) ExportBundle() (string, error) {
 	var result params.StringResult
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
-		return "", errors.Errorf("ExportBundle() on v%d is not supported", bestVer)
+		return "", errors.Errorf("this controller version does not support bundle export feature.")
 	}
 
 	if err := c.facade.FacadeCall("ExportBundle", nil, &result); err != nil {
