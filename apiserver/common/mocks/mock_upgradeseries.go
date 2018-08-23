@@ -85,6 +85,18 @@ func (m *MockUpgradeSeriesMachine) EXPECT() *MockUpgradeSeriesMachineMockRecorde
 	return m.recorder
 }
 
+// RemoveUpgradeSeriesLock mocks base method
+func (m *MockUpgradeSeriesMachine) RemoveUpgradeSeriesLock() error {
+	ret := m.ctrl.Call(m, "RemoveUpgradeSeriesLock")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveUpgradeSeriesLock indicates an expected call of RemoveUpgradeSeriesLock
+func (mr *MockUpgradeSeriesMachineMockRecorder) RemoveUpgradeSeriesLock() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeSeriesLock", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).RemoveUpgradeSeriesLock))
+}
+
 // SetUpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesMachine) SetUpgradeSeriesStatus(arg0 model.UpgradeSeriesStatus) error {
 	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0)
