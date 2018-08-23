@@ -27,23 +27,26 @@ func ValidateModelCredential(persisted CloudEntitiesBackend, provider CloudProvi
 // for a given model.
 // Note that this call does not validate credential against the cloud of the model.
 func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, callCtx context.ProviderCallContext, credential *cloud.Credential) (params.ErrorResults, error) {
+	fail := func(original error) (params.ErrorResults, error) {
+		return params.ErrorResults{}, original
+	}
 	model, err := backend.Model()
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 
 	modelCloud, err := backend.Cloud(model.Cloud())
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 	tempCloudSpec, err := environs.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 
 	cfg, err := model.Config()
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 	tempOpenParams := environs.OpenParams{
 		Cloud:  tempCloudSpec,
@@ -51,7 +54,7 @@ func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, cal
 	}
 	env, err := newEnv(tempOpenParams)
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 
 	return ValidateModelCredential(backend, env, callCtx)
@@ -60,10 +63,14 @@ func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, cal
 // CheckMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+	fail := func(original error) (params.ErrorResults, error) {
+		return params.ErrorResults{}, original
+	}
+
 	// Get machines from state
 	machines, err := backend.AllMachines()
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 	machinesByInstance := make(map[string]string)
 	for _, machine := range machines {
@@ -73,14 +80,14 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 			continue
 		}
 		if manual, err := machine.IsManual(); err != nil {
-			return failCredentialValidation(errors.Trace(err))
+			return fail(errors.Trace(err))
 		} else if manual {
 			continue
 		}
 		instanceId, err := machine.InstanceId()
 		if err != nil {
 			// TODO (anastasiamac 2018-08-21) do we really want to fail all processing here or just an error result against this machine and keep going?
-			return failCredentialValidation(errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
+			return fail(errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
 		}
 		machinesByInstance[string(instanceId)] = machine.Id()
 	}
@@ -88,7 +95,7 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 	// Check can see all machines' instances
 	instances, err := provider.AllInstances(callCtx)
 	if err != nil {
-		return failCredentialValidation(errors.Trace(err))
+		return fail(errors.Trace(err))
 	}
 
 	var results []params.ErrorResult
@@ -114,10 +121,6 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 	}
 
 	return params.ErrorResults{Results: results}, nil
-}
-
-func failCredentialValidation(original error) (params.ErrorResults, error) {
-	return params.ErrorResults{}, original
 }
 
 // NewEnvironFunc defines function that obtains new Environ.
