@@ -100,13 +100,13 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	r0 := "redis/0"
-	r1 := "redis/1"
+	r0 := names.NewUnitTag("redis/0")
+	r1 := names.NewUnitTag("redis/1")
 
 	resultSource := params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{
-			{Tag: r0},
-			{Tag: r1},
+			{Tag: r0.String()},
+			{Tag: r1.String()},
 		}}},
 	}
 	fCaller.EXPECT().FacadeCall("UnitsPrepared", s.args, gomock.Any()).SetArg(2, resultSource)
@@ -115,7 +115,7 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	units, err := api.UnitsPrepared()
 	c.Assert(err, gc.IsNil)
 
-	expected := []names.UnitTag{names.NewUnitTag(r0), names.NewUnitTag(r1)}
+	expected := []names.UnitTag{r0, r1}
 	c.Check(units, jc.SameContents, expected)
 }
 
@@ -125,15 +125,15 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	p0 := "postgres/0"
-	p1 := "postgres/1"
-	p2 := "postgres/2"
+	p0 := names.NewUnitTag("postgres/0")
+	p1 := names.NewUnitTag("postgres/1")
+	p2 := names.NewUnitTag("postgres/2")
 
 	resultSource := params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{
-			{Tag: p0},
-			{Tag: p1},
-			{Tag: p2},
+			{Tag: p0.String()},
+			{Tag: p1.String()},
+			{Tag: p2.String()},
 		}}},
 	}
 	fCaller.EXPECT().FacadeCall("UnitsCompleted", s.args, gomock.Any()).SetArg(2, resultSource)
@@ -142,7 +142,7 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 	units, err := api.UnitsCompleted()
 	c.Assert(err, gc.IsNil)
 
-	expected := []names.UnitTag{names.NewUnitTag(p0), names.NewUnitTag(p1), names.NewUnitTag(p2)}
+	expected := []names.UnitTag{p0, p1, p2}
 	c.Check(units, jc.SameContents, expected)
 }
 

@@ -96,7 +96,11 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 	if r.Error == nil {
 		tags := make([]names.UnitTag, len(r.Entities))
 		for i, e := range r.Entities {
-			tags[i] = names.NewUnitTag(e.Tag)
+			tag, err := names.ParseUnitTag(e.Tag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			tags[i] = tag
 		}
 		return tags, nil
 	}
