@@ -110,16 +110,16 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) SetMachineUpgradeSeriesStatus(ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).SetMachineUpgradeSeriesStatus), arg0)
 }
 
-// StartUnitUpgradeSeriesCompletionPhase mocks base method
-func (m *MockUpgradeSeriesMachine) StartUnitUpgradeSeriesCompletionPhase() error {
-	ret := m.ctrl.Call(m, "StartUnitUpgradeSeriesCompletionPhase")
+// StartUpgradeSeriesUnitCompletion mocks base method
+func (m *MockUpgradeSeriesMachine) StartUpgradeSeriesUnitCompletion() error {
+	ret := m.ctrl.Call(m, "StartUpgradeSeriesUnitCompletion")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// StartUnitUpgradeSeriesCompletionPhase indicates an expected call of StartUnitUpgradeSeriesCompletionPhase
-func (mr *MockUpgradeSeriesMachineMockRecorder) StartUnitUpgradeSeriesCompletionPhase() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitUpgradeSeriesCompletionPhase", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).StartUnitUpgradeSeriesCompletionPhase))
+// StartUpgradeSeriesUnitCompletion indicates an expected call of StartUpgradeSeriesUnitCompletion
+func (mr *MockUpgradeSeriesMachineMockRecorder) StartUpgradeSeriesUnitCompletion() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUpgradeSeriesUnitCompletion", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).StartUpgradeSeriesUnitCompletion))
 }
 
 // Units mocks base method
@@ -133,6 +133,19 @@ func (m *MockUpgradeSeriesMachine) Units() ([]common.UpgradeSeriesUnit, error) {
 // Units indicates an expected call of Units
 func (mr *MockUpgradeSeriesMachineMockRecorder) Units() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).Units))
+}
+
+// UpgradeSeriesUnitStatuses mocks base method
+func (m *MockUpgradeSeriesMachine) UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error) {
+	ret := m.ctrl.Call(m, "UpgradeSeriesUnitStatuses")
+	ret0, _ := ret[0].(map[string]state.UpgradeSeriesUnitStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpgradeSeriesUnitStatuses indicates an expected call of UpgradeSeriesUnitStatuses
+func (mr *MockUpgradeSeriesMachineMockRecorder) UpgradeSeriesUnitStatuses() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesUnitStatuses", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpgradeSeriesUnitStatuses))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method

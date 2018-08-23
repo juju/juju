@@ -1,5 +1,6 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package upgradeseries
 
 import (
@@ -45,7 +46,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 
 	err := s.facade.FacadeCall("MachineStatus", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -59,8 +60,51 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	if params.IsCodeNotFound(r.Error) {
 		return "", errors.NewNotFound(r.Error, "")
 	}
-
 	return "", errors.Trace(r.Error)
+}
+
+// UnitsPrepared returns the units running on this machine that have
+// completed their upgrade-series preparation, and are ready to be stopped and
+// have their unit agent services converted for the target series.
+func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
+	units, err := s.unitsInState("UnitsPrepared")
+	return units, errors.Trace(err)
+}
+
+// UnitsCompleted returns the units running on this machine that have completed
+// the upgrade-series workflow and are in their normal running state.
+func (s *Client) UnitsCompleted() ([]names.UnitTag, error) {
+	units, err := s.unitsInState("UnitsCompleted")
+	return units, errors.Trace(err)
+}
+
+func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
+	var results params.EntitiesResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.authTag.String()}},
+	}
+
+	err := s.facade.FacadeCall(facadeMethod, args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	r := results.Results[0]
+	if r.Error == nil {
+		tags := make([]names.UnitTag, len(r.Entities))
+		for i, e := range r.Entities {
+			tags[i] = names.NewUnitTag(e.Tag)
+		}
+		return tags, nil
+	}
+
+	if params.IsCodeNotFound(r.Error) {
+		return nil, errors.NewNotFound(r.Error, "")
+	}
+	return nil, errors.Trace(r.Error)
 }
 
 // SetMachineStatus sets the machine status in remote state.
@@ -83,15 +127,15 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	return results.Results[0].Error
 }
 
-// StartUnitUpgradeSeriesCompletionPhase starts the complete phase for all subordinate units.
-func (s *Client) StartUnitUpgradeSeriesCompletionPhase() error {
+// StartUnitCompletion starts the complete phase for all subordinate units.
+func (s *Client) StartUnitCompletion() error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatus{{
 			Entity: params.Entity{Tag: s.authTag.String()},
 		}},
 	}
-	err := s.facade.FacadeCall("StartUnitUpgradeSeriesCompletionPhase", args, &results)
+	err := s.facade.FacadeCall("StartUnitCompletion", args, &results)
 	if err != nil {
 		return err
 	}

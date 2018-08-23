@@ -191,47 +191,6 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMachineTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
-	defer ctrl.Finish()
-
-	mockMachine := mocks.NewMockUpgradeSeriesMachine(ctrl)
-	mockUnit1 := mocks.NewMockUpgradeSeriesUnit(ctrl)
-	mockUnit2 := mocks.NewMockUpgradeSeriesUnit(ctrl)
-
-	exp := mockBackend.EXPECT()
-	exp.Machine(s.machineTag1.Id()).Return(mockMachine, nil)
-	exp.Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
-	exp.Unit(s.unitTag2.Id()).Return(mockUnit2, nil)
-
-	mockMachine.EXPECT().Units().Return([]common.UpgradeSeriesUnit{mockUnit1, mockUnit2}, nil)
-	mockUnit1.EXPECT().Tag().Return(s.unitTag1)
-	mockUnit1.EXPECT().UpgradeSeriesStatus().Return(model.PrepareStarted, nil)
-	mockUnit2.EXPECT().Tag().Return(s.unitTag2)
-	mockUnit2.EXPECT().UpgradeSeriesStatus().Return(model.PrepareCompleted, nil)
-
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: s.machineTag1.String()},
-		},
-	}
-
-	results, err := api.GetUpgradeSeriesStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
-		Results: []params.UpgradeSeriesStatusResult{
-			{
-				Status: string(model.PrepareStarted),
-				Error:  nil,
-			},
-			{
-				Status: string(model.PrepareCompleted),
-				Error:  nil,
-			},
-		},
-	})
-}
-
 type mockNotifyWatcher struct {
 	tomb    tomb.Tomb
 	changes chan struct{}

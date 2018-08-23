@@ -4,8 +4,9 @@
 package upgradeseries
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -21,7 +22,8 @@ import (
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
-	Logf(level loggo.Level, message string, args ...interface{})
+	Debugf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 }
@@ -124,85 +126,63 @@ func (w *upgradeSeriesWorker) loop() error {
 	}
 }
 
-// handleUpgradeSeriesChange retrieves the upgrade-series status for this
-// machine and all of its units.
-// Based on the status, actions are taken.
-// TODO (manadart 2018-08-06): This needs upstream work to streamline.
-// We should effectively be getting the whole upgrade-series lock - machine
-// and unit data, to properly assess the current state and to transition as
-// required.
+// handleUpgradeSeriesChange retrieves the current upgrade-series status for
+// this machine and based on the status, calls methods that will progress
+// the workflow accordingly.
 func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	machineStatus, err := w.MachineStatus()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// No upgrade-series lock.
 			// This can only happen on the first watch call.
+			// Does it happen if the lock is deleted?
+			w.logger.Warningf("no series upgrade lock present")
 			return nil
 		}
 		return errors.Trace(err)
 	}
-	w.logger.Logf(loggo.DEBUG, "series upgrade lock changed")
+	w.logger.Debugf("series upgrade lock changed")
 
-	unitStatuses, err := w.UpgradeSeriesStatus()
+	switch machineStatus {
+	case model.PrepareStarted:
+		err = w.handlePrepareStarted()
+	case model.PrepareMachine:
+		err = w.handlePrepareMachine()
+	case model.CompleteStarted:
+		err = w.handleCompleteStarted()
+	default:
+		w.logger.Debugf("machine series upgrade status is %q", machineStatus)
+	}
+	return errors.Trace(err)
+}
+
+// handlePrepareStarted handles workflow for the machine with an upgrade-series
+// lock status of "PrepareStarted"
+func (w *upgradeSeriesWorker) handlePrepareStarted() error {
+	w.logger.Debugf("machine series upgrade status is %q", model.PrepareStarted)
+
+	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(externalreality): We are looping through all the states twice
-	// here. This does not need to be done.
-	prepared := unitsPrepareCompleted(unitStatuses)
-	completed := unitsCompleted(unitStatuses)
-
-	// Units are completed, but not yet stopped - shut them down.
-	if machineStatus == model.PrepareStarted && prepared {
-		err = w.transitionPrepareMachine(len(unitStatuses))
-		return errors.Trace(err)
+	if !allConfirmed {
+		w.logger.Debugf(
+			"still waiting for units to complete series upgrade preparation; known unit agent services:\n\t%s",
+			unitNames(units),
+		)
+		return nil
 	}
 
-	// Units are stopped, but not updated for the new init system.
-	// Perform the required unit file manipulation.
-	if machineStatus == model.PrepareMachine && prepared {
-		err = w.transitionPrepareComplete(len(unitStatuses))
-		return errors.Trace(err)
-	}
-
-	// User has done the required manual work and run upgrade-series complete.
-	// Restart the unit agents.
-	if machineStatus == model.CompleteStarted && prepared {
-		err = w.transitionUnitsStarted(len(unitStatuses))
-		return errors.Trace(err)
-	}
-
-	// All the units have run their series-upgrade complete hooks and indicated
-	// that they are completed. Transition the machine to completed too.
-	if machineStatus == model.CompleteStarted && completed {
-		// TODO (manadart 2018-08-09): Do we remove the lock at some point?
-		w.logger.Logf(loggo.INFO, "series upgrade complete")
-		err = w.SetMachineStatus(model.Completed)
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(w.transitionPrepareMachine(units))
 }
 
 // transitionPrepareMachine stops all unit agents on this machine and updates
 // the upgrade-series status lock to indicate that upgrade work can proceed.
-// The number of known upgrade-series unit statuses is passed in order to do a
-// validation against the detected unit agents on the machine.
 // TODO (manadart 2018-08-09): Rename when a better name is contrived for
-// UpgradeSeriesPrepareMachine
-func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
-	w.logger.Logf(loggo.INFO, "stopping units for series upgrade")
+// "UpgradeSeriesPrepareMachine".
+func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]string) error {
+	w.logger.Infof("stopping units for series upgrade")
 
-	unitServices, err := w.unitAgentServices(statusCount)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO (manadart 2018-08-06) This needs to be reworked during allotted
-	// refactor period. At present there is no way to determine the status of
-	// a *specific* unit, so we need to ensure they are *all* stopped and only
-	// perform the status updates afterwards. We can't afford to be in a
-	// partial state.
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
 		if err != nil {
@@ -224,31 +204,74 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(statusCount int) error {
 	return errors.Trace(w.SetMachineStatus(model.PrepareMachine))
 }
 
-// transitionPrepareMachine rewrites service unit files for unit agents running
-// on this machine so that they are compatible with the init system of the
-// series upgrade target
-func (w *upgradeSeriesWorker) transitionPrepareComplete(statusCount int) error {
-	w.logger.Logf(loggo.INFO, "preparing service units for series upgrade")
+// handlePrepareMachine handles workflow for the machine with an upgrade-series
+// lock status of "PrepareMachine".
+// TODO (manadart 2018-08-09): Rename when a better name is contrived for
+// "UpgradeSeriesPrepareMachine".
+func (w *upgradeSeriesWorker) handlePrepareMachine() error {
+	w.logger.Debugf("machine series upgrade status is %q", model.PrepareMachine)
 
-	_, err := w.unitAgentServices(statusCount)
+	// This is a sanity check.
+	// The units should all still be in the "PrepareComplete" state.
+	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if !allConfirmed {
+		w.logger.Debugf(
+			"units are not all in the expected state for series upgrade preparation (complete); "+
+				"known unit agent services:\n\t%s",
+			unitNames(units),
+		)
+	}
+
+	return errors.Trace(w.transitionPrepareComplete(units))
+}
+
+// transitionPrepareComplete rewrites service unit files for unit agents running
+// on this machine so that they are compatible with the init system of the
+// series upgrade target
+func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
+	w.logger.Infof("preparing service units for series upgrade")
 
 	// TODO (manadart 2018-08-09): Unit file wrangling to come.
 	// For now we just update the machine status to progress the workflow.
 	return errors.Trace(w.SetMachineStatus(model.PrepareCompleted))
 }
 
-// transitionUnitsStarted iterates over units managed by this machine. Starts
-// the unit's agent service, and transitions all unit subordinate statuses.
-func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
-	w.logger.Logf(loggo.INFO, "starting units after series upgrade")
+func (w *upgradeSeriesWorker) handleCompleteStarted() error {
+	w.logger.Debugf("machine series upgrade status is %q", model.CompleteStarted)
 
-	unitServices, err := w.unitAgentServices(statusCount)
+	// If the units are still all in the "PrepareComplete" state, then the
+	// manual tasks have been run and an operator has executed the
+	// upgrade-series completion command; start all the unit agents,
+	// and progress the workflow.
+	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if allConfirmed {
+		return errors.Trace(w.transitionUnitsStarted(units))
+	}
+
+	// If the units have all completed their workflow, then we are done.
+	// Make the final update to the lock to say the machine is completed.
+	units, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if allConfirmed {
+		w.logger.Infof("series upgrade complete")
+		return errors.Trace(w.SetMachineStatus(model.Completed))
+	}
+
+	return nil
+}
+
+// transitionUnitsStarted iterates over units managed by this machine. Starts
+// the unit's agent service, and transitions all unit subordinate statuses.
+func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]string) error {
+	w.logger.Infof("starting units after series upgrade")
 
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
@@ -266,33 +289,45 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(statusCount int) error {
 			return errors.Annotatef(err, "starting %q unit agent after series upgrade", unit)
 		}
 	}
-	err = w.StartUnitUpgradeSeriesCompletionPhase()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
-	return nil
+	return errors.Trace(w.StartUnitCompletion())
 }
 
-// unitAgentServices filters the services running on the local machine to those
-// that are for unit agents. If the number of services returned differs from
-// input count, then a error is returned.
-func (w *upgradeSeriesWorker) unitAgentServices(statusCount int) (map[string]string, error) {
+// unitsInState is a type alias for retrieving a slice of unit tags for units
+// in a particular state.
+type unitsInState = func() ([]names.UnitTag, error)
+
+// compareUnitsAgentServices executes the input getter method to retrieve a
+// collection of unit tags.
+// It then filters the services running on the local machine to those that are
+// for unit agents.
+// The service names keyed by unit names are returned, along with a boolean
+// indicating whether all the retrieved unit tags are represented in the
+// service map.
+// NOTE: No unit tags and no agent services returns true, meaning that the
+// workflow can progress.
+func (w *upgradeSeriesWorker) compareUnitAgentServices(getUnits unitsInState) (map[string]string, bool, error) {
+	units, err := getUnits()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+
 	services, err := w.service.ListServices()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	}
 
 	unitServices := service.FindUnitServiceNames(services)
-	if len(unitServices) != statusCount {
-		return nil, errors.Errorf("mismatched counts; upgrade-series statuses: %d, detected services: %d",
-			statusCount, len(unitServices))
+	if len(units) != len(unitServices) {
+		return unitServices, false, nil
 	}
-	return unitServices, nil
-}
 
-func unitsPrepareCompleted(statuses []string) bool {
-	return unitsAllWithStatus(statuses, model.PrepareCompleted)
+	for _, u := range units {
+		if _, ok := unitServices[u.Id()]; !ok {
+			return unitServices, false, nil
+		}
+	}
+	return unitServices, true, nil
 }
 
 func unitsCompleted(statuses []string) bool {
@@ -324,4 +359,16 @@ func (w *upgradeSeriesWorker) Wait() error {
 func (w *upgradeSeriesWorker) Stop() error {
 	w.Kill()
 	return w.Wait()
+}
+
+// unitNames returns a comma-delimited string of unit names based on the input
+// map of unit agent services.
+func unitNames(units map[string]string) string {
+	unitIds := make([]string, len(units))
+	i := 0
+	for u := range units {
+		unitIds[i] = u
+		i++
+	}
+	return strings.Join(unitIds, ", ")
 }
