@@ -813,18 +813,20 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
-			tools, err := unit.AgentTools()
-			if err != nil {
-				// This means the tools aren't set, but they should be.
-				return errors.Trace(err)
+		if e.dbModel.Type() != ModelTypeCAAS {
+			if !e.cfg.SkipUnitAgentBinaries {
+				tools, err := unit.AgentTools()
+				if err != nil {
+					// This means the tools aren't set, but they should be.
+					return errors.Trace(err)
+				}
+				exUnit.SetTools(description.AgentToolsArgs{
+					Version: tools.Version,
+					URL:     tools.URL,
+					SHA256:  tools.SHA256,
+					Size:    tools.Size,
+				})
 			}
-			exUnit.SetTools(description.AgentToolsArgs{
-				Version: tools.Version,
-				URL:     tools.URL,
-				SHA256:  tools.SHA256,
-				Size:    tools.Size,
-			})
 		}
 		exUnit.SetAnnotations(e.getAnnotations(globalKey))
 

@@ -892,18 +892,20 @@ func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	_, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipUnitAgentBinaries: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	listMachine := model.Machines()
-	tools := listMachine[0].Tools()
-	c.Assert(tools, gc.Equals, nil)
+	listApplications := model.Applications()
+	unit := listApplications[0].Units()
+	c.Assert(unit[0].Tools(), gc.Equals, nil)
 }
 
 func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
