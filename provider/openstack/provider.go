@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -210,7 +211,10 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// If OS_REGION_NAME and OS_AUTH_URL are both set,
 	// return return a region using them.
-	creds := identity.CredentialsFromEnv()
+	creds, err := identity.CredentialsFromEnv()
+	if err != nil {
+		return nil, errors.Errorf("failed to retrive cred from env : %v", err)
+	}
 	if creds.Region == "" {
 		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
 	}
@@ -716,12 +720,13 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode) {
+func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode, error) {
 	credAttrs := spec.Credential.Attributes()
 	cred := identity.Credentials{
 		Region:     spec.Region,
 		URL:        spec.Endpoint,
 		TenantName: credAttrs[CredAttrTenantName],
+		TenantID:   credAttrs[CredAttrTenantID],
 	}
 
 	// AuthType is validated when the environment is opened, so it's known
@@ -735,16 +740,29 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
 		cred.UserDomain = credAttrs[CredAttrUserDomainName]
 		cred.Domain = credAttrs[CredAttrDomainName]
-		authMode = identity.AuthUserPass
-		if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
+		if credAttrs[CredAttrVersion] != "" {
+			version, err := strconv.Atoi(credAttrs[CredAttrVersion])
+			if err != nil {
+				return identity.Credentials{}, 0,
+					errors.Errorf("cred.Version is not a valid integer type : %v", err)
+			}
+			if version < 3 {
+				authMode = identity.AuthUserPass
+			} else {
+				authMode = identity.AuthUserPassV3
+			}
+			cred.Version = version
+		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
 			authMode = identity.AuthUserPassV3
+		} else {
+			authMode = identity.AuthUserPass
 		}
 	case cloud.AccessKeyAuthType:
 		cred.User = credAttrs[CredAttrAccessKey]
 		cred.Secrets = credAttrs[CredAttrSecretKey]
 		authMode = identity.AuthKeyPair
 	}
-	return cred, authMode
+	return cred, authMode, nil
 }
 
 func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
@@ -752,7 +770,10 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
-	cred, authMode := newCredentials(spec)
+	cred, authMode, err := newCredentials(spec)
+	if err != nil {
+		return nil, errors.Annotate(err, "cred.Version is not a valid integer type.")
+	}
 	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
 
 	cl, err := newClientByType(cred, authMode, gooseLogger, ecfg.SSLHostnameVerification(), spec.CACertificates)
@@ -832,12 +853,15 @@ var authenticateClient = func(auth authenticator) error {
 		// Log the error in case there are any useful hints,
 		// but provide a readable and helpful error message
 		// to the user.
-		logger.Debugf("authentication failed: %v", err)
-		return errors.New(`authentication failed.
-
-Please ensure the credentials are correct. A common mistake is
-to specify the wrong tenant. Use the OpenStack "project" name
-for tenant-name in your model configuration.`)
+		logger.Debugf("Authenticate() failed: %v", err)
+		if gooseerrors.IsUnauthorised(err) {
+			return errors.Errorf("authentication failed : %v\n"+
+				"Please ensure the credentials are correct. A common mistake is\n"+
+				"to specify the wrong tenant. Use the OpenStack project name\n"+
+				"for tenant-name in your model configuration. \n", err)
+		} else {
+			return errors.Annotate(err, "authentication failed.")
+		}
 	}
 	return nil
 }

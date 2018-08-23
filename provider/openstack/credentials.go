@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -20,6 +21,7 @@ import (
 
 const (
 	CredAttrTenantName        = "tenant-name"
+	CredAttrTenantID          = "tenant-id"
 	CredAttrUserName          = "username"
 	CredAttrPassword          = "password"
 	CredAttrDomainName        = "domain-name"
@@ -27,6 +29,7 @@ const (
 	CredAttrUserDomainName    = "user-domain-name"
 	CredAttrAccessKey         = "access-key"
 	CredAttrSecretKey         = "secret-key"
+	CredAttrVersion           = "version"
 )
 
 type OpenstackCredentials struct{}
@@ -43,7 +46,20 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 					Hidden:      true,
 				},
 			}, {
-				CredAttrTenantName, cloud.CredentialAttr{Description: "The OpenStack tenant name."},
+				CredAttrTenantName, cloud.CredentialAttr{
+					Description: "The OpenStack tenant name.",
+					Optional:    true,
+				},
+			}, {
+				CredAttrTenantID, cloud.CredentialAttr{
+					Description: "The Openstack tenant ID",
+					Optional:    true,
+				},
+			}, {
+				CredAttrVersion, cloud.CredentialAttr{
+					Description: "The Openstack identity version",
+					Optional:    true,
+				},
 			}, {
 				CredAttrDomainName, cloud.CredentialAttr{
 					Description: "The OpenStack domain name.",
@@ -70,7 +86,20 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 					Hidden:      true,
 				},
 			}, {
-				CredAttrTenantName, cloud.CredentialAttr{Description: "The OpenStack tenant name."},
+				CredAttrTenantName, cloud.CredentialAttr{
+					Description: "The OpenStack tenant name.",
+					Optional:    true,
+				},
+			}, {
+				CredAttrTenantID, cloud.CredentialAttr{
+					Description: "The Openstack tenant ID",
+					Optional:    true,
+				},
+			}, {
+				CredAttrVersion, cloud.CredentialAttr{
+					Description: "The Openstack identity version",
+					Optional:    true,
+				},
 			},
 		},
 	}
@@ -115,9 +144,15 @@ func (c OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error
 }
 
 func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, string, error) {
-	creds := identity.CredentialsFromEnv()
+	creds, err := identity.CredentialsFromEnv()
+	if err != nil {
+		return nil, "", "", errors.Errorf("failed to retrive cred from env : %v", err)
+	}
 	if creds.TenantName == "" {
-		return nil, "", "", errors.NewNotFound(nil, "OS_TENANT_NAME environment variable not set")
+		logger.Debugf("neither OS_TENANT_NAME nor OS_PROJECT_NAME environment variable not set")
+	}
+	if creds.TenantID == "" {
+		logger.Debugf("neither OS_TENANT_ID nor OS_PROJECT_ID environment variable not set")
 	}
 	if creds.User == "" {
 		return nil, "", "", errors.NewNotFound(nil, "neither OS_USERNAME nor OS_ACCESS_KEY environment variable not set")
@@ -131,6 +166,12 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 		return nil, "", "", errors.Trace(err)
 	}
 
+	var version string
+	if creds.Version != 0 {
+		version = strconv.Itoa(creds.Version)
+	} else {
+		version = ""
+	}
 	// If OS_USERNAME or NOVA_USERNAME is set, assume userpass.
 	var credential cloud.Credential
 	if os.Getenv("OS_USERNAME") != "" || os.Getenv("NOVA_USERNAME") != "" {
@@ -141,9 +182,11 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 				CredAttrUserName:          creds.User,
 				CredAttrPassword:          creds.Secrets,
 				CredAttrTenantName:        creds.TenantName,
+				CredAttrTenantID:          creds.TenantID,
 				CredAttrUserDomainName:    creds.UserDomain,
 				CredAttrProjectDomainName: creds.ProjectDomain,
 				CredAttrDomainName:        creds.Domain,
+				CredAttrVersion:           version,
 			},
 		)
 	} else {
@@ -153,6 +196,8 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 				CredAttrAccessKey:  creds.User,
 				CredAttrSecretKey:  creds.Secrets,
 				CredAttrTenantName: creds.TenantName,
+				CredAttrTenantID:   creds.TenantID,
+				CredAttrVersion:    version,
 			},
 		)
 	}
