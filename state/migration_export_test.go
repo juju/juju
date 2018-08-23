@@ -859,21 +859,71 @@ func (s *MigrationExportSuite) TestLinkLayerDevicesSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
-		SkipInstanceData: true,
+		SkipStatus:        true,
+		SkipStatusHistory: true,
+		SkipInstanceData:  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	for _, mc := range model.Machines() {
-		instance := mc.Instance()
-		c.Assert(instance, gc.Equals, nil)
-	}
+	listMachines := model.Machines()
+
+	instance := listMachines[0].Instance()
+	c.Assert(instance, gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipMachineAgentBinaries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listMachines := model.Machines()
+	tools := listMachines[0].Tools()
+	c.Assert(tools, gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipUnitAgentBinaries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listMachine := model.Machines()
+	tools := listMachine[0].Tools()
+	c.Assert(tools, gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipRelationScope: true,
+		SkipSettings:      true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Relations(), gc.HasLen, 1)
 }
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
@@ -1077,8 +1127,7 @@ func (s *MigrationExportSuite) TestCloudImageMetadataSkipped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	images := model.CloudImageMetadata()
-	model.
-		c.Assert(images, gc.HasLen, 0)
+	c.Assert(images, gc.HasLen, 0)
 }
 
 func (s *MigrationExportSuite) TestActions(c *gc.C) {
