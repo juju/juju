@@ -115,13 +115,13 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
 	unitStatuses := make(map[string]UpgradeSeriesUnitStatus, len(unitNames))
 	for _, name := range unitNames {
-		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.PrepareStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.UpgradeSeriesPrepareStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
 		FromSeries:    m.Series(),
-		MachineStatus: model.PrepareStarted,
+		MachineStatus: model.UpgradeSeriesPrepareStarted,
 		UnitStatuses:  unitStatuses,
 	}
 }
@@ -158,11 +158,11 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion() error {
 		if err != nil {
 			return nil, err
 		}
-		if lock.MachineStatus != model.CompleteStarted {
+		if lock.MachineStatus != model.UpgradeSeriesCompleteStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		for unitName, us := range lock.UnitStatuses {
-			us.Status = model.CompleteStarted
+			us.Status = model.UpgradeSeriesCompleteStarted
 			lock.UnitStatuses[unitName] = us
 		}
 		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock.UnitStatuses), nil
@@ -186,7 +186,7 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, units map[strin
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Assert: bson.D{{"machine-status", model.CompleteStarted}},
+			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
 			Update: bson.D{{"$set", bson.D{{statusField, units}}}},
 		},
 	}
@@ -226,7 +226,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return lock.MachineStatus == model.PrepareCompleted, nil
+	return lock.MachineStatus == model.UpgradeSeriesPrepareCompleted, nil
 }
 
 func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
@@ -239,8 +239,8 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Assert: bson.D{{"machine-status", model.PrepareCompleted}},
-			Update: bson.D{{"$set", bson.D{{"machine-status", model.CompleteStarted}}}},
+			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
+			Update: bson.D{{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}}},
 		},
 	}
 }

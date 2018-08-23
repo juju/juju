@@ -149,7 +149,7 @@ func (u *UpgradeSeriesAPI) GetUpgradeSeriesStatus(args params.Entities) (params.
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesStatus with %+v", args)
 	return u.setUpgradeSeriesStatus(args)
 }
@@ -189,7 +189,7 @@ func NewExternalUpgradeSeriesAPI(
 	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }
 
-func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -256,7 +256,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.Upg
 			results[i].Error = ServerError(err)
 			continue
 		}
-		results[i].Status = string(status)
+		results[i].Status = status
 	}
 	return params.UpgradeSeriesStatusResults{Results: results}, nil
 }

@@ -716,23 +716,23 @@ func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
 	// assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, string(model.PrepareStarted))
+	c.Assert(status, gc.Equals, string(model.UpgradeSeriesPrepareStarted))
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
-	arbitraryStatus := string(model.NotStarted)
+	arbitraryStatus := string(model.UpgradeSeriesNotStarted)
 
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus)
 	c.Assert(err, gc.ErrorMatches, "machine \"[0-9]*\" is not locked for upgrade")
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
-	arbitraryNonDefaultStatus := string(model.NotStarted)
+	arbitraryNonDefaultStatus := string(model.UpgradeSeriesNotStarted)
 
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
 
-	// Change the state to something other than the default remote state of PrepareStarted
+	// Change the state to something other than the default remote state of UpgradeSeriesPrepareStarted
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryNonDefaultStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -754,13 +754,13 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C
 	s.CreateUpgradeSeriesLock(c, unit2.Name())
 
 	// Complete one unit
-	err = unit2.SetUpgradeSeriesStatus(model.PrepareCompleted)
+	err = unit2.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The other unit should still be in the started state
 	status, err := s.wordpressUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.PrepareStarted)
+	c.Assert(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
 }
 
 func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {
@@ -985,7 +985,7 @@ func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
 		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
 			Results: []params.UpgradeSeriesStatusResult{
 				{Status: "Started"},
-				{Status: "Completed"},
+				{Status: "UpgradeSeriesCompleted"},
 			},
 		}
 		return nil
@@ -1001,7 +1001,7 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
-			Results: []params.UpgradeSeriesStatusResult{{Status: "Completed"}},
+			Results: []params.UpgradeSeriesStatusResult{{Status: "UpgradeSeriesCompleted"}},
 		}
 		return nil
 	}
@@ -1009,7 +1009,7 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 
 	sts, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.Equals, "Completed")
+	c.Check(sts, gc.Equals, "UpgradeSeriesCompleted")
 }
 
 type unitMetricBatchesSuite struct {

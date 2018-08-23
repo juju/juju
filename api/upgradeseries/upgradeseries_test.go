@@ -39,9 +39,9 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	resultSource := params.UpgradeSeriesStatusResultsNew{
-		Results: []params.UpgradeSeriesStatusResultNew{{
-			Status: params.UpgradeSeriesStatus{Status: model.PrepareStarted, Entity: s.args.Entities[0]}},
+	resultSource := params.UpgradeSeriesStatusResults{
+		Results: []params.UpgradeSeriesStatusResult{{
+			Status: model.UpgradeSeriesPrepareStarted},
 		},
 	}
 	fCaller.EXPECT().FacadeCall("MachineStatus", s.args, gomock.Any()).SetArg(2, resultSource)
@@ -49,7 +49,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
 	c.Assert(err, gc.IsNil)
-	c.Check(status, gc.Equals, model.PrepareStarted)
+	c.Check(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
@@ -58,8 +58,8 @@ func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	resultSource := params.UpgradeSeriesStatusResultsNew{
-		Results: []params.UpgradeSeriesStatusResultNew{{
+	resultSource := params.UpgradeSeriesStatusResults{
+		Results: []params.UpgradeSeriesStatusResult{{
 			Error: &params.Error{
 				Code:    params.CodeNotFound,
 				Message: "did not find",
@@ -82,15 +82,15 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{
-			{Status: model.CompleteStarted, Entity: s.args.Entities[0]},
+		Params: []params.UpgradeSeriesStatusParam{
+			{Status: model.UpgradeSeriesCompleteStarted, Entity: s.args.Entities[0]},
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
 	fCaller.EXPECT().FacadeCall("SetMachineStatus", args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.SetMachineStatus(model.CompleteStarted)
+	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -153,7 +153,7 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{
+		Params: []params.UpgradeSeriesStatusParam{
 			{Entity: s.args.Entities[0]},
 		},
 	}

@@ -56,8 +56,8 @@ func (s *uniterResolver) NextOp(
 	// state) then the uniter should idle in the face of all remote state
 	// changes accept for those which indicate termination - the unit is
 	// waiting to be shutdown.
-	if localState.UpgradeSeriesPrepareStatus == model.PrepareCompleted &&
-		remoteState.UpgradeSeriesPrepareStatus == model.PrepareCompleted {
+	if localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted &&
+		remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted {
 		logger.Criticalf("We hit here were we are supposed to idle when shutting down.")
 		//return nil, resolver.ErrNoOperation
 	}
@@ -288,15 +288,15 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	if localState.UpgradeSeriesPrepareStatus == model.NotStarted &&
-		remoteState.UpgradeSeriesPrepareStatus == model.PrepareStarted {
+	if localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesNotStarted &&
+		remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 
-	if localState.UpgradeSeriesCompleteStatus == model.NotStarted &&
-		// localState.UpgradeSeriesPrepareStatus == model.PrepareCompleted &&  //these checks ensure that the uniter is not stuck in its idle state after the prepare phase
-		// remoteState.UpgradeSeriesPrepareStatus == model.PrepareCompleted
-		remoteState.UpgradeSeriesCompleteStatus == model.CompleteStarted {
+	if localState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesNotStarted &&
+		// localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted &&  //these checks ensure that the uniter is not stuck in its idle state after the prepare phase
+		// remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted
+		remoteState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesCompleteStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 

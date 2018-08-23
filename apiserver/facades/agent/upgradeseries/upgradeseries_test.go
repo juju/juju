@@ -43,7 +43,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().MachineUpgradeSeriesStatus().Return(model.PrepareCompleted, nil)
+	machine.EXPECT().MachineUpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.Entities{
@@ -52,12 +52,8 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	results, err := api.MachineStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResultsNew{
-		Results: []params.UpgradeSeriesStatusResultNew{
-			{
-				Status: params.UpgradeSeriesStatus{Entity: entity, Status: model.PrepareCompleted},
-			},
-		},
+	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
+		Results: []params.UpgradeSeriesStatusResult{{Status: model.UpgradeSeriesPrepareCompleted}},
 	})
 }
 
@@ -69,11 +65,11 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().SetMachineUpgradeSeriesStatus(model.PrepareCompleted).Return(nil)
+	machine.EXPECT().SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{{Entity: entity, Status: model.PrepareCompleted}},
+		Params: []params.UpgradeSeriesStatusParam{{Entity: entity, Status: model.UpgradeSeriesPrepareCompleted}},
 	}
 
 	results, err := api.SetMachineStatus(args)
@@ -92,8 +88,8 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
 	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
-		"redis/0": {Status: model.PrepareCompleted},
-		"redis/1": {Status: model.PrepareStarted},
+		"redis/0": {Status: model.UpgradeSeriesPrepareCompleted},
+		"redis/1": {Status: model.UpgradeSeriesPrepareStarted},
 	}, nil)
 
 	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
@@ -114,8 +110,8 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
 	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
-		"redis/0": {Status: model.Completed},
-		"redis/1": {Status: model.CompleteStarted},
+		"redis/0": {Status: model.UpgradeSeriesCompleted},
+		"redis/1": {Status: model.UpgradeSeriesCompleteStarted},
 	}, nil)
 
 	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
