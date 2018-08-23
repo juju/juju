@@ -141,17 +141,20 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 	return result, nil
 }
 
-// UnitStatus returns the current preparation status of an upgrading unit.
+// UpgradeSeriesUnitStatus returns the current preparation status of an
+// upgrading unit.
 // If no series upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) UnitStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	u.logger.Tracef("Starting UnitStatus with %+v", args)
+func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+	u.logger.Tracef("Starting UpgradeSeriesUnitStatus with %+v", args)
 	return u.unitStatus(args)
 }
 
-// SetUnitStatus sets the upgrade series status of the unit.
+// SetUpgradeSeriesUnitStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) SetUnitStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting SetUnitStatus with %+v", args)
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(
+	args params.UpgradeSeriesStatusParams,
+) (params.ErrorResults, error) {
+	u.logger.Tracef("Starting SetUpgradeSeriesUnitStatus with %+v", args)
 	return u.setUnitStatus(args)
 }
 

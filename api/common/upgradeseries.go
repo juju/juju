@@ -49,14 +49,15 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 	return w, nil
 }
 
-// UnitStatus returns the upgrade series status of a unit from remote state.
-func (u *UpgradeSeriesAPI) UnitStatus() ([]model.UpgradeSeriesStatus, error) {
+// UpgradeSeriesUnitStatus returns the upgrade series status of a
+// unit from remote state.
+func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus() ([]model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 
-	err := u.facade.FacadeCall("UnitStatus", args, &results)
+	err := u.facade.FacadeCall("UpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +79,9 @@ func (u *UpgradeSeriesAPI) UnitStatus() ([]model.UpgradeSeriesStatus, error) {
 	return statuses, nil
 }
 
-// SetUnitStatus sets the upgrade series status of the unit in the remote state.
-func (u *UpgradeSeriesAPI) SetUnitStatus(status model.UpgradeSeriesStatus) error {
+// SetUpgradeSeriesUnitStatus sets the upgrade series status of the
+// unit in the remote state.
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeriesStatus) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{
@@ -87,7 +89,7 @@ func (u *UpgradeSeriesAPI) SetUnitStatus(status model.UpgradeSeriesStatus) error
 			Status: status,
 		}},
 	}
-	err := u.facade.FacadeCall("SetUnitStatus", args, &results)
+	err := u.facade.FacadeCall("SetUpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return err
 	}
