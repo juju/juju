@@ -858,6 +858,24 @@ func (s *MigrationExportSuite) TestLinkLayerDevicesSkipped(c *gc.C) {
 	c.Assert(devices, gc.HasLen, 0)
 }
 
+func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipInstanceData: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, mc := range model.Machines() {
+		instance := mc.Instance()
+		c.Assert(instance, gc.Equals, nil)
+	}
+}
+
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
@@ -1059,7 +1077,8 @@ func (s *MigrationExportSuite) TestCloudImageMetadataSkipped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	images := model.CloudImageMetadata()
-	c.Assert(images, gc.HasLen, 0)
+	model.
+		c.Assert(images, gc.HasLen, 0)
 }
 
 func (s *MigrationExportSuite) TestActions(c *gc.C) {

@@ -997,37 +997,35 @@ func (e *exporter) relations() error {
 			if isRemote {
 				continue
 			}
-			if !e.cfg.SkipRelationScope {
-				units := e.units[ep.ApplicationName]
-				for _, unit := range units {
-					ru, err := relation.Unit(unit)
-					if err != nil {
-						return errors.Trace(err)
-					}
-					valid, err := ru.Valid()
-					if err != nil {
-						return errors.Trace(err)
-					}
-					if !valid {
-						// It doesn't make sense for this application to have a
-						// relations scope for this endpoint. For example the
-						// situation where we have a subordinate charm related to
-						// two different principals.
-						continue
-					}
-					key := ru.key()
-					if !e.cfg.SkipRelationScope {
-						if !relationScopes.Contains(key) {
-							return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
-						}
-					}
-					settingsDoc, found := e.modelSettings[key]
-					if !found && !e.cfg.SkipSettings {
-						return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
-					}
-					delete(e.modelSettings, key)
-					exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
+			units := e.units[ep.ApplicationName]
+			for _, unit := range units {
+				ru, err := relation.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
 				}
+				valid, err := ru.Valid()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !valid {
+					// It doesn't make sense for this application to have a
+					// relations scope for this endpoint. For example the
+					// situation where we have a subordinate charm related to
+					// two different principals.
+					continue
+				}
+				key := ru.key()
+				if !e.cfg.SkipRelationScope {
+					if !relationScopes.Contains(key) {
+						return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
+					}
+				}
+				settingsDoc, found := e.modelSettings[key]
+				if !found && !e.cfg.SkipSettings {
+					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
+				}
+				delete(e.modelSettings, key)
+				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
 	}
