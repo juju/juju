@@ -495,15 +495,11 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 	return nil
 }
 
-// IsSeriesLessThan returns a bool indicating whether the first argument's
+// isSeriesLessThan returns a bool indicating whether the first argument's
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
 // output is only valid for Ubuntu series.
 func isSeriesLessThan(series1, series2 string) (bool, error) {
-	return seriesLessThan(series1, series2)
-}
-
-func seriesLessThan(series1, series2 string) (bool, error) {
 	version1, err := series.SeriesVersion(series1)
 	if err != nil {
 		return false, err
