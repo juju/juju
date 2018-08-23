@@ -124,7 +124,7 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 	return setAgentStatus(opc.u, status.Executing, message, nil)
 }
 
-// SetUnitStatus is part of the operation.Callbacks interface.
+// SetUpgradeSeriesStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.UpgradeSeriesStatus) error {
 	return setUpgradeSeriesStatus(opc.u, upgradeSeriesStatus)
 }
