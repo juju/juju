@@ -171,13 +171,8 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{
-			{Entity: s.args.Entities[0]},
-		},
-	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("FinishUpgradeSeries", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall("FinishUpgradeSeries", s.args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.FinishUpgradeSeries()
