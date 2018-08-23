@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
@@ -148,8 +149,34 @@ func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachineInstanceId(c 
 	}
 
 	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext)
-	c.Assert(err, gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: common.ServerError(errors.Errorf("getting instance id for machine 2: retrieval failure"))},
+		},
+	})
+}
+
+func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatal(c *gc.C) {
+	machine1 := createTestMachine("2", "")
+	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
+	s.machine.instanceIdFunc = machine1.instanceIdFunc
+	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
+		return []credentialcommon.Machine{s.machine, machine1}, nil
+	}
+
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	// There should be 3 errors here:
+	// * 2 of them because failing to get an instance id from one machine should not stop the processing the rest of the machines;
+	// * 1 because we no longer can link test instance (s.instance) to a test machine (s.machine).
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: common.ServerError(errors.New("getting instance id for machine 1: retrieval failure"))},
+			{Error: common.ServerError(errors.New("getting instance id for machine 2: retrieval failure"))},
+			{Error: common.ServerError(errors.New(`no machine with instance "wind-up"`))},
+		},
+	})
 }
 
 func (s *ModelCredentialSuite) TestValidateModelCredential(c *gc.C) {

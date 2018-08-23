@@ -72,6 +72,13 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
+
+	var results []params.ErrorResult
+
+	serverError := func(received error) params.ErrorResult {
+		return params.ErrorResult{Error: common.ServerError(received)}
+	}
+
 	machinesByInstance := make(map[string]string)
 	for _, machine := range machines {
 		if machine.IsContainer() {
@@ -86,8 +93,8 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 		}
 		instanceId, err := machine.InstanceId()
 		if err != nil {
-			// TODO (anastasiamac 2018-08-21) do we really want to fail all processing here or just an error result against this machine and keep going?
-			return fail(errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
+			results = append(results, serverError(errors.Annotatef(err, "getting instance id for machine %s", machine.Id())))
+			continue
 		}
 		machinesByInstance[string(instanceId)] = machine.Id()
 	}
@@ -98,25 +105,18 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 		return fail(errors.Trace(err))
 	}
 
-	var results []params.ErrorResult
-
-	errorResult := func(format string, args ...interface{}) params.ErrorResult {
-		return params.ErrorResult{Error: common.ServerError(errors.Errorf(format, args...))}
-	}
-
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
 		id := string(instance.Id())
 		instanceIds.Add(id)
 		if _, found := machinesByInstance[id]; !found {
-			results = append(results, errorResult("no machine with instance %q", id))
+			results = append(results, serverError(errors.Errorf("no machine with instance %q", id)))
 		}
 	}
 
 	for instanceId, name := range machinesByInstance {
 		if !instanceIds.Contains(instanceId) {
-			results = append(results, errorResult(
-				"couldn't find instance %q for machine %s", instanceId, name))
+			results = append(results, serverError(errors.Errorf("couldn't find instance %q for machine %s", instanceId, name)))
 		}
 	}
 
