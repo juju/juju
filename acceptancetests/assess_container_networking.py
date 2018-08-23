@@ -179,7 +179,7 @@ def assess_network_traffic(client, targets):
         ssh(client, dest,
             'echo "{msg}" | nc {addr} 6778'.format(msg=msg, addr=address))
         result = ssh(client, source, 'more nc_listen.out')
-        if result.rstrip() != msg:
+        if msg not in result:
             raise ValueError("Wrong or missing message: %r" % result.rstrip())
         log.info('SUCCESS.')
 
@@ -334,7 +334,7 @@ def assess_container_networking(client, types):
         for host in hosts:
             log.info("Restarting hosted machine: {}".format(host))
             client.juju(
-                'run', ('--machine', host, 'sudo shutdown -r now'))
+                'run', ('--machine', host, 'sudo shutdown -r +1'))
         client.juju('show-action-status', ('--name', 'juju-run'))
 
         log.info("Restarting controller machine 0")
@@ -342,7 +342,9 @@ def assess_container_networking(client, types):
         controller_status = controller_client.get_status()
         controller_host = controller_status.status['machines']['0']['dns-name']
         first_uptime = get_uptime(controller_client, '0')
-        ssh(controller_client, '0', 'sudo shutdown -r now')
+        ssh(controller_client, '0', 'sudo shutdown -r +1')
+        # Ensure the reboots have started.
+        time.sleep(70)
     except subprocess.CalledProcessError as e:
         logging.info(
             "Error running shutdown:\nstdout: %s\nstderr: %s",
