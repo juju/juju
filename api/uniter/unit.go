@@ -649,9 +649,9 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 	return u.st.WatchUpgradeSeriesNotifications()
 }
 
-// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
+// UnitStatus returns the upgrade series status of a unit from remote state
 func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	res, err := u.st.UpgradeSeriesStatus()
+	res, err := u.st.UnitStatus()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -661,9 +661,9 @@ func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	return res[0], nil
 }
 
-// SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
+// SetUnitStatus sets the upgrade series status of the unit in the remote state
 func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
-	return u.st.SetUpgradeSeriesStatus(status)
+	return u.st.SetUnitStatus(status)
 }
 
 // RequestReboot sets the reboot flag for its machine agent

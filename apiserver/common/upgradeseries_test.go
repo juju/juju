@@ -150,7 +150,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesStatus(args)
+	watches, err := api.SetUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -176,7 +176,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.GetUpgradeSeriesStatus(args)
+	results, err := api.UnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{

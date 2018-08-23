@@ -284,12 +284,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-// MachineUpgradeSeriesStatus returns the upgrade-series status of a machine.
-// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
-// and the unit-based methods renamed to indicate their context.
-// The translation code can be removed once the old->new bootstrap is no
-// longer required.
-func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+func (m *Machine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -305,8 +300,8 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 	return lock.MachineStatus, errors.Trace(err)
 }
 
-// UpgradeSeriesStatus returns the series upgrade status for the input unit.
-func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatus, error) {
+// UnitStatus returns the series upgrade status for the input unit.
+func (m *Machine) UpgradeSeriesUnitStatus(unitName string) (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -325,7 +320,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatu
 	return lock.UnitStatuses[unitName].Status, nil
 }
 
-// UpgradeSeriesStatus returns the unit statuses from the upgrade-series lock
+// UnitStatus returns the unit statuses from the upgrade-series lock
 // for this machine.
 func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatus, error) {
 	lock, err := m.getUpgradeSeriesLock()
@@ -335,8 +330,8 @@ func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatu
 	return lock.UnitStatuses, nil
 }
 
-// SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) error {
+// SetUpgradeSeriesUnitStatus sets the status of a series upgrade for a unit.
+func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -400,12 +395,9 @@ func setUpgradeSeriesTxnOps(
 	}, nil
 }
 
-// SetUpgradeSeriesStatus sets the machine status of a series upgrade.
-// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
-// and the unit-based methods renamed to indicate their context.
-// The translation code can be removed once the old->new bootstrap is no
-// longer required.
-func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+// SetUpgradeSeriesStatus sets the status of the machine in
+// the upgrade-series lock.
+func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {

@@ -79,7 +79,7 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		status, err := machine.MachineUpgradeSeriesStatus()
+		status, err := machine.UpgradeSeriesStatus()
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -107,7 +107,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.SetMachineUpgradeSeriesStatus(param.Status)
+		err = machine.SetUpgradeSeriesStatus(param.Status)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 		}

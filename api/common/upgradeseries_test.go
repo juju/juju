@@ -65,7 +65,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "UnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -75,7 +75,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus()
+	watchResult, err := api.UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []model.UpgradeSeriesStatus{model.UpgradeSeriesCompleted}
@@ -85,7 +85,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusPrepare(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "UnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -95,7 +95,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus()
+	watchResult, err := api.UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []model.UpgradeSeriesStatus{model.UpgradeSeriesCompleted}
@@ -105,7 +105,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "UnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -120,7 +120,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus()
+	watchResult, err := api.UnitStatus()
 	c.Assert(err, gc.ErrorMatches, "testing")
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
 	c.Check(watchResult, gc.HasLen, 0)
@@ -129,7 +129,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "GetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "UnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
@@ -142,7 +142,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	watchResult, err := api.UpgradeSeriesStatus()
+	watchResult, err := api.UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []model.UpgradeSeriesStatus{model.UpgradeSeriesPrepareStarted, model.UpgradeSeriesPrepareCompleted}
@@ -152,7 +152,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "SetUnitStatus")
 		c.Assert(args, jc.DeepEquals, params.UpgradeSeriesStatusParams{
 			Params: []params.UpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
@@ -167,14 +167,14 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(model.UpgradeSeriesError)
+	err := api.SetUnitStatus(model.UpgradeSeriesError)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "SetUnitStatus")
 		c.Assert(args, jc.DeepEquals, params.UpgradeSeriesStatusParams{
 			Params: []params.UpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
@@ -187,14 +187,14 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(model.UpgradeSeriesError)
+	err := api.SetUnitStatus(model.UpgradeSeriesError)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
 func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "SetUpgradeSeriesStatus")
+		c.Assert(name, gc.Equals, "SetUnitStatus")
 		c.Assert(args, jc.DeepEquals, params.UpgradeSeriesStatusParams{
 			Params: []params.UpgradeSeriesStatusParam{{
 				Entity: params.Entity{Tag: s.tag.String()},
@@ -209,6 +209,6 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesStatus(model.UpgradeSeriesError)
+	err := api.SetUnitStatus(model.UpgradeSeriesError)
 	c.Assert(err, gc.ErrorMatches, "error in call")
 }

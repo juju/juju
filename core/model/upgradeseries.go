@@ -20,8 +20,8 @@ const (
 	UpgradeSeriesError            UpgradeSeriesStatus = "error"
 )
 
-// ValidateUnitSeriesUpgradeStatus validates a string returning an
-// UpgradeSeriesStatus, if valid, or an error.
+// ValidateUnitSeriesUpgradeStatus validates a the input status as valid for a
+// unit, returning the valid status or an error.
 func ValidateUnitSeriesUpgradeStatus(status UpgradeSeriesStatus) (UpgradeSeriesStatus, error) {
 	switch status {
 	case UpgradeSeriesNotStarted, UpgradeSeriesPrepareStarted, UpgradeSeriesPrepareCompleted,
