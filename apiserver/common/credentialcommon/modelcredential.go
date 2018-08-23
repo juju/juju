@@ -15,7 +15,7 @@ import (
 )
 
 // ValidateModelCredential checks if a cloud credential is valid for a model.
-func ValidateModelCredential(persisted PersistedCloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+func ValidateModelCredential(persisted CloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
 	// We only check persisted machines vs known cloud instances.
 	// In the future, this check may be extended to other cloud resources,
 	// entities and operation-level authorisations such as interfaces,
@@ -26,7 +26,7 @@ func ValidateModelCredential(persisted PersistedCloudEntitiesBackend, provider C
 // ValidateNewModelCredential checks if a new cloud credential can be valid
 // for a given model.
 // Note that this call does not validate credential against the cloud of the model.
-func ValidateNewModelCredential(backend PersistedModelBackend, newEnv NewEnvironFunc, callCtx context.ProviderCallContext, credential *cloud.Credential) (params.ErrorResults, error) {
+func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, callCtx context.ProviderCallContext, credential *cloud.Credential) (params.ErrorResults, error) {
 	model, err := backend.Model()
 	if err != nil {
 		return failCredentialValidation(errors.Trace(err))
@@ -59,7 +59,7 @@ func ValidateNewModelCredential(backend PersistedModelBackend, newEnv NewEnviron
 
 // CheckMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
-func CheckMachineInstances(backend PersistedCloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
 	// Get machines from state
 	machines, err := backend.AllMachines()
 	if err != nil {

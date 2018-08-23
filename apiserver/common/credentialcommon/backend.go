@@ -29,9 +29,9 @@ type Machine interface {
 	Id() string
 }
 
-// PersistedCloudEntitiesBackend defines what cloud entities where persisted in state
+// CloudEntitiesBackend defines what cloud entities where persisted in state
 // and will be accessed during the check.
-type PersistedCloudEntitiesBackend interface {
+type CloudEntitiesBackend interface {
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)
 }
@@ -48,10 +48,10 @@ type Model interface {
 	Config() (*config.Config, error)
 }
 
-// PersistedModelBackend defines what model specific properties where persisted in state
+// ModelBackend defines what model specific properties where persisted in state
 // and will be accessed during the check.
-type PersistedModelBackend interface {
-	PersistedCloudEntitiesBackend
+type ModelBackend interface {
+	CloudEntitiesBackend
 
 	// Model returns the model entity.
 	Model() (Model, error)
@@ -64,8 +64,8 @@ type stateShim struct {
 	*state.State
 }
 
-// NewPersistedCloudEntitiesBackend creates a backend to use based on state.State.
-func NewPersistedCloudEntitiesBackend(p *state.State) PersistedCloudEntitiesBackend {
+// NewCloudEntitiesBackend creates a backend to use based on state.State.
+func NewCloudEntitiesBackend(p *state.State) CloudEntitiesBackend {
 	return stateShim{p}
 }
 
