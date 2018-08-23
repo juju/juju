@@ -268,6 +268,18 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	return nil
 }
 
+// handleCompleted givens the worker a chance to perform any final operations
+// before returning control to the server (controller) which will then perform its own
+// post upgrade routine.
+func (w *upgradeSeriesWorker) handleCompleted() error {
+	w.logger.Debugf("machine series upgrade status is %q", model.Completed)
+	err := w.FinishUpgradeSeries()
+	if err != nil {
+		errors.Trace(err)
+	}
+	return nil
+}
+
 // transitionUnitsStarted iterates over units managed by this machine. Starts
 // the unit's agent service, and transitions all unit subordinate statuses.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]string) error {

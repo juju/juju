@@ -260,7 +260,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 			return nil, errors.Trace(err)
 		}
 		if !locked {
-			return nil, errors.NotFoundf("upgrade series lock for machine %q", m)
+			return nil, jujutxn.ErrNoOperations
 		}
 		return removeUpgradeSeriesLockTxnOps(m.doc.Id), nil
 	}

@@ -387,13 +387,6 @@ func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) err
 			}
 		}
 	}()
-
-	// TODO (hml) 2018-06-26 managed series upgrade
-	// Next steps in updateSeriesPrepare:
-	// 1. verify success of pre-upgrade-series hook run on each unit
-	// 2. stop each unit's agent on machine
-	// 3. write systemd unit agent files if necessary and copy tools based on series.
-
 	return nil
 }
 
@@ -465,9 +458,6 @@ func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) e
 	return machine.CompleteUpgradeSeries()
 }
 
-// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
-// RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
-// given machine.
 func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
 	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {
