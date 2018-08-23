@@ -341,12 +341,12 @@ func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, vo
 
 // DestroyVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
-	return foreachVolume(s.storageAdapter, volumeIds, destroyVolume, ctx), nil
+	return foreachVolume(ctx, s.storageAdapter, volumeIds, destroyVolume), nil
 }
 
 // ReleaseVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
-	return foreachVolume(s.storageAdapter, volumeIds, releaseVolume, ctx), nil
+	return foreachVolume(ctx, s.storageAdapter, volumeIds, releaseVolume), nil
 }
 
 func foreachVolume(storageAdapter OpenstackStorage, volumeIds []string, f func(OpenstackStorage, string, context.ProviderCallContext) error, ctx context.ProviderCallContext) []error {

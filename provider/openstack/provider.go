@@ -211,14 +211,10 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// If OS_REGION_NAME and OS_AUTH_URL are both set,
 	// return return a region using them.
-<<<<<<< 719b1b99b2565b2e3839d3bcd3056c54670d041f
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
 		return nil, errors.Errorf("failed to retrive cred from env : %v", err)
 	}
-=======
-	creds, _ := identity.CredentialsFromEnv()
->>>>>>> Initial changes for openstack Invalidate Creds
 	if creds.Region == "" {
 		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
 	}
