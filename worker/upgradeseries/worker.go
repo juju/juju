@@ -150,6 +150,8 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		err = w.handlePrepareMachine()
 	case model.UpgradeSeriesCompleteStarted:
 		err = w.handleCompleteStarted()
+	case model.UpgradeSeriesCompleted:
+		err = w.handleCompleted()
 	default:
 		w.logger.Debugf("machine series upgrade status is %q", machineStatus)
 	}
