@@ -149,7 +149,9 @@ func (s *Client) StartUnitCompletion() error {
 	return results.Results[0].Error
 }
 
-// FinishUpgradeSeries starts the complete phase for all subordinate units.
+// FinishUpgradeSeries notifies the controller that the upgrade process is
+// completely finished. We use the name "Finish" to distinguish this method from
+// the various "Complete" phases.
 func (s *Client) FinishUpgradeSeries() error {
 	var results params.ErrorResults
 	args := params.Entities{
