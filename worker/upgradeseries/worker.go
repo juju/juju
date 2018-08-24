@@ -272,7 +272,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 // before returning control to the server (controller) which will then perform its own
 // post upgrade routine.
 func (w *upgradeSeriesWorker) handleCompleted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.Completed)
+	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
 	err := w.FinishUpgradeSeries()
 	if err != nil {
 		errors.Trace(err)
