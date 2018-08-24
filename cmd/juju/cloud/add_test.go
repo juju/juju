@@ -913,6 +913,7 @@ func testInteractiveOpenstack(c *gc.C, myOpenstack cloudfile.Cloud, expectedYAML
 	c.Check(err, jc.ErrorIsNil)
 	var output = addStdErrMsg +
 		"Cloud \"os1\" successfully added\n" +
+		"\n" +
 		"You may need to `juju add-credential os1' if your cloud needs additional credentials\n" +
 		"Then you can bootstrap with 'juju bootstrap os1'\n"
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, output)
