@@ -128,7 +128,12 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	if len(results.Results) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	return results.Results[0].Error
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
 
 // StartUnitCompletion starts the complete phase for all subordinate units.
@@ -146,5 +151,10 @@ func (s *Client) StartUnitCompletion() error {
 	if len(results.Results) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	return results.Results[0].Error
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
