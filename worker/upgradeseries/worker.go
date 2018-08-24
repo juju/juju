@@ -144,11 +144,11 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	w.logger.Debugf("series upgrade lock changed")
 
 	switch machineStatus {
-	case model.PrepareStarted:
+	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted()
-	case model.PrepareMachine:
+	case model.UpgradeSeriesPrepareMachine:
 		err = w.handlePrepareMachine()
-	case model.CompleteStarted:
+	case model.UpgradeSeriesCompleteStarted:
 		err = w.handleCompleteStarted()
 	default:
 		w.logger.Debugf("machine series upgrade status is %q", machineStatus)
@@ -157,9 +157,9 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 }
 
 // handlePrepareStarted handles workflow for the machine with an upgrade-series
-// lock status of "PrepareStarted"
+// lock status of "UpgradeSeriesPrepareStarted"
 func (w *upgradeSeriesWorker) handlePrepareStarted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.PrepareStarted)
+	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesPrepareStarted)
 
 	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
@@ -201,15 +201,15 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]s
 		}
 	}
 
-	return errors.Trace(w.SetMachineStatus(model.PrepareMachine))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine))
 }
 
 // handlePrepareMachine handles workflow for the machine with an upgrade-series
-// lock status of "PrepareMachine".
+// lock status of "UpgradeSeriesPrepareMachine".
 // TODO (manadart 2018-08-09): Rename when a better name is contrived for
 // "UpgradeSeriesPrepareMachine".
 func (w *upgradeSeriesWorker) handlePrepareMachine() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.PrepareMachine)
+	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesPrepareMachine)
 
 	// This is a sanity check.
 	// The units should all still be in the "PrepareComplete" state.
@@ -236,11 +236,11 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 
 	// TODO (manadart 2018-08-09): Unit file wrangling to come.
 	// For now we just update the machine status to progress the workflow.
-	return errors.Trace(w.SetMachineStatus(model.PrepareCompleted))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.CompleteStarted)
+	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleteStarted)
 
 	// If the units are still all in the "PrepareComplete" state, then the
 	// manual tasks have been run and an operator has executed the
@@ -262,7 +262,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	}
 	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
-		return errors.Trace(w.SetMachineStatus(model.Completed))
+		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
 	}
 
 	return nil
@@ -331,7 +331,7 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(getUnits unitsInState) (m
 }
 
 func unitsCompleted(statuses []string) bool {
-	return unitsAllWithStatus(statuses, model.Completed)
+	return unitsAllWithStatus(statuses, model.UpgradeSeriesCompleted)
 }
 
 func unitsAllWithStatus(statuses []string, status model.UpgradeSeriesStatus) bool {

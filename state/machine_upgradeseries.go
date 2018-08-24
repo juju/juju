@@ -115,13 +115,13 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
 	unitStatuses := make(map[string]UpgradeSeriesUnitStatus, len(unitNames))
 	for _, name := range unitNames {
-		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.PrepareStarted, Timestamp: bson.Now()}
+		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.UpgradeSeriesPrepareStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
 		FromSeries:    m.Series(),
-		MachineStatus: model.PrepareStarted,
+		MachineStatus: model.UpgradeSeriesPrepareStarted,
 		UnitStatuses:  unitStatuses,
 	}
 }
@@ -158,11 +158,11 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion() error {
 		if err != nil {
 			return nil, err
 		}
-		if lock.MachineStatus != model.CompleteStarted {
+		if lock.MachineStatus != model.UpgradeSeriesCompleteStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		for unitName, us := range lock.UnitStatuses {
-			us.Status = model.CompleteStarted
+			us.Status = model.UpgradeSeriesCompleteStarted
 			lock.UnitStatuses[unitName] = us
 		}
 		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock.UnitStatuses), nil
@@ -186,7 +186,7 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, units map[strin
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Assert: bson.D{{"machine-status", model.CompleteStarted}},
+			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
 			Update: bson.D{{"$set", bson.D{{statusField, units}}}},
 		},
 	}
@@ -226,7 +226,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return lock.MachineStatus == model.PrepareCompleted, nil
+	return lock.MachineStatus == model.UpgradeSeriesPrepareCompleted, nil
 }
 
 func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
@@ -239,8 +239,8 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
-			Assert: bson.D{{"machine-status", model.PrepareCompleted}},
-			Update: bson.D{{"$set", bson.D{{"machine-status", model.CompleteStarted}}}},
+			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
+			Update: bson.D{{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}}},
 		},
 	}
 }
@@ -284,12 +284,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-// MachineUpgradeSeriesStatus returns the upgrade-series status of a machine.
-// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
-// and the unit-based methods renamed to indicate their context.
-// The translation code can be removed once the old->new bootstrap is no
-// longer required.
-func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+func (m *Machine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -305,8 +300,8 @@ func (m *Machine) MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error
 	return lock.MachineStatus, errors.Trace(err)
 }
 
-// UpgradeSeriesStatus returns the series upgrade status for the input unit.
-func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatus, error) {
+// UnitStatus returns the series upgrade status for the input unit.
+func (m *Machine) UpgradeSeriesUnitStatus(unitName string) (model.UpgradeSeriesStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -325,7 +320,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UpgradeSeriesStatu
 	return lock.UnitStatuses[unitName].Status, nil
 }
 
-// UpgradeSeriesStatus returns the unit statuses from the upgrade-series lock
+// UnitStatus returns the unit statuses from the upgrade-series lock
 // for this machine.
 func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatus, error) {
 	lock, err := m.getUpgradeSeriesLock()
@@ -335,8 +330,8 @@ func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatu
 	return lock.UnitStatuses, nil
 }
 
-// SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) error {
+// SetUpgradeSeriesUnitStatus sets the status of a series upgrade for a unit.
+func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -400,12 +395,9 @@ func setUpgradeSeriesTxnOps(
 	}, nil
 }
 
-// SetUpgradeSeriesStatus sets the machine status of a series upgrade.
-// TODO (manadart 2018-08-07) This should be renamed to UpgradeSeriesStatus,
-// and the unit-based methods renamed to indicate their context.
-// The translation code can be removed once the old->new bootstrap is no
-// longer required.
-func (m *Machine) SetMachineUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+// SetUpgradeSeriesStatus sets the status of the machine in
+// the upgrade-series lock.
+func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {

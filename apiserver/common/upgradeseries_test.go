@@ -62,7 +62,8 @@ func (s *upgradeSeriesSuite) assertBackendApi(c *gc.C, tag names.Tag) (*common.U
 		}, nil
 	}
 
-	api := common.NewUpgradeSeriesAPI(mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
+	api := common.NewUpgradeSeriesAPI(
+		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
 	return api, ctrl, mockBackend
 }
 
@@ -135,21 +136,21 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.PrepareCompleted).Return(nil)
+	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
-	args := params.SetUpgradeSeriesStatusParams{
-		Params: []params.SetUpgradeSeriesStatusParam{
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatusParam{
 			{
 				Entity: params.Entity{Tag: s.unitTag1.String()},
-				Status: string(model.PrepareCompleted),
+				Status: model.UpgradeSeriesPrepareCompleted,
 			},
 			{
 				Entity: params.Entity{Tag: names.NewUnitTag("mysql/2").String()},
-				Status: string(model.PrepareCompleted),
+				Status: model.UpgradeSeriesPrepareCompleted,
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesStatus(args)
+	watches, err := api.SetUpgradeSeriesUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -166,7 +167,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.PrepareCompleted, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -175,18 +176,12 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.GetUpgradeSeriesStatus(args)
+	results, err := api.UpgradeSeriesUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
-			{
-				Status: string(model.PrepareCompleted),
-				Error:  nil,
-			},
-			{
-				Status: "",
-				Error:  &params.Error{Message: "permission denied", Code: "unauthorized access"},
-			},
+			{Status: model.UpgradeSeriesPrepareCompleted},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }

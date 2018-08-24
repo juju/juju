@@ -24,8 +24,8 @@ type UpgradeSeriesBackend interface {
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
-	MachineUpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	SetMachineUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
+	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
 	StartUpgradeSeriesUnitCompletion() error
 	UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error)
 }
@@ -141,17 +141,21 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 	return result, nil
 }
 
-// UpgradeSeriesStatus returns the current preparation status of an upgrading
-// unit. If no series upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) GetUpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	return u.upgradeSeriesStatus(args)
+// UpgradeSeriesUnitStatus returns the current preparation status of an
+// upgrading unit.
+// If no series upgrade is in progress an error is returned instead.
+func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+	u.logger.Tracef("Starting UpgradeSeriesUnitStatus with %+v", args)
+	return u.unitStatus(args)
 }
 
-// SetUpgradeSeriesStatus sets the upgrade series status of the unit.
+// SetUpgradeSeriesUnitStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting SetUpgradeSeriesStatus with %+v", args)
-	return u.setUpgradeSeriesStatus(args)
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(
+	args params.UpgradeSeriesStatusParams,
+) (params.ErrorResults, error) {
+	u.logger.Tracef("Starting SetUpgradeSeriesUnitStatus with %+v", args)
+	return u.setUnitStatus(args)
 }
 
 func (u *UpgradeSeriesAPI) GetMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
@@ -189,7 +193,7 @@ func NewExternalUpgradeSeriesAPI(
 	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }
 
-func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -227,9 +231,7 @@ func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesSt
 	return result, nil
 }
 
-func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	u.logger.Tracef("Starting GetUpgradeSeriesStatus with %+v", args)
-
+func (u *UpgradeSeriesAPI) unitStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.UpgradeSeriesStatusResults{}, err
@@ -256,7 +258,7 @@ func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities) (params.Upg
 			results[i].Error = ServerError(err)
 			continue
 		}
-		results[i].Status = string(status)
+		results[i].Status = status
 	}
 	return params.UpgradeSeriesStatusResults{Results: results}, nil
 }

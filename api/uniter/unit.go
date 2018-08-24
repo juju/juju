@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -649,8 +650,8 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 }
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *Unit) UpgradeSeriesStatus() (string, error) {
-	res, err := u.st.UpgradeSeriesStatus()
+func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	res, err := u.st.UpgradeSeriesUnitStatus()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -661,8 +662,8 @@ func (u *Unit) UpgradeSeriesStatus() (string, error) {
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(status string) error {
-	return u.st.SetUpgradeSeriesStatus(status)
+func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+	return u.st.SetUpgradeSeriesUnitStatus(status)
 }
 
 // RequestReboot sets the reboot flag for its machine agent

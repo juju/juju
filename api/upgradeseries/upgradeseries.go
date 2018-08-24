@@ -39,7 +39,7 @@ func NewClient(caller base.APICaller, authTag names.Tag) *Client {
 
 // Machine status retrieves the machine status from remote state.
 func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
-	var results params.UpgradeSeriesStatusResultsNew
+	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
@@ -54,7 +54,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 
 	r := results.Results[0]
 	if r.Error == nil {
-		return r.Status.Status, nil
+		return r.Status, nil
 	}
 
 	if params.IsCodeNotFound(r.Error) {
@@ -96,7 +96,11 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 	if r.Error == nil {
 		tags := make([]names.UnitTag, len(r.Entities))
 		for i, e := range r.Entities {
-			tags[i] = names.NewUnitTag(e.Tag)
+			tag, err := names.ParseUnitTag(e.Tag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			tags[i] = tag
 		}
 		return tags, nil
 	}
@@ -111,7 +115,7 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{{
+		Params: []params.UpgradeSeriesStatusParam{{
 			Entity: params.Entity{Tag: s.authTag.String()},
 			Status: status,
 		}},
@@ -131,7 +135,7 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 func (s *Client) StartUnitCompletion() error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{{
+		Params: []params.UpgradeSeriesStatusParam{{
 			Entity: params.Entity{Tag: s.authTag.String()},
 		}},
 	}

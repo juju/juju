@@ -75,7 +75,7 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 
 	// If the workflow is completed, no further processing occurs.
 	// This is the only call we expect to see.
-	s.facade.EXPECT().MachineStatus().Return(model.PrepareCompleted, nil)
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
@@ -87,7 +87,7 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	s.setupMocks(ctrl)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.PrepareStarted, nil)
+	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// Only one of the two units has completed preparation.
 	exp.UnitsPrepared().Return([]names.UnitTag{names.NewUnitTag("wordpress/0")}, nil)
 
@@ -105,13 +105,13 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 	s.setupMocks(ctrl)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.PrepareStarted, nil)
+	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// All known units have completed preparation - the workflow progresses.
 	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
-	exp.SetMachineStatus(model.PrepareMachine).Return(nil)
+	exp.SetMachineStatus(model.UpgradeSeriesPrepareMachine).Return(nil)
 
 	s.expectServiceDiscovery(true)
 
@@ -130,7 +130,7 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 	s.setupMocks(ctrl)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.PrepareMachine, nil)
+	exp.MachineStatus().Return(model.UpgradeSeriesPrepareMachine, nil)
 	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
@@ -138,7 +138,7 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 
 	// TODO (manadart 2018-08-09): Assertions for service unit manipulation.
 
-	exp.SetMachineStatus(model.PrepareCompleted).Return(nil)
+	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
 	s.expectServiceDiscovery(false)
 
@@ -152,7 +152,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 	s.setupMocks(ctrl)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.CompleteStarted, nil)
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
@@ -176,7 +176,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	s.setupMocks(ctrl)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.CompleteStarted, nil)
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
 	exp.UnitsPrepared().Return([]names.UnitTag{}, nil)
@@ -184,7 +184,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
-	exp.SetMachineStatus(model.Completed).Return(nil)
+	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
 
 	// TODO (manadart 2018-08-22): Modify the tested code so that the services
 	// are detected just the one time.
