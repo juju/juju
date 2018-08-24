@@ -530,8 +530,8 @@ class AzureARMAccount:
             self.arm_client, glob=resource_group, recursive=True)
         vm_ids = []
         for machine_name in instance_ids:
-            rgd, vm = winazurearm.find_vm_instance(
-                resources, machine_name, resource_group)
+            rgd, vm = winazurearm.find_vm_deployment(
+                resource_group, machine_name)
             vm_ids.append(vm.vm_id)
         return vm_ids
 

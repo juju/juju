@@ -595,7 +595,7 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 	checkIdentityClientVersion(c, "https://keystone.internal/", -1)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithVersion3(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "3",
 		"username":    "user",
@@ -627,7 +627,7 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion3(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithFaultVersion(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "abc",
 		"username":    "user",
@@ -647,7 +647,7 @@ func (s *providerUnitTests) TestnewCredentialsWithFaultVersion(c *gc.C) {
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithoutVersion(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":    "user",
 		"password":    "secret",
@@ -677,7 +677,7 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersion(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithFaultVersionandProjectDomainName(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersionandProjectDomainName(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "abc",
 		"username":            "user",
@@ -698,7 +698,7 @@ func (s *providerUnitTests) TestnewCredentialsWithFaultVersionandProjectDomainNa
 	c.Assert(err, gc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
-func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithProjectDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":            "user",
 		"password":            "secret",
@@ -729,7 +729,7 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithProjectDomain(c 
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithUserDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithUserDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":         "user",
 		"password":         "secret",
@@ -761,7 +761,7 @@ func (s *providerUnitTests) TestnewCredentialsWithoutVersionwithUserDomain(c *gc
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithVersion2(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "2",
 		"username":    "user",
@@ -793,7 +793,7 @@ func (s *providerUnitTests) TestnewCredentialsWithVersion2(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestnewCredentialsWithVersion2AndDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "2",
 		"username":            "user",

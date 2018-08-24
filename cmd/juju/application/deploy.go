@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -817,6 +818,15 @@ func (c *DeployCommand) deployCharm(
 		return errors.New("this juju controller does not support --attach-storage")
 	}
 
+	// Storage cannot be added to a container.
+	if len(c.Storage) > 0 || len(c.AttachStorage) > 0 {
+		for _, placement := range c.Placement {
+			if t, err := instance.ParseContainerType(placement.Scope); err == nil {
+				return errors.NotSupportedf("adding storage to %s container", string(t))
+			}
+		}
+	}
+
 	numUnits := c.NumUnits
 	if charmInfo.Meta.Subordinate {
 		if !constraints.IsEmpty(&c.Constraints) {
@@ -948,6 +958,7 @@ func (c *DeployCommand) deployCharm(
 	if len(appConfig) == 0 {
 		appConfig = nil
 	}
+
 	args := application.DeployArgs{
 		CharmID:          id,
 		Cons:             c.Constraints,

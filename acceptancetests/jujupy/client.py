@@ -2194,11 +2194,11 @@ def register_user_interactively(client, token, controller_name):
     """
     try:
         child = client.expect('register', (token), include_e=False)
-        child.expect('(?i)password')
+        child.expect('Enter a new password:')
         child.sendline(client.env.user_name + '_password')
-        child.expect('(?i)password')
+        child.expect('Confirm password:')
         child.sendline(client.env.user_name + '_password')
-        child.expect('(?i)name')
+        child.expect('Enter a name for this controller \[.*\]:')
         child.sendline(controller_name)
         client._end_pexpect_session(child)
     except pexpect.TIMEOUT:
