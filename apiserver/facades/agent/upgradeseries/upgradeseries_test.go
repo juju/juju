@@ -43,7 +43,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().MachineUpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
+	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.Entities{
@@ -65,7 +65,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().SetMachineUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
+	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpgradeSeriesStatusParams{
