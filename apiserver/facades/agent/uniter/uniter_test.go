@@ -20,6 +20,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
@@ -121,11 +122,12 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPI, err := uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPI
 }
@@ -153,7 +155,11 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	_, err := uniter.NewUniterAPI(s.State, s.resources, anAuthorizer)
+	_, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      anAuthorizer,
+	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -668,7 +674,12 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Now try as subordinate's agent.
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = subordinate.Tag()
-	subUniter, err := uniter.NewUniterAPI(s.State, s.resources, subAuthorizer)
+	subUniter, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              subAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = subUniter.GetPrincipal(args)
@@ -1209,11 +1220,12 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = mysqlLogUnit.Tag()
-	api, err := uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		subAuthorizer,
-	)
+	api, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              subAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.WatchUnitRelations(params.Entities{
@@ -1275,11 +1287,12 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = mysqlLogUnit.Tag()
-	api, err := uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		subAuthorizer,
-	)
+	api, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              subAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.WatchUnitRelations(params.Entities{
@@ -1339,11 +1352,12 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = monUnit.Tag()
-	api, err := uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		subAuthorizer,
-	)
+	api, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              subAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.WatchUnitRelations(params.Entities{
@@ -1529,7 +1543,12 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
 	}
-	mysqlUnitFacade, err := uniter.NewUniterAPI(s.State, s.resources, mysqlUnitAuthorizer)
+	mysqlUnitFacade, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              mysqlUnitAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
@@ -1870,11 +1889,12 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = wpLoggingU.Tag()
-	api, err := uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		subAuthorizer,
-	)
+	api, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              subAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Count how many relationscopes records there are beforehand.
@@ -2460,11 +2480,12 @@ func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
 		{Tag: "application-gitlab"},
 	}}
 
-	uniterAPI, err := uniter.NewUniterAPI(
-		cm.State(),
-		s.resources,
-		s.authorizer,
-	)
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             cm.State(),
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.WatchUnitAddresses(args)
@@ -2908,7 +2929,12 @@ func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPI {
 	authorizer := s.authorizer
 	authorizer.Tag = s.mysqlUnit.Tag()
-	result, err := uniter.NewUniterAPI(s.State, s.resources, authorizer)
+	result, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result
 }
@@ -2938,7 +2964,12 @@ func (s *uniterSuite) TestV4WatchApplicationRelations(c *gc.C) {
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
 	}}
-	apiV4, err := uniter.NewUniterAPIV4(s.State, s.resources, s.authorizer)
+	apiV4, err := uniter.NewUniterAPIV4(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV4.WatchApplicationRelations(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2968,7 +2999,12 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 	}}
-	apiV5, err := uniter.NewUniterAPIV5(s.State, s.resources, s.authorizer)
+	apiV5, err := uniter.NewUniterAPIV5(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2993,7 +3029,12 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.RelationIds{RelationIds: []int{rel.Id()}}
-	apiV5, err := uniter.NewUniterAPIV5(s.State, s.resources, s.authorizer)
+	apiV5, err := uniter.NewUniterAPIV5(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3116,11 +3157,12 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Tag: s.meteredUnit.Tag(),
 	}
 	var err error
-	s.uniter, err = uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		meteredAuthorizer,
-	)
+	s.uniter, err = uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              meteredAuthorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
@@ -3309,13 +3351,6 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.setupUniterAPIForUnit(c, s.wordpressUnit)
-	uniterAPIV4, err := uniter.NewUniterAPIV4(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.uniterv4 = uniterAPIV4
 }
 
 func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
@@ -3381,11 +3416,12 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.uniterv4, err = uniter.NewUniterAPIV4(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	s.uniterv4, err = uniter.NewUniterAPIV4(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3665,11 +3701,12 @@ func (s *uniterNetworkInfoSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state
 	}
 
 	var err error
-	s.uniter, err = uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	s.uniter, err = uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -4039,7 +4076,12 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 		},
 	}
 
-	apiV6, err := uniter.NewUniterAPIV6(s.State, s.resources, s.authorizer)
+	apiV6, err := uniter.NewUniterAPIV6(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := apiV6.NetworkInfo(args)
@@ -4098,11 +4140,12 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 		IngressAddresses: []string{"54.32.1.2", "192.168.1.2", "10.0.0.1"},
 	}
 
-	uniterAPI, err := uniter.NewUniterAPI(
-		st,
-		s.resources,
-		s.authorizer,
-	)
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             st,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.NetworkInfo(args)
@@ -4150,11 +4193,12 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 		IngressAddresses: []string{"54.32.1.2", "192.168.1.2", "10.0.0.1"},
 	}
 
-	uniterAPI, err := uniter.NewUniterAPI(
-		st,
-		s.resources,
-		s.authorizer,
-	)
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             st,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.NetworkInfo(args)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -92,6 +93,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 			return Secretary{}, nil
 		},
 		MaxSleep: defaultMaxSleep,
+		Logger:   loggo.GetLogger("lease_test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

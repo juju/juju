@@ -4,16 +4,20 @@
 package state_test
 
 import (
+	"io/ioutil"
 	"time" // Only used for time types.
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -169,12 +173,30 @@ func (s *LeadershipSuite) TestBlockUntilLeadershipReleasedCancel(c *gc.C) {
 	}
 }
 
-func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
-	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
+func (s *LeadershipSuite) TestApplicationLeadersLegacy(c *gc.C) {
+	// Change to use legacy-leases so the state-based lease changes
+	// show up.
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.LegacyLeases},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
+	leaders, err := s.State.ApplicationLeaders()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaders, jc.DeepEquals, map[string]string{
+		"application": "application/1",
+		"blah":        "blah/0",
+	})
+}
+
+func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
+	target := s.State.LeaseNotifyTarget(ioutil.Discard, loggo.GetLogger("leadership_test"))
+	target.Claimed(lease.Key{"application-leadership", s.State.ModelUUID(), "blah"}, "blah/0")
+	target.Claimed(lease.Key{"application-leadership", s.State.ModelUUID(), "application"}, "application/1")
 	leaders, err := s.State.ApplicationLeaders()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaders, jc.DeepEquals, map[string]string{

@@ -8,14 +8,16 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/globalclock"
 )
 
-var logger = loggo.GetLogger("juju.worker.globalclockupdater")
+// Logger defines the methods we use from loggo.Logger.
+type Logger interface {
+	Tracef(string, ...interface{})
+}
 
 // Config contains the configuration for the global clock updater worker.
 type Config struct {
@@ -32,6 +34,9 @@ type Config struct {
 	// BackoffDelay is the amount of time to delay before attempting
 	// another update when a concurrent write is detected.
 	BackoffDelay time.Duration
+
+	// Logger determines where we write log messages.
+	Logger Logger
 }
 
 // Validate validates the configuration.
@@ -47,6 +52,9 @@ func (config Config) Validate() error {
 	}
 	if config.BackoffDelay <= 0 {
 		return errors.NotValidf("non-positive BackoffDelay")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -104,15 +112,15 @@ func (w *updaterWorker) loop() error {
 			now := w.config.LocalClock.Now()
 			amount := now.Sub(last)
 			err := w.updater.Advance(amount)
-			if err == globalclock.ErrConcurrentUpdate {
-				logger.Tracef("concurrent update, backing off for %s", backoff)
+			if errors.Cause(err) == globalclock.ErrConcurrentUpdate {
+				w.config.Logger.Tracef("concurrent update, backing off for %s", backoff)
 				last = w.config.LocalClock.Now()
 				timer.Reset(backoff)
 				continue
 			} else if err != nil {
 				return errors.Annotate(err, "updating global clock")
 			}
-			logger.Tracef("incremented global time by %s", interval)
+			w.config.Logger.Tracef("incremented global time by %s", interval)
 			last = w.config.LocalClock.Now()
 			timer.Reset(interval)
 		}

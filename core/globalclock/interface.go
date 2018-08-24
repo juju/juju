@@ -32,3 +32,9 @@ type Updater interface {
 	// general whether or not the database was updated.
 	Advance(d time.Duration) error
 }
+
+// IsConcurrentUpdate returns whether the specified error represents
+// ErrConcurrentUpdate (even if it's wrapped).
+func IsConcurrentUpdate(err error) bool {
+	return errors.Cause(err) == ErrConcurrentUpdate
+}

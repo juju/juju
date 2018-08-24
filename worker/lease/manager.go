@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/retry.v1"
 
@@ -27,15 +26,13 @@ const (
 	initialRetryDelay = 50 * time.Millisecond
 )
 
-var logger = loggo.GetLogger("juju.worker.lease")
-
 // errStopped is returned to clients when an operation cannot complete because
 // the manager has started (and possibly finished) shutdown.
 var errStopped = errors.New("lease manager stopped")
 
 type dummySecretary struct{}
 
-func (d dummySecretary) CheckLease(name string) error               { return nil }
+func (d dummySecretary) CheckLease(key lease.Key) error             { return nil }
 func (d dummySecretary) CheckHolder(name string) error              { return nil }
 func (d dummySecretary) CheckDuration(duration time.Duration) error { return nil }
 
@@ -139,7 +136,7 @@ func (manager *Manager) loop() error {
 		leases := manager.config.Store.Leases()
 		for leaseName := range blocks {
 			if _, found := leases[leaseName]; !found {
-				logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
+				manager.config.Logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
 				blocks.unblock(leaseName)
 			}
 		}
@@ -161,7 +158,7 @@ func (manager *Manager) choose(blocks blocks) error {
 		go manager.retryingClaim(claim)
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
-		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
+		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
 	}
 	return nil
@@ -200,17 +197,17 @@ func (manager *Manager) retryingClaim(claim claim) {
 	)
 	for a := manager.startRetry(); a.Next(); {
 		success, err = manager.handleClaim(claim)
-		if errors.Cause(err) != lease.ErrTimeout {
+		if !lease.IsTimeout(err) {
 			break
 		}
 		if a.More() {
-			logger.Tracef("[%s] timed out handling claim, retrying...", manager.logContext)
+			manager.config.Logger.Tracef("[%s] timed out handling claim, retrying...", manager.logContext)
 		}
 	}
 
 	if success {
 		claim.respond(nil)
-	} else if errors.Cause(err) == lease.ErrTimeout {
+	} else if lease.IsTimeout(err) {
 		claim.respond(lease.ErrTimeout)
 	} else if err == nil {
 		claim.respond(lease.ErrClaimDenied)
@@ -232,7 +229,7 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
-	for err == lease.ErrInvalid {
+	for lease.IsInvalid(err) {
 		select {
 		case <-manager.catacomb.Dying():
 			return false, manager.catacomb.ErrDying()
@@ -243,16 +240,16 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 			info, found := store.Leases()[claim.leaseKey]
 			switch {
 			case !found:
-				logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+				manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 				err = store.ClaimLease(claim.leaseKey, request)
 			case info.Holder == claim.holderName:
-				logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+				manager.config.Logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 				err = store.ExtendLease(claim.leaseKey, request)
 			default:
 				// Note: (jam) 2017-10-31) We don't check here if the lease has
 				// expired for the current holder. Should we?
 				remaining := info.Expiry.Sub(manager.config.Clock.Now())
-				logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+				manager.config.Logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
 				return false, nil
 			}
@@ -269,10 +266,10 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
 	store := manager.config.Store
-	logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseKey.Lease, check.holderName)
+	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseKey.Lease, check.holderName)
 	info, found := store.Leases()[check.leaseKey]
 	if !found || info.Holder != check.holderName {
-		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseKey.Lease, check.holderName)
+		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseKey.Lease, check.holderName)
 		if err := store.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
@@ -281,7 +278,7 @@ func (manager *Manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
-		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseKey.Lease, check.holderName)
+		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseKey.Lease, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
@@ -319,11 +316,11 @@ func (manager *Manager) retryingTick(now time.Time) {
 	var err error
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.tick(now)
-		if errors.Cause(err) != lease.ErrTimeout {
+		if !lease.IsTimeout(err) {
 			break
 		}
 		if a.More() {
-			logger.Tracef("[%s] timed out during tick, retrying...", manager.logContext)
+			manager.config.Logger.Tracef("[%s] timed out during tick, retrying...", manager.logContext)
 		}
 	}
 	// Don't bother sending an error if we're dying - this avoids a
@@ -345,7 +342,7 @@ func (manager *Manager) retryingTick(now time.Time) {
 //
 // It will return only unrecoverable errors.
 func (manager *Manager) tick(now time.Time) error {
-	logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
+	manager.config.Logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
 	store := manager.config.Store
 	if err := store.Refresh(); err != nil {
 		return errors.Trace(err)
@@ -361,27 +358,26 @@ func (manager *Manager) tick(now time.Time) error {
 		return keysLess(keys[i], keys[j])
 	})
 
-	logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
+	manager.config.Logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
 	expired := make([]lease.Key, 0)
 	for _, key := range keys {
 		if leases[key].Expiry.After(now) {
 			continue
 		}
-		switch err := store.ExpireLease(key); err {
-		case nil, lease.ErrInvalid:
-		default:
+		err := store.ExpireLease(key)
+		if err != nil && !lease.IsInvalid(err) {
 			return errors.Trace(err)
 		}
 		expired = append(expired, key)
 	}
 	if len(expired) == 0 {
-		logger.Debugf("[%s] no leases to expire", manager.logContext)
+		manager.config.Logger.Debugf("[%s] no leases to expire", manager.logContext)
 	} else {
 		names := make([]string, 0, len(expired))
 		for _, expiredKey := range expired {
 			names = append(names, expiredKey.Lease)
 		}
-		logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
+		manager.config.Logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
 	}
 	return nil
 }

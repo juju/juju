@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -193,6 +194,7 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 			}
 		},
 		MaxSleep: defaultMaxSleep,
+		Logger:   loggo.GetLogger("lease_test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -219,7 +221,7 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 type OtherSecretary struct{}
 
 // CheckLease is part of the lease.Secretary interface.
-func (OtherSecretary) CheckLease(name string) error {
+func (OtherSecretary) CheckLease(key corelease.Key) error {
 	return errors.NotValidf("lease name")
 }
 

@@ -134,3 +134,15 @@ var (
 	// the operation should be retried.
 	ErrTimeout = errors.New("lease operation timed out")
 )
+
+// IsInvalid returns whether the specified error represents ErrInvalid
+// (even if it's wrapped).
+func IsInvalid(err error) bool {
+	return errors.Cause(err) == ErrInvalid
+}
+
+// IsTimeout returns whether the specified error represents ErrTimeout
+// (even if it's wrapped).
+func IsTimeout(err error) bool {
+	return errors.Cause(err) == ErrTimeout
+}

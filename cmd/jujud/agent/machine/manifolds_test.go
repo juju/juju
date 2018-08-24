@@ -68,6 +68,8 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"http-server",
 		"is-controller-flag",
 		"is-primary-controller-flag",
+		"lease-clock-updater",
+		"lease-manager",
 		"log-pruner",
 		"log-sender",
 		"logging-config-updater",
@@ -86,6 +88,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"raft-backstop",
 		"raft-clusterer",
 		"raft-enabled-flag",
+		"raft-forwarder",
 		"raft-leader-flag",
 		"raft-transport",
 		"reboot-executor",
@@ -139,6 +142,8 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"http-server",
 		"is-controller-flag",
 		"is-primary-controller-flag",
+		"lease-clock-updater",
+		"lease-manager",
 		"log-forwarder",
 		"model-worker-manager",
 		"peer-grouper",
@@ -163,6 +168,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"raft-backstop",
 		"raft-clusterer",
 		"raft-enabled-flag",
+		"raft-forwarder",
 		"raft-leader-flag",
 		"raft-transport",
 		"valid-credential-flag",
@@ -188,6 +194,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"audit-config-updater",
 		"is-primary-controller-flag",
 		"raft-enabled-flag",
+		"lease-manager",
 	)
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
@@ -295,10 +302,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"api-server": {
 		"agent",
 		"audit-config-updater",
+		"central-hub",
 		"certificate-watcher",
 		"clock",
 		"http-server",
 		"is-controller-flag",
+		"lease-manager",
 		"restore-watcher",
 		"state",
 		"state-config-watcher",
@@ -402,6 +411,25 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher"},
+
+	"lease-clock-updater": {
+		"agent",
+		"central-hub",
+		"clock",
+		"is-controller-flag",
+		"lease-manager",
+		"state",
+		"state-config-watcher",
+	},
+
+	"lease-manager": {
+		"agent",
+		"central-hub",
+		"clock",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
 
 	"log-pruner": {
 		"agent",
@@ -592,6 +620,25 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher"},
+
+	"raft-forwarder": {
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"raft",
+		"raft-enabled-flag",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"raft-leader-flag": {
 		"agent",

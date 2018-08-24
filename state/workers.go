@@ -66,7 +66,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
-		manager, err := st.newLeaseManager(st.getLeadershipLeaseStore, leadershipSecretary{}, st.ModelUUID())
+		manager, err := st.newLeaseManager(st.getLeadershipLeaseStore, lease.LeadershipSecretary{}, st.ModelUUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -74,9 +74,8 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 	})
 	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
 		manager, err := st.newLeaseManager(st.getSingularLeaseStore,
-			singularSecretary{
-				controllerUUID: st.ControllerUUID(),
-				modelUUID:      st.ModelUUID(),
+			lease.SingularSecretary{
+				ControllerUUID: st.ControllerUUID(),
 			},
 			st.ControllerUUID(),
 		)
@@ -103,6 +102,7 @@ func (st *State) newLeaseManager(
 		},
 		Store:      store,
 		Clock:      st.clock(),
+		Logger:     loggo.GetLogger("juju.worker.lease.mongo"),
 		MaxSleep:   time.Minute,
 		EntityUUID: entityUUID,
 	})
