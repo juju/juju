@@ -81,19 +81,19 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			{
 				Name: credAttrServerCert,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the LXD server certificate filename, PEM-encoded",
+					Description:    "the path to the PEM-encoded LXD server certificate file",
 					ExpandFilePath: true,
 				},
 			}, {
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the LXD client certificate filename, PEM-encoded",
+					Description:    "the path to the PEM-encoded LXD client certificate file",
 					ExpandFilePath: true,
 				},
 			}, {
 				Name: credAttrClientKey,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the LXD client key filename, PEM-encoded",
+					Description:    "the path to the PEM-encoded LXD client key file",
 					ExpandFilePath: true,
 				},
 			},
@@ -103,27 +103,30 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
 					Description: "the LXD server trust password",
-					Hidden:      true,
-					Optional:    true,
+					// TODO: (hml) 2018-08-24
+					// Hidden and Optional are mutually exclusive, when prompting for a response,
+					// according to cloud.promptFieldValue()
+					Hidden:   true,
+					Optional: true,
 				},
 			}, {
 				Name: credAttrServerCert,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the LXD server certificate filename, PEM-encoded",
+					Description:    "the path to the PEM-encoded LXD server certificate file",
 					ExpandFilePath: true,
 					Optional:       true,
 				},
 			}, {
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the LXD client certificate filename, PEM-encoded",
+					Description:    "the path to the PEM-encoded LXD client certificate file",
 					ExpandFilePath: true,
 					Optional:       true,
 				},
 			}, {
 				Name: credAttrClientKey,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the LXD client key filename, PEM-encoded",
+					Description:    "the path to the PEM-encoded LXD client key file",
 					ExpandFilePath: true,
 					Optional:       true,
 				},
