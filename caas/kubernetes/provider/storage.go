@@ -59,17 +59,34 @@ var storageConfigFields = schema.Fields{
 var storageConfigChecker = schema.FieldMap(
 	storageConfigFields,
 	schema.Defaults{
-		storageClass:       defaultStorageClass,
+		storageClass:       schema.Omit,
 		storageLabel:       schema.Omit,
 		storageProvisioner: schema.Omit,
 	},
 )
 
 type storageConfig struct {
-	storageClass       string
+	// storageClass defines a storage class
+	// which will be created with the specified
+	// provisioner and parameters if it doesn't
+	// exist.
+	storageClass string
+
+	// storageProvisioner is the provisioner class to use.
 	storageProvisioner string
-	storageLabels      []string
-	parameters         map[string]string
+
+	// parameters define attributes of the storage class.
+	parameters map[string]string
+
+	// existingStorageClass defines a storage class
+	// which if present will be used, but if not
+	// will fallback to looking for a storage class
+	// based on the specified labels.
+	existingStorageClass string
+
+	// storageLabels define the labels used to
+	// search for a storage class.
+	storageLabels []string
 }
 
 func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
@@ -78,9 +95,11 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 		return nil, errors.Annotate(err, "validating storage config")
 	}
 	coerced := out.(map[string]interface{})
-	storageClassName := coerced[storageClass].(string)
 	storageConfig := &storageConfig{
-		storageClass: storageClassName,
+		existingStorageClass: defaultStorageClass,
+	}
+	if storageClassName, ok := coerced[storageClass].(string); ok {
+		storageConfig.storageClass = storageClassName
 	}
 	if storageProvisioner, ok := coerced[storageProvisioner].(string); ok {
 		storageConfig.storageProvisioner = storageProvisioner

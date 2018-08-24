@@ -60,13 +60,13 @@ func (s *storageSuite) TestValidateConfigError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "storage-class must be specified if storage-provisioner is specified")
 }
 
-func (s *storageSuite) TestValidateConfigDefaultStorageClass(c *gc.C) {
+func (s *storageSuite) TestValidateConfigExistingStorageClass(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	cfg, err := provider.NewStorageConfig(map[string]interface{}{"storage-provisioner": "ebs"})
+	cfg, err := provider.NewStorageConfig(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.StorageClass(cfg), gc.Equals, "juju-unit-storage")
+	c.Assert(provider.ExistingStorageClass(cfg), gc.Equals, "juju-unit-storage")
 }
 
 func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
