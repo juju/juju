@@ -177,18 +177,13 @@ type CAASModelDeployCharmStoreSuite struct {
 var _ = gc.Suite(&CAASModelDeployCharmStoreSuite{})
 
 func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
-	c.Skip("Test disabled until flakiness is fixed - see bug lp:1781250")
-
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	_, minerCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
 	_, dashboardCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/dashboard4miner-3", "dashboard4miner", "kubernetes")
 
 	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
-	err = runDeploy(
+	err := runDeploy(
 		c, "bundle/bitcoinminer-with-dashboard",
-		"-m", m.Name(),
+		"-m", s.caasModelName,
 		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
 	)
 	c.Assert(err, jc.ErrorIsNil)
