@@ -15,6 +15,7 @@ import (
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -24,26 +25,26 @@ import (
 type Networking interface {
 	// AllocatePublicIP allocates a public (floating) IP
 	// to the specified instance.
-	AllocatePublicIP(instance.Id) (*string, error)
+	AllocatePublicIP(context.ProviderCallContext, instance.Id) (*string, error)
 
 	// DefaultNetworks returns the set of networks that should be
 	// added by default to all new instances.
-	DefaultNetworks() ([]nova.ServerNetworks, error)
+	DefaultNetworks(context.ProviderCallContext) ([]nova.ServerNetworks, error)
 
 	// ResolveNetwork takes either a network ID or label
 	// with a string to specify whether the network is external
 	// and returns the corresponding network ID.
-	ResolveNetwork(string, bool) (string, error)
+	ResolveNetwork(context.ProviderCallContext, string, bool) (string, error)
 
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.
 	// Needed for Environ.Networking
-	Subnets(instance.Id, []network.Id) ([]network.SubnetInfo, error)
+	Subnets(context.ProviderCallContext, instance.Id, []network.Id) ([]network.SubnetInfo, error)
 
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
 	// Needed for Environ.Networking
-	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
+	NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -89,43 +90,43 @@ func (n *switchingNetworking) initNetworking() error {
 }
 
 // AllocatePublicIP is part of the Networking interface.
-func (n *switchingNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
+func (n *switchingNetworking) AllocatePublicIP(ctx context.ProviderCallContext, instId instance.Id) (*string, error) {
 	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
-	return n.networking.AllocatePublicIP(instId)
+	return n.networking.AllocatePublicIP(ctx, instId)
 }
 
 // DefaultNetworks is part of the Networking interface.
-func (n *switchingNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
+func (n *switchingNetworking) DefaultNetworks(ctx context.ProviderCallContext) ([]nova.ServerNetworks, error) {
 	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
-	return n.networking.DefaultNetworks()
+	return n.networking.DefaultNetworks(ctx)
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *switchingNetworking) ResolveNetwork(name string, external bool) (string, error) {
+func (n *switchingNetworking) ResolveNetwork(ctx context.ProviderCallContext, name string, external bool) (string, error) {
 	if err := n.initNetworking(); err != nil {
-		return "", errors.Trace(err)
+		return "", HandleCredentialError(errors.Trace(err), ctx)
 	}
-	return n.networking.ResolveNetwork(name, external)
+	return n.networking.ResolveNetwork(ctx, name, external)
 }
 
 // Subnets is part of the Networking interface.
-func (n *switchingNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *switchingNetworking) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
-	return n.networking.Subnets(instId, subnetIds)
+	return n.networking.Subnets(ctx, instId, subnetIds)
 }
 
 // NetworkInterfaces is part of the Networking interface
-func (n *switchingNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *switchingNetworking) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
-	return n.networking.NetworkInterfaces(instId)
+	return n.networking.NetworkInterfaces(ctx, instId)
 }
 
 type networkingBase struct {
@@ -157,13 +158,13 @@ func projectIdFilter(projectId string) *neutron.Filter {
 }
 
 // AllocatePublicIP is part of the Networking interface.
-func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
+func (n *NeutronNetworking) AllocatePublicIP(ctx context.ProviderCallContext, instId instance.Id) (*string, error) {
 	extNetworkIds := make([]string, 0)
 	neutronClient := n.env.neutron()
 	externalNetwork := n.env.ecfg().externalNetwork()
 	if externalNetwork != "" {
 		// the config specified an external network, try it first.
-		netId, err := resolveNeutronNetwork(neutronClient, externalNetwork, true)
+		netId, err := resolveNeutronNetwork(ctx, neutronClient, externalNetwork, true)
 		if err != nil {
 			logger.Debugf("external network %s not found, search for one", externalNetwork)
 		} else {
@@ -177,14 +178,14 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 		// the instance's network, to find an existing floating ip in, or allocate
 		// a new floating ip from.
 		network := n.env.ecfg().network()
-		netId, err := resolveNeutronNetwork(neutronClient, network, false)
+		netId, err := resolveNeutronNetwork(ctx, neutronClient, network, false)
 		netDetails, err := neutronClient.GetNetworkV2(netId)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, HandleCredentialError(errors.Trace(err), ctx)
 		}
 
 		for _, az := range netDetails.AvailabilityZones {
-			extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
+			extNetIds, _ := getExternalNeutronNetworksByAZ(ctx, n.env, az)
 			if len(extNetIds) > 0 {
 				extNetworkIds = append(extNetworkIds, extNetIds...)
 			}
@@ -199,7 +200,7 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	// Admins have visibility into other projects.
 	fips, err := n.env.neutron().ListFloatingIPsV2(projectIdFilter(n.env.client().TenantId()))
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 
 	// Is there an unused FloatingIP on an external network in the instance's availability zone?
@@ -223,7 +224,13 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	for _, extNetId := range extNetworkIds {
 		var newfip *neutron.FloatingIPV2
 		newfip, lastErr = neutronClient.AllocateFloatingIPV2(extNetId)
-		if lastErr == nil {
+		if lastErr != nil {
+			_, denied := MaybeHandleCredentialError(lastErr, ctx)
+			if denied {
+				errors.Annotate(lastErr, "cannot allocate new public IP.")
+				break
+			}
+		} else if lastErr == nil {
 			logger.Debugf("allocated new public IP: %s", newfip.IP)
 			return &newfip.IP, nil
 		}
@@ -243,12 +250,12 @@ func externalNetworkFilter() *neutron.Filter {
 
 // getExternalNeutronNetworksByAZ returns all external networks within the
 // given availability zone. If azName is empty, return all external networks.
-func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error) {
+func getExternalNeutronNetworksByAZ(ctx context.ProviderCallContext, e *Environ, azName string) ([]string, error) {
 	neutron := e.neutron()
 	// Find all external networks in availability zone
 	networks, err := neutron.ListNetworksV2(externalNetworkFilter())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	netIds := make([]string, 0)
 	for _, network := range networks {
@@ -266,13 +273,13 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 }
 
 // DefaultNetworks is part of the Networking interface.
-func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
+func (n *NeutronNetworking) DefaultNetworks(ctx context.ProviderCallContext) ([]nova.ServerNetworks, error) {
 	return []nova.ServerNetworks{}, nil
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, error) {
-	return resolveNeutronNetwork(n.env.neutron(), name, external)
+func (n *NeutronNetworking) ResolveNetwork(ctx context.ProviderCallContext, name string, external bool) (string, error) {
+	return resolveNeutronNetwork(ctx, n.env.neutron(), name, external)
 }
 
 // networkFilter returns a neutron.Filter to match Neutron Networks with
@@ -284,13 +291,13 @@ func networkFilter(name string, external bool) *neutron.Filter {
 	return filter
 }
 
-func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) (string, error) {
+func resolveNeutronNetwork(ctx context.ProviderCallContext, neutron *neutron.Client, name string, external bool) (string, error) {
 	if utils.IsValidUUIDString(name) {
 		return name, nil
 	}
 	networks, err := neutron.ListNetworksV2(networkFilter(name, external))
 	if err != nil {
-		return "", err
+		return "", HandleCredentialError(err, ctx)
 	}
 	var networkIds []string
 	for _, network := range networks {
@@ -299,14 +306,14 @@ func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) 
 	return processResolveNetworkIds(name, networkIds)
 }
 
-func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
+func makeSubnetInfo(ctx context.ProviderCallContext, neutron *neutron.Client, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(subnet.Cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
 	}
 	net, err := neutron.GetNetworkV2(subnet.NetworkId)
 	if err != nil {
-		return network.SubnetInfo{}, err
+		return network.SubnetInfo{}, HandleCredentialError(err, ctx)
 	}
 
 	// TODO (hml) 2017-03-20:
@@ -326,17 +333,21 @@ func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.S
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned.
-func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *NeutronNetworking) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	neutron := n.env.neutron()
 	internalNet := n.env.ecfg().network()
-	netId, err := resolveNeutronNetwork(neutron, internalNet, false)
+	netId, err := resolveNeutronNetwork(ctx, neutron, internalNet, false)
 	if err != nil {
 		// Note: (jam 2018-05-23) We don't treat this as fatal because we used to never pay attention to it anyway
 		if internalNet == "" {
 			logger.Warningf(noNetConfigMsg(err))
 		} else {
 			logger.Warningf("could not resolve internal network id for %q: %v", internalNet, err)
+			_, denied := MaybeHandleCredentialError(err, ctx)
+			if denied {
+				return nil, errors.Annotate(err, "could not resolve internal network id.")
+			}
 		}
 	} else {
 		netIds.Add(netId)
@@ -346,7 +357,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		// on Openstack, we'll probably need to include better logic here.
 		externalNet := n.env.ecfg().externalNetwork()
 		if externalNet != "" {
-			netId, err := resolveNeutronNetwork(neutron, externalNet, true)
+			netId, err := resolveNeutronNetwork(ctx, neutron, externalNet, true)
 			if err != nil {
 				logger.Warningf("could not resolve external network id for %q: %v", externalNet, err)
 			} else {
@@ -371,7 +382,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		// take a Filter rather that doing the filtering client side.
 		subnets, err := neutron.ListSubnetsV2()
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to retrieve subnets")
+			return nil, HandleCredentialError(errors.Annotatef(err, "failed to retrieve subnets"), ctx)
 		}
 		if len(subnetIds) == 0 {
 			for _, subnet := range subnets {
@@ -395,7 +406,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 				continue
 			}
 			subIdSet.Remove(subnet.Id)
-			if info, err := makeSubnetInfo(neutron, subnet); err == nil {
+			if info, err := makeSubnetInfo(ctx, neutron, subnet); err == nil {
 				// Error will already have been logged.
 				results = append(results, info)
 			}
@@ -419,6 +430,6 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *NeutronNetworking) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("neutron network interfaces")
 }

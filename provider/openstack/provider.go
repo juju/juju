@@ -1047,12 +1047,12 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	networks, err := e.networking.DefaultNetworks()
+	networks, err := e.networking.DefaultNetworks(ctx)
 	if err != nil {
 		return nil, common.ZoneIndependentError(errors.Annotate(err, "getting initial networks"))
 	}
 	usingNetwork := e.ecfg().network()
-	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
+	networkId, err := e.networking.ResolveNetwork(ctx, usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {
 			err = errors.New(noNetConfigMsg(err))
@@ -1238,7 +1238,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		defer e.publicIPMutex.Unlock()
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
-		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
+		if fip, err := e.networking.AllocatePublicIP(ctx, inst.Id()); err != nil {
 			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
@@ -1532,7 +1532,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx context.Prov
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeSource, err := cinder.VolumeSource(storageConfig, ctx)
+	volumeSource, err := cinder.VolumeSource(storageConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1616,7 +1616,7 @@ func (e *Environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	// In case any hosted environment hasn't been cleaned up yet,
 	// we also attempt to delete their resources when the controller
 	// environment is destroyed.
-	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+	if err := e.destroyControllerManagedEnvirons(ctx, controllerUUID); err != nil {
 		return errors.Annotate(err, "destroying managed models")
 	}
 	return e.firewaller.DeleteAllControllerGroups(ctx, controllerUUID)
@@ -1624,7 +1624,7 @@ func (e *Environ) DestroyController(ctx context.ProviderCallContext, controllerU
 
 // destroyControllerManagedEnvirons destroys all environments managed by this
 // models's controller.
-func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error {
+func (e *Environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
 	// Terminate all instances managed by the controller.
 	insts, err := e.allControllerManagedInstances(controllerUUID, false)
 	if err != nil {
@@ -1646,7 +1646,7 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 			return errors.Annotate(err, "listing volumes")
 		}
 		volIds := volumeInfoToVolumeIds(cinderToJujuVolumeInfos(volumes))
-		errs := foreachVolume(cinder.storageAdapter, volIds, destroyVolume)
+		errs := foreachVolume(ctx, cinder.storageAdapter, volIds, destroyVolume)
 		for i, err := range errs {
 			if err == nil {
 				continue
@@ -1802,12 +1802,12 @@ func validateAuthURL(authURL string) error {
 
 // Subnets is specified on environs.Networking.
 func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	return e.networking.Subnets(instId, subnetIds)
+	return e.networking.Subnets(ctx, instId, subnetIds)
 }
 
 // NetworkInterfaces is specified on environs.Networking.
 func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
-	return e.networking.NetworkInterfaces(instId)
+	return e.networking.NetworkInterfaces(ctx, instId)
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -1832,7 +1832,7 @@ func (e *Environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (b
 
 // SuperSubnets is specified on environs.Networking
 func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
-	subnets, err := e.networking.Subnets("", nil)
+	subnets, err := e.networking.Subnets(ctx, "", nil)
 	if err != nil {
 		return nil, err
 	}

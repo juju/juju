@@ -217,7 +217,7 @@ var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
-		volume, err := s.createVolume(arg, ctx)
+		volume, err := s.createVolume(ctx, arg)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
@@ -227,7 +227,7 @@ func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args
 	return results, nil
 }
 
-func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams, ctx context.ProviderCallContext) (*storage.Volume, error) {
+func (s *cinderVolumeSource) createVolume(ctx context.ProviderCallContext, arg storage.VolumeParams) (*storage.Volume, error) {
 	cinderConfig, err := newCinderConfig(arg.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -255,7 +255,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams, ctx context.
 	// "creating", in which case it will not have a size or status. Wait for
 	// the volume to transition, so we can record its actual size.
 	volumeId := cinderVolume.ID
-	cinderVolume, err = waitVolume(s.storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
+	cinderVolume, err = waitVolume(ctx, s.storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		return v.Status != "", nil
 	})
 	if err != nil {
@@ -349,27 +349,27 @@ func (s *cinderVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, vol
 	return foreachVolume(ctx, s.storageAdapter, volumeIds, releaseVolume), nil
 }
 
-func foreachVolume(storageAdapter OpenstackStorage, volumeIds []string, f func(OpenstackStorage, string, context.ProviderCallContext) error, ctx context.ProviderCallContext) []error {
+func foreachVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, volumeIds []string, f func(context.ProviderCallContext, OpenstackStorage, string) error) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volumeIds))
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			results[i] = f(storageAdapter, volumeId, ctx)
+			results[i] = f(ctx, storageAdapter, volumeId)
 		}(i, volumeId)
 	}
 	wg.Wait()
 	return results
 }
 
-func destroyVolume(storageAdapter OpenstackStorage, volumeId string, ctx context.ProviderCallContext) error {
+func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, volumeId string) error {
 	logger.Debugf("destroying volume %q", volumeId)
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
 	// in the process of being terminated.
 	var issuedDetach bool
-	volume, err := waitVolume(storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
+	volume, err := waitVolume(ctx, storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		switch v.Status {
 		default:
 			// Not ready for deletion; keep waiting.
@@ -417,9 +417,9 @@ func destroyVolume(storageAdapter OpenstackStorage, volumeId string, ctx context
 	return nil
 }
 
-func releaseVolume(storageAdapter OpenstackStorage, volumeId string, ctx context.ProviderCallContext) error {
+func releaseVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, volumeId string) error {
 	logger.Debugf("releasing volume %q", volumeId)
-	_, err := waitVolume(storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
+	_, err := waitVolume(ctx, storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		switch v.Status {
 		case volumeStatusAvailable, volumeStatusError:
 			return true, nil
@@ -453,7 +453,7 @@ func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
-		attachment, err := s.attachVolume(arg)
+		attachment, err := s.attachVolume(ctx, arg)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
@@ -463,7 +463,7 @@ func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args
 	return results, nil
 }
 
-func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*storage.VolumeAttachment, error) {
+func (s *cinderVolumeSource) attachVolume(ctx context.ProviderCallContext, arg storage.VolumeAttachmentParams) (*storage.VolumeAttachment, error) {
 	// Check to see if the volume is already attached.
 	existingAttachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
 	if err != nil {
@@ -472,7 +472,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 	novaAttachment := findAttachment(arg.VolumeId, existingAttachments)
 	if novaAttachment == nil {
 		// A volume must be "available" before it can be attached.
-		if _, err := waitVolume(s.storageAdapter, arg.VolumeId, func(v *cinder.Volume) (bool, error) {
+		if _, err := waitVolume(ctx, s.storageAdapter, arg.VolumeId, func(v *cinder.Volume) (bool, error) {
 			return v.Status == "available", nil
 		}); err != nil {
 			return nil, errors.Annotate(err, "waiting for volume to become available")
@@ -516,10 +516,10 @@ func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volum
 }
 
 func waitVolume(
+	ctx context.ProviderCallContext,
 	storageAdapter OpenstackStorage,
 	volumeId string,
 	pred func(*cinder.Volume) (bool, error),
-	ctx context.ProviderCallContext
 ) (*cinder.Volume, error) {
 	for a := cinderAttempt.Start(); a.Next(); {
 		volume, err := storageAdapter.GetVolume(volumeId)
@@ -676,7 +676,12 @@ func (ga *openstackStorageAdapter) GetVolume(volumeId string) (*cinder.Volume, e
 
 // SetVolumeMetadata is part of the OpenstackStorage interface.
 func (ga *openstackStorageAdapter) SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error) {
-	return ga.cinderClient.SetVolumeMetadata(volumeId, metadata)
+	response, err := ga.cinderClient.SetVolumeMetadata(volumeId, metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // DeleteVolume is part of the OpenstackStorage interface.

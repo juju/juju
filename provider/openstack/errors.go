@@ -7,18 +7,18 @@ import (
 	gooseerrors "gopkg.in/goose.v2/errors"
 
 	"github.com/juju/juju/environs/context"
-	)
+)
 
 func MaybeHandleCredentialError(err error, ctx context.ProviderCallContext) (error, bool) {
-	IsUnauthorized := gooseerrors.IsUnauthorised(err)
+	isUnauthorized := gooseerrors.IsUnauthorised(err)
 	//fmt.Printf("XXXXX... IsUnauthorized : %v\n", IsUnauthorized)
-	if ctx != nil && IsUnauthorized {
+	if ctx != nil && isUnauthorized {
 		invalidateErr := ctx.InvalidateCredential("openstack cloud denied access")
 		if invalidateErr != nil {
 			logger.Warningf("could not invalidate stored openstack cloud credential on the controller: %v", invalidateErr)
 		}
 	}
-	return err, IsUnauthorized
+	return err, isUnauthorized
 }
 
 // HandleCredentialError determines if a given error relates to an invalid credential.
