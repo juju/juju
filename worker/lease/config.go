@@ -30,6 +30,7 @@ type Secretary interface {
 type Logger interface {
 	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Errorf(string, ...interface{})
 }
 
