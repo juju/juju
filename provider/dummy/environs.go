@@ -354,8 +354,6 @@ func (state *environState) destroy() {
 }
 
 func (state *environState) destroyLocked() {
-	logger.Debugf("+ destroyLocked for %s", state.apiState.ModelUUID())
-	defer logger.Debugf("- destroyLocked for %s", state.apiState.ModelUUID())
 	if !state.bootstrapped {
 		return
 	}
@@ -373,9 +371,7 @@ func (state *environState) destroyLocked() {
 	// we must not hold the lock while the API server is being
 	// closed, as it may need to interact with the Environ while
 	// shutting down.
-	logger.Debugf("release state.mu")
 	state.mu.Unlock()
-	defer logger.Debugf("acquire state.mu")
 	defer state.mu.Lock()
 
 	if apiServer != nil {
