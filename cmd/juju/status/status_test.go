@@ -97,8 +97,9 @@ type stepper interface {
 // context
 //
 
-func newContext(st *state.State, env environs.Environ, presenceSetter presenceSetter, adminUserTag string) *context {
+func newContext(pool *state.StatePool, st *state.State, env environs.Environ, presenceSetter presenceSetter, adminUserTag string) *context {
 	return &context{
+		pool:           pool,
 		st:             st,
 		env:            env,
 		presenceSetter: presenceSetter,
@@ -112,6 +113,7 @@ type presenceSetter interface {
 }
 
 type context struct {
+	pool           *state.StatePool
 	st             *state.State
 	env            environs.Environ
 	presenceSetter presenceSetter
@@ -137,8 +139,7 @@ func (ctx *context) setAgentMissing(tag names.Tag) {
 }
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
-	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
-	return newContext(st, s.Environ, s, s.AdminUserTag(c).String())
+	return newContext(s.BackingStatePool, s.BackingState, s.Environ, s, s.AdminUserTag(c).String())
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
@@ -3640,7 +3641,7 @@ type addSpace struct {
 }
 
 func (sp addSpace) step(c *gc.C, ctx *context) {
-	f := factory.NewFactory(ctx.st)
+	f := factory.NewFactory(ctx.st, ctx.pool)
 	f.MakeSpace(c, &factory.SpaceParams{
 		Name: sp.spaceName, ProviderID: network.Id("provider"), IsPublic: true})
 }
@@ -4416,7 +4417,7 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	const hostedModelName = "hosted"
 	const statusText = "foo bar"
 
-	f := factory.NewFactory(s.BackingState)
+	f := factory.NewFactory(s.BackingState, s.StatePool)
 	hostedSt := f.MakeModel(c, &factory.ModelParams{
 		Name: hostedModelName,
 	})

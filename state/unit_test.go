@@ -2237,19 +2237,24 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	c.Logf("\nmake it dying\n")
+	// Ensure the following operation to set the unit as Dying
+	// is not short circuited to remove the unit.
+	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+	// Double check the unit is dying and not removed.
+	err = unit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
 
-	c.Logf("\nensure dead\n")
 	// Make it Dead: not reported.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	c.Logf("\nremove\n")
 	// Remove it: watcher eventually closed and Err
 	// returns an IsNotFound error.
 	err = unit.Remove()

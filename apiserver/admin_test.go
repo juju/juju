@@ -810,7 +810,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	})
 	defer modelState.Close()
 
-	f2 := factory.NewFactory(modelState)
+	f2 := factory.NewFactory(modelState, s.StatePool)
 	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "nonce",
 	})
@@ -837,7 +837,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	})
 	defer modelState.Close()
 
-	f2 := factory.NewFactory(modelState)
+	f2 := factory.NewFactory(modelState, s.StatePool)
 	machine, password := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 
 	model, err := modelState.Model()
@@ -884,7 +884,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 	// same tag as the manager machine.
 	hostedModelState := s.Factory.MakeModel(c, nil)
 	defer hostedModelState.Close()
-	f2 := factory.NewFactory(hostedModelState)
+	f2 := factory.NewFactory(hostedModelState, s.StatePool)
 	workloadMachine, _ := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 	c.Assert(managerMachine.Tag(), gc.Equals, workloadMachine.Tag())
 

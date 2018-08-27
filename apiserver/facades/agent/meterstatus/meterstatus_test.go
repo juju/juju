@@ -25,8 +25,6 @@ type meterStatusSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 
-	factory *jujufactory.Factory
-
 	unit *state.Unit
 
 	status meterstatus.MeterStatus
@@ -34,9 +32,7 @@ type meterStatusSuite struct {
 
 func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	s.factory = jujufactory.NewFactory(s.State)
-	s.unit = s.factory.MakeUnit(c, nil)
+	s.unit = s.Factory.MakeUnit(c, nil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
@@ -57,7 +53,7 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 func (s *meterStatusSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	application, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherunit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Application: application})
+	otherunit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: application})
 	args := params.Entities{Entities: []params.Entity{{otherunit.Tag().String()}}}
 	result, err := s.status.GetMeterStatus(args)
 	c.Assert(err, jc.ErrorIsNil)

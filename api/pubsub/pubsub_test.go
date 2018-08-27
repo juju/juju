@@ -149,11 +149,9 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	statePool := state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { statePool.Close() })
 	config := testserver.DefaultServerConfig(c)
 	config.Hub = s.hub
-	server := testserver.NewServerWithConfig(c, statePool, config)
+	server := testserver.NewServerWithConfig(c, s.StatePool, config)
 	s.AddCleanup(func(c *gc.C) { c.Assert(server.Stop(), jc.ErrorIsNil) })
 
 	s.info = server.Info

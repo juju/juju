@@ -914,6 +914,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
 	c.Logf("started charmstore on %v", s.srv.URL)
+
 	s.client = csclient.New(csclient.Params{
 		URL:      s.srv.URL,
 		User:     params.AuthUsername,
@@ -949,10 +950,12 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-	s.handler.Close()
+	// We have to close all of these things before the connsuite tear down due to the
+	// dirty socket detection in the base mgo suite.
 	s.srv.Close()
+	s.handler.Close()
 	s.srvSession.Close()
+	s.discharger.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 

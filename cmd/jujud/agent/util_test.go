@@ -190,7 +190,7 @@ func NewTestMachineAgentFactory(
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
 ) func(string) (*MachineAgent, error) {
-	preUpgradeSteps := func(_ *state.State, _ agent.Config, isController, isMaster bool) error {
+	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isMaster bool) error {
 		return nil
 	}
 	return func(machineId string) (*MachineAgent, error) {

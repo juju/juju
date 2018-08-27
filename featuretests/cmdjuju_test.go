@@ -249,7 +249,7 @@ settings:
 `
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caas-model"})
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab-application", Charm: ch})
 	schema, err := caas.ConfigSchema(nil)

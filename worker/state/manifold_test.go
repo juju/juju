@@ -39,14 +39,6 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
-	// Close the state pool, as it's not needed, and it
-	// refers to the state object's mongo session. If we
-	// do not close the pool, its embedded watcher may
-	// attempt to access mongo after it has been closed
-	// by the state tracker.
-	err := s.StatePool.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.openStateCalled = false
 	s.openStateErr = nil
 	s.setStatePoolCalls = nil
@@ -68,13 +60,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.State, error) {
+func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
 	}
 	// Here's one we prepared earlier...
-	return s.State, nil
+	return s.StatePool, nil
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {

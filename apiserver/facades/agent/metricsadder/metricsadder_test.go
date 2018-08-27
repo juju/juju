@@ -29,8 +29,6 @@ type metricsAdderSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 
-	factory *jujuFactory.Factory
-
 	machine0       *state.Machine
 	machine1       *state.Machine
 	mysqlService   *state.Application
@@ -45,36 +43,34 @@ type metricsAdderSuite struct {
 
 func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	s.factory = jujuFactory.NewFactory(s.State)
-	s.machine0 = s.factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine0 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.machine1 = s.factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine1 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	mysqlCharm := s.factory.MakeCharm(c, &jujuFactory.CharmParams{
+	mysqlCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.mysqlUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.mysqlUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine0,
 	})
 
-	s.meteredCharm = s.factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.meteredService = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
-	s.meteredUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.meteredService,
 		SetCharmURL: true,
 		Machine:     s.machine1,

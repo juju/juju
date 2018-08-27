@@ -271,7 +271,7 @@ func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "wind-up",
 	})
@@ -300,7 +300,7 @@ func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "judith",
 	})
@@ -342,7 +342,7 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "eriatarka",
 	})
@@ -371,7 +371,7 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	m := fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})
@@ -394,7 +394,7 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	fact := factory.NewFactory(st)
+	fact := factory.NewFactory(st, s.StatePool)
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "birds",
 	})

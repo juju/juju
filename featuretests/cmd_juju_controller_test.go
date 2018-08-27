@@ -228,7 +228,7 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 		CloudRegion: "dummy-region",
 	})
 	defer st.Close()
-	factory.NewFactory(st).MakeApplication(c, nil)
+	factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})

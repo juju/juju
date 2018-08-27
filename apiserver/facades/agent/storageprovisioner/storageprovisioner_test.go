@@ -5,7 +5,6 @@ package storageprovisioner_test
 
 import (
 	"sort"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -94,15 +93,12 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
-	s.StatePool.Close()
-	s.StatePool = nil
-	err := s.State.Close()
-	c.Assert(err, jc.ErrorIsNil)
 	s.State = caasSt
+	var err error
 	s.Model, err = caasSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Factory = factory.NewFactory(s.State)
+	s.Factory = factory.NewFactory(s.State, s.StatePool)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -1009,13 +1005,8 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 			"data": {Count: 1, Size: 1024},
 		},
 	})
-
-	select {
-	case changes := <-w.Changes():
-		c.Assert(changes, jc.DeepEquals, []string{"mysql"})
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for application change")
-	}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("mysql")
 }
 
 func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {

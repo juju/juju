@@ -20,7 +20,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	jujuFactory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *testing.T) {
@@ -59,43 +59,41 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 	s.action, err = action.NewActionAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	factory := jujuFactory.NewFactory(s.State)
-
-	s.charm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress",
 	})
 
-	s.dummy = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.dummy = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dummy",
-		Charm: factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "dummy",
 		}),
 	})
-	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.charm,
 	})
-	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
 
-	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -181,11 +179,11 @@ func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 }
 
 func (s *actionSuite) TestFindActionsByName(c *gc.C) {
-	machine := s.JujuConnSuite.Factory.MakeMachine(c, &jujuFactory.MachineParams{
+	machine := s.JujuConnSuite.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	dummyUnit := s.JujuConnSuite.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+	dummyUnit := s.JujuConnSuite.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.dummy,
 		Machine:     machine,
 	})

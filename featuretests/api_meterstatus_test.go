@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	factory "github.com/juju/juju/testing/factory"
 )
 
 type meterStatusIntegrationSuite struct {
@@ -26,8 +25,7 @@ type meterStatusIntegrationSuite struct {
 
 func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	f := factory.NewFactory(s.State)
-	s.unit = f.MakeUnit(c, nil)
+	s.unit = s.Factory.MakeUnit(c, nil)
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

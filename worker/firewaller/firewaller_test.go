@@ -124,9 +124,9 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 	fwInst, ok := inst.(instance.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	s.BackingState.StartSync()
 	start := time.Now()
 	for {
+		s.BackingState.StartSync()
 		got, err := fwInst.IngressRules(s.callCtx, machineId)
 		if err != nil {
 			c.Fatal(err)
@@ -152,9 +152,9 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	s.BackingState.StartSync()
 	start := time.Now()
 	for {
+		s.BackingState.StartSync()
 		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
@@ -1025,6 +1025,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	// Set up the consuming model - create the remote app.
 	offeringModelTag := names.NewModelTag(utils.MustNewUUID().String())
 	appToken := utils.MustNewUUID().String()
+
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "mysql", SourceModel: offeringModelTag,
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
@@ -1040,6 +1041,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
+
 	published := make(chan bool)
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
@@ -1099,6 +1101,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	for {
 		select {
 		case <-attempt:
+			s.BackingState.StartSync()
 			relStatus, err := rel.Status()
 			c.Check(err, jc.ErrorIsNil)
 			if relStatus.Status != status.Error {
