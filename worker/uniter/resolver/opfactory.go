@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -46,6 +47,19 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 		return nil, errors.Trace(err)
 	}
 	return s.wrapHookOp(op, info), nil
+}
+
+func (s *resolverOpFactory) NewCompleteUpgrade() (operation.Operation, error) {
+	op, err := s.Factory.NewCompleteUpgrade()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	f := func() {
+		s.LocalState.UpgradeSeriesPrepareStatus = model.UpgradeSeriesNotStarted
+		s.LocalState.UpgradeSeriesCompleteStatus = model.UpgradeSeriesNotStarted
+	}
+	op = onCommitWrapper{op, f}
+	return op, nil
 }
 
 func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
@@ -135,7 +149,7 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 			s.LocalState.UpgradeSeriesCompleteStatus = s.RemoteState.UpgradeSeriesCompleteStatus
 		}}
 		op = onCommitWrapper{op, func() {
-			s.LocalState.UpgradeSeriesPrepareStatus = s.RemoteState.UpgradeSeriesPrepareStatus
+			s.LocalState.UpgradeSeriesCompleteStatus = s.RemoteState.UpgradeSeriesCompleteStatus
 		}}
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion

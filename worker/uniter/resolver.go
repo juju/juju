@@ -58,8 +58,7 @@ func (s *uniterResolver) NextOp(
 	// waiting to be shutdown.
 	if localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted &&
 		remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted {
-		logger.Criticalf("We hit here were we are supposed to idle when shutting down.")
-		//return nil, resolver.ErrNoOperation
+		return nil, resolver.ErrNoOperation
 	}
 
 	if localState.Kind == operation.Upgrade {
@@ -294,10 +293,13 @@ func (s *uniterResolver) nextOp(
 	}
 
 	if localState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesNotStarted &&
-		// localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted &&  //these checks ensure that the uniter is not stuck in its idle state after the prepare phase
-		// remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted
 		remoteState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesCompleteStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
+	}
+
+	if localState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesCompleted &&
+		remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesNotStarted {
+		return opFactory.NewCompleteUpgrade()
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)

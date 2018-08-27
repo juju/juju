@@ -572,10 +572,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 
 	status, err := w.upgradeSeriesStatus()
 	if errors.IsNotFound(err) {
-		// If the lock (the remote state) does not exist, then we reset
-		// the local state. That is, there is no remote state for the
-		// local state to track, thus we reset it to the default
-		// starting state.
+		// There is no remote state so no upgrade is started.
 		logger.Debugf("no upgrade series in progress, initializing local upgrade series state")
 		w.current.UpgradeSeriesPrepareStatus = model.UpgradeSeriesNotStarted
 		return nil
