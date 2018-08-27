@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -47,7 +48,7 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 		},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(almostSeconds(1))
+		waitAdvance(c, clock, almostSeconds(1), 1)
 	})
 }
 
@@ -67,14 +68,14 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(time.Second)
+		waitAdvance(c, clock, time.Second, 1)
 	})
 }
 
 func (s *ExpireSuite) TestStartup_NoExpiry_NotLongEnough(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(almostSeconds(3600))
+		waitAdvance(c, clock, almostSeconds(3600), 1)
 	})
 }
 
@@ -99,7 +100,7 @@ func (s *ExpireSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(time.Hour)
+		waitAdvance(c, clock, time.Hour, 1)
 	})
 }
 
@@ -141,7 +142,7 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(time.Second)
+		waitAdvance(c, clock, time.Second, 1)
 	})
 }
 
@@ -160,7 +161,7 @@ func (s *ExpireSuite) TestExpire_OtherError(c *gc.C) {
 		expectDirty: true,
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(time.Second)
+		waitAdvance(c, clock, time.Second, 1)
 		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "snarfblat hobalob")
 	})
@@ -187,7 +188,11 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(almostSeconds(newLeaseSecs))
+		// Three waiters:
+		// - the alarm from the first call to choose
+		// - the retry timer from the claim call
+		// - the alarm from the second time in choose.
+		waitAdvance(c, clock, almostSeconds(newLeaseSecs), 3)
 	})
 }
 
@@ -220,7 +225,8 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(justAfterSeconds(newLeaseSecs))
+		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
+		c.Logf("advanced")
 	})
 }
 
@@ -251,7 +257,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(almostSeconds(newLeaseSecs))
+		waitAdvance(c, clock, almostSeconds(newLeaseSecs), 3)
 	})
 }
 
@@ -290,7 +296,8 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(justAfterSeconds(newLeaseSecs))
+		// See TestClaim_ExpiryInFuture_TimePasses for why 3.
+		waitAdvance(c, clock, justAfterSeconds(newLeaseSecs), 3)
 	})
 }
 
@@ -341,8 +348,13 @@ func (s *ExpireSuite) TestExpire_Multiple(c *gc.C) {
 		expectDirty: true,
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		clock.Advance(5 * time.Second)
+		waitAdvance(c, clock, 5*time.Second, 1)
 		err := manager.Wait()
 		c.Check(err, gc.ErrorMatches, "what is this\\?")
 	})
+}
+
+func waitAdvance(c *gc.C, clock *testclock.Clock, amount time.Duration, waiters int) {
+	err := clock.WaitAdvance(amount, coretesting.LongWait, waiters)
+	c.Assert(err, jc.ErrorIsNil)
 }

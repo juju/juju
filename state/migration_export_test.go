@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -22,6 +23,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -81,8 +83,7 @@ func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, st
 	}, 0, "")
 }
 
-func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
-	c.Assert(leader < count, jc.IsTrue)
+func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: applicationname,
@@ -95,9 +96,23 @@ func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname 
 			Application: application,
 		})
 	}
+}
+
+func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
+	target := s.State.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("migration_export_test"),
+	)
+	target.Claimed(
+		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
+		unitName,
+	)
+}
+
+func (s *MigrationBaseSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
 	err := s.State.LeadershipClaimer().ClaimLeadership(
-		application.Name(),
-		units[leader].Name(),
+		applicationName,
+		unitName,
 		time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -602,9 +617,36 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 }
 
+func (s *MigrationExportSuite) TestApplicationLeadershipLegacy(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.LegacyLeases},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.makeApplicationWithUnits(c, "mysql", 2)
+	s.makeUnitApplicationLeaderLegacy(c, "mysql/1", "mysql")
+
+	s.makeApplicationWithUnits(c, "wordpress", 4)
+	s.makeUnitApplicationLeaderLegacy(c, "wordpress/2", "wordpress")
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	leaders := make(map[string]string)
+	for _, application := range model.Applications() {
+		leaders[application.Name()] = application.Leader()
+	}
+	c.Assert(leaders, jc.DeepEquals, map[string]string{
+		"mysql":     "mysql/1",
+		"wordpress": "wordpress/2",
+	})
+}
+
 func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
-	s.makeApplicationWithLeader(c, "mysql", 2, 1)
-	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
+	s.makeApplicationWithUnits(c, "mysql", 2)
+	s.makeUnitApplicationLeader(c, "mysql/1", "mysql")
+
+	s.makeApplicationWithUnits(c, "wordpress", 4)
+	s.makeUnitApplicationLeader(c, "wordpress/2", "wordpress")
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)

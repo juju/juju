@@ -9,6 +9,16 @@ import (
 	"github.com/juju/errors"
 )
 
+const (
+	// ApplicationLeadershipNamespace is the namespace used to manage
+	// leadership leases.
+	ApplicationLeadershipNamespace = "application-leadership"
+
+	// SingularControllerNamespace is the namespace used to manage
+	// controller leases.
+	SingularControllerNamespace = "singular-controller"
+)
+
 // ErrClaimDenied indicates that a Claimer.Claim() has been denied.
 var ErrClaimDenied = errors.New("lease claim denied")
 
@@ -58,4 +68,11 @@ type Token interface {
 	// particular Client you're using to determine what key should be passed and
 	// what errors that might induce.
 	Check(trapdoorKey interface{}) error
+}
+
+// Manager represents somewhere you can get Checkers and Claimers for
+// different models.
+type Manager interface {
+	Checker(namespace string, modelUUID string) (Checker, error)
+	Claimer(namespace string, modelUUID string) (Claimer, error)
 }

@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
@@ -431,6 +433,47 @@ func (ctx *facadeContext) StatePool() *state.StatePool {
 // ID is part of of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
+}
+
+// LeadershipClaimer is part of the facade.Context interface.
+func (ctx *facadeContext) LeadershipClaimer() (leadership.Claimer, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return ctx.State().LeadershipClaimer(), nil
+	}
+	claimer, err := ctx.r.shared.leaseManager.Claimer(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipClaimer{claimer}, nil
+}
+
+// LeadershipChecker is part of the facade.Context interface.
+func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return ctx.State().LeadershipChecker(), nil
+	}
+	checker, err := ctx.r.shared.leaseManager.Checker(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipChecker{checker}, nil
+}
+
+// SingularClaimer is part of the facade.Context interface.
+func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return ctx.State().SingularClaimer(), nil
+	}
+	return ctx.r.shared.leaseManager.Claimer(
+		lease.SingularControllerNamespace,
+		ctx.State().ModelUUID(),
+	)
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -71,6 +72,7 @@ func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
 	return &MachineManagerAPIV4{machineManagerAPIV5}, nil
 }
 
+// NewFacadeV5 creates a new server-side MachineManager API facade.
 func NewFacadeV5(ctx facade.Context) (*MachineManagerAPIV5, error) {
 	machineManagerAPI, err := NewFacade(ctx)
 	if err != nil {
@@ -358,11 +360,10 @@ func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if arg.Series == machine.Series() {
-		return errors.Errorf("%s is already running series %s", machineTag, arg.Series)
+	err = mm.validateSeries(arg.Series, machine.Series(), machineTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
 	principals := machine.Principals()
 	units, err := machine.VerifyUnitsSeries(principals, arg.Series, arg.Force)
 	if err != nil {
@@ -477,4 +478,35 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 		return errors.Trace(err)
 	}
 	return machine.RemoveUpgradeSeriesLock()
+}
+
+func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag names.MachineTag) error {
+	if argumentSeries == currentSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
+	}
+	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
+	if err != nil {
+		return err
+	}
+	if isOlderSeries {
+		return errors.Errorf("machine %s is running %s which is a newer series than %s.", machineTag, currentSeries, argumentSeries)
+	}
+
+	return nil
+}
+
+// isSeriesLessThan returns a bool indicating whether the first argument's
+// version is lexicographically less than the second argument's, thus indicating
+// that the series represents an older version of the operating system. The
+// output is only valid for Ubuntu series.
+func isSeriesLessThan(series1, series2 string) (bool, error) {
+	version1, err := series.SeriesVersion(series1)
+	if err != nil {
+		return false, err
+	}
+	version2, err := series.SeriesVersion(series2)
+	if err != nil {
+		return false, err
+	}
+	return version2 > version1, nil
 }

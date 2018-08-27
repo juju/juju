@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -97,12 +98,13 @@ type stepper interface {
 // context
 //
 
-func newContext(pool *state.StatePool, st *state.State, env environs.Environ, presenceSetter presenceSetter, adminUserTag string) *context {
+func newContext(pool *state.StatePool, st *state.State, env environs.Environ, presenceSetter presenceSetter, leaseManager lease.Manager, adminUserTag string) *context {
 	return &context{
 		pool:           pool,
 		st:             st,
 		env:            env,
 		presenceSetter: presenceSetter,
+		leaseManager:   leaseManager,
 		charms:         make(map[string]*state.Charm),
 		adminUserTag:   adminUserTag,
 	}
@@ -117,6 +119,7 @@ type context struct {
 	st             *state.State
 	env            environs.Environ
 	presenceSetter presenceSetter
+	leaseManager   lease.Manager
 	charms         map[string]*state.Charm
 	adminUserTag   string // A string repr of the tag.
 	expectIsoTime  bool
@@ -139,7 +142,9 @@ func (ctx *context) setAgentMissing(tag names.Tag) {
 }
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
-	return newContext(s.BackingStatePool, s.BackingState, s.Environ, s, s.AdminUserTag(c).String())
+	gs := s.Environ.(testing.GetStater)
+	leaseManager := gs.GetLeaseManagerInAPIServer()
+	return newContext(s.BackingStatePool, s.BackingState, s.Environ, s, leaseManager, s.AdminUserTag(c).String())
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
@@ -3977,7 +3982,9 @@ type setUnitAsLeader struct {
 func (s setUnitAsLeader) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.st.LeadershipClaimer().ClaimLeadership(u.ApplicationName(), u.Name(), time.Minute)
+	claimer, err := ctx.leaseManager.Claimer("application-leadership", ctx.st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

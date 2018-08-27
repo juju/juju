@@ -19,7 +19,7 @@ import (
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
-type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger) error
+type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error
 
 // NewLXDBroker creates a Broker that can be used to start LXD containers in a
 // similar fashion to normal StartInstance requests.
@@ -61,7 +61,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, err
 	}
 
-	err = broker.prepareHost(names.NewMachineTag(containerMachineID), lxdLogger)
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), lxdLogger, args.Abort)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

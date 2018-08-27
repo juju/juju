@@ -9,7 +9,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	upgradeseries "github.com/juju/juju/worker/upgradeseries"
-	loggo "github.com/juju/loggo"
+	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -61,29 +61,42 @@ func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0)
 }
 
-// StartUnitUpgradeSeriesCompletionPhase mocks base method
-func (m *MockFacade) StartUnitUpgradeSeriesCompletionPhase() error {
-	ret := m.ctrl.Call(m, "StartUnitUpgradeSeriesCompletionPhase")
+// StartUnitCompletion mocks base method
+func (m *MockFacade) StartUnitCompletion() error {
+	ret := m.ctrl.Call(m, "StartUnitCompletion")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// StartUnitUpgradeSeriesCompletionPhase indicates an expected call of StartUnitUpgradeSeriesCompletionPhase
-func (mr *MockFacadeMockRecorder) StartUnitUpgradeSeriesCompletionPhase() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitUpgradeSeriesCompletionPhase", reflect.TypeOf((*MockFacade)(nil).StartUnitUpgradeSeriesCompletionPhase))
+// StartUnitCompletion indicates an expected call of StartUnitCompletion
+func (mr *MockFacadeMockRecorder) StartUnitCompletion() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion))
 }
 
-// UpgradeSeriesStatus mocks base method
-func (m *MockFacade) UpgradeSeriesStatus() ([]string, error) {
-	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
-	ret0, _ := ret[0].([]string)
+// UnitsCompleted mocks base method
+func (m *MockFacade) UnitsCompleted() ([]names_v2.UnitTag, error) {
+	ret := m.ctrl.Call(m, "UnitsCompleted")
+	ret0, _ := ret[0].([]names_v2.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus
-func (mr *MockFacadeMockRecorder) UpgradeSeriesStatus() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockFacade)(nil).UpgradeSeriesStatus))
+// UnitsCompleted indicates an expected call of UnitsCompleted
+func (mr *MockFacadeMockRecorder) UnitsCompleted() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsCompleted", reflect.TypeOf((*MockFacade)(nil).UnitsCompleted))
+}
+
+// UnitsPrepared mocks base method
+func (m *MockFacade) UnitsPrepared() ([]names_v2.UnitTag, error) {
+	ret := m.ctrl.Call(m, "UnitsPrepared")
+	ret0, _ := ret[0].([]names_v2.UnitTag)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitsPrepared indicates an expected call of UnitsPrepared
+func (mr *MockFacadeMockRecorder) UnitsPrepared() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method
@@ -122,6 +135,21 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
+// Debugf mocks base method
+func (m *MockLogger) Debugf(arg0 string, arg1 ...interface{}) {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Debugf", varargs...)
+}
+
+// Debugf indicates an expected call of Debugf
+func (mr *MockLoggerMockRecorder) Debugf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Debugf", reflect.TypeOf((*MockLogger)(nil).Debugf), varargs...)
+}
+
 // Errorf mocks base method
 func (m *MockLogger) Errorf(arg0 string, arg1 ...interface{}) {
 	varargs := []interface{}{arg0}
@@ -137,19 +165,19 @@ func (mr *MockLoggerMockRecorder) Errorf(arg0 interface{}, arg1 ...interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Errorf", reflect.TypeOf((*MockLogger)(nil).Errorf), varargs...)
 }
 
-// Logf mocks base method
-func (m *MockLogger) Logf(arg0 loggo.Level, arg1 string, arg2 ...interface{}) {
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+// Infof mocks base method
+func (m *MockLogger) Infof(arg0 string, arg1 ...interface{}) {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	m.ctrl.Call(m, "Logf", varargs...)
+	m.ctrl.Call(m, "Infof", varargs...)
 }
 
-// Logf indicates an expected call of Logf
-func (mr *MockLoggerMockRecorder) Logf(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logf", reflect.TypeOf((*MockLogger)(nil).Logf), varargs...)
+// Infof indicates an expected call of Infof
+func (mr *MockLoggerMockRecorder) Infof(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Infof", reflect.TypeOf((*MockLogger)(nil).Infof), varargs...)
 }
 
 // Warningf mocks base method

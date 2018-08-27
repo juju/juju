@@ -65,16 +65,15 @@ func (s *CmdExportBundleSuite) TestExportBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stdout(ctx)
 	c.Assert(output, gc.Equals, ""+
-		"|\n"+
-		"  applications:\n"+
-		"    logging:\n"+
-		"      charm: cs:quantal/logging-43\n"+
-		"    wordpress:\n"+
-		"      charm: cs:quantal/wordpress-23\n"+
-		"  series: bionic\n"+
-		"  relations:\n"+
-		"  - - wordpress:juju-info\n"+
-		"    - logging:info\n"+
-		"  - - wordpress:logging-dir\n"+
-		"    - logging:logging-directory\n")
+		"applications:\n"+
+		"  logging:\n"+
+		"    charm: cs:quantal/logging-43\n"+
+		"  wordpress:\n"+
+		"    charm: cs:quantal/wordpress-23\n"+
+		"series: bionic\n"+
+		"relations:\n"+
+		"- - wordpress:juju-info\n"+
+		"  - logging:info\n"+
+		"- - wordpress:logging-dir\n"+
+		"  - logging:logging-directory\n")
 }

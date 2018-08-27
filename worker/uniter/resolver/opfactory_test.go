@@ -70,8 +70,8 @@ func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 
 	// The initial state
-	f.LocalState.UpgradeSeriesPrepareStatus = model.NotStarted
-	f.RemoteState.UpgradeSeriesPrepareStatus = model.PrepareStarted
+	f.LocalState.UpgradeSeriesPrepareStatus = model.UpgradeSeriesNotStarted
+	f.RemoteState.UpgradeSeriesPrepareStatus = model.UpgradeSeriesPrepareStarted
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,13 +79,13 @@ func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 	_, err = op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(f.LocalState.UpgradeSeriesPrepareStatus, gc.Equals, model.PrepareStarted)
-	f.RemoteState.UpgradeSeriesPrepareStatus = model.PrepareCompleted
+	c.Assert(f.LocalState.UpgradeSeriesPrepareStatus, gc.Equals, model.UpgradeSeriesPrepareStarted)
+	f.RemoteState.UpgradeSeriesPrepareStatus = model.UpgradeSeriesPrepareCompleted
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(f.LocalState.UpgradeSeriesPrepareStatus, gc.Equals, model.PrepareCompleted)
+	c.Assert(f.LocalState.UpgradeSeriesPrepareStatus, gc.Equals, model.UpgradeSeriesPrepareCompleted)
 }
 
 func (s *ResolverOpFactorySuite) TestNewHookError(c *gc.C) {

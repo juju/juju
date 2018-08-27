@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
-	coreleadership "github.com/juju/juju/core/leadership"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
@@ -88,7 +88,7 @@ type context struct {
 	st                     *state.State
 	api                    *apiuniter.State
 	apiConn                api.Connection
-	leaderClaimer          coreleadership.Claimer
+	leaseManager           corelease.Manager
 	leaderTracker          *mockLeaderTracker
 	charmDirGuard          *mockCharmDirGuard
 	charms                 map[string][]byte
@@ -171,7 +171,6 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(api, gc.NotNil)
 	ctx.api = api
 	ctx.apiConn = apiConn
-	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
 }
@@ -1594,7 +1593,9 @@ func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
 		return
 	}
 	if isLeader {
-		err := mock.ctx.leaderClaimer.ClaimLeadership(
+		claimer, err := mock.ctx.leaseManager.Claimer("application-leadership", mock.ctx.st.ModelUUID())
+		c.Assert(err, jc.ErrorIsNil)
+		err = claimer.Claim(
 			mock.ctx.application.Name(), mock.ctx.unit.Name(), time.Minute,
 		)
 		c.Assert(err, jc.ErrorIsNil)

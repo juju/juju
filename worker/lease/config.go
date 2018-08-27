@@ -17,13 +17,21 @@ import (
 type Secretary interface {
 
 	// CheckLease returns an error if the supplied lease name is not valid.
-	CheckLease(name string) error
+	CheckLease(key lease.Key) error
 
 	// CheckHolder returns an error if the supplied holder name is not valid.
 	CheckHolder(name string) error
 
 	// CheckDuration returns an error if the supplied duration is not valid.
 	CheckDuration(duration time.Duration) error
+}
+
+// Logger represents the logging methods we use from a loggo.Logger.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
 }
 
 // ManagerConfig contains the resources and information required to create a
@@ -37,6 +45,10 @@ type ManagerConfig struct {
 
 	// Store is responsible for recording, retrieving, and expiring leases.
 	Store lease.Store
+
+	// Logger is used to report debugging/status information as the
+	// manager runs.
+	Logger Logger
 
 	// Clock is responsible for reporting the passage of time.
 	Clock clock.Clock
@@ -58,6 +70,9 @@ func (config ManagerConfig) Validate() error {
 	}
 	if config.Store == nil {
 		return errors.NotValidf("nil Store")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")

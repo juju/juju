@@ -4,7 +4,10 @@
 package machinemanager_test
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -450,6 +453,21 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	})
 }
 
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareOlderSeriesShouldError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	machineTag := names.NewMachineTag("1")
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+			Series: "precise",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "machine machine-1 is running trusty which is a newer series than precise.")
+}
+
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.C) {
 	// TODO managed upgrade series
 }
@@ -463,6 +481,44 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestIsSeriesLessThan tests a validation method which is not very complicated
+// but complex enough to warrant being exported from an export test package for
+// testing.
+func (s *MachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
+	ss := series.SupportedSeries()
+
+	// get the series versions
+	vs := make([]string, 0, len(ss))
+	for _, ser := range ss {
+		ver, err := series.SeriesVersion(ser)
+		c.Assert(err, jc.ErrorIsNil)
+		vs = append(vs, ver)
+	}
+
+	// sort the values, so the lexicographical order is determined
+	sort.Strings(vs)
+
+	// check that the IsSeriesLessThan works for all supported series
+	for i := range vs {
+
+		// We need both the series and the next series in the list. So
+		// we provide a check here to prevent going out of bounds.
+		if i+1 > len(vs)-1 {
+			break
+		}
+
+		// get the series for the specified version
+		s1, err := series.VersionSeries(vs[i])
+		c.Assert(err, jc.ErrorIsNil)
+		s2, err := series.VersionSeries(vs[i+1])
+		c.Assert(err, jc.ErrorIsNil)
+
+		isLessThan, err := machinemanager.IsSeriesLessThan(s1, s2)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(isLessThan, jc.IsTrue)
+	}
 }
 
 type mockState struct {

@@ -51,6 +51,7 @@ type UniterAPI struct {
 	st                *state.State
 	auth              facade.Authorizer
 	resources         facade.Resources
+	leadershipChecker leadership.Checker
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
@@ -88,9 +89,16 @@ type UniterAPIV4 struct {
 }
 
 // NewUniterAPI creates a new instance of the core Uniter API.
-func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPI, error) {
+func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
+	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
+	}
+	st := context.State()
+	resources := context.Resources()
+	leadershipChecker, err := context.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	accessUnit := func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
@@ -225,7 +233,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
+		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
@@ -235,6 +243,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		m:                 m,
 		auth:              authorizer,
 		resources:         resources,
+		leadershipChecker: leadershipChecker,
 		accessUnit:        accessUnit,
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
@@ -245,8 +254,8 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 }
 
 // NewUniterAPIV7 creates an instance of the V7 uniter API.
-func NewUniterAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV7, error) {
-	uniterAPI, err := NewUniterAPI(st, resources, authorizer)
+func NewUniterAPIV7(context facade.Context) (*UniterAPIV7, error) {
+	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
@@ -256,8 +265,8 @@ func NewUniterAPIV7(st *state.State, resources facade.Resources, authorizer faca
 }
 
 // NewUniterAPIV6 creates an instance of the V6 uniter API.
-func NewUniterAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV6, error) {
-	uniterAPI, err := NewUniterAPIV7(st, resources, authorizer)
+func NewUniterAPIV6(context facade.Context) (*UniterAPIV6, error) {
+	uniterAPI, err := NewUniterAPIV7(context)
 	if err != nil {
 		return nil, err
 	}
@@ -267,8 +276,8 @@ func NewUniterAPIV6(st *state.State, resources facade.Resources, authorizer faca
 }
 
 // NewUniterAPIV5 creates an instance of the V5 uniter API.
-func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV5, error) {
-	uniterAPI, err := NewUniterAPIV6(st, resources, authorizer)
+func NewUniterAPIV5(context facade.Context) (*UniterAPIV5, error) {
+	uniterAPI, err := NewUniterAPIV6(context)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +287,8 @@ func NewUniterAPIV5(st *state.State, resources facade.Resources, authorizer faca
 }
 
 // NewUniterAPIV4 creates an instance of the V4 uniter API.
-func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV4, error) {
-	uniterAPI, err := NewUniterAPIV5(st, resources, authorizer)
+func NewUniterAPIV4(context facade.Context) (*UniterAPIV4, error) {
+	uniterAPI, err := NewUniterAPIV5(context)
 	if err != nil {
 		return nil, err
 	}
@@ -1538,7 +1547,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 		return unit, nil
 	}
 
-	checker := u.st.LeadershipChecker()
+	checker := u.leadershipChecker
 	changeOne := func(arg params.RelationStatusArg) error {
 		// TODO(wallyworld) - the token should be passed to SetStatus() but the
 		// interface method doesn't allow for that yet.
@@ -1879,6 +1888,7 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 
 func leadershipSettingsAccessorFactory(
 	st *state.State,
+	checker leadership.Checker,
 	resources facade.Resources,
 	auth facade.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
@@ -1911,7 +1921,7 @@ func leadershipSettingsAccessorFactory(
 		auth,
 		registerWatcher,
 		getSettings,
-		st.LeadershipChecker().LeadershipCheck,
+		checker.LeadershipCheck,
 		writeSettings,
 	)
 }

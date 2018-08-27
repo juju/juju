@@ -65,7 +65,7 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
 	arbitraryMachineID := "id"
 	arbitraryUnitName := "application/0"
-	arbitraryStatus := model.PrepareStarted
+	arbitraryStatus := model.UpgradeSeriesPrepareStarted
 	arbitraryUpdateTime := bson.Now()
 	expectedOp := txn.Op{
 		C:  machineUpgradeSeriesLocksC,
@@ -85,7 +85,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryStatus := model.PrepareStarted
+	arbitraryStatus := model.UpgradeSeriesPrepareStarted
 	arbitraryUnitName := "application/0"
 	arbitraryUpdateTime := bson.Now()
 	expectedOp := txn.Op{
@@ -101,9 +101,9 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
 }
 
-func (s *MachineInternalSuite) TestStartUnitUpgradeSeriesCompletionPhaseTxnOps(c *gc.C) {
+func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryUnitStatuses := map[string]unitStatus{}
+	arbitraryUnitStatuses := map[string]UpgradeSeriesUnitStatus{}
 	expectedOps := []txn.Op{
 		{
 			C:      machinesC,
@@ -113,11 +113,11 @@ func (s *MachineInternalSuite) TestStartUnitUpgradeSeriesCompletionPhaseTxnOps(c
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     arbitraryMachineID,
-			Assert: bson.D{{"machine-status", model.CompleteStarted}},
+			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
 			Update: bson.D{{"$set", bson.D{{"unit-statuses", arbitraryUnitStatuses}}}},
 		},
 	}
-	actualOps := startUnitUpgradeSeriesCompletionPhaseTxnOps(arbitraryMachineID, arbitraryUnitStatuses)
+	actualOps := startUpgradeSeriesUnitCompletionTxnOps(arbitraryMachineID, arbitraryUnitStatuses)
 	expectedOpsSt := fmt.Sprint(expectedOps)
 	actualOpsSt := fmt.Sprint(actualOps)
 	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)

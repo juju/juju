@@ -12,6 +12,7 @@ import (
 	charm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -98,11 +99,12 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPI, err := uniter.NewUniterAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPI
 }

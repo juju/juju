@@ -117,6 +117,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				path:                   s.unitDir,
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),
+				leaseManager:           s.LeaseManager,
 				updateStatusHookTicker: s.updateStatusHookTicker,
 				charmDirGuard:          &mockCharmDirGuard{},
 			}
@@ -1543,6 +1544,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		path:                   filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir:                s.dataDir,
 		charms:                 make(map[string][]byte),
+		leaseManager:           s.LeaseManager,
 		updateStatusHookTicker: s.updateStatusHookTicker,
 		charmDirGuard:          &mockCharmDirGuard{},
 	}

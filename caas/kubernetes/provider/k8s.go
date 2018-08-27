@@ -221,7 +221,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	// If there are none, that's ok, we'll just use ephemeral storage.
 	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
 	params := volumeParams{
-		storageConfig:       &storageConfig{storageClass: operatorStorageClassName},
+		storageConfig:       &storageConfig{existingStorageClass: operatorStorageClassName},
 		storageLabels:       []string{volStorageLabel, k.namespace, "default"},
 		pvcName:             operatorVolumeClaim(appName),
 		requestedVolumeSize: operatorStorageSize,
@@ -340,27 +340,42 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	logger.Debugf("creating new persistent volume claim for %v", params.pvcName)
 
 	storageClassName := params.storageConfig.storageClass
-	if storageClassName != "" {
-		// If a specific storage class has been requested, make sure it exists.
-		err := k.ensureStorageClass(params.storageConfig)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, false, errors.Trace(err)
-			}
-			storageClassName = ""
+	existingStorageClassName := params.storageConfig.existingStorageClass
+	haveStorageClass := false
+	// If no specific storage class has been specified but there's a default
+	// fallback one, try and look for that first.
+	if storageClassName == "" && existingStorageClassName != "" {
+		storageClasses := k.StorageV1().StorageClasses()
+		sc, err := storageClasses.Get(existingStorageClassName, v1.GetOptions{})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return nil, false, errors.Trace(err)
 		}
-	} else {
+		if err == nil {
+			haveStorageClass = true
+			storageClassName = sc.Name
+		}
+	}
+	// If no storage class has been found or asked for,
+	// look for one by matching labels.
+	if storageClassName == "" && !haveStorageClass {
 		sc, err := k.maybeGetStorageClass(params.storageLabels...)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, false, errors.Trace(err)
 		}
 		if err == nil {
+			haveStorageClass = true
 			storageClassName = sc.Name
-		} else {
-			storageClassName = defaultStorageClass
 		}
 	}
-	if storageClassName == "" {
+	// If a specific storage class has been requested, make sure it exists.
+	if storageClassName != "" && !haveStorageClass {
+		err := k.ensureStorageClass(params.storageConfig)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, false, errors.Trace(err)
+		}
+		haveStorageClass = err == nil
+	}
+	if !haveStorageClass {
 		return nil, false, errors.NewNotFound(nil, fmt.Sprintf(
 			"cannot create persistent volume as no storage class matching %q exists and no default storage class is defined",
 			params.storageLabels))

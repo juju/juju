@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -48,19 +49,20 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 	return w, nil
 }
 
-// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() ([]string, error) {
+// UpgradeSeriesUnitStatus returns the upgrade series status of a
+// unit from remote state.
+func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus() ([]model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 
-	err := u.facade.FacadeCall("GetUpgradeSeriesStatus", args, &results)
+	err := u.facade.FacadeCall("UpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
 
-	statuses := make([]string, len(results.Results))
+	statuses := make([]model.UpgradeSeriesStatus, len(results.Results))
 	for i, res := range results.Results {
 		if res.Error != nil {
 			// TODO (externalreality) The code to convert api errors (with
@@ -74,22 +76,20 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() ([]string, error) {
 		}
 		statuses[i] = res.Status
 	}
-	// TODO (manadart 2018-08-02) Should we be converting these back to
-	// model.UnitSeriesUpgradeStatus and reporting an error if that fails?
-	// (externalreality): validation does take place a few levels down.
 	return statuses, nil
 }
 
-// SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
+// SetUpgradeSeriesUnitStatus sets the upgrade series status of the
+// unit in the remote state.
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeriesStatus) error {
 	var results params.ErrorResults
-	args := params.SetUpgradeSeriesStatusParams{
-		Params: []params.SetUpgradeSeriesStatusParam{{
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatusParam{{
 			Entity: params.Entity{Tag: u.tag.String()},
 			Status: status,
 		}},
 	}
-	err := u.facade.FacadeCall("SetUpgradeSeriesStatus", args, &results)
+	err := u.facade.FacadeCall("SetUpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return err
 	}

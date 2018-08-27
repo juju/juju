@@ -204,6 +204,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		relationNetworksC,
 		firewallRulesC,
 		dockerResourcesC,
+		// TODO(raftlease)
+		// This collection shouldn't be migrated, but we need to make
+		// sure the leader units' leases are claimed in the target
+		// controller when leases are managed in raft.
+		leaseHoldersC,
 	)
 
 	modelCollections := set.NewStrings()

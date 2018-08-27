@@ -7,27 +7,26 @@ import (
 	"github.com/juju/errors"
 )
 
-//UpgradeSeriesStatus is the current status of a series upgrade for units
+// UpgradeSeriesStatus is the current status of a series upgrade for units
 type UpgradeSeriesStatus string
 
 const (
-	NotStarted       UpgradeSeriesStatus = "not started"
-	PrepareStarted   UpgradeSeriesStatus = "prepare started"
-	PrepareMachine   UpgradeSeriesStatus = "prepare machine"
-	PrepareCompleted UpgradeSeriesStatus = "prepare completed"
-	CompleteStarted  UpgradeSeriesStatus = "complete started"
-	Completed        UpgradeSeriesStatus = "completed"
-	UnitErrored      UpgradeSeriesStatus = "error"
+	UpgradeSeriesNotStarted       UpgradeSeriesStatus = "not started"
+	UpgradeSeriesPrepareStarted   UpgradeSeriesStatus = "prepare started"
+	UpgradeSeriesPrepareMachine   UpgradeSeriesStatus = "prepare machine"
+	UpgradeSeriesPrepareCompleted UpgradeSeriesStatus = "prepare completed"
+	UpgradeSeriesCompleteStarted  UpgradeSeriesStatus = "complete started"
+	UpgradeSeriesCompleted        UpgradeSeriesStatus = "completed"
+	UpgradeSeriesError            UpgradeSeriesStatus = "error"
 )
 
-// ValidateUnitSeriesUpgradeStatus validates a string returning an
-// UpgradeSeriesStatus, if valid, or an error.
-func ValidateUnitSeriesUpgradeStatus(series string) (UpgradeSeriesStatus, error) {
-	unCheckedStatus := UpgradeSeriesStatus(series)
-	switch unCheckedStatus {
-	case NotStarted, PrepareStarted, PrepareCompleted, CompleteStarted, Completed, UnitErrored:
-		return unCheckedStatus, nil
+// ValidateUnitSeriesUpgradeStatus validates a the input status as valid for a
+// unit, returning the valid status or an error.
+func ValidateUnitSeriesUpgradeStatus(status UpgradeSeriesStatus) (UpgradeSeriesStatus, error) {
+	switch status {
+	case UpgradeSeriesNotStarted, UpgradeSeriesPrepareStarted, UpgradeSeriesPrepareCompleted,
+		UpgradeSeriesCompleteStarted, UpgradeSeriesCompleted, UpgradeSeriesError:
+		return status, nil
 	}
-
-	return NotStarted, errors.Errorf("encountered invalid unit upgrade series status of %q", series)
+	return UpgradeSeriesNotStarted, errors.NotValidf("unit upgrade series status of %q", status)
 }

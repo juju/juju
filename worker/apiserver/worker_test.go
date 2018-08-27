@@ -18,6 +18,7 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
@@ -31,6 +32,7 @@ type workerFixture struct {
 	hub                  pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
 	prometheusRegisterer stubPrometheusRegisterer
+	leaseManager         lease.Manager
 	config               apiserver.Config
 	stub                 testing.Stub
 }
@@ -49,6 +51,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
+	s.leaseManager = &struct{ lease.Manager }{}
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -60,6 +63,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Mux:                               s.mux,
 		StatePool:                         &state.StatePool{},
 		PrometheusRegisterer:              &s.prometheusRegisterer,
+		LeaseManager:                      s.leaseManager,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		UpgradeComplete:                   func() bool { return true },
 		RestoreStatus:                     func() state.RestoreStatus { return "" },
@@ -109,6 +113,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.LeaseManager = nil },
+		"nil LeaseManager not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.RegisterIntrospectionHTTPHandlers = nil },
 		"nil RegisterIntrospectionHTTPHandlers not valid",

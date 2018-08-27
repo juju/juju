@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -30,8 +31,8 @@ var _ = gc.Suite(&upgradeSeriesSuite{})
 func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.machineTag = names.NewMachineTag("1")
-	s.unitTag = names.NewUnitTag("redis/1")
+	s.machineTag = names.NewMachineTag("0")
+	s.unitTag = names.NewUnitTag("redis/0")
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
@@ -39,11 +40,10 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	defer ctrl.Finish()
 
 	api, backend := s.newAPI(c, ctrl)
-
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().MachineUpgradeSeriesStatus().Return(model.PrepareCompleted, nil)
+	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.Entities{
@@ -52,12 +52,8 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	results, err := api.MachineStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResultsNew{
-		Results: []params.UpgradeSeriesStatusResultNew{
-			{
-				Status: params.UpgradeSeriesStatus{Entity: entity, Status: model.PrepareCompleted},
-			},
-		},
+	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
+		Results: []params.UpgradeSeriesStatusResult{{Status: model.UpgradeSeriesPrepareCompleted}},
 	})
 }
 
@@ -66,21 +62,64 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	defer ctrl.Finish()
 
 	api, backend := s.newAPI(c, ctrl)
-
 	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
 
 	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().SetMachineUpgradeSeriesStatus(model.PrepareCompleted).Return(nil)
+	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatus{{Entity: entity, Status: model.PrepareCompleted}},
+		Params: []params.UpgradeSeriesStatusParam{{Entity: entity, Status: model.UpgradeSeriesPrepareCompleted}},
 	}
 
 	results, err := api.SetMachineStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api, backend := s.newAPI(c, ctrl)
+	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+
+	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
+	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
+		"redis/0": {Status: model.UpgradeSeriesPrepareCompleted},
+		"redis/1": {Status: model.UpgradeSeriesPrepareStarted},
+	}, nil)
+
+	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
+
+	results, err := api.UnitsPrepared(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
+		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api, backend := s.newAPI(c, ctrl)
+	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+
+	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
+	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
+		"redis/0": {Status: model.UpgradeSeriesCompleted},
+		"redis/1": {Status: model.UpgradeSeriesCompleteStarted},
+	}, nil)
+
+	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
+
+	results, err := api.UnitsCompleted(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
+		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
 	})
 }
 

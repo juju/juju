@@ -7,18 +7,22 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 
+// State exposes methods from state required by this API.
 type State interface {
 	common.UpgradeSeriesBackend
 }
 
+// API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
 
@@ -60,27 +64,27 @@ func NewUpgradeSeriesAPI(st State, resources facade.Resources, authorizer facade
 }
 
 // MachineStatus gets the current upgrade-series status of a machine.
-func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusResultsNew, error) {
-	result := params.UpgradeSeriesStatusResultsNew{}
+func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+	result := params.UpgradeSeriesStatusResults{}
 
 	canAccess, err := a.AccessMachine()
 	if err != nil {
 		return result, err
 	}
 
-	results := make([]params.UpgradeSeriesStatusResultNew, len(args.Entities))
+	results := make([]params.UpgradeSeriesStatusResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		machine, err := a.authAndMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		status, err := machine.MachineUpgradeSeriesStatus()
+		status, err := machine.UpgradeSeriesStatus()
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		results[i].Status = params.UpgradeSeriesStatus{Status: status, Entity: entity}
+		results[i].Status = status
 	}
 
 	result.Results = results
@@ -103,7 +107,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.SetMachineUpgradeSeriesStatus(param.Status)
+		err = machine.SetUpgradeSeriesStatus(param.Status)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 		}
@@ -115,7 +119,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 // CompleteStatus starts the upgrade series completion phase for all subordinate
 // units of a given machine.
-func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (a *API) StartUnitCompletion(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -129,12 +133,62 @@ func (a *API) StartUnitUpgradeSeriesCompletionPhase(args params.SetUpgradeSeries
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.StartUnitUpgradeSeriesCompletionPhase()
+		err = machine.StartUpgradeSeriesUnitCompletion()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 	}
+	return result, nil
+}
+
+// UnitsPrepared returns the units running on this machine that have completed
+// their upgrade-series preparation, and are ready to be stopped and have their
+// unit agent services converted for the target series.
+func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error) {
+	result, err := a.unitsInState(args, model.UpgradeSeriesPrepareCompleted)
+	return result, errors.Trace(err)
+}
+
+// UnitsCompleted returns the units running on this machine that have completed
+// the upgrade-series workflow and are in their normal running state.
+func (a *API) UnitsCompleted(args params.Entities) (params.EntitiesResults, error) {
+	result, err := a.unitsInState(args, model.UpgradeSeriesCompleted)
+	return result, errors.Trace(err)
+}
+
+func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatus) (params.EntitiesResults, error) {
+	result := params.EntitiesResults{}
+
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	results := make([]params.EntitiesResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machine, err := a.authAndMachine(entity, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		statuses, err := machine.UpgradeSeriesUnitStatuses()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		var entities []params.Entity
+		for id, s := range statuses {
+			if s.Status == status {
+				entities = append(entities, params.Entity{Tag: names.NewUnitTag(id).String()})
+			}
+		}
+		results[i].Entities = entities
+	}
+
+	result.Results = results
 	return result, nil
 }
 

@@ -77,6 +77,9 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
 		controller.CharmStoreURL:   "staging.charmstore",
+		// TODO(raftlease): setting this temporarily until the startup
+		// issue is resolved.
+		controller.Features: []interface{}{"legacy-leases"},
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	// Most of these tests normally finish sub-second on a fast machine.

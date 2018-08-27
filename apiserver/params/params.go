@@ -1314,50 +1314,19 @@ type DumpModelRequest struct {
 }
 
 type UpgradeSeriesStatusResult struct {
-	Error  *Error `json:"error,omitempty"`
-	Status string `json:"status,omitempty"`
+	Error  *Error                    `json:"error,omitempty"`
+	Status model.UpgradeSeriesStatus `json:"status,omitempty"`
 }
 
 type UpgradeSeriesStatusResults struct {
 	Results []UpgradeSeriesStatusResult `json:"results,omitempty"`
 }
 
-type SetUpgradeSeriesStatusParams struct {
-	Params []SetUpgradeSeriesStatusParam `json:"params"`
+type UpgradeSeriesStatusParams struct {
+	Params []UpgradeSeriesStatusParam `json:"params"`
 }
 
-type SetUpgradeSeriesStatusParam struct {
-	Entity Entity `json:"entity"`
-	Status string `json:"status"`
-}
-
-// UpgradeSeriesStatus is a transport for the status of a unit or machine
-// who's host OS is being upgraded.
-// Used as both an argument and a return.
-// TODO (manadart 2018-08-07) Replace SetUpgradeSeriesStatusParam usage
-// with this and use in place of UpgradeSeriesStatusResult.Status.
-type UpgradeSeriesStatus struct {
+type UpgradeSeriesStatusParam struct {
 	Entity Entity                    `json:"entity"`
 	Status model.UpgradeSeriesStatus `json:"status"`
-}
-
-// UpgradeSeriesStatusResultNew transports the upgrade-series status of a
-// single entity.
-// TODO (manadart 2018-08-07) Remove UpgradeSeriesStatusResult and
-// rename this.
-type UpgradeSeriesStatusResultNew struct {
-	Error  *Error              `json:"error,omitempty"`
-	Status UpgradeSeriesStatus `json:"status,omitempty"`
-}
-
-// UpgradeSeriesStatusResultsNew transports the upgrade series statuses
-// for a collection of entities.
-// TODO (manadart 2018-08-07) Remove UpgradeSeriesStatusResults and
-// rename this.
-type UpgradeSeriesStatusResultsNew struct {
-	Results []UpgradeSeriesStatusResultNew `json:"results,omitempty"`
-}
-
-type UpgradeSeriesStatusParams struct {
-	Params []UpgradeSeriesStatus `json:"params"`
 }

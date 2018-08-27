@@ -19,8 +19,8 @@ import (
 type Secretary struct{}
 
 // CheckLease is part of the lease.Secretary interface.
-func (Secretary) CheckLease(name string) error {
-	return checkName(name)
+func (Secretary) CheckLease(key lease.Key) error {
+	return checkName(key.Lease)
 }
 
 // CheckHolder is part of the lease.Secretary interface.

@@ -36,6 +36,10 @@ func StorageClass(cfg *storageConfig) string {
 	return cfg.storageClass
 }
 
+func ExistingStorageClass(cfg *storageConfig) string {
+	return cfg.existingStorageClass
+}
+
 func StorageProvisioner(cfg *storageConfig) string {
 	return cfg.storageProvisioner
 }

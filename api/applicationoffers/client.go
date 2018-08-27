@@ -59,6 +59,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*cr
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
 		filterTerm := params.OfferFilter{
+			OwnerName:           f.OwnerName,
 			ModelName:           f.ModelName,
 			OfferName:           f.OfferName,
 			ApplicationName:     f.ApplicationName,

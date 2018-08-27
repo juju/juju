@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -38,6 +40,10 @@ func (ctx *charmsSuiteContext) StatePool() *state.StatePool { return nil }
 func (ctx *charmsSuiteContext) ID() string                  { return "" }
 func (ctx *charmsSuiteContext) Presence() facade.Presence   { return nil }
 func (ctx *charmsSuiteContext) Hub() facade.Hub             { return nil }
+
+func (ctx *charmsSuiteContext) LeadershipClaimer() (leadership.Claimer, error) { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error) { return nil, nil }
+func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)        { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

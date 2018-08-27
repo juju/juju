@@ -8,6 +8,7 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -36,7 +37,9 @@ import (
 	"github.com/juju/juju/core/application"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -45,6 +48,7 @@ import (
 	"github.com/juju/juju/state/globalclock"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	jujuversion "github.com/juju/juju/version"
@@ -437,6 +441,18 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 // ApplicationLeaders returns a map of the application name to the
 // unit name that is the current leader.
 func (st *State) ApplicationLeaders() (map[string]string, error) {
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !config.Features().Contains(feature.LegacyLeases) {
+		return raftleasestore.LeaseHolders(
+			&environMongo{st},
+			leaseHoldersC,
+			lease.ApplicationLeadershipNamespace,
+			st.ModelUUID(),
+		)
+	}
 	store, err := st.getLeadershipLeaseStore()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -450,11 +466,11 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 }
 
 func (st *State) getLeadershipLeaseStore() (lease.Store, error) {
-	return st.getLeaseStore(applicationLeadershipNamespace)
+	return st.getLeaseStore(lease.ApplicationLeadershipNamespace)
 }
 
 func (st *State) getSingularLeaseStore() (lease.Store, error) {
-	return st.getLeaseStore(singularControllerNamespace)
+	return st.getLeaseStore(lease.SingularControllerNamespace)
 }
 
 func (st *State) getLeaseStore(namespace string) (lease.Store, error) {
@@ -485,6 +501,12 @@ func (st *State) getLeaseStore(namespace string) (lease.Store, error) {
 		return nil, errors.Annotatef(err, "cannot create %q lease store", namespace)
 	}
 	return store, nil
+}
+
+// LeaseNotifyTarget returns a raftlease.NotifyTarget for storing
+// lease changes in the database.
+func (st *State) LeaseNotifyTarget(logDest io.Writer, errorLogger raftleasestore.Logger) raftlease.NotifyTarget {
+	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logDest, errorLogger)
 }
 
 // ModelUUID returns the model UUID for the model

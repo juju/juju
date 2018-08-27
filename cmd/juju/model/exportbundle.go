@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api/bundle"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.
@@ -32,7 +31,7 @@ type exportBundleCommand struct {
 }
 
 const exportBundleHelpDoc = `
-Exports the current model configuration as bundle.
+Exports the current model configuration as a reusable bundle.
 
 If --filename is not used, the configuration is printed to stdout.
  --filename specifies an output file.
@@ -40,14 +39,15 @@ If --filename is not used, the configuration is printed to stdout.
 Examples:
 
     juju export-bundle
-	juju export-bundle --filename mymodel
+	juju export-bundle --filename mymodel.yaml
+
 `
 
 // Info implements Command.
 func (c *exportBundleCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "export-bundle",
-		Purpose: "Exports the current model configuration as bundle.",
+		Purpose: "Exports the current model configuration as a reusable bundle.",
 		Doc:     exportBundleHelpDoc,
 	}
 }
@@ -55,7 +55,6 @@ func (c *exportBundleCommand) Info() *cmd.Info {
 // SetFlags implements Command.
 func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.Filename, "filename", "", "Bundle file")
 }
 
@@ -93,9 +92,10 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Filename == "" {
-		return c.out.Write(ctx, result)
+		_, err := fmt.Fprintf(ctx.Stdout, "%v", result)
+		return err
 	}
-	filename := c.Filename + ".yaml"
+	filename := c.Filename
 	file, err := os.Create(filename)
 	if err != nil {
 		return errors.Annotate(err, "while creating local file")

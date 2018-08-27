@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
@@ -58,6 +59,7 @@ import (
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/identityfilewriter"
+	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
@@ -73,6 +75,7 @@ import (
 	"github.com/juju/juju/worker/raft/raftbackstop"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/worker/raft/raftforwarder"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -97,6 +100,10 @@ const (
 	// globalClockUpdaterBackoffDelay is the amount of time to
 	// delay when a concurrent global clock update is detected.
 	globalClockUpdaterBackoffDelay = 10 * time.Second
+
+	// leaseRequestTopic is the pubsub topic that lease FSM updates
+	// will be published on.
+	leaseRequestTopic = "lease.request"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -272,6 +279,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	machineTag := agentConfig.Tag().(names.MachineTag)
 	controllerTag := agentConfig.Controller()
+
+	leaseFSM := raftlease.NewFSM()
 
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
@@ -490,6 +499,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:      globalclockupdater.NewWorker,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
 			BackoffDelay:   globalClockUpdaterBackoffDelay,
+			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
+		}),
+		// We also run another clock updater to feed time updates into
+		// the lease FSM.
+		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+			ClockName:        clockName,
+			LeaseManagerName: leaseManagerName,
+			NewWorker:        globalclockupdater.NewWorker,
+			UpdateInterval:   globalClockUpdaterUpdateInterval,
+			BackoffDelay:     globalClockUpdaterBackoffDelay,
+			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		}),
 
 		// Each controller machine runs a singular worker which will
@@ -699,6 +719,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:                         clockName,
 			StateName:                         stateName,
 			MuxName:                           httpServerName,
+			LeaseManagerName:                  leaseManagerName,
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
@@ -767,7 +788,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:     clockName,
 			AgentName:     agentName,
 			TransportName: raftTransportName,
-			FSM:           &raft.SimpleFSM{},
+			FSM:           leaseFSM,
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
 		}),
@@ -793,6 +814,31 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         loggo.GetLogger("juju.worker.raft.raftbackstop"),
 			NewWorker:      raftbackstop.NewWorker,
 		}),
+
+		// The raft forwarder accepts FSM commands from the hub and
+		// applies them to the raft leader.
+		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			RequestTopic:   leaseRequestTopic,
+			Logger:         loggo.GetLogger("juju.worker.raft.raftforwarder"),
+			NewWorker:      raftforwarder.NewWorker,
+		})),
+
+		// The global lease manager tracks lease information in the raft
+		// cluster rather than in mongo.
+		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
+			AgentName:      agentName,
+			ClockName:      clockName,
+			StateName:      stateName,
+			CentralHubName: centralHubName,
+			FSM:            leaseFSM,
+			RequestTopic:   leaseRequestTopic,
+			Logger:         loggo.GetLogger("juju.worker.lease.raft"),
+			NewWorker:      leasemanager.NewWorker,
+			NewStore:       leasemanager.NewStore,
+			NewTarget:      leasemanager.NewTarget,
+		})),
 
 		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -909,6 +955,7 @@ const (
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	globalClockUpdaterName        = "global-clock-updater"
+	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
@@ -919,6 +966,7 @@ const (
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
+	leaseManagerName              = "lease-manager"
 
 	upgradeSeriesEnabledName = "upgrade-series-enabled"
 	upgradeSeriesWorkerName  = "upgrade-series"
@@ -932,6 +980,7 @@ const (
 	raftFlagName      = "raft-leader-flag"
 	raftEnabledName   = "raft-enabled-flag"
 	raftBackstopName  = "raft-backstop"
+	raftForwarderName = "raft-forwarder"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
