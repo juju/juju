@@ -591,6 +591,7 @@ func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
 
 	s.charmStoreSuite.SetUpTest(c)
 	logger.SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 }
 
 func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {

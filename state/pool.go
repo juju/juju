@@ -362,6 +362,7 @@ func (p *StatePool) Close() error {
 	if err := p.systemState.Close(); err != nil {
 		lastErr = err
 	}
+	p.systemState = nil
 	return errors.Annotate(lastErr, "at least one error closing a state")
 }
 

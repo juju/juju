@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -322,6 +321,7 @@ func Reset(c *gc.C) {
 	// EnvironProvider (e.g. EnvironProvider.Open).
 	for _, s := range oldState {
 		if s.httpServer != nil {
+			logger.Debugf("closing httpServer")
 			s.httpServer.Close()
 		}
 		s.destroy()
@@ -349,12 +349,13 @@ func (state *environState) destroy() {
 }
 
 func (state *environState) destroyLocked() {
+	logger.Debugf("+ destroyLocked for %s", state.apiState.ModelUUID())
+	defer logger.Debugf("- destroyLocked for %s", state.apiState.ModelUUID())
 	if !state.bootstrapped {
 		return
 	}
 	apiServer := state.apiServer
 	apiStatePool := state.apiStatePool
-	apiState := state.apiState
 	state.apiServer = nil
 	state.apiStatePool = nil
 	state.apiState = nil
@@ -365,28 +366,27 @@ func (state *environState) destroyLocked() {
 	// we must not hold the lock while the API server is being
 	// closed, as it may need to interact with the Environ while
 	// shutting down.
+	logger.Debugf("release state.mu")
 	state.mu.Unlock()
+	defer logger.Debugf("acquire state.mu")
 	defer state.mu.Lock()
 
 	if apiServer != nil {
+		logger.Debugf("stopping apiServer")
 		if err := apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 	}
 
 	if apiStatePool != nil {
+		logger.Debugf("closing apiStatePool")
 		if err := apiStatePool.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 	}
 
-	if apiState != nil {
-		if err := apiState.Close(); err != nil && mongoAlive() {
-			panic(err)
-		}
-	}
-
 	if mongoAlive() {
+		logger.Debugf("resetting MgoServer")
 		gitjujutesting.MgoServer.Reset()
 	}
 }
@@ -866,17 +866,25 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			estate.presence = &fakePresence{make(map[string]presence.Status)}
 			estate.hub = centralhub.New(machineTag)
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
-				StatePool:       statePool,
-				Authenticator:   stateAuthenticator,
-				Clock:           clock.WallClock,
-				GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
-				Tag:             machineTag,
-				DataDir:         DataDir,
-				LogDir:          LogDir,
-				Mux:             estate.mux,
-				Hub:             estate.hub,
-				Presence:        estate.presence,
-				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+				StatePool:      statePool,
+				Authenticator:  stateAuthenticator,
+				Clock:          clock.WallClock,
+				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
+				Tag:            machineTag,
+				DataDir:        DataDir,
+				LogDir:         LogDir,
+				Mux:            estate.mux,
+				Hub:            estate.hub,
+				Presence:       estate.presence,
+				NewObserver: func() observer.Observer {
+					logger := loggo.GetLogger("juju.apiserver")
+					ctx := observer.RequestObserverContext{
+						Clock:  clock.WallClock,
+						Logger: logger,
+						Hub:    estate.hub,
+					}
+					return observer.NewRequestObserver(ctx)
+				},
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
 				UpgradeComplete: func() bool {
