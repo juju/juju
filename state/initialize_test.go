@@ -24,6 +24,7 @@ import (
 type InitializeSuite struct {
 	gitjujutesting.MgoSuite
 	testing.BaseSuite
+	Pool  *state.StatePool
 	State *state.State
 	Model *state.Model
 }
@@ -46,13 +47,15 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	st := pool.SystemState()
+	s.Pool = pool
 	s.State = st
 
 	m, err := st.Model()
@@ -61,8 +64,8 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		err := s.State.Close()
+	if s.Pool != nil {
+		err := s.Pool.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}
 	s.MgoSuite.TearDownTest(c)
@@ -114,7 +117,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	}
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, pool, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -139,14 +142,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(pool, gc.NotNil)
+	st := pool.SystemState()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -259,7 +260,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, pool, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -279,14 +280,12 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(pool, gc.NotNil)
+	st := pool.SystemState()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -334,19 +333,15 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	}
-	ctlr, st, err := state.Initialize(args)
+	ctlr, _, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.Close()
-	c.Check(err, jc.ErrorIsNil)
-
 	err = ctlr.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	ctlr, st, err = state.Initialize(args)
+	ctlr, pool, err := state.Initialize(args)
 	c.Check(err, gc.ErrorMatches, "already initialized")
 	c.Check(ctlr, gc.IsNil)
-	c.Check(st, gc.IsNil)
+	c.Check(pool, gc.IsNil)
 }
 
 func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
@@ -401,12 +396,12 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
-	ctlr, st, err := state.Initialize(args)
+	ctlr, pool, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	modelUUID := pool.SystemState().ModelUUID()
 	ctlr.Close()
 
-	s.openState(c, names.NewModelTag(st.ModelUUID()))
+	s.openState(c, names.NewModelTag(modelUUID))
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -476,7 +471,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, pool, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -496,14 +491,12 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(pool, gc.NotNil)
+	st := pool.SystemState()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -541,7 +534,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, pool, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -562,14 +555,11 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
-	m, err := st.Model()
+	c.Assert(pool, gc.NotNil)
+	m, err := pool.SystemState().Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -602,7 +592,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	ctlr, pool, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -623,14 +613,11 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
-	m, err := st.Model()
+	c.Assert(pool, gc.NotNil)
+	m, err := pool.SystemState().Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag := m.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = st.Close()
-	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctlr.Close()
 	c.Assert(err, jc.ErrorIsNil)

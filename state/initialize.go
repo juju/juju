@@ -135,7 +135,7 @@ type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
+func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Annotate(err, "validating initialization args")
 	}
@@ -167,18 +167,9 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		}
 	}()
 
-	st, err := ctlr.NewState(modelTag)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening state")
-	}
-	defer func() {
-		if err != nil {
-			if closeErr := st.Close(); closeErr != nil {
-				logger.Errorf("error closing state while aborting Initialize: %v", closeErr)
-			}
-		}
-	}()
-	st.controllerModelTag = modelTag
+	// The system state is owned by the pool, which is closed by the
+	// controller close, so no close needed here.
+	st := ctlr.pool.SystemState()
 
 	// A valid model is used as a signal that the
 	// state has already been initialized. If this is the case
@@ -276,7 +267,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
-	return ctlr, st, nil
+	return ctlr, ctlr.pool, nil
 }
 
 // InitDatabase creates all the collections and indices in a Juju database.

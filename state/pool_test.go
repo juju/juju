@@ -81,19 +81,22 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	err = s.StatePool.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Confirm that controller State isn't closed.
-	_, err = s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	assertStateClosed := func(st *state.State) {
+		c.Assert(func() { st.Ping() }, gc.PanicMatches, "Session already closed")
+	}
 
-	// Ensure that new ones are returned if further States are
-	// requested.
+	assertStateClosed(s.State)
+	assertStateClosed(st1.State)
+	assertStateClosed(st2.State)
+
+	// Requests to Get and GetModel now return errors.
 	st1_, err := s.StatePool.Get(s.ModelUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1_, gc.Not(gc.Equals), st1)
+	c.Assert(err, gc.ErrorMatches, "pool is closed")
+	c.Assert(st1_, gc.IsNil)
 
 	st2_, err := s.StatePool.Get(s.ModelUUID2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st2_, gc.Not(gc.Equals), st2)
+	c.Assert(err, gc.ErrorMatches, "pool is closed")
+	c.Assert(st2_, gc.IsNil)
 }
 
 func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {

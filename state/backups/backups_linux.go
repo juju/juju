@@ -237,11 +237,12 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
 	}
 
-	st, err := newStateConnection(agentConfig.Controller(), agentConfig.Model(), mgoInfo)
+	pool, err := newStateConnection(agentConfig.Controller(), agentConfig.Model(), mgoInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer st.Close()
+	defer pool.Close()
+	st := pool.SystemState()
 
 	machine, err := st.Machine(backupMachine.Id())
 	if err != nil {
@@ -273,8 +274,6 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	// TODO(perrito666): We should never stop process because of this.
 	// updateAllMachines will not return errors for individual
 	// agent update failures
-	pool := state.NewStatePool(st)
-	defer pool.Close()
 
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
@@ -288,7 +287,6 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		}
 		defer func() {
 			st.Release()
-			pool.Remove(modelUUID)
 		}()
 
 		model, err := st.Model()

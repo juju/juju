@@ -311,7 +311,9 @@ func (m ModelArgs) Validate() error {
 // model document means that we have a way to represent external
 // models, perhaps for future use around cross model
 // relations.
-func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+	st := ctlr.pool.SystemState()
+
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -434,7 +436,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag, nil)
+	err = newSt.start(st.controllerTag, ctlr.pool.hub)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
@@ -1162,13 +1164,6 @@ func (m *Model) destroyOps(
 		// are any and we have not been instructed to destroy them, we
 		// return an error indicating that there are hosted models.
 
-		// We need access State instances for hosted models and it's
-		// too hard to thread an external StatePool to here, so create
-		// a fresh one. Creating new States is relatively slow but
-		// this is ok because this is an infrequently used code path.
-		pool := NewStatePool(m.st)
-		defer pool.Close()
-
 		modelUUIDs, err := m.st.AllModelUUIDsIncludingDead()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1179,8 +1174,7 @@ func (m *Model) destroyOps(
 				// Ignore the controller model.
 				continue
 			}
-
-			st, err := pool.Get(aModelUUID)
+			newSt, err := m.st.newStateNoWorkers(aModelUUID)
 			if err != nil {
 				// This model could have been removed.
 				if errors.IsNotFound(err) {
@@ -1188,9 +1182,9 @@ func (m *Model) destroyOps(
 				}
 				return nil, errors.Trace(err)
 			}
-			defer st.Release()
+			defer newSt.Close()
 
-			model, err := st.Model()
+			model, err := newSt.Model()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

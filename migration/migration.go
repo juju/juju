@@ -47,16 +47,22 @@ func ExportModel(st StateExporter) ([]byte, error) {
 	return bytes, nil
 }
 
+// StateImporter describes the method needed to import a model
+// into the database.
+type StateImporter interface {
+	Import(model description.Model) (*state.Model, *state.State, error)
+}
+
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, error) {
+func ImportModel(importer StateImporter, bytes []byte) (*state.Model, *state.State, error) {
 	model, err := description.Deserialize(bytes)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	dbModel, dbState, err := st.Import(model)
+	dbModel, dbState, err := importer.Import(model)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

@@ -842,7 +842,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	// Create a new model and add a metric batch.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
 	application := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := f.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
@@ -1056,27 +1056,25 @@ func (s *CrossModelMetricSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	// Set up two models.
 	s.models = make([]modelData, 2)
-	var cleanup func(*gc.C)
 	for i := 0; i < 2; i++ {
-		s.models[i], cleanup = mustCreateMeteredModel(c, s.Factory)
-		s.AddCleanup(cleanup)
+		s.models[i] = s.mustCreateMeteredModel(c)
 	}
 }
 
-func mustCreateMeteredModel(c *gc.C, stateFactory *factory.Factory) (modelData, func(*gc.C)) {
-	st := stateFactory.MakeModel(c, nil)
-	localFactory := factory.NewFactory(st)
+func (s *CrossModelMetricSuite) mustCreateMeteredModel(c *gc.C) modelData {
+	st := s.Factory.MakeModel(c, nil)
+	localFactory := factory.NewFactory(st, s.StatePool)
 
 	meteredCharm := localFactory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
 	application := localFactory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
-	cleanup := func(*gc.C) { st.Close() }
+	s.AddCleanup(func(*gc.C) { st.Close() })
 	return modelData{
 		state:        st,
 		application:  application,
 		unit:         unit,
 		meteredCharm: meteredCharm,
-	}, cleanup
+	}
 }
 
 func (s *CrossModelMetricSuite) TestMetricsAcrossmodels(c *gc.C) {

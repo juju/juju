@@ -180,7 +180,7 @@ func (s *AnnotationsModelSuite) createTestModel(c *gc.C) (*state.Model, *state.S
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",

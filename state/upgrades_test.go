@@ -333,11 +333,11 @@ type expectUpgradedData struct {
 	expected []bson.M
 }
 
-func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, expect ...expectUpgradedData) {
+func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) error, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
-		err := upgrade(s.state)
+		err := upgrade(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, expect := range expect {
@@ -573,7 +573,8 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 		"foo": "bar",
 		"baz": "qux",
 	})
-	f := func(st *State) error {
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -675,7 +676,8 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		"foo": "bar",
 		"baz": "qux",
 	})
-	f := func(st *State) error {
+	f := func(pool *StatePool) error {
+		st := pool.SystemState()
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
@@ -1016,7 +1018,7 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) 
 	}.Merge(attr))
 	m, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, st, err := s.state.NewModel(ModelArgs{
+	_, st, err := s.controller.NewModel(ModelArgs{
 		Type:        ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -1363,7 +1365,7 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 		expected[modelUUID] = append(vals, logRow)
 	}
 
-	err := SplitLogCollections(s.state)
+	err := SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the logs.
@@ -1386,7 +1388,7 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 	c.Assert(numDocs, gc.Equals, 0)
 
 	// Run again, should be fine.
-	err = SplitLogCollections(s.state)
+	err = SplitLogCollections(s.pool)
 	c.Logf("%#v", errors.Cause(err))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1442,7 +1444,7 @@ func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	err := SplitLogCollections(s.state)
+	err := SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the logs - the duplicates were ignored.
@@ -1471,7 +1473,7 @@ func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("logs"), jc.IsFalse)
 
-	err = SplitLogCollections(s.state)
+	err = SplitLogCollections(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1828,7 +1830,7 @@ func (s *upgradesSuite) TestAddModelType(c *gc.C) {
 		expectUpgradedData{models, expectedModels})
 }
 
-func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(st *State) error) {
+func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(pool *StatePool) error) {
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	_, err := settingsColl.RemoveAll(nil)
@@ -1950,7 +1952,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 0)
 
-	err = MoveOldAuditLog(s.state)
+	err = MoveOldAuditLog(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.state.MongoSession().DB("juju")
@@ -1958,7 +1960,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
 
-	err = MoveOldAuditLog(s.state)
+	err = MoveOldAuditLog(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2196,7 +2198,7 @@ func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, sn)
@@ -2214,7 +2216,7 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C)
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
@@ -2235,7 +2237,7 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "already-set")
@@ -2250,7 +2252,7 @@ func (s *upgradesSuite) TestMoveMongoSpaceToHASpaceConfigDeletesOldKeys(c *gc.C)
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Holds Mongo space fields removed from controllersDoc.

@@ -761,7 +761,7 @@ func (a *MachineAgent) Restart() error {
 //
 // TODO(mjs)- review the need for this once the dependency engine is
 // in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
+func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, errors.Trace(err)
@@ -784,7 +784,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	}
 	defer session.Close()
 
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
@@ -803,7 +803,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st, nil
+	return pool, nil
 }
 
 // validateMigration is called by the migrationminion to help check
@@ -954,7 +954,7 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 	return ctlr, nil
 }
 
-func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
+func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
@@ -968,7 +968,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, _, err := openState(
+	pool, _, err := openState(
 		agentConfig,
 		dialOpts,
 		a.mongoTxnCollector.AfterRunTransaction,
@@ -977,9 +977,9 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 		return nil, err
 	}
 
-	reportOpenedState(st)
+	reportOpenedState(pool.SystemState())
 
-	return st, nil
+	return pool, nil
 }
 
 // startModelWorkers starts the set of workers that run for every model
@@ -1080,7 +1080,7 @@ func openState(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
 	runTransactionObserver state.RunTransactionObserverFunc,
-) (_ *state.State, _ *state.Machine, err error) {
+) (_ *state.StatePool, _ *state.Machine, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
@@ -1091,7 +1091,7 @@ func openState(
 	}
 	defer session.Close()
 
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:                  clock.WallClock,
 		ControllerTag:          agentConfig.Controller(),
 		ControllerModelTag:     agentConfig.Model(),
@@ -1104,9 +1104,10 @@ func openState(
 	}
 	defer func() {
 		if err != nil {
-			st.Close()
+			pool.Close()
 		}
 	}()
+	st := pool.SystemState()
 	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -1125,7 +1126,7 @@ func openState(
 		logger.Errorf("running machine %v agent on inappropriate instance", m)
 		return nil, nil, jworker.ErrTerminateAgent
 	}
-	return st, m, nil
+	return pool, m, nil
 }
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker

@@ -22,32 +22,7 @@ var _ = gc.Suite(&StateTrackerSuite{})
 
 func (s *StateTrackerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-
-	// Close the state pool, as it's not needed, and it
-	// refers to the state object's mongo session. If we
-	// do not close the pool, its embedded watcher may
-	// attempt to access mongo after it has been closed
-	// by the state tracker.
-	err := s.StatePool.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stateTracker = workerstate.NewStateTracker(s.State)
-}
-
-func (s *StateTrackerSuite) TearDownTest(c *gc.C) {
-	// Even though we no longer have to worry about the StateSuite's
-	// StatePool, we do have to make sure the one in the stateTracker
-	// is closed.
-
-	for {
-		err := s.stateTracker.Done()
-		if err == workerstate.ErrStateClosed {
-			break
-		}
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	s.StateSuite.TearDownTest(c)
+	s.stateTracker = workerstate.NewStateTracker(s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestDoneWithNoUse(c *gc.C) {

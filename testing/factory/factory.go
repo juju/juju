@@ -42,13 +42,17 @@ const (
 )
 
 type Factory struct {
-	st *state.State
+	pool *state.StatePool
+	st   *state.State
 }
 
 var index uint32
 
-func NewFactory(st *state.State) *Factory {
-	return &Factory{st: st}
+func NewFactory(st *state.State, pool *state.StatePool) *Factory {
+	return &Factory{
+		st:   st,
+		pool: pool,
+	}
 }
 
 // UserParams defines the parameters for creating a user with MakeUser.
@@ -741,7 +745,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"uuid": uuid.String(),
 		"type": cfgType,
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewModel(state.ModelArgs{
+	controller := state.NewController(factory.pool)
+	_, st, err := controller.NewModel(state.ModelArgs{
 		Type:            params.Type,
 		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,

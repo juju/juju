@@ -32,7 +32,8 @@ var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
 
 // runForAllModelStates will run runner function for every model passing a state
 // for that model.
-func runForAllModelStates(st *State, runner func(st *State) error) error {
+func runForAllModelStates(pool *StatePool, runner func(st *State) error) error {
+	st := pool.SystemState()
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
@@ -42,8 +43,6 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 		return errors.Annotate(err, "failed to read models")
 	}
 
-	pool := NewStatePool(st)
-	defer pool.Close()
 	for _, modelDoc := range modelDocs {
 		modelUUID := modelDoc["_id"].(string)
 		model, err := pool.Get(modelUUID)
@@ -52,7 +51,6 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 		}
 		defer func() {
 			model.Release()
-			pool.Remove(modelUUID)
 		}()
 		if err := runner(model.State); err != nil {
 			return errors.Annotatef(err, "model UUID %q", modelUUID)
@@ -86,7 +84,8 @@ func replaceBsonDField(d bson.D, name string, value interface{}) error {
 }
 
 // RenameAddModelPermission renames any permissions called addmodel to add-model.
-func RenameAddModelPermission(st *State) error {
+func RenameAddModelPermission(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(permissionsC)
 	defer closer()
 	upgradesLogger.Infof("migrating addmodel permission")
@@ -115,7 +114,8 @@ func RenameAddModelPermission(st *State) error {
 }
 
 // StripLocalUserDomain removes any @local suffix from any relevant document field values.
-func StripLocalUserDomain(st *State) error {
+func StripLocalUserDomain(pool *StatePool) error {
+	st := pool.SystemState()
 	var ops []txn.Op
 	more, err := stripLocalFromFields(st, cloudCredentialsC, "_id", "owner")
 	if err != nil {
@@ -243,7 +243,8 @@ func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.O
 
 // AddMigrationAttempt adds an "attempt" field to migration documents
 // which are missing one.
-func AddMigrationAttempt(st *State) error {
+func AddMigrationAttempt(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(migrationsC)
 	defer closer()
 
@@ -296,7 +297,8 @@ func extractMigrationAttempt(id interface{}) (int, error) {
 
 // AddLocalCharmSequences creates any missing sequences in the
 // database for tracking already used local charm revisions.
-func AddLocalCharmSequences(st *State) error {
+func AddLocalCharmSequences(pool *StatePool) error {
+	st := pool.SystemState()
 	charmsColl, closer := st.db().GetRawCollection(charmsC)
 	defer closer()
 
@@ -475,7 +477,8 @@ func upgradeNoProxy(np string) string {
 
 // UpgradeNoProxyDefaults changes the default values of no_proxy
 // to hold localhost values as defaults.
-func UpgradeNoProxyDefaults(st *State) error {
+func UpgradeNoProxyDefaults(pool *StatePool) error {
+	st := pool.SystemState()
 	var ops []txn.Op
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
@@ -509,8 +512,8 @@ func UpgradeNoProxyDefaults(st *State) error {
 // AddNonDetachableStorageMachineId sets the "machineid" field on
 // volume and filesystem docs that are inherently bound to that
 // machine.
-func AddNonDetachableStorageMachineId(st *State) error {
-	return runForAllModelStates(st, addNonDetachableStorageMachineId)
+func AddNonDetachableStorageMachineId(pool *StatePool) error {
+	return runForAllModelStates(pool, addNonDetachableStorageMachineId)
 }
 
 func addNonDetachableStorageMachineId(st *State) error {
@@ -653,7 +656,8 @@ func addNonDetachableStorageMachineId(st *State) error {
 
 // RemoveNilValueApplicationSettings removes any application setting
 // key-value pairs from "settings" where value is nil.
-func RemoveNilValueApplicationSettings(st *State) error {
+func RemoveNilValueApplicationSettings(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
@@ -689,7 +693,8 @@ func RemoveNilValueApplicationSettings(st *State) error {
 
 // AddControllerLogCollectionsSizeSettings adds the controller
 // settings to control log pruning and txn log size if they are missing.
-func AddControllerLogCollectionsSizeSettings(st *State) error {
+func AddControllerLogCollectionsSizeSettings(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
@@ -778,7 +783,8 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 
 // AddStatusHistoryPruneSettings adds the model settings
 // to control log pruning if they are missing.
-func AddStatusHistoryPruneSettings(st *State) error {
+func AddStatusHistoryPruneSettings(pool *StatePool) error {
+	st := pool.SystemState()
 	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
 		settingsChanged :=
 			maybeUpdateSettings(doc.Settings, config.MaxStatusHistoryAge, config.DefaultStatusHistoryAge)
@@ -794,7 +800,8 @@ func AddStatusHistoryPruneSettings(st *State) error {
 
 // AddActionPruneSettings adds the model settings
 // to control log pruning if they are missing.
-func AddActionPruneSettings(st *State) error {
+func AddActionPruneSettings(pool *StatePool) error {
+	st := pool.SystemState()
 	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
 		settingsChanged :=
 			maybeUpdateSettings(doc.Settings, config.MaxActionResultsAge, config.DefaultActionResultsAge)
@@ -811,7 +818,8 @@ func AddActionPruneSettings(st *State) error {
 // AddUpdateStatusHookSettings adds the model settings
 // to control how often to run the update-status hook
 // if they are missing.
-func AddUpdateStatusHookSettings(st *State) error {
+func AddUpdateStatusHookSettings(pool *StatePool) error {
+	st := pool.SystemState()
 	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
 		settingsChanged :=
 			maybeUpdateSettings(doc.Settings, config.UpdateStatusHookInterval, config.DefaultUpdateStatusHookInterval)
@@ -825,8 +833,8 @@ func AddUpdateStatusHookSettings(st *State) error {
 
 // AddStorageInstanceConstraints sets the "constraints" field on
 // storage instance docs.
-func AddStorageInstanceConstraints(st *State) error {
-	return runForAllModelStates(st, addStorageInstanceConstraints)
+func AddStorageInstanceConstraints(pool *StatePool) error {
+	return runForAllModelStates(pool, addStorageInstanceConstraints)
 }
 
 func addStorageInstanceConstraints(st *State) error {
@@ -930,7 +938,8 @@ func addStorageInstanceConstraints(st *State) error {
 
 // SplitLogCollections moves log entries from the old single log collection
 // to the log collection per model.
-func SplitLogCollections(st *State) error {
+func SplitLogCollections(pool *StatePool) error {
+	st := pool.SystemState()
 	session := st.MongoSession()
 	db := session.DB(logsDB)
 	oldLogs := db.C("logs")
@@ -1016,7 +1025,8 @@ func (i *relationUnitCountInfo) otherEnd(appName string) (string, error) {
 // CorrectRelationUnitCounts ensures that there aren't any rows in
 // relationscopes for applications that shouldn't be there. Fix for
 // https://bugs.launchpad.net/juju/+bug/1699050
-func CorrectRelationUnitCounts(st *State) error {
+func CorrectRelationUnitCounts(pool *StatePool) error {
+	st := pool.SystemState()
 	applicationsColl, aCloser := st.db().GetRawCollection(applicationsC)
 	defer aCloser()
 
@@ -1192,7 +1202,8 @@ func otherEndIsSubordinate(relation *relationUnitCountInfo, unitName, modelUUID 
 // This will force all environ upgrade steps to be run; there are only two
 // providers (azure and vsphere) that had upgrade steps at the time, and the
 // upgrade steps are required to be idempotent anyway.
-func AddModelEnvironVersion(st *State) error {
+func AddModelEnvironVersion(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
@@ -1224,7 +1235,8 @@ func AddModelEnvironVersion(st *State) error {
 
 // AddModelType adds a "type" field to model documents which don't
 // have one. The "iaas" type is used.
-func AddModelType(st *State) error {
+func AddModelType(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
@@ -1256,8 +1268,8 @@ func AddModelType(st *State) error {
 // MigrateLeasesToGlobalTime removes old (<2.3-beta2) lease/clock-skew
 // documents, replacing the lease documents with new ones for the
 // existing lease holders.
-func MigrateLeasesToGlobalTime(st *State) error {
-	return runForAllModelStates(st, migrateModelLeasesToGlobalTime)
+func MigrateLeasesToGlobalTime(pool *StatePool) error {
+	return runForAllModelStates(pool, migrateModelLeasesToGlobalTime)
 }
 
 func migrateModelLeasesToGlobalTime(st *State) error {
@@ -1329,8 +1341,8 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 
 // AddRelationStatus sets the initial status for existing relations
 // without a status.
-func AddRelationStatus(st *State) error {
-	return runForAllModelStates(st, addRelationStatus)
+func AddRelationStatus(pool *StatePool) error {
+	return runForAllModelStates(pool, addRelationStatus)
 }
 
 func addRelationStatus(st *State) error {
@@ -1377,7 +1389,8 @@ func addRelationStatus(st *State) error {
 
 // MoveOldAuditLog renames the no-longer-needed audit.log collection
 // to old-audit.log if it has any rows - if it's empty it deletes it.
-func MoveOldAuditLog(st *State) error {
+func MoveOldAuditLog(pool *StatePool) error {
+	st := pool.SystemState()
 	names, err := st.MongoSession().DB("juju").CollectionNames()
 	if err != nil {
 		return errors.Trace(err)
@@ -1407,7 +1420,8 @@ func MoveOldAuditLog(st *State) error {
 
 // DeleteCloudImageMetadata deletes any non-custom cloud
 // image metadata records from the cloudimagemetadata collection.
-func DeleteCloudImageMetadata(st *State) error {
+func DeleteCloudImageMetadata(pool *StatePool) error {
+	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(cloudimagemetadataC)
 	defer closer()
 
@@ -1423,7 +1437,8 @@ func DeleteCloudImageMetadata(st *State) error {
 // This only happens if the Mongo space state is valid, it is not empty,
 // and if there is no value already set for the HA space name.
 // The old keys are then deleted from ControllerInfo.
-func MoveMongoSpaceToHASpaceConfig(st *State) error {
+func MoveMongoSpaceToHASpaceConfig(pool *StatePool) error {
+	st := pool.SystemState()
 	// Holds Mongo space fields removed from controllersDoc.
 	type controllersUpgradeDoc struct {
 		MongoSpaceName  string `bson:"mongo-space-name"`
@@ -1467,7 +1482,8 @@ func MoveMongoSpaceToHASpaceConfig(st *State) error {
 }
 
 // CreateMissingApplicationConfig ensures that all models have an application config in the db.
-func CreateMissingApplicationConfig(st *State) error {
+func CreateMissingApplicationConfig(pool *StatePool) error {
+	st := pool.SystemState()
 	settingsColl, settingsCloser := st.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 
@@ -1511,7 +1527,8 @@ func CreateMissingApplicationConfig(st *State) error {
 }
 
 // RemoveVotingMachineIds ensures that the 'votingmachineids' field on controller info has been removed
-func RemoveVotingMachineIds(st *State) error {
+func RemoveVotingMachineIds(pool *StatePool) error {
+	st := pool.SystemState()
 	controllerColl, controllerCloser := st.db().GetRawCollection(controllersC)
 	defer controllerCloser()
 	// The votingmachineids field is just a denormalization of Machine.WantsVote() so we can just
@@ -1524,7 +1541,8 @@ func RemoveVotingMachineIds(st *State) error {
 }
 
 // AddCloudModelCounts updates cloud docs to ensure the model count field is set.
-func AddCloudModelCounts(st *State) error {
+func AddCloudModelCounts(pool *StatePool) error {
+	st := pool.SystemState()
 	cloudsColl, closer := st.db().GetCollection(cloudsC)
 	defer closer()
 
@@ -1562,7 +1580,8 @@ func AddCloudModelCounts(st *State) error {
 
 // UpgradeDefaultContainerImageStreamConfig ensures that the config value for
 // container-image-stream is set to its default value, "released".
-func UpgradeContainerImageStreamDefault(st *State) error {
+func UpgradeContainerImageStreamDefault(pool *StatePool) error {
+	st := pool.SystemState()
 	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
 		ciStreamVal, keySet := doc.Settings[config.ContainerImageStreamKey]
 		if keySet {
@@ -1585,7 +1604,8 @@ func UpgradeContainerImageStreamDefault(st *State) error {
 // ones relating to Model data.
 // This removes it from all the ones that aren't model docs if it is exactly
 // what we would have added in 2.3.6
-func RemoveContainerImageStreamFromNonModelSettings(st *State) error {
+func RemoveContainerImageStreamFromNonModelSettings(pool *StatePool) error {
+	st := pool.SystemState()
 	uuids, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
@@ -1642,14 +1662,14 @@ func RemoveContainerImageStreamFromNonModelSettings(st *State) error {
 // set. These are needed to bootstrap the raft cluster in an upgrade
 // and using MongoSession directly from an upgrade steps would make
 // testing difficult.
-func ReplicaSetMembers(st *State) ([]replicaset.Member, error) {
-	return replicaset.CurrentMembers(st.MongoSession())
+func ReplicaSetMembers(pool *StatePool) ([]replicaset.Member, error) {
+	return replicaset.CurrentMembers(pool.SystemState().MongoSession())
 }
 
 // MigrateStorageMachineIdFields updates the various storage collections
 // to copy any machineid field value across to hostid.
-func MigrateStorageMachineIdFields(st *State) error {
-	return runForAllModelStates(st, migrateStorageMachineIds)
+func MigrateStorageMachineIdFields(pool *StatePool) error {
+	return runForAllModelStates(pool, migrateStorageMachineIds)
 }
 
 func migrateStorageMachineIds(st *State) error {

@@ -119,7 +119,8 @@ func NewModelManagerBackend(m *state.Model, pool *state.StatePool) ModelManagerB
 
 // NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
-	otherModel, otherState, err := st.State.NewModel(args)
+	controller := state.NewController(st.pool)
+	otherModel, otherState, err := controller.NewModel(args)
 	if err != nil {
 		return nil, nil, err
 	}

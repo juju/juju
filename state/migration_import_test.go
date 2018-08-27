@@ -57,7 +57,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, err = s.State.Import(out)
+	_, _, err = s.Controller.Import(out)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
@@ -85,7 +85,7 @@ func (s *MigrationImportSuite) importModel(c *gc.C, st *state.State, transform .
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	newModel, newSt, err := st.Import(in)
+	newModel, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
 	// add the cleanup here to close the model.
 	s.AddCleanup(func(c *gc.C) {
@@ -125,7 +125,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	newModel, newSt, err := s.State.Import(in)
+	newModel, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -418,7 +418,7 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 func (s *MigrationImportSuite) setupSourceApplications(
 	c *gc.C, st *state.State, cons constraints.Value,
 ) (*state.Charm, *state.Application, string) {
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -530,7 +530,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	newModel, newSt := s.importModel(c, s.State)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt)
+	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		URL:      charm.URL().String(),
@@ -563,7 +563,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	newModel, newSt := s.importModel(c, caasSt)
 	// Manually copy across the charm from the old model
 	// as it's normally done later.
-	f := factory.NewFactory(newSt)
+	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		URL:      charm.URL().String(),
@@ -622,7 +622,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	_, newSt, err := s.State.Import(in)
+	_, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -691,7 +691,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	_, newSt, err := s.State.Import(in)
+	_, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
 	// add the cleanup here to close the model.
 	s.AddCleanup(func(c *gc.C) {
@@ -715,7 +715,7 @@ func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, cons constraints.Value) {
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 
 	exported, pwd := f.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Constraints: cons,
@@ -1643,7 +1643,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 		Tag:         names.NewApplicationTag("remote"),
 	})
 
-	_, newSt, err := s.State.Import(in)
+	_, newSt, err := s.Controller.Import(in)
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -1796,7 +1796,7 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		Cloud:              model.Cloud(),
 		CloudRegion:        model.CloudRegion(),
 	})
-	imported, newSt, err := s.State.Import(noTypeModel)
+	imported, newSt, err := s.Controller.Import(noTypeModel)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 

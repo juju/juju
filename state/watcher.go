@@ -3096,7 +3096,6 @@ func (w *relationNetworksWatcher) loop() error {
 		err         error
 	)
 	if _, err = w.loadCIDRs(); err != nil {
-		logger.Criticalf(err.Error())
 		return errors.Trace(err)
 	}
 	for {
@@ -3289,6 +3288,7 @@ func (w *containerAddressesWatcher) loop() error {
 			return tomb.ErrDying
 		case <-containerCh:
 			container, err := w.unit.cloudContainer()
+			logger.Criticalf("address watcher %#v, %v", container, err)
 			if err != nil {
 				return err
 			}
@@ -3301,6 +3301,7 @@ func (w *containerAddressesWatcher) loop() error {
 			newAddress := container.Address
 			if addressValue(newAddress) != addressValue(currentAddress) {
 				currentAddress = newAddress
+				logger.Criticalf("address cange %#v", currentAddress)
 				out = w.out
 			}
 		case out <- struct{}{}:

@@ -323,7 +323,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	_, st, err := s.State.NewModel(state.ModelArgs{
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		Config:                  cfg,
 		Owner:                   owner,

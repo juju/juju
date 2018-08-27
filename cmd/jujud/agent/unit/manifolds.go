@@ -93,7 +93,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool) error
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
@@ -204,7 +204,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			// Realistically,  units should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.State, error) {
+			OpenStateForUpgrade: func() (*state.StatePool, error) {
 				return nil, errors.New("unit agent cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,

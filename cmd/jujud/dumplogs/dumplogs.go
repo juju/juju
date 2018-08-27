@@ -115,7 +115,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer session.Close()
 
-	st0, err := state.Open(state.OpenParams{
+	statePool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
@@ -124,11 +124,8 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}
-	defer st0.Close()
-
-	statePool := state.NewStatePool(st0)
 	defer statePool.Close()
-
+	st0 := statePool.SystemState()
 	modelUUIDs, err := st0.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")

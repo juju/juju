@@ -106,7 +106,8 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(serialized params.SerializedModel) error {
-	_, st, err := migration.ImportModel(api.state, serialized.Bytes)
+	controller := state.NewController(api.pool)
+	_, st, err := migration.ImportModel(controller, serialized.Bytes)
 	if err != nil {
 		return err
 	}

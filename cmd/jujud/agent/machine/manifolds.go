@@ -134,12 +134,12 @@ type ManifoldsConfig struct {
 	OpenController func(coreagent.Config) (*state.Controller, error)
 
 	// OpenState is function used by the state manifold to create a
-	// *state.State.
-	OpenState func(coreagent.Config) (*state.State, error)
+	// *state.StatePool.
+	OpenState func(coreagent.Config) (*state.StatePool, error)
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
-	OpenStateForUpgrade func() (*state.State, error)
+	OpenStateForUpgrade func() (*state.StatePool, error)
 
 	// StartAPIWorkers is passed to the apiworkers manifold. It starts
 	// workers which rely on an API connection (which have not yet
@@ -149,7 +149,7 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool) error
 
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.

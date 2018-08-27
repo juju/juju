@@ -155,7 +155,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

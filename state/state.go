@@ -128,6 +128,24 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
+func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
+	session := st.session.Copy()
+	newSt, err := newState(
+		names.NewModelTag(modelUUID),
+		st.controllerModelTag,
+		session,
+		st.newPolicy,
+		st.stateClock,
+		st.runTransactionObserver,
+	)
+	// We explicitly don't start the workers.
+	if err != nil {
+		session.Close()
+		return nil, errors.Trace(err)
+	}
+	return newSt, nil
+}
+
 // IsController returns true if this state instance has the bootstrap
 // model UUID.
 func (st *State) IsController() bool {
@@ -2141,10 +2159,22 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 type hasStartSync interface {
 	StartSync()
 }
+type hasAdvance interface {
+	Advance(time.Duration)
+}
 
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
+// This method is called only from tests.
 func (st *State) StartSync() {
+	if advanceable, ok := st.clock().(hasAdvance); ok {
+		// The amount of time we advance here just needs to be more
+		// than 10ms as that is the minimum time the txnwatcher
+		// is waiting on, however one second is more human noticeable.
+		// The state testing StateSuite type changes the polling interval
+		// of the pool's txnwatcher to be one second.
+		advanceable.Advance(time.Second)
+	}
 	if syncable, ok := st.workers.txnLogWatcher().(hasStartSync); ok {
 		syncable.StartSync()
 	}

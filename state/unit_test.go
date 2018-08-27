@@ -9,6 +9,7 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -1985,7 +1986,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 }
@@ -2197,6 +2198,8 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
+	loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2234,16 +2237,19 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
+	c.Logf("\nmake it dying\n")
 	// Make it Dying: not reported.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	c.Logf("\nensure dead\n")
 	// Make it Dead: not reported.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	c.Logf("\nremove\n")
 	// Remove it: watcher eventually closed and Err
 	// returns an IsNotFound error.
 	err = unit.Remove()

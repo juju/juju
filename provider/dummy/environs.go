@@ -803,7 +803,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
 			// It is set just below.
-			ctlr, st, err := state.Initialize(state.InitializeParams{
+			_, statePool, err := state.Initialize(state.InitializeParams{
 				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
@@ -825,27 +825,27 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return err
 			}
-			ctlr.Close()
+			st := statePool.SystemState()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
-				st.Close()
+				statePool.Close()
 				return err
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
-				st.Close()
+				statePool.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
-				st.Close()
+				statePool.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
-				st.Close()
+				statePool.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
-				st.Close()
+				statePool.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -854,11 +854,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
-			statePool := state.NewStatePool(st)
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
 				statePool.Close()
-				st.Close()
 				return err
 			}
 			stateAuthenticator.AddHandlers(estate.mux)
@@ -890,7 +888,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			})
 			if err != nil {
 				statePool.Close()
-				st.Close()
 				panic(err)
 			}
 			estate.apiState = st

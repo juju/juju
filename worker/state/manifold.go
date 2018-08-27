@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.state")
 type ManifoldConfig struct {
 	AgentName              string
 	StateConfigWatcherName string
-	OpenState              func(coreagent.Config) (*state.State, error)
+	OpenState              func(coreagent.Config) (*state.StatePool, error)
 	PingInterval           time.Duration
 	PrometheusRegisterer   prometheus.Registerer
 
@@ -90,11 +90,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrMissing
 			}
 
-			st, err := config.OpenState(agent.CurrentConfig())
+			pool, err := config.OpenState(agent.CurrentConfig())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			stTracker := newStateTracker(st)
+			stTracker := newStateTracker(pool)
 
 			pingInterval := config.PingInterval
 			if pingInterval == 0 {
