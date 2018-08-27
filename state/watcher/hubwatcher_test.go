@@ -77,11 +77,11 @@ func (s *HubWatcherSuite) TestErrAndDead(c *gc.C) {
 	}
 }
 
-func (s *HubWatcherSuite) TestTxnWatcherStartingKillsWorker(c *gc.C) {
-	// When the TxnWatcher restarts, the hub watcher needs to restart
-	// too as there may be missed events, so all the watches this hub
+func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *gc.C) {
+	// When the TxnWatcher hits a sync error and restarts, the hub watcher needs
+	// to restart too as there may be missed events, so all the watches this hub
 	// has need to be invalidated. This happens by the worker dying.
-	s.hub.Publish(watcher.TxnWatcherStarting, nil)
+	s.hub.Publish(watcher.TxnWatcherSyncErr, nil)
 
 	select {
 	case <-s.w.Dead():
@@ -89,7 +89,7 @@ func (s *HubWatcherSuite) TestTxnWatcherStartingKillsWorker(c *gc.C) {
 		c.Fatalf("Dead channel should have fired")
 	}
 
-	c.Assert(s.w.Err(), gc.ErrorMatches, "txn watcher restarted")
+	c.Assert(s.w.Err(), gc.ErrorMatches, "txn watcher sync error")
 }
 
 func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
