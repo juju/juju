@@ -205,14 +205,25 @@ func (manager *Manager) retryingClaim(claim claim) {
 		}
 	}
 
-	if success {
-		claim.respond(nil)
-	} else if lease.IsTimeout(err) {
+	if lease.IsTimeout(err) {
 		claim.respond(lease.ErrTimeout)
-	} else if err == nil {
-		claim.respond(lease.ErrClaimDenied)
+		manager.config.Logger.Warningf("[%s] retrying timed out while handling claim", manager.logContext)
+		return
 	}
-	// Otherwise we allow the fatal error to send errStopped.
+	if err == nil {
+		if !success {
+			claim.respond(lease.ErrClaimDenied)
+			return
+		}
+		claim.respond(nil)
+		// This is pretty subtle - in the success case we send a nil
+		// back on the errors channel. That indicates to the main loop
+		// that some lease state has changed and gives it a chance to
+		// loop back around and determine a new wakeup time based on
+		// new leases.
+	}
+	// Otherwise we allow the fatal error to send errStopped back to
+	// the client.
 
 	select {
 	case <-manager.catacomb.Dying():
@@ -329,6 +340,12 @@ func (manager *Manager) retryingTick(now time.Time) {
 	case <-manager.catacomb.Dying():
 		return
 	default:
+	}
+
+	if lease.IsTimeout(err) {
+		// We don't crash on timeouts to avoid bouncing the API server.
+		manager.config.Logger.Warningf("[%s] retrying timed out in tick", manager.logContext)
+		return
 	}
 	manager.errors <- err
 }

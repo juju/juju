@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	corelease "github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
@@ -217,8 +218,7 @@ func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
 			}
 			delay *= 2
 		}
-		err := manager.Wait()
-		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrTimeout)
+		workertest.CheckAlive(c, manager)
 	})
 }
 
@@ -501,7 +501,6 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 			c.Fatalf("timed out waiting for result")
 		}
 
-		err = manager.Wait()
-		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrTimeout)
+		workertest.CheckAlive(c, manager)
 	})
 }
