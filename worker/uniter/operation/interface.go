@@ -118,9 +118,6 @@ type Factory interface {
 	// NewResignLeadership creates an operation to ensure the uniter does not
 	// act as application leader.
 	NewResignLeadership() (Operation, error)
-
-	// NewCompleteUpgrade create an operation which resets the local state of the uniter.
-	NewCompleteUpgrade() (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.

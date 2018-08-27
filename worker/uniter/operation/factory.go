@@ -68,7 +68,7 @@ func (f *factory) NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error) {
 }
 
 func (f *factory) NewNoOpFinishUpgradeSeries() (Operation, error) {
-	return &skipOperation{}, nil
+	return &noOpFinishUpgradeSeries{&skipOperation{}}, nil
 }
 
 // NewRevertUpgrade is part of the Factory interface.
@@ -155,9 +155,4 @@ func (f *factory) NewResignLeadership() (Operation, error) {
 // NewAcceptLeadership is part of the Factory interface.
 func (f *factory) NewAcceptLeadership() (Operation, error) {
 	return &acceptLeadership{}, nil
-}
-
-// NewCompleteUpgrade is part of the Factory interface.
-func (f *factory) NewCompleteUpgrade() (Operation, error) {
-	return &skipOperation{}, nil
 }

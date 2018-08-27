@@ -292,7 +292,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted &&
+	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
 		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
@@ -302,7 +302,7 @@ func (s *uniterResolver) nextOp(
 	// state should be reset.
 	if localState.UpgradeSeriesStatus == model.UpgradeSeriesCompleted &&
 		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted {
-		return opFactory.NewCompleteUpgrade()
+		return opFactory.NewNoOpFinishUpgradeSeries()
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)

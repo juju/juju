@@ -49,8 +49,8 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 	return s.wrapHookOp(op, info), nil
 }
 
-func (s *resolverOpFactory) NewCompleteUpgrade() (operation.Operation, error) {
-	op, err := s.Factory.NewCompleteUpgrade()
+func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, error) {
+	op, err := s.Factory.NewNoOpFinishUpgradeSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,14 +141,14 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 			// on commit, the local status should indicate the hook
 			// has completed. The remote status should already
 			// indicate completion. We sync the states here.
-			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
+			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
 		}}
 	case hooks.PostSeriesUpgrade:
 		op = onPrepareWrapper{op, func() {
 			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
 		}}
 		op = onCommitWrapper{op, func() {
-			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
+			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesCompleted
 		}}
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion

@@ -171,7 +171,7 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
-		UpgradeSeriesStatus:  model.UpgradeSeriesPrepareCompleted,
+		UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -183,6 +183,25 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
+}
+
+func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenConditionsAreMet(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		Series:               s.charmURL.Series,
+		UpgradeSeriesStatus:  model.UpgradeSeriesCompleted,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.Series = s.charmURL.Series
+	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "complete upgrade series")
 }
 
 func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
