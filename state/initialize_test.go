@@ -245,7 +245,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`validating initialization args: validating cloud credentials: credential "dummy/initialize-admin/borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
+		`validating initialization args: validating credential "dummy/initialize-admin/borken" for cloud "dummy": supported auth-types \["access-key" "oauth1"\], "userpass" not supported`,
 	)
 }
 

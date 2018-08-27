@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
+	"gopkg.in/juju/names.v2"
 )
 
 type ModelCredentialSuite struct {
@@ -187,7 +188,7 @@ func (s *ModelCredentialSuite) TestValidateModelCredential(c *gc.C) {
 
 func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorGettingModel(c *gc.C) {
 	s.backend.SetErrors(errors.New("get model error"))
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, nil)
+	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, nil)
 	c.Assert(err, gc.ErrorMatches, "get model error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -197,7 +198,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorGettingCloud(c
 		nil, // getting model
 		errors.New("get cloud error"),
 	)
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, nil)
+	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, nil)
 	c.Assert(err, gc.ErrorMatches, "get cloud error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -213,8 +214,24 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorGettingModelCo
 		return model, nil
 	}
 
-	results, err := credentialcommon.ValidateNewModelCredential(backend, s.testNewEnvironFunc, s.callContext, nil)
+	results, err := credentialcommon.ValidateNewModelCredential(backend, s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
 	c.Assert(err, gc.ErrorMatches, "get model config error")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorValidateCredentialForModelCloud(c *gc.C) {
+	model := createTestModel()
+	model.validateCredentialFunc = func(tag names.CloudCredentialTag, credential cloud.Credential) error {
+		return errors.New("credential not for model cloud error")
+	}
+
+	backend := s.createModelBackend(c)
+	backend.modelFunc = func() (credentialcommon.Model, error) {
+		return model, nil
+	}
+
+	results, err := credentialcommon.ValidateNewModelCredential(backend, s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
+	c.Assert(err, gc.ErrorMatches, "credential not for model cloud error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
@@ -222,13 +239,13 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorOpenEnviron(c 
 	failNewEnvironFunc := func(args environs.OpenParams) (environs.Environ, error) {
 		return nil, errors.New("new environ error")
 	}
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), failNewEnvironFunc, s.callContext, nil)
+	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), failNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
 	c.Assert(err, gc.ErrorMatches, "new environ error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *ModelCredentialSuite) TestValidateNewModelCredentialSuccess(c *gc.C) {
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, &testCredential)
+	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -328,9 +345,10 @@ func (m *mockModelBackend) Cloud(name string) (cloud.Cloud, error) {
 }
 
 type mockModel struct {
-	cloudFunc       func() string
-	cloudRegionFunc func() string
-	configFunc      func() (*config.Config, error)
+	cloudFunc              func() string
+	cloudRegionFunc        func() string
+	configFunc             func() (*config.Config, error)
+	validateCredentialFunc func(tag names.CloudCredentialTag, credential cloud.Credential) error
 }
 
 func (m *mockModel) Cloud() string {
@@ -345,12 +363,19 @@ func (m *mockModel) Config() (*config.Config, error) {
 	return m.configFunc()
 }
 
+func (m *mockModel) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
+	return m.validateCredentialFunc(tag, credential)
+}
+
 func createTestModel() *mockModel {
 	return &mockModel{
 		cloudFunc:       func() string { return "nuage" },
 		cloudRegionFunc: func() string { return "nine" },
 		configFunc: func() (*config.Config, error) {
 			return nil, nil
+		},
+		validateCredentialFunc: func(tag names.CloudCredentialTag, credential cloud.Credential) error {
+			return nil
 		},
 	}
 }

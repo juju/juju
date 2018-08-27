@@ -5,6 +5,7 @@ package credentialcommon
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -46,6 +47,9 @@ type Model interface {
 
 	// Config returns the config for the model.
 	Config() (*config.Config, error)
+
+	// ValidateCloudCredential validates new cloud credential for this model.
+	ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error
 }
 
 // ModelBackend defines what model specific properties where persisted in state

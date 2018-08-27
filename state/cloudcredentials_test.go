@@ -200,7 +200,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C
 	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, gc.ErrorMatches, `updating cloud credentials: validating cloud credentials: credential "stratus/bob/foobar" with auth-type "userpass" is not supported \(expected one of \["access-key"\]\)`)
+	c.Assert(err, gc.ErrorMatches, `updating cloud credentials: validating credential "stratus/bob/foobar" for cloud "stratus": supported auth-types \["access-key"\], "userpass" not supported`)
 }
 
 func (s *CloudCredentialsSuite) TestCloudCredentialsEmpty(c *gc.C) {
