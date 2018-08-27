@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -124,7 +124,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		}
 		ops, err := validateCloudCredentials(cloud, credentials)
 		if err != nil {
-			return nil, errors.Annotate(err, "validating cloud credentials")
+			return nil, errors.Trace(err)
 		}
 		_, err = st.CloudCredential(tag)
 		if err != nil && !errors.IsNotFound(err) {
@@ -267,24 +267,9 @@ func validateCloudCredentials(
 ) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
 	for tag, credential := range credentials {
-		if tag.Cloud().Id() != cloud.Name {
-			return nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"credential %q for non-matching cloud is not valid (expected %q)",
-				tag.Id(), cloud.Name,
-			))
-		}
-		var found bool
-		for _, authType := range cloud.AuthTypes {
-			if credential.AuthType == string(authType) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"credential %q with auth-type %q is not supported (expected one of %q)",
-				tag.Id(), credential.AuthType, cloud.AuthTypes,
-			))
+		err := validateCredentialForCloud(cloud, tag, credential)
+		if err != nil {
+			return nil, errors.Annotatef(err, "validating credential %q for cloud %q", tag.Id(), cloud.Name)
 		}
 		requiredAuthTypes.Add(credential.AuthType)
 	}
@@ -297,6 +282,26 @@ func validateCloudCredentials(
 		}
 	}
 	return ops, nil
+}
+
+func validateCredentialForCloud(nuage cloud.Cloud, tag names.CloudCredentialTag, credential Credential) error {
+	if tag.Cloud().Id() != nuage.Name {
+		return errors.NotValidf("cloud %q", tag.Cloud().Id())
+	}
+
+	supportedAuth := func() bool {
+		for _, authType := range nuage.AuthTypes {
+			if credential.AuthType == string(authType) {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !supportedAuth() {
+		return errors.NotSupportedf("supported auth-types %q, %q", nuage.AuthTypes, credential.AuthType)
+	}
+	return nil
 }
 
 // WatchCredential returns a new NotifyWatcher watching for

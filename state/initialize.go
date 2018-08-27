@@ -98,7 +98,7 @@ func (p InitializeParams) Validate() error {
 		credentials[tag] = convertCloudCredentialToState(tag, cred)
 	}
 	if _, err := validateCloudCredentials(p.Cloud, credentials); err != nil {
-		return errors.Annotate(err, "validating cloud credentials")
+		return errors.Trace(err)
 	}
 	creds := make(map[string]Credential, len(credentials))
 	for tag, cred := range credentials {

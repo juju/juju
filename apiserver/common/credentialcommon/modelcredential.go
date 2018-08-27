@@ -6,6 +6,7 @@ package credentialcommon
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -25,11 +26,11 @@ func ValidateModelCredential(persisted CloudEntitiesBackend, provider CloudProvi
 
 // ValidateNewModelCredential checks if a new cloud credential can be valid
 // for a given model.
-// Note that this call does not validate credential against the cloud of the model.
-func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, callCtx context.ProviderCallContext, credential *cloud.Credential) (params.ErrorResults, error) {
+func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
 	fail := func(original error) (params.ErrorResults, error) {
 		return params.ErrorResults{}, original
 	}
+
 	model, err := backend.Model()
 	if err != nil {
 		return fail(errors.Trace(err))
@@ -39,6 +40,12 @@ func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, cal
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
+
+	err = model.ValidateCloudCredential(credentialTag, *credential)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
 	tempCloudSpec, err := environs.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
 	if err != nil {
 		return fail(errors.Trace(err))

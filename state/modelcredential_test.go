@@ -59,6 +59,33 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	c.Assert(invalidated.InvalidReason, gc.DeepEquals, reason)
 }
 
+func (s *ModelCredentialSuite) TestValidateCloudCredentialWrongCloud(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	err = m.ValidateCloudCredential(tag, cred)
+	c.Assert(err, gc.ErrorMatches, `validating credential "stratus/bob/foobar" for cloud "dummy": cloud "stratus" not valid`)
+}
+
+func (s *ModelCredentialSuite) TestValidateCloudCredentialWrongAuthType(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewCloudCredentialTag("dummy/bob/foobar")
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, nil)
+	err = m.ValidateCloudCredential(tag, cred)
+	c.Assert(err, gc.ErrorMatches, `validating credential "dummy/bob/foobar" for cloud "dummy": supported auth-types \["empty"\], "access-key" not supported`)
+}
+
+func (s *ModelCredentialSuite) TestValidateCloudCredentialModel(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewCloudCredentialTag("dummy/bob/foobar")
+	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
+	err = m.ValidateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ModelCredentialSuite) createCloudCredential(c *gc.C, credentialName string) names.CloudCredentialTag {
 	// Cloud name is always "dummy" as deep within the testing infrastructure,
 	// we create a testing controller on a cloud "dummy".
