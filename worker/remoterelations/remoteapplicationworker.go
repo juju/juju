@@ -21,8 +21,7 @@ import (
 // changes originating from the offering model and consumes those
 // in the local model.
 type remoteApplicationWorker struct {
-	catacomb         catacomb.Catacomb
-	relationsWatcher watcher.StringsWatcher
+	catacomb catacomb.Catacomb
 
 	// These attribute are relevant to dealing with a specific
 	// remote application proxy.
@@ -69,7 +68,11 @@ func (w *remoteApplicationWorker) Kill() {
 
 // Wait is defined on worker.Worker
 func (w *remoteApplicationWorker) Wait() error {
-	return w.catacomb.Wait()
+	err := w.catacomb.Wait()
+	if err != nil {
+		logger.Errorf("error in remote application worker for %v: %v", w.applicationName, err)
+	}
+	return err
 }
 
 func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken, relationToken string) {
@@ -98,6 +101,16 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken
 }
 
 func (w *remoteApplicationWorker) loop() (err error) {
+	relationsWatcher, err := w.localModelFacade.WatchRemoteApplicationRelations(w.applicationName)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "watching relations for remote application %q", w.applicationName)
+	}
+	if err := w.catacomb.Add(relationsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	// On the consuming side, watch for status changes to the offer.
 	var offerStatusChanges watcher.OfferStatusChannel
 	if !w.isConsumerProxy {
@@ -106,6 +119,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		logger.Debugf("remote controller api addresses: %v", apiInfo.Addrs)
 
 		w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
 		if err != nil {
@@ -139,7 +153,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case change, ok := <-w.relationsWatcher.Changes():
+		case change, ok := <-relationsWatcher.Changes():
 			logger.Debugf("relations changed: %#v, %v", change, ok)
 			if !ok {
 				// We are dying.

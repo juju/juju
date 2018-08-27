@@ -508,14 +508,21 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	c.Assert(s.stub.Calls(), gc.HasLen, 0)
 	s.config.Clock.(*testing.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
-	relWatcher.changes <- []string{"db2:db django:db"}
-	relTag := names.NewRelationTag("db2:db django:db")
 	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	expected = []jujutesting.StubCall{
+		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"WatchOfferStatus", []interface{}{"offer-db2-uuid", macaroon.Slice{mac}}},
+	}
+	// After the worker resumes, normal processing happens.
+	s.waitForWorkerStubCalls(c, expected)
+
+	s.stub.ResetCalls()
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+	relTag := names.NewRelationTag("db2:db django:db")
+	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
@@ -538,7 +545,6 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
-	// After the worker resumes, normal processing happens.
 	s.waitForWorkerStubCalls(c, expected)
 }
 
