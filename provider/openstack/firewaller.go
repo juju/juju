@@ -695,7 +695,7 @@ func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext
 	neutronClient := c.environ.neutron()
 	securityGroups, err := neutronClient.ListSecurityGroupsV2()
 	if err != nil {
-		return HandleCredentialError(errors.Annotate(err, "cannot list security groups"), ctx)
+		return HandleCredentialError(errors.Annotatef(err, "cannot list security groups"), ctx)
 	}
 	for _, group := range securityGroups {
 		if match(group.Name) {

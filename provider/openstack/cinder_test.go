@@ -13,8 +13,11 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/cinder"
+	"gopkg.in/goose.v2/http"
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/nova"
+	//goosetesting "gopkg.in/goose.v2/testservices"
+	"gopkg.in/goose.v2/testservices/neutronservice"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/context"
@@ -33,6 +36,15 @@ const (
 	mockVolJson  = `{"volume":{"id": "` + mockVolId + `", "size":1,"name":"` + mockVolName + `"}}`
 )
 
+type errorResponse struct {
+	code        int
+	body        string
+	contentType string
+	errorText   string
+	headers     map[string]string
+	neutron     *neutronservice.Neutron
+}
+
 var (
 	mockVolumeTag  = names.NewVolumeTag(mockVolName)
 	mockMachineTag = names.NewMachineTag("456")
@@ -43,12 +55,23 @@ var _ = gc.Suite(&cinderVolumeSourceSuite{})
 type cinderVolumeSourceSuite struct {
 	testing.BaseSuite
 
-	callCtx context.ProviderCallContext
+	sender               http.Client
+	callCtx              *context.CloudCallContext
+	invalidateCredential bool
 }
 
 func (s *cinderVolumeSourceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidateCredential = true
+			return nil
+		},
+	}
+}
+
+func (s *cinderVolumeSourceSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
+	//
 }
 
 func init() {
@@ -94,6 +117,25 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 			},
 		},
 	}})
+}
+
+func (s *cinderVolumeSourceSuite) TestAttachVolumesInvalidCredential(c *gc.C) {
+	mockAdapter := &mockAdapter{
+		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
+			c.Check(volId, gc.Equals, mockVolId)
+			c.Check(serverId, gc.Equals, mockServerId)
+			return &nova.VolumeAttachment{
+				Id:       volId,
+				VolumeId: volId,
+				ServerId: serverId,
+				Device:   toStringPtr("/dev/sda"),
+			}, nil
+		},
+	}
+
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	openstack.MakeServiceURL
+
 }
 
 func (s *cinderVolumeSourceSuite) TestAttachVolumesNoDevice(c *gc.C) {

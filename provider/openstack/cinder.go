@@ -219,6 +219,11 @@ func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args
 	for i, arg := range args {
 		volume, err := s.createVolume(ctx, arg)
 		if err != nil {
+			_, denied := MaybeHandleCredentialError(err, ctx)
+			if denied {
+				errors.Annotate(err, "cannot create volume.")
+				break
+			}
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -262,7 +267,7 @@ func (s *cinderVolumeSource) createVolume(ctx context.ProviderCallContext, arg s
 		if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
 			logger.Warningf("destroying volume %s: %s", volumeId, err)
 		}
-		return nil, HandleCredentialError(errors.Errorf("waiting for volume to be provisioned: %s", err), ctx)
+		return nil, HandleCredentialError(errors.Annotate(err, "waiting for volume to be provisioned"), ctx)
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
 	return &storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
@@ -272,7 +277,7 @@ func (s *cinderVolumeSource) createVolume(ctx context.ProviderCallContext, arg s
 func (s *cinderVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	cinderVolumes, err := modelCinderVolumes(s.storageAdapter, s.modelUUID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	return volumeInfoToVolumeIds(cinderToJujuVolumeInfos(cinderVolumes)), nil
 }
@@ -320,7 +325,7 @@ func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, vo
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	volumesById := make(map[string]*cinder.Volume)
 	for i, volume := range cinderVolumes {
@@ -440,7 +445,7 @@ func releaseVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		tags.JujuController: "",
 	}
 	_, err = storageAdapter.SetVolumeMetadata(volumeId, tags)
-	return HandleCredentialError(errors.Annotate(err, "tagging volume"), ctx)
+	return HandleCredentialError(errors.Annotatef(err, "tagging volume"), ctx)
 }
 
 // ValidateVolumeParams implements storage.VolumeSource.
@@ -455,6 +460,11 @@ func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args
 	for i, arg := range args {
 		attachment, err := s.attachVolume(ctx, arg)
 		if err != nil {
+			_, denied := MaybeHandleCredentialError(err, ctx)
+			if denied {
+				errors.Annotate(err, "cannot attach volumes.")
+				break
+			}
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -502,7 +512,7 @@ func (s *cinderVolumeSource) attachVolume(ctx context.ProviderCallContext, arg s
 func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
 	volume, err := s.storageAdapter.GetVolume(volumeId)
 	if err != nil {
-		return storage.VolumeInfo{}, HandleCredentialError(errors.Annotate(err, "getting volume"), ctx)
+		return storage.VolumeInfo{}, HandleCredentialError(errors.Annotatef(err, "getting volume"), ctx)
 	}
 	if volume.Status != volumeStatusAvailable {
 		return storage.VolumeInfo{}, HandleCredentialError(errors.Errorf(
@@ -524,7 +534,7 @@ func waitVolume(
 	for a := cinderAttempt.Start(); a.Next(); {
 		volume, err := storageAdapter.GetVolume(volumeId)
 		if err != nil {
-			return nil, HandleCredentialError(errors.Annotate(err, "getting volume"), ctx)
+			return nil, HandleCredentialError(errors.Annotatef(err, "getting volume"), ctx)
 		}
 		ok, err := pred(volume)
 		if err != nil {

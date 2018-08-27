@@ -207,7 +207,7 @@ func (c *legacyNovaFirewaller) UpdateGroupController(ctx context.ProviderCallCon
 		}
 	}
 	if len(failed) != 0 {
-		return HandleCredentialError(errors.Errorf("errors updating controller for security groups: %v", failed), ctx)
+		return HandleCredentialError(errors.Annotate(err, "errors updating controller for security groups: %v"), ctx)
 	}
 	return nil
 }
