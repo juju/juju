@@ -1437,7 +1437,7 @@ func maybeGetNewAddress(
 	}
 	// The order of these checks is important. If the stored address is
 	// empty we *always* want to check for a new address so we do that
-	// first. If the stored address is unavilable we also *must* check for
+	// first. If the stored address is unavailable we also *must* check for
 	// a new address so we do that next. If the original is a machine
 	// address and a provider address is available we want to switch to
 	// that. Finally we check to see if a better match on scope from the
