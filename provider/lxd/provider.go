@@ -165,18 +165,22 @@ func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string)
 
 	// Ensure the Port on the Host, if we get an error it is reasonable to
 	// assume that the address in the spec is invalid.
-	var err error
-	endpoint, err = lxd.EnsureHostPort(endpoint)
+	lxdEndpoint, err := lxd.EnsureHostPort(endpoint)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Make sure we have an https url
+	if lxdEndpoint != endpoint {
+		return errors.Errorf("invalid URL %q: only HTTPS is supported", endpoint)
 	}
 
 	// Connect to the remote server anonymously so we can just verify it exists
 	// as we're not sure that the certificates are loaded in time for when the
 	// ping occurs i.e. interactive add-cloud
-	_, err = lxd.ConnectRemote(lxd.NewInsecureServerSpec(endpoint))
+	_, err = lxd.ConnectRemote(lxd.NewInsecureServerSpec(lxdEndpoint))
 	if err != nil {
-		return errors.Errorf("no lxd server running at %s", endpoint)
+		return errors.Errorf("no lxd server running at %s", lxdEndpoint)
 	}
 	return nil
 }
