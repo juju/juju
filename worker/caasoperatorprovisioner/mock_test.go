@@ -6,6 +6,7 @@ package caasoperatorprovisioner_test
 import (
 	"sync"
 
+	"github.com/juju/juju/storage"
 	"github.com/juju/testing"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -58,6 +59,12 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.O
 	return apicaasprovisioner.OperatorProvisioningInfo{
 		ImagePath: "juju-operator-image",
 		Version:   version.MustParse("2.99.0"),
+		CharmStorage: storage.KubernetesFilesystemParams{
+			Provider:     "kubernetes",
+			Size:         uint64(1024),
+			ResourceTags: map[string]string{"foo": "bar"},
+			Attributes:   map[string]interface{}{"key": "value"},
+		},
 	}, nil
 }
 

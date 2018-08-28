@@ -6,12 +6,19 @@ package caasoperatorprovisioner
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
 )
 
@@ -23,7 +30,9 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
-	state CAASOperatorProvisionerState
+	state                   CAASOperatorProvisionerState
+	storageProviderRegistry storage.ProviderRegistry
+	storagePoolManager      poolmanager.PoolManager
 }
 
 // NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
@@ -31,7 +40,15 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, ctx.State())
+
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting caas client")
+	}
+	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
+
+	return NewCAASOperatorProvisionerAPI(resources, authorizer, ctx.State(), registry, pm)
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -39,6 +56,8 @@ func NewCAASOperatorProvisionerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASOperatorProvisionerState,
+	storageProviderRegistry storage.ProviderRegistry,
+	storagePoolManager poolmanager.PoolManager,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
@@ -50,6 +69,8 @@ func NewCAASOperatorProvisionerAPI(
 		auth:            authorizer,
 		resources:       resources,
 		state:           st,
+		storageProviderRegistry: storageProviderRegistry,
+		storagePoolManager:      storagePoolManager,
 	}, nil
 }
 
@@ -80,9 +101,41 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 		vers.Build = 0
 		imagePath = fmt.Sprintf("%s/caas-jujud-operator:%s", "jujusolutions", vers.String())
 	}
+	charmStorageParams, err := charmStorageParams(a.storagePoolManager, a.storageProviderRegistry)
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting operator storage parameters")
+	}
 
 	return params.OperatorProvisioningInfo{
-		ImagePath: imagePath,
-		Version:   version.Current,
+		ImagePath:    imagePath,
+		Version:      version.Current,
+		CharmStorage: charmStorageParams,
 	}, nil
+}
+
+func charmStorageParams(
+	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
+) (params.KubernetesFilesystemParams, error) {
+
+	// TODO(caas) - make these configurable via model config
+	var pool = "operator-storage"
+	var size uint64 = 1024
+
+	result := params.KubernetesFilesystemParams{
+		Size: size,
+	}
+
+	providerType, cfg, err := storagecommon.StoragePoolConfig(pool, poolManager, registry)
+	if err != nil && !errors.IsNotFound(err) {
+		return params.KubernetesFilesystemParams{}, errors.Trace(err)
+	}
+	// No storage pool so we'll just return the size of storage.
+	if err != nil {
+		return result, nil
+	}
+
+	result.Provider = string(providerType)
+	result.Attributes = cfg.Attrs()
+	return result, nil
 }
