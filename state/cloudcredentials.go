@@ -348,17 +348,8 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	return credentials, nil
 }
 
-// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
-// or an error retrieving it.
-type CredentialOwnerModelAccess struct {
-	ModelName   string
-	OwnerAccess permission.Access
-	Error       error
-}
-
-// CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
-// what access the credential owner has on these models.
-func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]CredentialOwnerModelAccess, error) {
+// CredentialModels returns all models that use given cloud credential.
+func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[names.ModelTag]string, error) {
 	coll, cleanup := st.db().GetCollection(modelsC)
 	defer cleanup()
 
@@ -371,19 +362,42 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
 	}
 
-	results := make([]CredentialOwnerModelAccess, len(docs))
-	for i, model := range docs {
-		results[i] = CredentialOwnerModelAccess{ModelName: model.Name}
-		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(model.UUID))
+	results := make(map[names.ModelTag]string, len(docs))
+	for _, model := range docs {
+		results[names.NewModelTag(model.UUID)] = model.Name
+	}
+	return results, nil
+}
+
+// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
+// or an error retrieving it.
+type CredentialOwnerModelAccess struct {
+	ModelTag    names.ModelTag
+	ModelName   string
+	OwnerAccess permission.Access
+	Error       error
+}
+
+// CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
+// what access the credential owner has on these models.
+func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]CredentialOwnerModelAccess, error) {
+	models, err := st.CredentialModels(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := []CredentialOwnerModelAccess{}
+	for modelTag, name := range models {
+		ownerAccess, err := st.UserAccess(tag.Owner(), modelTag)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				results[i].OwnerAccess = permission.NoAccess
+				results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelTag: modelTag, OwnerAccess: permission.NoAccess})
 				continue
 			}
-			results[i].Error = errors.Trace(err)
+			results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelTag: modelTag, Error: errors.Trace(err)})
 			continue
 		}
-		results[i].OwnerAccess = ownerAccess.Access
+		results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelTag: modelTag, OwnerAccess: ownerAccess.Access})
 	}
 	return results, nil
 }
