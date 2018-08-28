@@ -79,6 +79,50 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	})
 }
 
+func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api, backend := s.newAPI(c, ctrl)
+	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+
+	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
+	machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
+
+	entity := params.Entity{Tag: s.machineTag.String()}
+	args := params.Entities{
+		Entities: []params.Entity{entity},
+	}
+
+	results, err := api.TargetSeries(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{Result: "bionic"}},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	api, backend := s.newAPI(c, ctrl)
+	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+
+	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
+	machine.EXPECT().StartUpgradeSeriesUnitCompletion().Return(nil)
+
+	entity := params.Entity{Tag: s.machineTag.String()}
+	args := params.Entities{
+		Entities: []params.Entity{entity},
+	}
+
+	results, err := api.StartUnitCompletion(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
 func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

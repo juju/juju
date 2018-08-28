@@ -117,18 +117,46 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 	return result, nil
 }
 
+// TargetSeries returns the series that a machine has been locked
+// for upgrading to.
+func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{}
+
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	results := make([]params.StringResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machine, err := a.authAndMachine(entity, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		target, err := machine.UpgradeSeriesTarget()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+		results[i].Result = target
+	}
+
+	result.Results = results
+	return result, nil
+}
+
 // StartUnitCompletion starts the upgrade series completion phase for all subordinate
 // units of a given machine.
-func (a *API) StartUnitCompletion(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (a *API) StartUnitCompletion(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Params)),
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	canAccess, err := a.AccessMachine()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	for i, param := range args.Params {
-		machine, err := a.authAndMachine(param.Entity, canAccess)
+	for i, entity := range args.Entities {
+		machine, err := a.authAndMachine(entity, canAccess)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
