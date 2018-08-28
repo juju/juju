@@ -56,10 +56,9 @@ func (s *uniterResolver) NextOp(
 	// state) then the uniter should idle in the face of all remote state
 	// changes accept for those which indicate termination - the unit is
 	// waiting to be shutdown.
-	if localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted &&
-		remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted {
-		logger.Criticalf("We hit here were we are supposed to idle when shutting down.")
-		//return nil, resolver.ErrNoOperation
+	if localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted &&
+		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
+		return nil, resolver.ErrNoOperation
 	}
 
 	if localState.Kind == operation.Upgrade {
@@ -288,16 +287,22 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	if localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesNotStarted &&
-		remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareStarted {
+	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
+		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 
-	if localState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesNotStarted &&
-		// localState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted &&  //these checks ensure that the uniter is not stuck in its idle state after the prepare phase
-		// remoteState.UpgradeSeriesPrepareStatus == model.UpgradeSeriesPrepareCompleted
-		remoteState.UpgradeSeriesCompleteStatus == model.UpgradeSeriesCompleteStarted {
+	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
+		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
+	}
+
+	// If the local state is completed but the remote state is not started,
+	// then this means that the lock has been removed and the local uniter
+	// state should be reset.
+	if localState.UpgradeSeriesStatus == model.UpgradeSeriesCompleted &&
+		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted {
+		return opFactory.NewNoOpFinishUpgradeSeries()
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)

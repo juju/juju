@@ -164,3 +164,17 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	err := api.StartUnitCompletion()
 	c.Assert(err, gc.IsNil)
 }
+
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	fCaller.EXPECT().FacadeCall("FinishUpgradeSeries", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	err := api.FinishUpgradeSeries()
+	c.Assert(err, gc.IsNil)
+}

@@ -85,6 +85,15 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 }
 
+func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *gc.C) {
+	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	AssertMachineIsNOTLockedForPrepare(c, mach)
+
+	err = mach.RemoveUpgradeSeriesLock()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C) {
 	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

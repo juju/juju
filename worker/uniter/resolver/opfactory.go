@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -46,6 +47,18 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 		return nil, errors.Trace(err)
 	}
 	return s.wrapHookOp(op, info), nil
+}
+
+func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, error) {
+	op, err := s.Factory.NewNoOpFinishUpgradeSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	f := func() {
+		s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	}
+	op = onCommitWrapper{op, f}
+	return op, nil
 }
 
 func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
@@ -122,20 +135,20 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 		op = onPrepareWrapper{op, func() {
 			//on prepare the local status should be made to reflect
 			//that the upgrade process for this united has started.
-			s.LocalState.UpgradeSeriesPrepareStatus = s.RemoteState.UpgradeSeriesPrepareStatus
+			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
 		}}
 		op = onCommitWrapper{op, func() {
 			// on commit, the local status should indicate the hook
 			// has completed. The remote status should already
 			// indicate completion. We sync the states here.
-			s.LocalState.UpgradeSeriesPrepareStatus = s.RemoteState.UpgradeSeriesPrepareStatus
+			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
 		}}
 	case hooks.PostSeriesUpgrade:
 		op = onPrepareWrapper{op, func() {
-			s.LocalState.UpgradeSeriesCompleteStatus = s.RemoteState.UpgradeSeriesCompleteStatus
+			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
 		}}
 		op = onCommitWrapper{op, func() {
-			s.LocalState.UpgradeSeriesPrepareStatus = s.RemoteState.UpgradeSeriesPrepareStatus
+			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesCompleted
 		}}
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
