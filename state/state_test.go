@@ -3030,14 +3030,14 @@ func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, in
 		return err
 	}
 	defer session.Close()
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       session,
 	})
 	if err == nil {
-		err = st.Close()
+		err = pool.Close()
 	}
 	return err
 }

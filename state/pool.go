@@ -188,15 +188,15 @@ func OpenStatePool(args OpenParams) (*StatePool, error) {
 // if required.
 // If the State has been marked for removal, an error is returned.
 func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
-	if modelUUID == p.systemState.ModelUUID() {
-		return newPooledState(p.systemState, p, modelUUID, true), nil
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if p.pool == nil {
 		return nil, errors.New("pool is closed")
+	}
+
+	if modelUUID == p.systemState.ModelUUID() {
+		return newPooledState(p.systemState, p, modelUUID, true), nil
 	}
 
 	item, ok := p.pool[modelUUID]

@@ -608,18 +608,19 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	st := pool.SystemState()
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
 		err := st.SetAdminMongoPassword("")
 		c.Check(err, jc.ErrorIsNil)
-		err = st.Close()
+		err = pool.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
@@ -648,18 +649,20 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
-	st1, err := state.Open(state.OpenParams{
+
+	pool1, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st1.Close()
+	defer pool1.Close()
+	st1 := pool1.SystemState()
 
 	// Change the password with an entity derived from the newly
 	// opened and authenticated state.
-	ent, err = st.Machine("0")
+	ent, err = st1.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ent.SetMongoPassword("bar")
 	c.Assert(err, jc.ErrorIsNil)
