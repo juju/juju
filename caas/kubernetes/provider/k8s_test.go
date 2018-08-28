@@ -371,7 +371,6 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Update(crd).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, nil),
 	)
 	err := s.broker.EnsureCustomResourceDefinition("test", podSpec)
@@ -475,6 +474,8 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
+		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, s.k8sAlreadyExists()),
+		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockCustomResourceDefinition.EXPECT().Update(crd).Times(1).Return(crd, nil),
 	)
 	err := s.broker.EnsureCustomResourceDefinition("test", podSpec)
