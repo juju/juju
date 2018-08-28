@@ -136,6 +136,10 @@ func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
 }
 
+func (s *BaseSuite) k8sAlreadyExists() *k8serrors.StatusError {
+	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
+}
+
 func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {
 	return &v1.DeleteOptions{PropagationPolicy: &policy}
 }

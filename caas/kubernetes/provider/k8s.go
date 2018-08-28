@@ -541,9 +541,10 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.Custom
 	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	singularName := strings.ToLower(t.Kind)
 	pluralName := fmt.Sprintf("%ss", singularName)
+	crdFullName := fmt.Sprintf("%s.%s", pluralName, t.Group)
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      fmt.Sprintf("%s.%s", pluralName, t.Group),
+			Name:      crdFullName,
 			Namespace: k.namespace,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -563,11 +564,14 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.Custom
 		},
 	}
 	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
-	logger.Debugf("try to update crd %#v", crdIn)
-	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
-	if k8serrors.IsNotFound(err) {
-		logger.Debugf("no existing crd, so create one %#v", crdIn)
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
+	logger.Debugf("creating crd %#v", crdIn)
+	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
+	if k8serrors.IsAlreadyExists(err) {
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(crdFullName, v1.GetOptions{})
+		resourceVersion := crd.ObjectMeta.GetResourceVersion()
+		crdIn.ObjectMeta.SetResourceVersion(resourceVersion)
+		logger.Debugf("existing crd with resource version %q found, so update it %#v", resourceVersion, crdIn)
+		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
 	}
 	return
 }
