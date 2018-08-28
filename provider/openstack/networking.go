@@ -344,10 +344,6 @@ func (n *NeutronNetworking) Subnets(ctx context.ProviderCallContext, instId inst
 			logger.Warningf(noNetConfigMsg(err))
 		} else {
 			logger.Warningf("could not resolve internal network id for %q: %v", internalNet, err)
-			_, denied := MaybeHandleCredentialError(err, ctx)
-			if denied {
-				return nil, errors.Annotate(err, "could not resolve internal network id.")
-			}
 		}
 	} else {
 		netIds.Add(netId)

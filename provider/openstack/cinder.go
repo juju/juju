@@ -103,9 +103,10 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 
+	var ctx context.ProviderCallContext
 	client := env.clientUnlocked
 	if env.volumeURL == nil {
-		url, err := getVolumeEndpointURL(client, env.cloud.Region)
+		url, err := getVolumeEndpointURL(ctx, client, env.cloud.Region)
 		if errors.IsNotFound(err) {
 			// No volume endpoint found; Cinder is not supported.
 			return nil, errors.NotSupportedf("volumes")
@@ -219,11 +220,6 @@ func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args
 	for i, arg := range args {
 		volume, err := s.createVolume(ctx, arg)
 		if err != nil {
-			_, denied := MaybeHandleCredentialError(err, ctx)
-			if denied {
-				errors.Annotate(err, "cannot create volume.")
-				break
-			}
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -242,7 +238,7 @@ func (s *cinderVolumeSource) createVolume(ctx context.ProviderCallContext, arg s
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
 	}
-	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	cinderVolume, err := s.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
 		Size:       int(math.Ceil(float64(arg.Size / 1024))),
@@ -264,10 +260,10 @@ func (s *cinderVolumeSource) createVolume(ctx context.ProviderCallContext, arg s
 		return v.Status != "", nil
 	})
 	if err != nil {
-		if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
+		if err := s.storageAdapter.DeleteVolume(ctx, volumeId); err != nil {
 			logger.Warningf("destroying volume %s: %s", volumeId, err)
 		}
-		return nil, HandleCredentialError(errors.Annotate(err, "waiting for volume to be provisioned"), ctx)
+		return nil, errors.Annotate(err, "waiting for volume to be provisioned")
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
 	return &storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
@@ -275,30 +271,30 @@ func (s *cinderVolumeSource) createVolume(ctx context.ProviderCallContext, arg s
 
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (s *cinderVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
-	cinderVolumes, err := modelCinderVolumes(s.storageAdapter, s.modelUUID)
+	cinderVolumes, err := modelCinderVolumes(ctx, s.storageAdapter, s.modelUUID)
 	if err != nil {
-		return nil, HandleCredentialError(errors.Trace(err), ctx)
+		return nil, errors.Trace(err)
 	}
 	return volumeInfoToVolumeIds(cinderToJujuVolumeInfos(cinderVolumes)), nil
 }
 
 // modelCinderVolumes returns all of the cinder volumes for the model.
-func modelCinderVolumes(storageAdapter OpenstackStorage, modelUUID string) ([]cinder.Volume, error) {
-	return cinderVolumes(storageAdapter, func(v *cinder.Volume) bool {
+func modelCinderVolumes(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, modelUUID string) ([]cinder.Volume, error) {
+	return cinderVolumes(ctx, storageAdapter, func(v *cinder.Volume) bool {
 		return v.Metadata[tags.JujuModel] == modelUUID
 	})
 }
 
 // controllerCinderVolumes returns all of the cinder volumes for the model.
-func controllerCinderVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]cinder.Volume, error) {
-	return cinderVolumes(storageAdapter, func(v *cinder.Volume) bool {
+func controllerCinderVolumes(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, controllerUUID string) ([]cinder.Volume, error) {
+	return cinderVolumes(ctx, storageAdapter, func(v *cinder.Volume) bool {
 		return v.Metadata[tags.JujuController] == controllerUUID
 	})
 }
 
 // cinderVolumes returns all of the cinder volumes matching the given predicate.
-func cinderVolumes(storageAdapter OpenstackStorage, pred func(*cinder.Volume) bool) ([]cinder.Volume, error) {
-	allCinderVolumes, err := storageAdapter.GetVolumesDetail()
+func cinderVolumes(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, pred func(*cinder.Volume) bool) ([]cinder.Volume, error) {
+	allCinderVolumes, err := storageAdapter.GetVolumesDetail(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -323,9 +319,9 @@ func volumeInfoToVolumeIds(volumes []storage.VolumeInfo) []string {
 func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
-	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
+	cinderVolumes, err := s.storageAdapter.GetVolumesDetail(ctx)
 	if err != nil {
-		return nil, HandleCredentialError(errors.Trace(err), ctx)
+		return nil, errors.Trace(err)
 	}
 	volumesById := make(map[string]*cinder.Volume)
 	for i, volume := range cinderVolumes {
@@ -393,7 +389,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 				args[i].InstanceId = instance.Id(a.ServerId)
 			}
 			if len(args) > 0 {
-				results := detachVolumes(storageAdapter, args)
+				results := detachVolumes(ctx, storageAdapter, args)
 				for _, err := range results {
 					if err != nil {
 						return false, errors.Trace(err)
@@ -416,8 +412,8 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		// Already being deleted, nothing to do.
 		return nil
 	}
-	if err := storageAdapter.DeleteVolume(volumeId); err != nil {
-		return HandleCredentialError(err, ctx)
+	if err := storageAdapter.DeleteVolume(ctx, volumeId); err != nil {
+		return err
 	}
 	return nil
 }
@@ -437,15 +433,15 @@ func releaseVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		return false, nil
 	})
 	if err != nil {
-		return HandleCredentialError(errors.Annotatef(err, "cannot release volume %q", volumeId), ctx)
+		return errors.Annotatef(err, "cannot release volume %q", volumeId)
 	}
 	// Drop the model and controller tags from the volume.
 	tags := map[string]string{
 		tags.JujuModel:      "",
 		tags.JujuController: "",
 	}
-	_, err = storageAdapter.SetVolumeMetadata(volumeId, tags)
-	return HandleCredentialError(errors.Annotatef(err, "tagging volume"), ctx)
+	_, err = storageAdapter.SetVolumeMetadata(ctx, volumeId, tags)
+	return errors.Annotatef(err, "tagging volume")
 }
 
 // ValidateVolumeParams implements storage.VolumeSource.
@@ -460,11 +456,6 @@ func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args
 	for i, arg := range args {
 		attachment, err := s.attachVolume(ctx, arg)
 		if err != nil {
-			_, denied := MaybeHandleCredentialError(err, ctx)
-			if denied {
-				errors.Annotate(err, "cannot attach volumes.")
-				break
-			}
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -475,9 +466,9 @@ func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args
 
 func (s *cinderVolumeSource) attachVolume(ctx context.ProviderCallContext, arg storage.VolumeAttachmentParams) (*storage.VolumeAttachment, error) {
 	// Check to see if the volume is already attached.
-	existingAttachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
+	existingAttachments, err := s.storageAdapter.ListVolumeAttachments(ctx, string(arg.InstanceId))
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	novaAttachment := findAttachment(arg.VolumeId, existingAttachments)
 	if novaAttachment == nil {
@@ -488,12 +479,13 @@ func (s *cinderVolumeSource) attachVolume(ctx context.ProviderCallContext, arg s
 			return nil, errors.Annotate(err, "waiting for volume to become available")
 		}
 		novaAttachment, err = s.storageAdapter.AttachVolume(
+			ctx,
 			string(arg.InstanceId),
 			arg.VolumeId,
 			autoAssignedMountPoint,
 		)
 		if err != nil {
-			return nil, err
+			return nil, HandleCredentialError(err, ctx)
 		}
 	}
 	if novaAttachment.Device == nil {
@@ -510,17 +502,17 @@ func (s *cinderVolumeSource) attachVolume(ctx context.ProviderCallContext, arg s
 
 // ImportVolume is part of the storage.VolumeImporter interface.
 func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
-	volume, err := s.storageAdapter.GetVolume(volumeId)
+	volume, err := s.storageAdapter.GetVolume(ctx, volumeId)
 	if err != nil {
-		return storage.VolumeInfo{}, HandleCredentialError(errors.Annotatef(err, "getting volume"), ctx)
+		return storage.VolumeInfo{}, errors.Annotatef(err, "getting volume")
 	}
 	if volume.Status != volumeStatusAvailable {
-		return storage.VolumeInfo{}, HandleCredentialError(errors.Errorf(
+		return storage.VolumeInfo{}, errors.Errorf(
 			"cannot import volume %q with status %q", volumeId, volume.Status,
-		), ctx)
+		)
 	}
-	if _, err := s.storageAdapter.SetVolumeMetadata(volumeId, resourceTags); err != nil {
-		return storage.VolumeInfo{}, HandleCredentialError(errors.Annotatef(err, "tagging volume %q", volumeId), ctx)
+	if _, err := s.storageAdapter.SetVolumeMetadata(ctx, volumeId, resourceTags); err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "tagging volume %q", volumeId)
 	}
 	return cinderToJujuVolumeInfo(volume), nil
 }
@@ -532,9 +524,9 @@ func waitVolume(
 	pred func(*cinder.Volume) (bool, error),
 ) (*cinder.Volume, error) {
 	for a := cinderAttempt.Start(); a.Next(); {
-		volume, err := storageAdapter.GetVolume(volumeId)
+		volume, err := storageAdapter.GetVolume(ctx, volumeId)
 		if err != nil {
-			return nil, HandleCredentialError(errors.Annotatef(err, "getting volume"), ctx)
+			return nil, errors.Annotatef(err, "getting volume")
 		}
 		ok, err := pred(volume)
 		if err != nil {
@@ -549,13 +541,14 @@ func waitVolume(
 
 // DetachVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DetachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]error, error) {
-	return detachVolumes(s.storageAdapter, args), nil
+	return detachVolumes(ctx, s.storageAdapter, args), nil
 }
 
-func detachVolumes(storageAdapter OpenstackStorage, args []storage.VolumeAttachmentParams) []error {
+func detachVolumes(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, args []storage.VolumeAttachmentParams) []error {
 	results := make([]error, len(args))
 	for i, arg := range args {
 		if err := detachVolume(
+			ctx,
 			string(arg.InstanceId),
 			arg.VolumeId,
 			storageAdapter,
@@ -586,8 +579,8 @@ func cinderToJujuVolumeInfo(volume *cinder.Volume) storage.VolumeInfo {
 	}
 }
 
-func detachVolume(instanceId, volumeId string, storageAdapter OpenstackStorage) error {
-	err := storageAdapter.DetachVolume(instanceId, volumeId)
+func detachVolume(ctx context.ProviderCallContext, instanceId, volumeId string, storageAdapter OpenstackStorage) error {
+	err := storageAdapter.DetachVolume(ctx, instanceId, volumeId)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -606,14 +599,14 @@ func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.Vol
 }
 
 type OpenstackStorage interface {
-	GetVolume(volumeId string) (*cinder.Volume, error)
-	GetVolumesDetail() ([]cinder.Volume, error)
-	DeleteVolume(volumeId string) error
-	CreateVolume(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
-	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
-	DetachVolume(serverId, attachmentId string) error
-	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
-	SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error)
+	GetVolume(ctx context.ProviderCallContext, volumeId string) (*cinder.Volume, error)
+	GetVolumesDetail(ctx context.ProviderCallContext) ([]cinder.Volume, error)
+	DeleteVolume(ctx context.ProviderCallContext, volumeId string) error
+	CreateVolume(context.ProviderCallContext, cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
+	AttachVolume(ctx context.ProviderCallContext, serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
+	DetachVolume(ctx context.ProviderCallContext, serverId, attachmentId string) error
+	ListVolumeAttachments(ctx context.ProviderCallContext, serverId string) ([]nova.VolumeAttachment, error)
+	SetVolumeMetadata(ctx context.ProviderCallContext, volumeId string, metadata map[string]string) (map[string]string, error)
 }
 
 type endpointResolver interface {
@@ -622,10 +615,10 @@ type endpointResolver interface {
 	EndpointsForRegion(region string) identity.ServiceURLs
 }
 
-func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, error) {
+func getVolumeEndpointURL(ctx context.ProviderCallContext, client endpointResolver, region string) (*url.URL, error) {
 	if !client.IsAuthenticated() {
 		if err := authenticateClient(client); err != nil {
-			return nil, errors.Trace(err)
+			return nil, HandleCredentialError(errors.Trace(err), ctx)
 		}
 	}
 	endpointMap := client.EndpointsForRegion(region)
@@ -655,58 +648,84 @@ type novaClient struct {
 }
 
 // CreateVolume is part of the OpenstackStorage interface.
-func (ga *openstackStorageAdapter) CreateVolume(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+func (ga *openstackStorageAdapter) CreateVolume(ctx context.ProviderCallContext, args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 	resp, err := ga.cinderClient.CreateVolume(args)
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	return &resp.Volume, nil
 }
 
+// AttachVolume is part of the OpenstackStorage interface.
+func (ga *openstackStorageAdapter) AttachVolume(
+	ctx context.ProviderCallContext,
+	serverId,
+	volumeId,
+	mountPoint string,
+) (*nova.VolumeAttachment, error) {
+	resp, err := ga.novaClient.AttachVolume(serverId, volumeId, mountPoint)
+	if err != nil {
+		return nil, HandleCredentialError(err, ctx)
+	}
+	return resp, nil
+}
+
+// ListVolumeAttachments is part of the OpenstackStorage interface.
+func (ga *openstackStorageAdapter) ListVolumeAttachments(
+	ctx context.ProviderCallContext,
+	serverId string,
+) ([]nova.VolumeAttachment, error) {
+	resp, err := ga.novaClient.ListVolumeAttachments(serverId)
+	if err != nil {
+		return nil, HandleCredentialError(err, ctx)
+	}
+	return resp, nil
+}
+
 // GetVolumesDetail is part of the OpenstackStorage interface.
-func (ga *openstackStorageAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
+func (ga *openstackStorageAdapter) GetVolumesDetail(ctx context.ProviderCallContext) ([]cinder.Volume, error) {
 	resp, err := ga.cinderClient.GetVolumesDetail()
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	return resp.Volumes, nil
 }
 
 // GetVolume is part of the OpenstackStorage interface.
-func (ga *openstackStorageAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
+func (ga *openstackStorageAdapter) GetVolume(ctx context.ProviderCallContext, volumeId string) (*cinder.Volume, error) {
 	resp, err := ga.cinderClient.GetVolume(volumeId)
 	if err != nil {
 		if gooseerrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("volume %q", volumeId)
 		}
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 	return &resp.Volume, nil
 }
 
 // SetVolumeMetadata is part of the OpenstackStorage interface.
-func (ga *openstackStorageAdapter) SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error) {
+func (ga *openstackStorageAdapter) SetVolumeMetadata(ctx context.ProviderCallContext, volumeId string, metadata map[string]string) (map[string]string, error) {
 	response, err := ga.cinderClient.SetVolumeMetadata(volumeId, metadata)
 	if err != nil {
-		return nil, err
+		return nil, HandleCredentialError(err, ctx)
 	}
 
 	return response, nil
 }
 
 // DeleteVolume is part of the OpenstackStorage interface.
-func (ga *openstackStorageAdapter) DeleteVolume(volumeId string) error {
+func (ga *openstackStorageAdapter) DeleteVolume(ctx context.ProviderCallContext, volumeId string) error {
 	if err := ga.cinderClient.DeleteVolume(volumeId); err != nil {
 		if gooseerrors.IsNotFound(err) {
 			return errors.NotFoundf("volume %q", volumeId)
 		}
-		return err
+		return HandleCredentialError(err, ctx)
 	}
 	return nil
 }
 
 // DetachVolume is part of the OpenstackStorage interface.
-func (ga *openstackStorageAdapter) DetachVolume(serverId, attachmentId string) error {
+func (ga *openstackStorageAdapter) DetachVolume(ctx context.ProviderCallContext, serverId, attachmentId string) error {
 	if err := ga.novaClient.DetachVolume(serverId, attachmentId); err != nil {
 		if gooseerrors.IsNotFound(err) {
 			return errors.NewNotFound(nil,
@@ -715,7 +734,7 @@ func (ga *openstackStorageAdapter) DetachVolume(serverId, attachmentId string) e
 				),
 			)
 		}
-		return err
+		return HandleCredentialError(err, ctx)
 	}
 	return nil
 }

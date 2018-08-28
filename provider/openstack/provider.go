@@ -1000,7 +1000,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if args.AvailabilityZone != "" {
 		// args.AvailabilityZone should only be set if this OpenStack
 		// supports zones; validate the zone.
-		volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
+		volumeAttachmentsZone, err := e.volumeAttachmentsZone(ctx, args.VolumeAttachments)
 		if err != nil {
 			return nil, common.ZoneIndependentError(err)
 		}
@@ -1268,7 +1268,7 @@ func (e *Environ) deriveAvailabilityZone(
 	placement string,
 	volumeAttachments []storage.VolumeAttachmentParams,
 ) (string, error) {
-	volumeAttachmentsZone, err := e.volumeAttachmentsZone(volumeAttachments)
+	volumeAttachmentsZone, err := e.volumeAttachmentsZone(ctx, volumeAttachments)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1298,7 +1298,7 @@ func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone str
 // volumeAttachmentsZone determines the availability zone for each volume
 // identified in the volume attachment parameters, checking that they are
 // all the same, and returns the availability zone name.
-func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (string, error) {
+func (e *Environ) volumeAttachmentsZone(ctx context.ProviderCallContext, volumeAttachments []storage.VolumeAttachmentParams) (string, error) {
 	if len(volumeAttachments) == 0 {
 		return "", nil
 	}
@@ -1306,7 +1306,7 @@ func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttach
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	volumes, err := modelCinderVolumes(cinderProvider.storageAdapter, cinderProvider.modelUUID)
+	volumes, err := modelCinderVolumes(ctx, cinderProvider.storageAdapter, cinderProvider.modelUUID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1543,7 +1543,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx context.Prov
 
 	var failed []string
 	for _, volumeId := range volumeIds {
-		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		_, err := cinder.storageAdapter.SetVolumeMetadata(ctx, volumeId, controllerTag)
 		if err != nil {
 			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
 			failed = append(failed, volumeId)
@@ -1641,7 +1641,7 @@ func (e *Environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	// Delete all volumes managed by the controller.
 	cinder, err := e.cinderProvider()
 	if err == nil {
-		volumes, err := controllerCinderVolumes(cinder.storageAdapter, controllerUUID)
+		volumes, err := controllerCinderVolumes(ctx, cinder.storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}

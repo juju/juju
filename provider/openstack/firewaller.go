@@ -317,12 +317,7 @@ func deleteSecurityGroup(
 		Clock:    clock,
 	})
 	if err != nil {
-		_, denied := MaybeHandleCredentialError(err, ctx)
-		if denied {
-			logger.Debugf("cannot delete security group %q. Invalid Credentials.", name)
-		} else {
-			logger.Warningf("cannot delete security group %q. Used by another model?", name)
-		}
+		logger.Warningf("cannot delete security group %q. Used by another model?", name)
 	}
 }
 

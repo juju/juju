@@ -11,7 +11,6 @@ import (
 
 func MaybeHandleCredentialError(err error, ctx context.ProviderCallContext) (error, bool) {
 	isUnauthorized := gooseerrors.IsUnauthorised(err)
-	//fmt.Printf("XXXXX... IsUnauthorized : %v\n", IsUnauthorized)
 	if ctx != nil && isUnauthorized {
 		invalidateErr := ctx.InvalidateCredential("openstack cloud denied access")
 		if invalidateErr != nil {
