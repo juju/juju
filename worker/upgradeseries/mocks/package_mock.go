@@ -85,6 +85,19 @@ func (mr *MockFacadeMockRecorder) StartUnitCompletion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion))
 }
 
+// TargetSeries mocks base method
+func (m *MockFacade) TargetSeries() (string, error) {
+	ret := m.ctrl.Call(m, "TargetSeries")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TargetSeries indicates an expected call of TargetSeries
+func (mr *MockFacadeMockRecorder) TargetSeries() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetSeries", reflect.TypeOf((*MockFacade)(nil).TargetSeries))
+}
+
 // UnitsCompleted mocks base method
 func (m *MockFacade) UnitsCompleted() ([]names_v2.UnitTag, error) {
 	ret := m.ctrl.Call(m, "UnitsCompleted")

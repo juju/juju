@@ -21,6 +21,7 @@ type Facade interface {
 	StartUnitCompletion() error
 	SetMachineStatus(status model.UpgradeSeriesStatus) error
 	FinishUpgradeSeries() error
+	TargetSeries() (string, error)
 }
 
 // NewFacade creates a *upgradeseries.Client and returns it as a Facade.
