@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 // Client allows access to the CAAS operator provisioner API endpoint.
@@ -105,8 +106,9 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath string
-	Version   version.Number
+	ImagePath    string
+	Version      version.Number
+	CharmStorage storage.KubernetesFilesystemParams
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.
@@ -115,8 +117,20 @@ func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
 	if err := c.facade.FacadeCall("OperatorProvisioningInfo", nil, &result); err != nil {
 		return OperatorProvisioningInfo{}, err
 	}
-	return OperatorProvisioningInfo{
-		ImagePath: result.ImagePath,
-		Version:   result.Version,
-	}, nil
+	info := OperatorProvisioningInfo{
+		ImagePath:    result.ImagePath,
+		Version:      result.Version,
+		CharmStorage: filesystemFromParams(result.CharmStorage),
+	}
+	return info, nil
+}
+
+func filesystemFromParams(in params.KubernetesFilesystemParams) storage.KubernetesFilesystemParams {
+	return storage.KubernetesFilesystemParams{
+		StorageName:  in.StorageName,
+		Provider:     storage.ProviderType(in.Provider),
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
+	}
 }

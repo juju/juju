@@ -174,6 +174,24 @@ type Unit struct {
 	FilesystemInfo []FilesystemInfo
 }
 
+// CharmStorageParams defines parameters used to create storage
+// for operators to use for charm state.
+type CharmStorageParams struct {
+	// Size is the minimum size of the filesystem in MiB.
+	Size uint64
+
+	// The provider type for this filesystem.
+	Provider storage.ProviderType
+
+	// Attributes is a set of provider-specific options for storage creation,
+	// as defined in a storage pool.
+	Attributes map[string]interface{}
+
+	// ResourceTags is a set of tags to set on the created filesystem, if the
+	// storage provider supports tags.
+	ResourceTags map[string]string
+}
+
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
 	// OperatorImagePath is the docker registry URL for the image.
@@ -181,6 +199,10 @@ type OperatorConfig struct {
 
 	// Version is the Juju version of the operator image.
 	Version version.Number
+
+	// CharmStorage defines parameters used to create storage
+	// for operators to use for charm state.
+	CharmStorage CharmStorageParams
 
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte

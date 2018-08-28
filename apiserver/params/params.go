@@ -481,8 +481,9 @@ type ConfigResult struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath string         `json:"image-path"`
-	Version   version.Number `json:"version"`
+	ImagePath    string                     `json:"image-path"`
+	Version      version.Number             `json:"version"`
+	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 
 // PublicAddress holds parameters for the PublicAddress call.

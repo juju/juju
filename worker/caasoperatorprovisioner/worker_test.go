@@ -102,6 +102,12 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 	config := args[2].(*caas.OperatorConfig)
 	c.Assert(config.OperatorImagePath, gc.Equals, "juju-operator-image")
 	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
+	c.Assert(config.CharmStorage, jc.DeepEquals, caas.CharmStorageParams{
+		Provider:     "kubernetes",
+		Size:         uint64(1024),
+		ResourceTags: map[string]string{"foo": "bar"},
+		Attributes:   map[string]interface{}{"key": "value"},
+	})
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)

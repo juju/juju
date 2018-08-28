@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/storage"
 )
 
 type provisionerSuite struct {
@@ -165,6 +166,13 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 		*(result.(*params.OperatorProvisioningInfo)) = params.OperatorProvisioningInfo{
 			ImagePath: "juju-operator-image",
 			Version:   vers,
+			CharmStorage: params.KubernetesFilesystemParams{
+				Size:        10,
+				Provider:    "kubernetes",
+				StorageName: "stor",
+				Tags:        map[string]string{"model": "mode-tag"},
+				Attributes:  map[string]interface{}{"key": "value"},
+			},
 		}
 		return nil
 	})
@@ -173,5 +181,12 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
 		ImagePath: "juju-operator-image",
 		Version:   vers,
+		CharmStorage: storage.KubernetesFilesystemParams{
+			Size:         10,
+			Provider:     "kubernetes",
+			StorageName:  "stor",
+			ResourceTags: map[string]string{"model": "mode-tag"},
+			Attributes:   map[string]interface{}{"key": "value"},
+		},
 	})
 }
