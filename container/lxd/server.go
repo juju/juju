@@ -94,6 +94,13 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
+	if name == "" && !clustered {
+		// If the name is set to empty and clustering is false, then it's highly
+		// likely that we're on an older version of LXD. So in that case we
+		// need to set the name to something and internally LXD sets this type
+		// of node to "none".
+		name = "none"
+	}
 	serverCertificate := info.Environment.Certificate
 	hostArch := arch.NormaliseArch(info.Environment.KernelArchitecture)
 
