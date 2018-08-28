@@ -41,8 +41,8 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	resultSource := params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{{
-			Status: model.UpgradeSeriesPrepareStarted},
-		},
+			Status: model.UpgradeSeriesPrepareStarted,
+		}},
 	}
 	fCaller.EXPECT().FacadeCall("MachineStatus", s.args, gomock.Any()).SetArg(2, resultSource)
 
@@ -92,6 +92,25 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradeSeriesSuite) TestTargetSeries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	resultSource := params.StringResults{
+		Results: []params.StringResult{{
+			Result: "bionic",
+		}},
+	}
+	fCaller.EXPECT().FacadeCall("TargetSeries", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	target, err := api.TargetSeries()
+	c.Assert(err, gc.IsNil)
+	c.Check(target, gc.Equals, "bionic")
 }
 
 func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
@@ -152,13 +171,8 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatusParam{
-			{Entity: s.args.Entities[0]},
-		},
-	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("StartUnitCompletion", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall("StartUnitCompletion", s.args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.StartUnitCompletion()
