@@ -413,9 +413,12 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		Since:  status.Since,
 		Data:   status.Data,
 	}
-	ms := m.MeterStatus()
-	if isColorStatus(ms.Code) {
-		info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
+
+	if info.SLA != "unsupported" {
+		ms := m.MeterStatus()
+		if isColorStatus(ms.Code) {
+			info.MeterStatus = params.MeterStatus{Color: strings.ToLower(ms.Code.String()), Message: ms.Info}
+		}
 	}
 
 	return info, nil
