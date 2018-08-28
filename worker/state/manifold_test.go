@@ -173,7 +173,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 
 	// Ensure State is closed when the worker is done.
 	workertest.CleanKill(c, w)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
@@ -188,11 +188,11 @@ func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
 
 	// Close the worker while the State is still in use.
 	workertest.CleanKill(c, w)
-	assertStateNotClosed(c, pool.SystemState())
+	assertStatePoolNotClosed(c, pool)
 
 	// Now signal that the State is no longer needed.
 	c.Assert(stTracker.Done(), jc.ErrorIsNil)
-	assertStateClosed(c, pool.SystemState())
+	assertStatePoolClosed(c, pool)
 }
 
 func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {

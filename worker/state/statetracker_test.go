@@ -28,17 +28,17 @@ func (s *StateTrackerSuite) SetUpTest(c *gc.C) {
 func (s *StateTrackerSuite) TestDoneWithNoUse(c *gc.C) {
 	err := s.stateTracker.Done()
 	c.Assert(err, jc.ErrorIsNil)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 	err := s.stateTracker.Done()
 	c.Assert(err, jc.ErrorIsNil)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 
 	err = s.stateTracker.Done()
 	c.Assert(err, gc.Equals, workerstate.ErrStateClosed)
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestUse(c *gc.C) {
@@ -64,7 +64,7 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 2
-	assertStateNotClosed(c, s.State)
+	assertStatePoolNotClosed(c, s.StatePool)
 
 	_, err = s.stateTracker.Use()
 	// 3
@@ -72,15 +72,15 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 2
-	assertStateNotClosed(c, s.State)
+	assertStatePoolNotClosed(c, s.StatePool)
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 1
-	assertStateNotClosed(c, s.State)
+	assertStatePoolNotClosed(c, s.StatePool)
 
 	c.Check(s.stateTracker.Done(), jc.ErrorIsNil)
 	// 0
-	assertStateClosed(c, s.State)
+	assertStatePoolClosed(c, s.StatePool)
 }
 
 func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
@@ -91,11 +91,12 @@ func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 	c.Check(err, gc.Equals, workerstate.ErrStateClosed)
 }
 
-func assertStateNotClosed(c *gc.C, st *state.State) {
-	err := st.Ping()
+func assertStatePoolNotClosed(c *gc.C, pool *state.StatePool) {
+	c.Assert(pool.SystemState(), gc.NotNil)
+	err := pool.SystemState().Ping()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertStateClosed(c *gc.C, st *state.State) {
-	c.Assert(st.Ping, gc.PanicMatches, "Session already closed")
+func assertStatePoolClosed(c *gc.C, pool *state.StatePool) {
+	c.Assert(pool.SystemState(), gc.IsNil)
 }
