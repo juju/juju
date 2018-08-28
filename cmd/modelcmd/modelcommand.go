@@ -119,21 +119,24 @@ func (c *ModelCommandBase) ClientStore() jujuclient.ClientStore {
 	return c.store
 }
 
-//func (c *ModelCommandBase) initModelRequired() bool {
-//	return !c.doneInitModel || c.initModelError != nil
-//}
-
 func (c *ModelCommandBase) maybeInitModel() error {
 	// maybeInitModel() might have been called previously before the actual command's
 	// Init() method was invoked. If allowDefaultModel = false, then we would have
-	// returned ErrNoModelSpecified at that point and so need to try again.
+	// returned [ErrNoModelSpecified,ErrNoControllersDefined,ErrNoCurrentController]
+	// at that point and so need to try again.
 	// If any other error result was returned, we bail early here.
-	if c.doneInitModel && errors.Cause(c.initModelError) != ErrNoModelSpecified {
+	retriableError := func(original error) bool {
+		return errors.Cause(c.initModelError) != ErrNoModelSpecified &&
+			errors.Cause(c.initModelError) != ErrNoControllersDefined &&
+			errors.Cause(c.initModelError) != ErrNoCurrentController
+	}
+	if c.doneInitModel && retriableError(c.initModelError) {
 		return errors.Trace(c.initModelError)
 	}
 
-	// A previous call to maybeInitModel returned ErrNoModelSpecified so we try again
-	// because the model should now have been set.
+	// A previous call to maybeInitModel returned
+	// [ErrNoModelSpecified,ErrNoControllersDefined,ErrNoCurrentController],
+	// so we try again because the model should now have been set.
 
 	// Set up the client store if not already done.
 	if !c.doneInitModel {
