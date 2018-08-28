@@ -56,6 +56,7 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
@@ -102,6 +103,7 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().EnableHTTPSListener().Return(nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
@@ -167,6 +169,7 @@ func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
@@ -308,7 +311,7 @@ func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
 	}
 	serverInfo := &api.Server{
 		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "a.b",
+			APIVersion: "2.2",
 		},
 	}
 
@@ -361,6 +364,7 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
@@ -387,9 +391,8 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 	factory, server := s.newRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
-		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
-		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
@@ -408,31 +411,10 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serverSuite) TestRemoteServerWithProfileError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	factory, server := s.newRemoteServerFactory(ctrl)
-
-	server.EXPECT().GetProfile("default").Return(nil, "", errors.New("bad"))
-
-	creds := cloud.NewCredential("any", map[string]string{
-		"client-cert": "client-cert",
-		"client-key":  "client-key",
-		"server-cert": "server-cert",
-	})
-	_, err := factory.RemoteServer(environs.CloudSpec{
-		Endpoint:   "https://10.0.0.9:8443",
-		Credential: &creds,
-	})
-	c.Assert(errors.Cause(err).Error(), gc.Matches, "bad")
-}
-
 func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	profile := &api.Profile{}
 	etag := "etag"
 	serverInfo := &api.Server{
 		ServerUntrusted: api.ServerUntrusted{
@@ -443,8 +425,6 @@ func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 	factory, server := s.newRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
-		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
-		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().StorageSupported().Return(false),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
@@ -482,13 +462,9 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	profile := &api.Profile{}
-	etag := "etag"
 	factory, server := s.newRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
-		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
-		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().StorageSupported().Return(false),
 		server.EXPECT().GetServer().Return(nil, "", errors.New("bad")),
 	)
