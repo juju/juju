@@ -27,7 +27,10 @@ const (
 
 var UpgradeSeriesConfirmationMsg = `
 WARNING This command will mark machine %q as being upgraded to series %q
-This operation cannot be reverted or canceled once started.
+This operation cannot be reverted or canceled once started. The units
+of machine %q will also be upgraded. These units include:
+
+%s
 
 Continue [y/N]?`[1:]
 
@@ -43,6 +46,7 @@ type UpgradeMachineSeriesAPI interface {
 	Close() error
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
+	UnitsToUpgrade(string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -244,7 +248,13 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
 		return nil
 	}
 
-	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series)
+	affectedUnits, err := c.upgradeMachineSeriesClient.UnitsToUpgrade(c.machineNumber)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	formattedUnitNames := strings.Join(affectedUnits, "\n")
+	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series, c.machineNumber, formattedUnitNames)
 
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade series")

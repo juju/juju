@@ -56,6 +56,19 @@ func (mr *MockUpgradeMachineSeriesAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).Close))
 }
 
+// UnitsToUpgrade mocks base method
+func (m *MockUpgradeMachineSeriesAPI) UnitsToUpgrade(arg0 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "UnitsToUpgrade", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitsToUpgrade indicates an expected call of UnitsToUpgrade
+func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UnitsToUpgrade(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsToUpgrade", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UnitsToUpgrade), arg0)
+}
+
 // UpgradeSeriesComplete mocks base method
 func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesComplete(arg0 string) error {
 	ret := m.ctrl.Call(m, "UpgradeSeriesComplete", arg0)

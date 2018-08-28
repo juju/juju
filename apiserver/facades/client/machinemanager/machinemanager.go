@@ -105,11 +105,19 @@ func NewMachineManagerAPI(
 }
 
 func (mm *MachineManagerAPI) checkCanWrite() error {
-	canWrite, err := mm.authorizer.HasPermission(permission.WriteAccess, mm.modelTag)
+	return mm.checkAccess(permission.WriteAccess)
+}
+
+func (mm *MachineManagerAPI) checkCanRead() error {
+	return mm.checkAccess(permission.ReadAccess)
+}
+
+func (mm *MachineManagerAPI) checkAccess(access permission.Access) error {
+	canAccess, err := mm.authorizer.HasPermission(access, mm.modelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canWrite {
+	if !canAccess {
 		return common.ErrPerm
 	}
 	return nil
@@ -404,6 +412,36 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	}
 
 	return params.ErrorResult{}, nil
+}
+
+// UpgradeSeriesComplete returns the set of units affected by the series upgrade
+// of a particular machine.
+func (mm *MachineManagerAPI) UnitsToUpgrade(args params.UpdateSeriesArgs) (params.UpgradeSeriesUnitsResults, error) {
+	err := mm.checkCanRead()
+	if err != nil {
+		return params.UpgradeSeriesUnitsResults{}, err
+	}
+	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
+	for i, arg := range args.Args {
+		machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+		machine, err := mm.st.Machine(machineTag.Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+		units, err := machine.Units()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+		unitNames := []string{}
+		for _, unit := range units {
+			unitNames = append(unitNames, unit.Name())
+		}
+		results[i].UnitNames = unitNames
+	}
+	return params.UpgradeSeriesUnitsResults{Results: results}, nil
 }
 
 // DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
