@@ -238,7 +238,7 @@ func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(st
 			continue
 		}
 
-		logger.Debugf("found usable network device %q with parent %q", name, netName)
+		logger.Tracef("found usable network device %q with parent %q", name, netName)
 		s.localBridgeName = netName
 		return nil
 	}
