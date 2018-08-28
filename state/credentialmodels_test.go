@@ -70,7 +70,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccess(c *gc.C) {
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
-		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelTag: s.abcModelTag},
+		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 	})
 }
 
@@ -85,8 +85,8 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) 
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
-		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelTag: s.abcModelTag},
-		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess, ModelTag: xyzModelTag},
+		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
+		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess, ModelUUID: xyzModelTag.Id()},
 	})
 }
 
@@ -101,7 +101,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessNoModels(c *gc
 func (s *CredentialModelsSuite) TestCredentialModels(c *gc.C) {
 	out, err := s.State.CredentialModels(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, map[names.ModelTag]string{s.abcModelTag: "abcmodel"})
+	c.Assert(out, gc.DeepEquals, map[string]string{s.abcModelTag.Id(): "abcmodel"})
 }
 
 func (s *CredentialModelsSuite) TestCredentialNoModels(c *gc.C) {

@@ -349,7 +349,7 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 }
 
 // CredentialModels returns all models that use given cloud credential.
-func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[names.ModelTag]string, error) {
+func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
 	coll, cleanup := st.db().GetCollection(modelsC)
 	defer cleanup()
 
@@ -362,9 +362,9 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[names.Model
 		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
 	}
 
-	results := make(map[names.ModelTag]string, len(docs))
+	results := make(map[string]string, len(docs))
 	for _, model := range docs {
-		results[names.NewModelTag(model.UUID)] = model.Name
+		results[model.UUID] = model.Name
 	}
 	return results, nil
 }
@@ -372,7 +372,7 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[names.Model
 // CredentialOwnerModelAccess stores cloud credential model information for the credential owner
 // or an error retrieving it.
 type CredentialOwnerModelAccess struct {
-	ModelTag    names.ModelTag
+	ModelUUID   string
 	ModelName   string
 	OwnerAccess permission.Access
 	Error       error
@@ -386,18 +386,18 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 		return nil, errors.Trace(err)
 	}
 
-	results := []CredentialOwnerModelAccess{}
-	for modelTag, name := range models {
-		ownerAccess, err := st.UserAccess(tag.Owner(), modelTag)
+	var results []CredentialOwnerModelAccess
+	for uuid, name := range models {
+		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(uuid))
 		if err != nil {
 			if errors.IsNotFound(err) {
-				results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelTag: modelTag, OwnerAccess: permission.NoAccess})
+				results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelUUID: uuid, OwnerAccess: permission.NoAccess})
 				continue
 			}
-			results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelTag: modelTag, Error: errors.Trace(err)})
+			results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelUUID: uuid, Error: errors.Trace(err)})
 			continue
 		}
-		results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelTag: modelTag, OwnerAccess: ownerAccess.Access})
+		results = append(results, CredentialOwnerModelAccess{ModelName: name, ModelUUID: uuid, OwnerAccess: ownerAccess.Access})
 	}
 	return results, nil
 }
