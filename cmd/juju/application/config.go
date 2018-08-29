@@ -346,6 +346,7 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 			// Note that unlike the output with a non-nil and non-empty value below, this
 			// output should never have a newline.
 			fmt.Fprint(ctx.Stdout, "")
+			return nil
 		}
 		// TODO (anastasiamac 2018-08-29) We want to have a new line after here (fmt.Fprintln).
 		// However, it will break all existing scripts and should be done as part of Juju 3.x work.
