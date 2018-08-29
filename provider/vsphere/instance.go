@@ -86,7 +86,10 @@ func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRu
 
 func (inst *environInstance) changeIngressRules(insert bool, rules []network.IngressRule) error {
 	if inst.env.ecfg.externalNetwork() == "" {
-		return errors.New("Can't close/open ports without external network")
+		// Open/Close port without an externalNetwork defined is treated as a no-op.
+		// We don't firewall the internal network, and without an external network we don't have any iptables rules
+		// to define.
+		return nil
 	}
 	addresses, client, err := inst.getInstanceConfigurator()
 	if err != nil {
