@@ -4,7 +4,6 @@
 package systemd
 
 import (
-	"github.com/juju/juju/juju/paths"
 	"io/ioutil"
 	"os"
 	"path"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 )
 

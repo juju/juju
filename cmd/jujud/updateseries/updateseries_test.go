@@ -5,7 +5,6 @@ package updateseries
 
 import (
 	"bytes"
-	"github.com/juju/juju/service/systemd"
 	"os"
 	"path"
 	"runtime"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 	coretest "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
