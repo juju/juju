@@ -140,17 +140,16 @@ func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var options []string
-	for k, _ := range charm.Config().Options {
-		options = append(options, k)
+	// use 'juju config foo' to see values
+	for option := range charm.Config().Options {
+		output := s.configCommandOutput(c, appName, option)
+		c.Assert(output, gc.Equals, "")
 	}
 
-	for i, option := range options {
-		c.Logf("case %d: 'juju config %v %v'", i, appName, option)
-		// use 'juju config foo' to see values
-		output := s.configCommandOutput(c, appName, option)
-		c.Assert(output, gc.Equals, "\n")
-	}
+	// set value to be something so that we can check newline added
+	s.configCommandOutput(c, appName, "stremptydefault=a")
+	output := s.configCommandOutput(c, appName, "stremptydefault")
+	c.Assert(output, gc.Equals, "a")
 }
 
 func (s *ApplicationConfigSuite) assertSameConfigOutput(c *gc.C, expectedValues settingsMap) {
