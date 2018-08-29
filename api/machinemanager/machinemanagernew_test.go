@@ -63,7 +63,7 @@ func (s *NewMachineManagerSuite) TestUnitsToUpgrade(c *gc.C) {
 
 	fFacade.EXPECT().BestAPIVersion().Return(5)
 	fCaller.EXPECT().FacadeCall("UnitsToUpgrade", args, gomock.Any()).SetArg(2, results)
-	client := machinemanager.MakeClient(fFacade, fCaller)
+	client := machinemanager.ConstructClient(fFacade, fCaller)
 
 	unitNames, err := client.UnitsToUpgrade(arbitraryName)
 	c.Assert(err, jc.ErrorIsNil)

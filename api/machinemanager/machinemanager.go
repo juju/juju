@@ -19,15 +19,15 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
-// MakeClient is a constructor function for a machine manager client
-func MakeClient(clientFacade base.ClientFacade, facadeCaller base.FacadeCaller) *Client {
+// ConstructClient is a constructor function for a machine manager client
+func ConstructClient(clientFacade base.ClientFacade, facadeCaller base.FacadeCaller) *Client {
 	return &Client{ClientFacade: clientFacade, facade: facadeCaller}
 }
 
 // NewClient returns a new machinemanager client.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, machineManagerFacade)
-	return MakeClient(frontend, backend)
+	return ConstructClient(frontend, backend)
 }
 
 // AddMachines adds new machines with the supplied parameters, creating any requested disks.
