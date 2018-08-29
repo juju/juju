@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
@@ -36,6 +37,7 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 
 const machineArg = "1"
 const seriesArg = "xenial"
+const unitsString = "foo\nbar\n"
 
 func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
 	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
@@ -56,6 +58,7 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, co
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
 	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(s.prepareExpectation.machineArg, s.prepareExpectation.seriesArg, s.prepareExpectation.force).AnyTimes()
 	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
+	mockUpgradeSeriesAPI.EXPECT().UnitsToUpgrade(gomock.Any()).AnyTimes().Return(strings.Split(unitsString, "\n"), nil)
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 
 	err = cmdtesting.InitCommand(com, args)
@@ -132,7 +135,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgree(c *gc.C) {
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c *gc.C) {
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
-	confirmationMsg := fmt.Sprintf(machine.UpgradeSeriesConfirmationMsg, machineArg, seriesArg)
+	confirmationMsg := fmt.Sprintf(machine.UpgradeSeriesConfirmationMsg, machineArg, seriesArg, machineArg, unitsString)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, confirmationMsg)
 }
 

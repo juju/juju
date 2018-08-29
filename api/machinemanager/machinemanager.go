@@ -19,10 +19,15 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
+// ConstructClient is a constructor function for a machine manager client
+func ConstructClient(clientFacade base.ClientFacade, facadeCaller base.FacadeCaller) *Client {
+	return &Client{ClientFacade: clientFacade, facade: facadeCaller}
+}
+
 // NewClient returns a new machinemanager client.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, machineManagerFacade)
-	return &Client{ClientFacade: frontend, facade: backend}
+	return ConstructClient(frontend, backend)
 }
 
 // AddMachines adds new machines with the supplied parameters, creating any requested disks.
@@ -166,7 +171,7 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 // successfully completed the managed series upgrade process.
 func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	if client.BestAPIVersion() < 5 {
-		return errors.NotSupportedf("upgrade-series complete")
+		return errors.NotSupportedf("UpgradeSeriesComplete")
 	}
 	args := params.UpdateSeriesArg{
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
@@ -181,4 +186,29 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	}
 
 	return nil
+}
+
+func (client *Client) UnitsToUpgrade(machineName string) ([]string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, errors.NotSupportedf("UnitsToUpgrade")
+	}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{
+			{
+				Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+			},
+		},
+	}
+	results := new(params.UpgradeSeriesUnitsResults)
+	err := client.facade.FacadeCall("UnitsToUpgrade", args, results)
+	if err != nil {
+		return nil, err
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	if results.Results[0].Error != nil {
+		return nil, results.Results[0].Error
+	}
+	return results.Results[0].UnitNames, nil
 }

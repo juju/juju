@@ -483,6 +483,31 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MachineManagerSuite) TestUnitsToUpgrade(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{
+			{
+				Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+			},
+		},
+	}
+	results, err := apiV5.UnitsToUpgrade(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := s.st.machines["0"].Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedUnitNames := []string{}
+	for _, unit := range units {
+		expectedUnitNames = append(expectedUnitNames, unit.Name())
+	}
+	actualUnitNames := results.Results[0].UnitNames
+
+	c.Assert(actualUnitNames, gc.DeepEquals, expectedUnitNames)
+}
+
 // TestIsSeriesLessThan tests a validation method which is not very complicated
 // but complex enough to warrant being exported from an export test package for
 // testing.
@@ -712,6 +737,10 @@ type mockUnit struct {
 
 func (u *mockUnit) UnitTag() names.UnitTag {
 	return u.tag
+}
+
+func (u *mockUnit) Name() string {
+	return u.tag.String()
 }
 
 type mockStorage struct {
