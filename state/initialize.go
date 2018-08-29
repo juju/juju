@@ -135,16 +135,16 @@ type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) {
+func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, errors.Annotate(err, "validating initialization args")
+		return nil, errors.Annotate(err, "validating initialization args")
 	}
 
 	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
 
 	modelUUID := args.ControllerModelArgs.Config.UUID()
 	if !names.IsValidModel(modelUUID) {
-		return nil, nil, errors.New("invalid model UUID")
+		return nil, errors.New("invalid model UUID")
 	}
 	modelTag := names.NewModelTag(modelUUID)
 
@@ -157,7 +157,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) 
 		InitDatabaseFunc:   InitDatabase,
 	})
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening controller")
+		return nil, errors.Annotate(err, "opening controller")
 	}
 	defer func() {
 		if err != nil {
@@ -175,9 +175,9 @@ func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) 
 	// state has already been initialized. If this is the case
 	// do nothing.
 	if _, err := st.Model(); err == nil {
-		return nil, nil, errors.New("already initialized")
+		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
@@ -190,11 +190,11 @@ func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) 
 			RegionConfig:     args.RegionInheritedConfig,
 		})
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	dateCreated := st.nowToTheSecond()
@@ -209,7 +209,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) 
 	// The controller cloud is initially used by 1 model (the controller model).
 	cloudRefCountOp, err := incCloudModelRefOp(st, args.Cloud.Name)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	ops = append(ops,
@@ -264,10 +264,10 @@ func Initialize(args InitializeParams) (_ *Controller, _ *StatePool, err error) 
 	ops = append(ops, modelOps...)
 
 	if err := st.db().RunTransaction(ops); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
-	return ctlr, ctlr.pool, nil
+	return ctlr, nil
 }
 
 // InitDatabase creates all the collections and indices in a Juju database.

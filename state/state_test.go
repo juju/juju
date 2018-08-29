@@ -4483,7 +4483,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	ctlr, pool, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -4502,7 +4502,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		AdminPassword: password,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	st := pool.SystemState()
+	st := ctlr.SystemState()
 	defer ctlr.Close()
 
 	// Check that we can SetAdminMongoPassword to nothing when there's

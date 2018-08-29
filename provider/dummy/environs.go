@@ -822,7 +822,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
 			// It is set just below.
-			_, statePool, err := state.Initialize(state.InitializeParams{
+			controller, err := state.Initialize(state.InitializeParams{
 				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
@@ -844,39 +844,38 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return err
 			}
-			st := statePool.SystemState()
+			st := controller.SystemState()
 			defer func() {
 				if err != nil {
-					statePool.Close()
+					controller.Close()
 				}
 			}()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			// We log this out for test purposes only. No one in real life can use
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
-
+			statePool := controller.StatePool()
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
-				statePool.Close()
-				return err
+				return errors.Trace(err)
 			}
 			stateAuthenticator.AddHandlers(estate.mux)
 
@@ -890,7 +889,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				st,
 			)
 			if err != nil {
-				statePool.Close()
 				return errors.Trace(err)
 			}
 
@@ -925,7 +923,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 			})
 			if err != nil {
-				statePool.Close()
 				panic(err)
 			}
 			estate.apiState = st

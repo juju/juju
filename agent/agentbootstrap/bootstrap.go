@@ -76,7 +76,7 @@ func InitializeState(
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
-) (_ *state.StatePool, _ *state.Machine, resultErr error) {
+) (_ *state.Controller, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(agent.BootstrapMachineId) {
 		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -116,7 +116,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	ctlr, pool, err := state.Initialize(state.InitializeParams{
+	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Type:                    state.ModelTypeIAAS,
@@ -152,7 +152,7 @@ func InitializeState(
 
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
-	st := pool.SystemState()
+	st := ctlr.SystemState()
 	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
@@ -243,7 +243,7 @@ func InitializeState(
 		}
 	}
 
-	return pool, m, nil
+	return ctlr, m, nil
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {

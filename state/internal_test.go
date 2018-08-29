@@ -58,7 +58,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.owner = names.NewLocalUserTag("test-admin")
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	ctlr, pool, err := Initialize(InitializeParams{
+	ctlr, err := Initialize(InitializeParams{
 		Clock:            testclock.NewClock(testing.NonZeroTime()), //  clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
@@ -90,8 +90,8 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctlr
-	s.pool = pool
-	s.state = pool.SystemState()
+	s.pool = ctlr.StatePool()
+	s.state = ctlr.SystemState()
 	s.AddCleanup(func(*gc.C) {
 		// Controller closes pool, pool closes all states.
 		s.controller.Close()

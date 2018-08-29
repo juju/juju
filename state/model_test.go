@@ -1362,9 +1362,9 @@ var _ = gc.Suite(&ModelCloudValidationSuite{})
 // and update/remove credentials.
 
 func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
-	controller, pool, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
-	st := pool.SystemState()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:      state.ModelTypeIAAS,
@@ -1377,9 +1377,9 @@ func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
-	controller, pool, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
-	st := pool.SystemState()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
@@ -1393,9 +1393,9 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
-	controller, pool, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
-	st := pool.SystemState()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:      state.ModelTypeIAAS,
@@ -1410,13 +1410,13 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) {
 	regions := []cloud.Region{{Name: "dummy-region"}}
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
-	controller, pool, owner := s.initializeState(
+	controller, owner := s.initializeState(
 		c, regions, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
 			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
 	defer controller.Close()
-	st := pool.SystemState()
+	st := controller.SystemState()
 	unknownCredentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/unknown-credential")
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := controller.NewModel(state.ModelArgs{
@@ -1434,13 +1434,13 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredential(c *gc.C) {
 	regions := []cloud.Region{{Name: "dummy-region"}}
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
-	controller, pool, owner := s.initializeState(
+	controller, owner := s.initializeState(
 		c, regions, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
 			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
 	defer controller.Close()
-	st := pool.SystemState()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
@@ -1462,9 +1462,9 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEm
 			StorageEndpoint:  "dummy-storage-endpoint",
 		},
 	}
-	controller, pool, owner := s.initializeState(c, regions, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	controller, owner := s.initializeState(c, regions, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
-	st := pool.SystemState()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	cfg, err := cfg.Apply(map[string]interface{}{"name": "whatever"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1479,14 +1479,14 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEm
 
 func (s *ModelCloudValidationSuite) TestNewModelOtherUserCloudCredential(c *gc.C) {
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
-	controller, pool, _ := s.initializeState(
+	controller, _ := s.initializeState(
 		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
 			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
 	defer controller.Close()
-	st := pool.SystemState()
-	owner := factory.NewFactory(st, pool).MakeUser(c, nil).UserTag()
+	st := controller.SystemState()
+	owner := factory.NewFactory(st, controller.StatePool()).MakeUser(c, nil).UserTag()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
@@ -1504,7 +1504,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 	regions []cloud.Region,
 	authTypes []cloud.AuthType,
 	credentials map[names.CloudCredentialTag]cloud.Credential,
-) (*state.Controller, *state.StatePool, names.UserTag) {
+) (*state.Controller, names.UserTag) {
 	owner := names.NewUserTag("test@remote")
 	cfg, _ := createTestModelConfig(c, "")
 	var controllerRegion string
@@ -1518,7 +1518,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		}
 	}
 	controllerCfg := testing.FakeControllerConfig()
-	controller, pool, err := state.Initialize(state.InitializeParams{
+	controller, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -1541,7 +1541,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return controller, pool, owner
+	return controller, owner
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {

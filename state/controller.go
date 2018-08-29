@@ -45,6 +45,16 @@ func NewController(pool *StatePool) *Controller {
 	return &Controller{pool: pool}
 }
 
+// StatePool provides access to the state pool of the controller.
+func (ctlr *Controller) StatePool() *StatePool {
+	return ctlr.pool
+}
+
+// SystemState returns the State object for the controller model.
+func (ctlr *Controller) SystemState() *State {
+	return ctlr.pool.SystemState()
+}
+
 // Close the connection to the database.
 func (ctlr *Controller) Close() error {
 	if ctlr.ownsPool {

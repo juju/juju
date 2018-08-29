@@ -74,7 +74,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 			Factor:  1.0,
 		})
 
-	s.Controller, s.StatePool = InitializeWithArgs(c, InitializeArgs{
+	s.Controller = InitializeWithArgs(c, InitializeArgs{
 		Owner:                     s.Owner,
 		InitialConfig:             s.InitialConfig,
 		ControllerConfig:          s.ControllerConfig,
@@ -86,6 +86,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		s.Controller.Close()
 	})
+	s.StatePool = s.Controller.StatePool()
 	s.State = s.StatePool.SystemState()
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

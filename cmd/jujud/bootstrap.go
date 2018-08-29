@@ -258,7 +258,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	args.ControllerModelConfig = controllerModelCfg
 
 	// Initialise state, and store any agent config (e.g. password) changes.
-	var pool *state.StatePool
+	var controller *state.Controller
 	var m *state.Machine
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var stateErr error
@@ -276,7 +276,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		dialOpts.Direct = true
 
 		adminTag := names.NewLocalUserTag(adminUserName)
-		pool, m, stateErr = agentInitializeState(
+		controller, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
@@ -295,8 +295,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	st := pool.SystemState()
+	defer controller.Close()
+	st := controller.SystemState()
 
 	// Set up default container networking mode
 	model, err := st.Model()

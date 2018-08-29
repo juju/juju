@@ -6,6 +6,7 @@ package lease
 import (
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -113,6 +114,9 @@ type Manager struct {
 	// errors is used to send errors from background claim or tick
 	// goroutines back to the main loop.
 	errors chan error
+
+	// wg is a waitgroup for the goroutines that are fired off.
+	wg sync.WaitGroup
 }
 
 // Kill is part of the worker.Worker interface.
@@ -127,6 +131,7 @@ func (manager *Manager) Wait() error {
 
 // loop runs until the manager is stopped.
 func (manager *Manager) loop() error {
+	defer manager.wg.Wait()
 	blocks := make(blocks)
 	for {
 		if err := manager.choose(blocks); err != nil {
@@ -153,8 +158,10 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
+		manager.wg.Add(1)
 		go manager.retryingTick(manager.now)
 	case claim := <-manager.claims:
+		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
@@ -191,6 +198,7 @@ func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, err
 // claiming party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
 func (manager *Manager) retryingClaim(claim claim) {
+	defer manager.wg.Done()
 	var (
 		err     error
 		success bool
@@ -324,6 +332,7 @@ func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 
 // retryingTick runs tick and retries any timeouts.
 func (manager *Manager) retryingTick(now time.Time) {
+	defer manager.wg.Done()
 	var err error
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.tick(now)
