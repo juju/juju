@@ -341,7 +341,7 @@ func (s *serverFactory) validateServer(svr Server) error {
 		logger.Warningf(msg)
 		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
 	} else {
-		logger.Debugf("using LXD API version %q", apiVersion)
+		logger.Tracef("using LXD API version %q", apiVersion)
 	}
 
 	return nil
