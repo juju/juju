@@ -345,7 +345,6 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		if !ok || v == nil {
 			// Note that unlike the output with a non-nil and non-empty value below, this
 			// output should never have a newline.
-			fmt.Fprint(ctx.Stdout, "")
 			return nil
 		}
 		// TODO (anastasiamac 2018-08-29) We want to have a new line after here (fmt.Fprintln).
