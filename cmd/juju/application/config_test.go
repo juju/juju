@@ -201,7 +201,7 @@ func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "juju-external-hostname"})
 	c.Check(code, gc.Equals, 0)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "ext-host\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "ext-host")
 }
 
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
