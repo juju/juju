@@ -364,7 +364,11 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		if !found {
 			return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
 		}
-		fmt.Fprintln(ctx.Stdout, info["value"])
+		v, ok := info["value"]
+		if !ok || v == nil {
+			v = ""
+		}
+		fmt.Fprintln(ctx.Stdout, v)
 		return nil
 	}
 
