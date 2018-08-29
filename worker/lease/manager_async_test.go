@@ -504,3 +504,87 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *gc.C) {
 		workertest.CheckAlive(c, manager)
 	})
 }
+
+func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
+	// The manager should wait for all of its child tick and claim
+	// goroutines to be finished before it stops.
+	tickStarted := make(chan struct{})
+	tickFinish := make(chan struct{})
+	claimStarted := make(chan struct{})
+	claimFinish := make(chan struct{})
+	fix := Fixture{
+		leases: leaseMap{
+			key("legacy"): {
+				Holder: "culprate",
+				Expiry: offset(-time.Second),
+			},
+		},
+		expectCalls: []call{{
+			method: "Refresh",
+		}, {
+			method: "ExpireLease",
+			args:   []interface{}{key("legacy")},
+			parallelCallback: func(_ *sync.Mutex, _ leaseMap) {
+				close(tickStarted)
+				// Block until asked to stop.
+				<-tickFinish
+			},
+		}, {
+			method: "ClaimLease",
+			args: []interface{}{
+				key("blooadoath"),
+				corelease.Request{"hand", time.Minute},
+			},
+			parallelCallback: func(_ *sync.Mutex, _ leaseMap) {
+				close(claimStarted)
+				<-claimFinish
+			},
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
+		select {
+		case <-tickStarted:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for tick start")
+		}
+
+		result := make(chan error)
+		claimer, err := manager.Claimer("namespace", "modelUUID")
+		c.Assert(err, jc.ErrorIsNil)
+		go func() {
+			result <- claimer.Claim("blooadoath", "hand", time.Minute)
+		}()
+
+		// Ensure we've called claim in the store and are waiting for
+		// a response.
+		select {
+		case <-claimStarted:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for claim start")
+		}
+
+		// If we kill the manager now it won't finish until the claim
+		// call finishes (no worries about timeouts because we aren't
+		// advancing the test clock).
+		manager.Kill()
+		workertest.CheckAlive(c, manager)
+
+		// Now if we finish the claim, the result comes back.
+		close(claimFinish)
+
+		select {
+		case err := <-result:
+			c.Assert(err, gc.ErrorMatches, "lease manager stopped")
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for result")
+		}
+
+		workertest.CheckAlive(c, manager)
+
+		// And when we finish the tick the worker stops.
+		close(tickFinish)
+
+		err = workertest.CheckKilled(c, manager)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+}
