@@ -79,8 +79,6 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
-		exp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		exp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
@@ -121,8 +119,6 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
-		exp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		exp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
@@ -172,8 +168,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		sExp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
@@ -214,8 +208,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		sExp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
@@ -248,8 +240,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		sExp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
@@ -277,8 +267,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		sExp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 	)
 	env := s.NewEnviron(c, svr, nil)
@@ -311,8 +299,6 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
-		exp.GetProfile("default").Return(s.defaultProfile, lxdtesting.ETag, nil),
-		exp.VerifyNetworkDevice(s.defaultProfile, lxdtesting.ETag).Return(nil),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),

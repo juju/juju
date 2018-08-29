@@ -119,16 +119,6 @@ func (env *environ) newContainer(
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	// Ensure that the default profile has a network configuration that will
-	// allow access to containers that we create.
-	profile, eTag, err := env.server.GetProfile("default")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := env.server.VerifyNetworkDevice(profile, eTag); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	cSpec, err := env.getContainerSpec(image, args)
 	if err != nil {
 		return nil, errors.Trace(err)
