@@ -954,9 +954,12 @@ func (e *exporter) relations() error {
 	}
 	e.logger.Debugf("read %d relations", len(rels))
 
-	relationScopes, err := e.readAllRelationScopes()
-	if err != nil {
-		return errors.Trace(err)
+	relationScopes := set.NewStrings()
+	if !e.cfg.SkipRelationScope {
+		relationScopes, err = e.readAllRelationScopes()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	remoteApps := make(set.Strings)
@@ -1648,13 +1651,13 @@ func (e *exporter) checkUnexportedValues() error {
 	}
 
 	for key := range e.status {
-		if !e.cfg.SkipInstanceData && !strings.Contains(key, "instance") {
+		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
 			missing = append(missing, fmt.Sprintf("unexported status for %s", key))
 		}
 	}
 
 	for key := range e.statusHistory {
-		if !e.cfg.SkipInstanceData && !strings.Contains(key, "instance") {
+		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
 			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
 		}
 	}
