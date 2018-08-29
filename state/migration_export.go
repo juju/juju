@@ -1018,10 +1018,8 @@ func (e *exporter) relations() error {
 					continue
 				}
 				key := ru.key()
-				if !e.cfg.SkipRelationScope {
-					if !relationScopes.Contains(key) {
-						return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
-					}
+				if !e.cfg.SkipRelationScope && !relationScopes.Contains(key) {
+					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
 				if !found && !e.cfg.SkipSettings {
