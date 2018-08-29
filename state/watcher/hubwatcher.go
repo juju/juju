@@ -198,7 +198,12 @@ func (w *HubWatcher) loop() error {
 			w.handle(req)
 		}
 		for (len(w.syncEvents) + len(w.requestEvents)) > 0 {
-			w.flush()
+			select {
+			case <-w.tomb.Dying():
+				return errors.Trace(tomb.ErrDying)
+			default:
+				w.flush()
+			}
 		}
 	}
 }
