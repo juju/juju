@@ -42,8 +42,11 @@ const (
 	MaxSleep = time.Minute
 
 	// ForwardTimeout is how long the store should wait for a response
-	// after sending a lease operation over the hub.
-	ForwardTimeout = 200 * time.Millisecond
+	// after sending a lease operation over the hub before deciding a
+	// a response is never coming back (for example if we send the
+	// request during a raft-leadership election). This should be long
+	// enough that we can be very confident the request was missed.
+	ForwardTimeout = 5 * time.Second
 
 	// maxLogs is the maximum number of backup store log files to keep.
 	maxLogs = 10

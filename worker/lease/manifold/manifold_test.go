@@ -177,7 +177,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		Target:         s.target,
 		RequestTopic:   "lease.manifold_test",
 		Clock:          s.clock,
-		ForwardTimeout: 200 * time.Millisecond,
+		ForwardTimeout: 5 * time.Second,
 	})
 
 	args = s.stub.Calls()[2].Args
