@@ -701,20 +701,16 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 	} {
 		c.Logf("Test %d: %s", i, test.about)
 		func() {
-			loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
-			loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 			getTestWatcher := func(st *state.State) TestWatcherC {
 				var wc interface{}
 				switch w := test.getWatcher(st).(type) {
 				case statetesting.StringsWatcher:
-					c.Logf("Making strings watcher")
 					wc = statetesting.NewStringsWatcherC(c, st, w)
 					swc := wc.(statetesting.StringsWatcherC)
 					// consume initial event
 					swc.AssertChange()
 					swc.AssertNoChange()
 				case statetesting.NotifyWatcher:
-					c.Logf("Making notify watcher")
 					wc = statetesting.NewNotifyWatcherC(c, st, w)
 					nwc := wc.(statetesting.NotifyWatcherC)
 					// consume initial event

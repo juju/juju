@@ -140,9 +140,9 @@ type ManifoldsConfig struct {
 	// create a *state.Controller.
 	OpenController func(coreagent.Config) (*state.Controller, error)
 
-	// OpenState is function used by the state manifold to create a
+	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
-	OpenState func(coreagent.Config) (*state.StatePool, error)
+	OpenStatePool func(coreagent.Config) (*state.StatePool, error)
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
@@ -372,7 +372,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
-			OpenState:              config.OpenState,
+			OpenStatePool:              config.OpenStatePool,
 			PrometheusRegisterer:   config.PrometheusRegisterer,
 			SetStatePool:           config.SetStatePool,
 		}),

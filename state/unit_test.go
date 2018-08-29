@@ -9,7 +9,6 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -2198,8 +2197,6 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
-	loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
-	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 

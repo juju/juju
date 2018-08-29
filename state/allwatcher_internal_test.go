@@ -5,12 +5,10 @@ package state
 
 import (
 	"fmt"
-	"runtime/debug"
 	"sort"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -1279,7 +1277,6 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 	} {
 		c.Logf("Test %d: %s", i, test.about)
 		func() {
-			loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 			checkIsolationForModel := func(st *State, w, otherW *testWatcher) {
 				c.Logf("Making changes to model %s", st.ModelUUID())
 				if test.setUpState != nil {
@@ -3875,7 +3872,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 	select {
 	case d := <-tw.deltas:
 		if len(d) > 0 {
-			c.Errorf("change detected \n%s", debug.Stack())
+			c.Error("change detected")
 		}
 	case <-time.After(testing.ShortWait):
 		// expected

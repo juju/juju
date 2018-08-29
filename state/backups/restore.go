@@ -140,8 +140,8 @@ func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddres
 var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
 
-// newStateConnection tries to connect to the newly restored controller.
-func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.StatePool, error) {
+// connectToDB tries to connect to the newly restored controller.
+func connectToDB(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.StatePool, error) {
 	// We need to retry here to allow mongo to come up on the restored controller.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.

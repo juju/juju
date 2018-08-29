@@ -170,14 +170,14 @@ func OpenStatePool(args OpenParams) (*StatePool, error) {
 		// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
-		Clock:        args.Clock, // clock.WallClock,
+		Clock:        args.Clock,
 	})
 	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
 				ChangeLog: st.getTxnLogCollection(),
 				Hub:       pool.hub,
-				Clock:     args.Clock, // clock.WallClock,
+				Clock:     args.Clock,
 				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
 			})
 	})

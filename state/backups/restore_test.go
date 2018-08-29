@@ -228,7 +228,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 		return nil
 	})
 
-	newConnection, err := newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
+	newConnection, err := connectToDB(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newConnection.Close(), jc.ErrorIsNil)
 }

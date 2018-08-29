@@ -132,7 +132,8 @@ func convertCloudCredentialToState(tag names.CloudCredentialTag, cloudCredential
 // create the collections and indices in a Juju database.
 type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
 
-// Initialize sets up an initial empty state and returns it.
+// Initialize sets up the database with all the collections and indices it needs.
+// It also creates the initial model for the controller.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(args InitializeParams) (_ *Controller, err error) {

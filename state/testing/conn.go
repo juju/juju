@@ -128,14 +128,3 @@ func NewMongoInfo() *mongo.MongoInfo {
 		},
 	}
 }
-
-// NewState initializes a new state with default values for testing and
-// returns it.
-// func NewState(c *gc.C) *state.State {
-// 	owner := names.NewLocalUserTag("test-admin")
-// 	cfg := testing.ModelConfig(c)
-// 	newPolicy := func(*state.State) state.Policy { return &MockPolicy{} }
-// 	ctlr, st := Initialize(c, owner, cfg, nil, nil, newPolicy)
-// 	c.Assert(ctlr.Close(), jc.ErrorIsNil)
-// 	return st
-// }

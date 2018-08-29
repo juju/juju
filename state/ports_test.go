@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -392,7 +391,6 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 }
 
 func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
-	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	// No port ranges open initially, no changes.
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)

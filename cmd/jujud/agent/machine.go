@@ -557,7 +557,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			OpenController:       a.initController,
-			OpenState:            a.initState,
+			OpenStatePool:        a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      a.preUpgradeSteps,
@@ -968,7 +968,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	pool, _, err := openState(
+	pool, _, err := openStatePool(
 		agentConfig,
 		dialOpts,
 		a.mongoTxnCollector.AfterRunTransaction,
@@ -1076,7 +1076,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	return nil
 }
 
-func openState(
+func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
 	runTransactionObserver state.RunTransactionObserverFunc,

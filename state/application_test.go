@@ -44,7 +44,6 @@ type ApplicationSuite struct {
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.InitialLoggingConfig = "juju.state=TRACE;juju.state.txn=DEBUG"
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()

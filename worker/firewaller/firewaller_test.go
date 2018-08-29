@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -872,7 +871,6 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
-	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	published := make(chan bool)
 	ingressRequired := true
 	apiErr := false

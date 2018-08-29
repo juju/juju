@@ -46,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = workerstate.ManifoldConfig{
 		AgentName:              "agent",
 		StateConfigWatcherName: "state-config-watcher",
-		OpenState:              s.fakeOpenState,
+		OpenStatePool:          s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
 		PrometheusRegisterer:   prometheus.NewRegistry(),
 		SetStatePool: func(pool *state.StatePool) {

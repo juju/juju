@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.state")
 type ManifoldConfig struct {
 	AgentName              string
 	StateConfigWatcherName string
-	OpenState              func(coreagent.Config) (*state.StatePool, error)
+	OpenStatePool          func(coreagent.Config) (*state.StatePool, error)
 	PingInterval           time.Duration
 	PrometheusRegisterer   prometheus.Registerer
 
@@ -46,8 +46,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateConfigWatcherName == "" {
 		return errors.NotValidf("empty StateConfigWatcherName")
 	}
-	if config.OpenState == nil {
-		return errors.NotValidf("nil OpenState")
+	if config.OpenStatePool == nil {
+		return errors.NotValidf("nil OpenStatePool")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -90,7 +90,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrMissing
 			}
 
-			pool, err := config.OpenState(agent.CurrentConfig())
+			pool, err := config.OpenStatePool(agent.CurrentConfig())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
