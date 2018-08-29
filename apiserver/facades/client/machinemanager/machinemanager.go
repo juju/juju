@@ -220,12 +220,12 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
-		Series:                  p.Series,
-		Constraints:             p.Constraints,
-		Volumes:                 volumes,
-		InstanceId:              p.InstanceId,
-		Jobs:                    jobs,
-		Nonce:                   p.Nonce,
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		Volumes:     volumes,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               params.NetworkAddresses(p.Addrs...),
 		Placement:               placementDirective,
