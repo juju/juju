@@ -190,11 +190,6 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 // dependency this function should contain minimal logic other than gathering an
 // API handle and making the API call.
 func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
-	err := c.promptConfirmation(ctx)
-	if err != nil {
-		return err
-	}
-
 	var apiRoot api.Connection
 
 	// If the upgradeMachineSeries is nil then we collect a handle to the
@@ -208,6 +203,11 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		}
 		defer apiRoot.Close()
 		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
+	}
+
+	err := c.promptConfirmation(ctx)
+	if err != nil {
+		return err
 	}
 
 	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force)
