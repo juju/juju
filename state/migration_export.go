@@ -28,7 +28,7 @@ const maxStatusHistoryEntries = 20
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	SkipStatus               bool
+	//SkipStatus               bool
 	SkipActions              bool
 	SkipAnnotations          bool
 	SkipCloudImageMetadata   bool
@@ -955,7 +955,7 @@ func (e *exporter) relations() error {
 	}
 	e.logger.Debugf("read %d relations", len(rels))
 
-	relationScopes, err := e.ReadAllRelationScopes()
+	relationScopes, err := e.readAllRelationScopes()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1217,7 +1217,7 @@ func (e *exporter) actions() error {
 	return nil
 }
 
-func (e *exporter) ReadAllRelationScopes() (set.Strings, error) {
+func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
 	defer closer()
 
@@ -1650,14 +1650,14 @@ func (e *exporter) checkUnexportedValues() error {
 		missing = append(missing, fmt.Sprintf("unexported settings for %s", key))
 	}
 
-	if !e.cfg.SkipStatus {
-		for key := range e.status {
+	for key := range e.status {
+		if !e.cfg.SkipInstanceData && !strings.Contains(key, "instance") {
 			missing = append(missing, fmt.Sprintf("unexported status for %s", key))
 		}
 	}
 
-	if !e.cfg.SkipStatusHistory {
-		for key := range e.statusHistory {
+	for key := range e.statusHistory {
+		if !e.cfg.SkipInstanceData && !strings.Contains(key, "instance") {
 			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
 		}
 	}

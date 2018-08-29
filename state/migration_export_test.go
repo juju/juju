@@ -864,9 +864,7 @@ func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
 	})
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
-		SkipStatus:        true,
-		SkipStatusHistory: true,
-		SkipInstanceData:  true,
+		SkipInstanceData: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
