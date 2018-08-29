@@ -84,7 +84,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) 
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
+	c.Assert(out, jc.SameContents, []state.CredentialOwnerModelAccess{
 		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess, ModelUUID: xyzModelTag.Id()},
 	})
