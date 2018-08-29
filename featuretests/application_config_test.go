@@ -139,7 +139,7 @@ func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	var options []string
-	for k, _ := range charm.Config().Options {
+	for k := range charm.Config().Options {
 		options = append(options, k)
 	}
 	for i, option := range options {
