@@ -17,7 +17,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.updateseries")
@@ -86,7 +85,7 @@ func (c *UpdateSeriesCommand) Init(args []string) error {
 	}
 
 	if c.manager == nil {
-		c.manager = service.NewSystemdServiceManager(systemd.IsRunning)
+		c.manager = service.NewServiceManagerWithDefaults()
 	}
 	return c.CommandBase.Init(args)
 }
@@ -139,12 +138,7 @@ func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
 			break
 		}
 
-		startedMachineName, startedUnitNames, err := c.manager.StartAllAgents(
-			c.machineAgent,
-			c.unitAgents,
-			c.dataDir,
-			c.toSeries,
-		)
+		startedMachineName, startedUnitNames, err := c.manager.StartAllAgents(c.machineAgent, c.unitAgents, c.dataDir)
 		if err != nil {
 			return err
 		} else {
@@ -163,7 +157,6 @@ func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
 			c.dataDir,
 			systemdDir,
 			systemdMultiUserDir,
-			c.toSeries,
 		)
 		if err != nil {
 			for _, agentName := range failedAgentNames {
@@ -198,7 +191,6 @@ func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
 				c.machineAgent,
 				c.unitAgents,
 				c.dataDir,
-				c.toSeries,
 			)
 			if err != nil {
 				return err

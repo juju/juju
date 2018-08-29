@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -35,7 +34,7 @@ import (
 type agentConfSuite struct {
 	testing.BaseSuite
 
-	acfg                agent.Config
+	agentConf           agent.Config
 	dataDir             string
 	machineName         string
 	unitNames           []string
@@ -56,20 +55,18 @@ func (s *agentConfSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.dataDir = c.MkDir()
-	s.PatchValue(&cmdutil.DataDir, s.dataDir)
-
-	tmpSystemdDir := path.Join(s.dataDir, "etc", "systemd", "system")
-	tmpSystemdMultiUserDir := path.Join(tmpSystemdDir, "multi-user.target.wants")
-	tmpSystemdDataDir := path.Join(s.dataDir, "lib", "systemd", "system")
-	os.MkdirAll(tmpSystemdMultiUserDir, os.ModeDir|os.ModePerm)
-	s.PatchValue(&s.systemdDir, tmpSystemdDir)
-	s.PatchValue(&s.systemdMultiUserDir, tmpSystemdMultiUserDir)
-	s.PatchValue(&s.systemdDataDir, tmpSystemdDataDir)
+	s.systemdDir = path.Join(s.dataDir, "etc", "systemd", "system")
+	s.systemdMultiUserDir = path.Join(s.systemdDir, "multi-user.target.wants")
+	os.MkdirAll(s.systemdMultiUserDir, os.ModeDir|os.ModePerm)
+	s.systemdDataDir = path.Join(s.dataDir, "lib", "systemd", "system")
 
 	s.machineName = "machine-0"
 	s.unitNames = []string{"unit-ubuntu-0", "unit-mysql-0"}
 
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return true, nil })
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return true, nil },
+		s.newService,
+	)
 
 	s.assertSetupAgentsForTest(c)
 	s.setUpAgentConf(c)
@@ -100,23 +97,24 @@ func (s *agentConfSuite) setUpAgentConf(c *gc.C) {
 		MongoVersion:      mongo.Mongo32wt,
 	}
 
-	acfg, err := agent.NewAgentConfig(configParams)
+	agentConf, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
-	err = acfg.Write()
+
+	err = agentConf.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	s.acfg = acfg
+
+	s.agentConf = agentConf
 }
 
 func (s *agentConfSuite) setUpServices(c *gc.C) {
 	for _, fake := range append(s.unitNames, s.machineName) {
 		s.addService("jujud-" + fake)
 	}
-	s.PatchValue(&service.NewService, s.newService)
 	s.PatchValue(&service.ListServices, s.listServices)
 }
 
 func (s *agentConfSuite) addService(name string) {
-	svc, _ := s.newService(name, common.Conf{}, "")
+	svc, _ := s.newService(name, common.Conf{})
 	svc.Install()
 	svc.Start()
 }
@@ -125,7 +123,7 @@ func (s *agentConfSuite) listServices() ([]string, error) {
 	return s.serviceData.InstalledNames(), nil
 }
 
-func (s *agentConfSuite) newService(name string, conf common.Conf, series string) (service.Service, error) {
+func (s *agentConfSuite) newService(name string, conf common.Conf) (service.Service, error) {
 	for _, svc := range s.services {
 		if svc.Name() == name {
 			return svc, nil
@@ -198,14 +196,14 @@ func (s *agentConfSuite) TestFindAgentsUnexpectedTagType(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestCreateAgentConf(c *gc.C) {
-	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir, "xenial")
+	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	// Spot check Conf
 	c.Assert(conf.Desc, gc.Equals, "juju agent for machine-2")
 }
 
 func (s *agentConfSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
-	_, err := s.manager.CreateAgentConf("application-fail", s.dataDir, "xenial")
+	_, err := s.manager.CreateAgentConf("application-fail", s.dataDir)
 	c.Assert(err, gc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
 }
 
@@ -218,7 +216,7 @@ func (s *agentConfSuite) agentUnitNames() []string {
 }
 
 func (s *agentConfSuite) TestStartAllAgents(c *gc.C) {
-	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir, "xenial")
+	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineAgent, gc.Equals, "jujud-"+s.machineName)
 	c.Assert(unitAgents, jc.SameContents, s.agentUnitNames())
@@ -231,7 +229,7 @@ func (s *agentConfSuite) TestStartAllAgentsFailSecondUnit(c *gc.C) {
 		errors.New("fail me"),
 	)
 
-	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir, "xenial")
+	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
 	c.Assert(err, gc.ErrorMatches, "failed to start jujud-unit-.* service: fail me")
 	c.Assert(machineAgent, gc.Equals, "")
 	c.Assert(unitAgents, gc.HasLen, 1)
@@ -245,7 +243,7 @@ func (s *agentConfSuite) TestStartAllAgentsFailMachine(c *gc.C) {
 		errors.New("fail me"),
 	)
 
-	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir, "xenial")
+	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to start jujud-%s service: fail me", s.machineName))
 	c.Assert(machineAgent, gc.Equals, "")
 	c.Assert(unitAgents, jc.SameContents, s.agentUnitNames())
@@ -253,10 +251,13 @@ func (s *agentConfSuite) TestStartAllAgentsFailMachine(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestStartAllAgentsSystemdNotRunning(c *gc.C) {
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return false, nil },
+		s.newService,
+	)
 
-	_, _, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir, "xenial")
-	c.Assert(err, gc.ErrorMatches, "systemd is not fully running, please reboot to start agents")
+	_, _, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
+	c.Assert(err, gc.ErrorMatches, "cannot interact with systemd; reboot to start agents")
 	s.assertServicesCalls(c, "Start", 0)
 }
 
@@ -284,7 +285,9 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
 	s.PatchValue(&systemd.SystemPath, s.dataDir)
 
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
+	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
 	c.Assert(startedSymLinkAgents, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
@@ -293,9 +296,14 @@ func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return false, nil },
+		s.newService,
+	)
 
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
+	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
 	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
@@ -312,7 +320,9 @@ func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 		errors.New("fail me"), // fail the machine
 	)
 
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
+	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+
 	c.Assert(err, gc.ErrorMatches, "fail me")
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
 	c.Assert(startedSymLinkAgents, gc.DeepEquals, s.agentUnitNames())
@@ -340,12 +350,12 @@ func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
 }
 
 func (s *agentConfSuite) assertServiceSymLinks(c *gc.C) {
-	for _, agent := range append(s.unitNames, s.machineName) {
-		svcName := "jujud-" + agent
+	for _, name := range append(s.unitNames, s.machineName) {
+		svcName := "jujud-" + name
 		svcFileName := svcName + ".service"
 		result, err := os.Readlink(path.Join(s.systemdDir, svcFileName))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.Equals, path.Join(service.SystemdDataDir, svcName, svcFileName))
+		c.Assert(result, gc.Equals, path.Join(systemd.DataDir, svcName, svcFileName))
 	}
 }
 
