@@ -28,7 +28,6 @@ const maxStatusHistoryEntries = 20
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	//SkipStatus               bool
 	SkipActions              bool
 	SkipAnnotations          bool
 	SkipCloudImageMetadata   bool
