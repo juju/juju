@@ -1,6 +1,15 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+/*
+The existing machinemanager_test.go uses a home grown mocking mechanism. I wanted to establish the new suffixed file to have a place to start systematically moving those tests to use gomock. There are two benefits to this
+
+1) We can work piecemeal
+2) We don't have to mix two mocking styles (in attempt to preserve one file) when transitioning between mocking styles
+
+The plan is to start moving those old style tests and when finished delete the old file and mv the new file.
+*/
+
 package machinemanager_test
 
 import (
