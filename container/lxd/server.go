@@ -99,6 +99,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		// likely that we're on an older version of LXD. So in that case we
 		// need to set the name to something and internally LXD sets this type
 		// of node to "none".
+		// LP:#1786309
 		name = "none"
 	}
 	serverCertificate := info.Environment.Certificate
