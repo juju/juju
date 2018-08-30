@@ -618,6 +618,9 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 			// TODO(dfc) fw.machineds should be map[names.Tag]
 		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
 			err = fw.startUnit(unit, machineTag)
+			if params.IsCodeNotFound(err) {
+				continue
+			}
 			if err != nil {
 				return err
 			}
@@ -632,8 +635,12 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 }
 
 // openedPortsChanged handles port change notifications
-func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag names.SubnetTag) error {
-
+func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag names.SubnetTag) (err error) {
+	defer func() {
+		if params.IsCodeNotFound(err) {
+			err = nil
+		}
+	}()
 	machined, ok := fw.machineds[machineTag]
 	if !ok {
 		// It is common to receive a port change notification before
@@ -876,7 +883,13 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 }
 
 // flushInstancePorts opens and closes ports global on the machine.
-func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.IngressRule) error {
+func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.IngressRule) (err error) {
+	defer func() {
+		if params.IsCodeNotFound(err) {
+			err = nil
+		}
+	}()
+
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
@@ -886,9 +899,6 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		return nil
 	}
 	m, err := machined.machine()
-	if params.IsCodeNotFound(err) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}

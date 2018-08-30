@@ -803,22 +803,36 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 			Changes: []params.IngressNetworksChangeEvent{{
 				RelationToken:    relToken,
 				ApplicationToken: appToken,
-				Networks:         []string{"10.0.0.4/32"},
-				IngressRequired:  *ingressRequired,
 			}},
 		}
-		expected.Changes[0].IngressRequired = *ingressRequired
-		if !*ingressRequired {
-			expected.Changes[0].Networks = []string{}
-		}
+
 		// Extract macaroons so we can compare them separately
 		// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
 		expectedMacs := arg.(params.IngressNetworksChanges).Changes[0].Macaroons
 		arg.(params.IngressNetworksChanges).Changes[0].Macaroons = nil
 		c.Assert(len(expectedMacs), gc.Equals, 1)
 		apitesting.MacaroonEquals(c, expectedMacs[0], mac)
+
+		// Networks may be empty or not, depending on coalescing of watcher events.
+		// We may get an initial empty event followed by an event with a network.
+		// Or we may get just the event with a network.
+		// Set the arg networks to empty and compare below.
+		changes := arg.(params.IngressNetworksChanges)
+		argNetworks := changes.Changes[0].Networks
+		argIngressRequired := changes.Changes[0].IngressRequired
+
+		changes.Changes[0].Networks = nil
+		expected.Changes[0].IngressRequired = argIngressRequired
 		c.Check(arg, gc.DeepEquals, expected)
-		arg.(params.IngressNetworksChanges).Changes[0].Macaroons = expectedMacs
+
+		if !*ingressRequired {
+			c.Assert(changes.Changes[0].Networks, gc.HasLen, 0)
+		}
+		if *ingressRequired && len(argNetworks) > 0 {
+			c.Assert(argIngressRequired, jc.IsTrue)
+			c.Assert(argNetworks, jc.DeepEquals, []string{"10.0.0.4/32"})
+		}
+		changes.Changes[0].Macaroons = expectedMacs
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
@@ -826,7 +840,9 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		if *apiErr {
 			return errors.New("fail")
 		}
-		published <- true
+		if !*ingressRequired || len(argNetworks) > 0 {
+			published <- true
+		}
 		return nil
 	})
 
@@ -1043,12 +1059,18 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	published := make(chan bool)
+	done := false
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{Error: &params.Error{Code: params.CodeForbidden, Message: "error"}}},
 		}
-		published <- true
+		// We can get more than one api call depending on the
+		// granularity of watcher events.
+		if !done {
+			done = true
+			published <- true
+		}
 		return nil
 	})
 
@@ -1096,24 +1118,17 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	}
 
 	// Check that the relation status is set to error.
-	attempt := time.After(0)
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-attempt:
-			s.BackingState.StartSync()
-			relStatus, err := rel.Status()
-			c.Check(err, jc.ErrorIsNil)
-			if relStatus.Status != status.Error {
-				attempt = time.After(coretesting.ShortWait)
-				continue
-			}
-			c.Check(relStatus.Message, gc.Equals, "error")
-		case <-timeout:
-			c.Fatal("time out waiting for relation status to be updated")
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		relStatus, err := rel.Status()
+		c.Check(err, jc.ErrorIsNil)
+		if relStatus.Status != status.Error {
+			continue
 		}
-		break
+		c.Check(relStatus.Message, gc.Equals, "error")
+		return
 	}
+	c.Fatal("time out waiting for relation status to be updated")
 }
 
 func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expected []string) {
