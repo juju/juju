@@ -89,6 +89,7 @@ func (inst *environInstance) changeIngressRules(insert bool, rules []network.Ing
 		// Open/Close port without an externalNetwork defined is treated as a no-op.
 		// We don't firewall the internal network, and without an external network we don't have any iptables rules
 		// to define.
+		logger.Warningf("ingress rules changing without an external network defined, no changes will be made")
 		return nil
 	}
 	addresses, client, err := inst.getInstanceConfigurator()
