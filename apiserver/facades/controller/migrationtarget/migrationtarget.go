@@ -31,6 +31,7 @@ type API struct {
 	authorizer  facade.Authorizer
 	resources   facade.Resources
 	presence    facade.Presence
+	getClaimer  migration.ClaimerFunc
 	getEnviron  stateenvirons.NewEnvironFunc
 	callContext context.ProviderCallContext
 }
@@ -54,6 +55,7 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, callCtx
 		authorizer:  auth,
 		resources:   ctx.Resources(),
 		presence:    ctx.Presence(),
+		getClaimer:  ctx.LeadershipClaimer,
 		getEnviron:  getEnviron,
 		callContext: callCtx,
 	}, nil
@@ -107,7 +109,7 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 // recreates it in the receiving controller.
 func (api *API) Import(serialized params.SerializedModel) error {
 	controller := state.NewController(api.pool)
-	_, st, err := migration.ImportModel(controller, serialized.Bytes)
+	_, st, err := migration.ImportModel(controller, api.getClaimer, serialized.Bytes)
 	if err != nil {
 		return err
 	}
