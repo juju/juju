@@ -79,13 +79,16 @@ type Context interface {
 	// a good idea; see Resources.
 	ID() string
 
-	// LeadershipClaimer returns a leadership.Claimer tied to the specific model for this context's model.
-	LeadershipClaimer() (leadership.Claimer, error)
+	// LeadershipClaimer returns a leadership.Claimer tied to a
+	// specific model.
+	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
 
-	// LeadershipChecker returns a leadership.Checker for this context's model.
+	// LeadershipChecker returns a leadership.Checker for this
+	// context's model.
 	LeadershipChecker() (leadership.Checker, error)
 
-	// SingularClaimer returns a lease.Claimer for singular leases for this context's model.
+	// SingularClaimer returns a lease.Claimer for singular leases for
+	// this context's model.
 	SingularClaimer() (lease.Claimer, error)
 }
 

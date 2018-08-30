@@ -409,7 +409,7 @@ func (ctx *facadeContext) Presence() facade.Presence {
 // ModelPresence implements facade.ModelPresence.
 func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
 	if ctx.r.shared.featureEnabled(feature.OldPresence) {
-		// Used in presence.go in this package to determine which code path to follow.
+		// Used in common/presence.go to determine which code path to follow.
 		return nil
 	}
 	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
@@ -435,14 +435,20 @@ func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }
 
-// LeadershipClaimer is part of the facade.Context interface.
-func (ctx *facadeContext) LeadershipClaimer() (leadership.Claimer, error) {
+// LeadershipClaimer is part of the facade.Context interface. Getting
+// a claimer for an arbitrary model is only supported for raft leases
+// - only a claimer for the current model can be obtained with legacy
+// leases.
+func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
 	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		if modelUUID != ctx.State().ModelUUID() {
+			return nil, errors.Errorf("can't get leadership claimer for different model with legacy lease manager")
+		}
 		return ctx.State().LeadershipClaimer(), nil
 	}
 	claimer, err := ctx.r.shared.leaseManager.Claimer(
 		lease.ApplicationLeadershipNamespace,
-		ctx.State().ModelUUID(),
+		modelUUID,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

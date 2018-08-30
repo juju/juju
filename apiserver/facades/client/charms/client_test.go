@@ -41,9 +41,9 @@ func (ctx *charmsSuiteContext) ID() string                  { return "" }
 func (ctx *charmsSuiteContext) Presence() facade.Presence   { return nil }
 func (ctx *charmsSuiteContext) Hub() facade.Hub             { return nil }
 
-func (ctx *charmsSuiteContext) LeadershipClaimer() (leadership.Claimer, error) { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error) { return nil, nil }
-func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)        { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }
+func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)              { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
