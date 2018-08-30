@@ -145,7 +145,7 @@
   name = "gopkg.in/juju/blobstore.v2"
 
 [[constraint]]
-  revision = "abaa717bc6ed4f694281737cb01f32f7de7ea357"
+  revision = "c254caf8b8704ff71a10c552fa9e6f5df981ad06"
   name = "gopkg.in/juju/charm.v6"
 
 [[constraint]]
@@ -318,7 +318,7 @@
 
 [[constraint]]
   name = "github.com/juju/pubsub"
-  revision = "091412f84753115324ce870066ffbb6bb55c4ef4"
+  revision = "ad5dc02599e01a8409f9b1144e4d759baafd01dc"
 
 [[constraint]]
   name = "github.com/juju/ratelimit"

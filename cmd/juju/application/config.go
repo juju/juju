@@ -364,7 +364,15 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		if !found {
 			return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
 		}
-		fmt.Fprintln(ctx.Stdout, info["value"])
+		v, ok := info["value"]
+		if !ok || v == nil {
+			// Note that unlike the output with a non-nil and non-empty value below, this
+			// output should never have a newline.
+			return nil
+		}
+		// TODO (anastasiamac 2018-08-29) We want to have a new line after here (fmt.Fprintln).
+		// However, it will break all existing scripts and should be done as part of Juju 3.x work.
+		fmt.Fprint(ctx.Stdout, v)
 		return nil
 	}
 

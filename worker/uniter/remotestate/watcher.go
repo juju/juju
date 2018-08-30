@@ -572,14 +572,15 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 
 	status, err := w.upgradeSeriesStatus()
 	if errors.IsNotFound(err) {
+		// There is no remote state so no upgrade is started.
+		logger.Debugf("no upgrade series in progress, reinitializing local upgrade series state")
+		w.current.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	w.current.UpgradeSeriesPrepareStatus = status
-	w.current.UpgradeSeriesCompleteStatus = status
-
+	w.current.UpgradeSeriesStatus = status
 	return nil
 }
 

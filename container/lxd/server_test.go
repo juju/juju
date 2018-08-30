@@ -94,6 +94,53 @@ func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
 	cSvr.EXPECT().CreateProfile(req).Return(nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
 	err = jujuSvr.CreateProfileWithConfig("custom", map[string]string{"boot.autostart": "false"})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestGetServerName(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	serverName := "nuc8"
+	mutate := func(s *api.Server) {
+		s.Environment.ServerClustered = false
+		s.Environment.ServerName = serverName
+	}
+
+	cSvr := s.NewMockServer(ctrl, mutate)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuSvr.Name(), gc.Equals, serverName)
+}
+
+func (s *serverSuite) TestGetServerNameReturnsNoneIfServerNameIsEmpty(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mutate := func(s *api.Server) {
+		s.Environment.ServerClustered = false
+		s.Environment.ServerName = ""
+	}
+
+	cSvr := s.NewMockServer(ctrl, mutate)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuSvr.Name(), gc.Equals, "none")
+}
+
+func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndClustered(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mutate := func(s *api.Server) {
+		s.Environment.ServerClustered = true
+		s.Environment.ServerName = ""
+	}
+
+	cSvr := s.NewMockServer(ctrl, mutate)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jujuSvr.Name(), gc.Equals, "")
 }

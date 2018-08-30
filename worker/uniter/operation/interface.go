@@ -79,6 +79,10 @@ type Factory interface {
 	// so we just plug in a no op into the uniter state machine.
 	NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error)
 
+	// NewNoOpFinishUpgradeSeries creates a noop which simply resets the
+	// status of a units upgrade series.
+	NewNoOpFinishUpgradeSeries() (Operation, error)
+
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.

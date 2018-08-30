@@ -565,11 +565,11 @@
   revision = "5f8741c297b47cba29f747c67f2e31e7c2a36ecb"
 
 [[projects]]
-  digest = "1:f156d17854ec35dd41a88a507103cb0f703f62332fa31315779a303c565667c9"
+  digest = "1:76068d833db78ba2419f72e5efd91d1d4ab5e8ffca1f61c5b5a724795fea6572"
   name = "github.com/juju/pubsub"
   packages = ["."]
   pruneopts = ""
-  revision = "091412f84753115324ce870066ffbb6bb55c4ef4"
+  revision = "ad5dc02599e01a8409f9b1144e4d759baafd01dc"
 
 [[projects]]
   digest = "1:fbafcd485d270fc069d738bdcbfa3e03676936f837d4b2708f7ba80fa90e1c5a"
@@ -1266,7 +1266,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:2cf3af3fdf2f8243de033c450c9749e68114b7edc11507a92e138d490e4ba555"
+  digest = "1:c59c19158813d727bc3b98225a3189c62db975279d4c74ea2886fe4c4c748ce4"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1274,7 +1274,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "abaa717bc6ed4f694281737cb01f32f7de7ea357"
+  revision = "c254caf8b8704ff71a10c552fa9e6f5df981ad06"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
@@ -1817,6 +1817,7 @@
     "gopkg.in/goose.v2/swift",
     "gopkg.in/goose.v2/testservices/hook",
     "gopkg.in/goose.v2/testservices/identityservice",
+    "gopkg.in/goose.v2/testservices/neutronmodel",
     "gopkg.in/goose.v2/testservices/neutronservice",
     "gopkg.in/goose.v2/testservices/novaservice",
     "gopkg.in/goose.v2/testservices/openstackservice",

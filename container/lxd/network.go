@@ -180,10 +180,9 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 
 	if err := s.UpdateProfile(profile.Name, profile.Writable(), eTag); err != nil {
 		return errors.Trace(err)
-	} else {
-		logger.Debugf("created new nic device %q in profile %q", nicName, profile.Name)
-		return nil
 	}
+	logger.Debugf("created new nic device %q in profile %q", nicName, profile.Name)
+	return nil
 }
 
 // verifyNICsWithAPI uses the LXD network API to check if one of the input NIC
@@ -251,7 +250,7 @@ func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(st
 			continue
 		}
 
-		logger.Infof("found usable network device %q with parent %q", name, netName)
+		logger.Tracef("found usable network device %q with parent %q", name, netName)
 		s.localBridgeName = netName
 		return nil
 	}

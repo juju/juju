@@ -23,6 +23,7 @@ type CredentialModelsSuite struct {
 	ConnSuite
 
 	credentialTag names.CloudCredentialTag
+	abcModelTag   names.ModelTag
 }
 
 var _ = gc.Suite(&CredentialModelsSuite{})
@@ -31,7 +32,7 @@ func (s *CredentialModelsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.credentialTag = s.createCloudCredential(c, "foobar")
-	s.addModel(c, "abcmodel", s.credentialTag)
+	s.abcModelTag = s.addModel(c, "abcmodel", s.credentialTag)
 }
 
 func (s *CredentialModelsSuite) createCloudCredential(c *gc.C, credentialName string) names.CloudCredentialTag {
@@ -44,7 +45,7 @@ func (s *CredentialModelsSuite) createCloudCredential(c *gc.C, credentialName st
 	return tag
 }
 
-func (s *CredentialModelsSuite) addModel(c *gc.C, modelName string, tag names.CloudCredentialTag) {
+func (s *CredentialModelsSuite) addModel(c *gc.C, modelName string, tag names.CloudCredentialTag) names.ModelTag {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
@@ -62,19 +63,20 @@ func (s *CredentialModelsSuite) addModel(c *gc.C, modelName string, tag names.Cl
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+	return names.NewModelTag(uuid.String())
 }
 
 func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccess(c *gc.C) {
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
-		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess},
+		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 	})
 }
 
 func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) {
 	// add another model with the same credential
-	s.addModel(c, "xyzmodel", s.credentialTag)
+	xyzModelTag := s.addModel(c, "xyzmodel", s.credentialTag)
 
 	// add another model with a different credential - should not be in the output.
 	anotherCredential := s.createCloudCredential(c, "another")
@@ -82,9 +84,9 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) 
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
-		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess},
-		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess},
+	c.Assert(out, jc.SameContents, []state.CredentialOwnerModelAccess{
+		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
+		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess, ModelUUID: xyzModelTag.Id()},
 	})
 }
 
@@ -92,6 +94,20 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessNoModels(c *gc
 	anotherCredential := s.createCloudCredential(c, "another")
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(anotherCredential)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(out, gc.HasLen, 0)
+}
+
+func (s *CredentialModelsSuite) TestCredentialModels(c *gc.C) {
+	out, err := s.State.CredentialModels(s.credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.DeepEquals, map[string]string{s.abcModelTag.Id(): "abcmodel"})
+}
+
+func (s *CredentialModelsSuite) TestCredentialNoModels(c *gc.C) {
+	anotherCredential := s.createCloudCredential(c, "another")
+
+	out, err := s.State.CredentialModels(anotherCredential)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(out, gc.HasLen, 0)
 }

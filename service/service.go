@@ -12,27 +12,21 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/shell"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 )
 
-var (
-	logger   = loggo.GetLogger("juju.service")
-	renderer = shell.BashRenderer{}
-)
+var logger = loggo.GetLogger("juju.service")
 
 // These are the names of the init systems recognized by juju.
 const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"
 	InitSystemWindows = "windows"
-	SystemdDataDir    = "/lib/systemd/system"
 )
 
 // linuxInitSystems lists the names of the init systems that juju might
@@ -134,17 +128,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		dataDir, err := paths.DataDir(series)
-		if err != nil {
-			return nil, err
-		}
-		svc, err := systemd.NewService(
-			name,
-			conf,
-			SystemdDataDir,
-			systemd.NewDBusAPI,
-			renderer.Join(dataDir, "init"),
-		)
+		svc, err := systemd.NewServiceWithDefaults(name, conf)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}

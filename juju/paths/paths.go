@@ -28,10 +28,18 @@ const (
 	cloudInitCfgDir
 )
 
+const (
+	// NixDataDir is location for agent binaries on *nix operating systems.
+	NixDataDir = "/var/lib/juju"
+
+	// NixDataDir is location for Juju logs on *nix operating systems.
+	NixLogDir = "/var/log"
+)
+
 var nixVals = map[osVarType]string{
 	tmpDir:               "/tmp",
-	logDir:               "/var/log",
-	dataDir:              "/var/lib/juju",
+	logDir:               NixLogDir,
+	dataDir:              NixDataDir,
 	storageDir:           "/var/lib/juju/storage",
 	confDir:              "/etc/juju",
 	jujuRun:              "/usr/bin/juju-run",

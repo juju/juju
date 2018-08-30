@@ -11,9 +11,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -57,6 +60,29 @@ func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
 func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	st.MethodCall(st, "WatchAPIHostPortsForAgents")
 	return apiservertesting.NewFakeNotifyWatcher()
+}
+
+type mockStorageProviderRegistry struct {
+	testing.Stub
+	storage.ProviderRegistry
+}
+
+func (m *mockStorageProviderRegistry) StorageProvider(providerType storage.ProviderType) (storage.Provider, error) {
+	m.MethodCall(m, "StorageProvider", providerType)
+	return nil, errors.NotSupportedf("StorageProvider")
+}
+
+type mockStoragePoolManager struct {
+	testing.Stub
+	poolmanager.PoolManager
+}
+
+func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
+	m.MethodCall(m, "Get", name)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
 }
 
 type mockApplication struct {

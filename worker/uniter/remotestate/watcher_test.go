@@ -204,9 +204,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		Series:                "",
-		//The mock remotes state watcher always delivers Started for the upgrade statuses
-		UpgradeSeriesPrepareStatus:  model.UpgradeSeriesPrepareStarted,
-		UpgradeSeriesCompleteStatus: model.UpgradeSeriesPrepareStarted,
+		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
 	})
 }
 
@@ -230,8 +228,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		Series:                "",
-		UpgradeSeriesPrepareStatus:  "",
-		UpgradeSeriesCompleteStatus: "",
+		UpgradeSeriesStatus:   "",
 	})
 }
 

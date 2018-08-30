@@ -97,6 +97,7 @@ func (m machineShim) Units() ([]Unit, error) {
 
 type Unit interface {
 	UnitTag() names.UnitTag
+	Name() string
 }
 
 func (m machineShim) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error) {

@@ -31,9 +31,7 @@ type ApplicationConfigSuite struct {
 	settingKeys set.Strings
 }
 
-func (s *ApplicationConfigSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
+func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 	// Create application with all available config field types [currently string, int, boolean, float]
 	// where each type has 3 settings:
 	// * one with a default;
@@ -104,6 +102,7 @@ func (s *ApplicationConfigSuite) getHookOutput(c *gc.C) charm.Settings {
 // since the logic and expected output is equivalent, these should be modified in sync.
 func (s *ApplicationConfigSuite) TestConfigAndConfigGetReturnAllCharmSettings(c *gc.C) {
 	// initial deploy with custom settings
+	s.assertApplicationDeployed(c)
 	s.assertSameConfigOutput(c, initialConfig)
 
 	// use 'juju config foo=' to change values
@@ -129,6 +128,26 @@ func (s *ApplicationConfigSuite) TestConfigAndConfigGetReturnAllCharmSettings(c 
 			"floatnodefault,floatoverwrite,intdefault,intnodefault,intoverwrite,"+
 			"strdefault,strnodefault,stroverwrite")
 	s.assertSameConfigOutput(c, resetConfig)
+}
+
+func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
+	appName := "appconfigsingle"
+	charm := s.AddTestingCharm(c, appName)
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:  appName,
+		Charm: charm,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// use 'juju config foo' to see values
+	for option := range charm.Config().Options {
+		output := s.configCommandOutput(c, appName, option)
+		c.Assert(output, gc.Equals, "")
+	}
+	// set value to be something so that we can check newline added
+	s.configCommandOutput(c, appName, "stremptydefault=a")
+	output := s.configCommandOutput(c, appName, "stremptydefault")
+	c.Assert(output, gc.Equals, "a")
 }
 
 func (s *ApplicationConfigSuite) assertSameConfigOutput(c *gc.C, expectedValues settingsMap) {

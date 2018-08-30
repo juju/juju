@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.workers.caasprovisioner")
@@ -237,5 +238,15 @@ func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.
 		AgentConf:         confBytes,
 		OperatorImagePath: info.ImagePath,
 		Version:           info.Version,
+		CharmStorage:      charmStorageParams(info.CharmStorage),
 	}, nil
+}
+
+func charmStorageParams(in storage.KubernetesFilesystemParams) caas.CharmStorageParams {
+	return caas.CharmStorageParams{
+		Provider:     in.Provider,
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.ResourceTags,
+	}
 }

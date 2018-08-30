@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +16,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
-	containerLXD "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/testing"
@@ -478,14 +477,24 @@ endpoint: http://foo.com/lxd
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestPingWithNoEndpoint(c *gc.C) {
+func (s *providerSuite) TestPingFailWithNoEndpoint(c *gc.C) {
+	server := httptest.NewTLSServer(http.HandlerFunc(http.NotFound))
+	defer server.Close()
+
+	p, err := environs.Provider("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+server.URL)
+}
+
+func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
 	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.NewCloudCallContext(), server.URL)
-	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+containerLXD.EnsureHTTPS(server.URL))
+	c.Assert(err, gc.ErrorMatches, "invalid URL \""+server.URL+"\": only HTTPS is supported")
 }
 
 type ProviderFunctionalSuite struct {

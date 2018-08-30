@@ -73,11 +73,8 @@ type Snapshot struct {
 	// Series is the current series running on the unit
 	Series string
 
-	// UpgradeSeriesPrepareStatus is the preparation status of any currently running series upgrade
-	UpgradeSeriesPrepareStatus model.UpgradeSeriesStatus
-
-	// UpgradeSeriesCompleteStatus is the completion status of any currently running series upgrade
-	UpgradeSeriesCompleteStatus model.UpgradeSeriesStatus
+	// UpgradeSeriesStatus is the preparation status of any currently running series upgrade
+	UpgradeSeriesStatus model.UpgradeSeriesStatus
 }
 
 type RelationSnapshot struct {

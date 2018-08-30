@@ -481,8 +481,9 @@ type ConfigResult struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath string         `json:"image-path"`
-	Version   version.Number `json:"version"`
+	ImagePath    string                     `json:"image-path"`
+	Version      version.Number             `json:"version"`
+	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 
 // PublicAddress holds parameters for the PublicAddress call.
@@ -1313,20 +1314,41 @@ type DumpModelRequest struct {
 	Simplified bool     `json:"simplified"`
 }
 
+// UpgradeSeriesStatusResult contains the upgrade series status result for an upgrading
+// machine or unit
 type UpgradeSeriesStatusResult struct {
 	Error  *Error                    `json:"error,omitempty"`
 	Status model.UpgradeSeriesStatus `json:"status,omitempty"`
 }
 
+// UpgradeSeriesStatusResults contains the upgrade series status results for
+// upgrading machines or units.
 type UpgradeSeriesStatusResults struct {
 	Results []UpgradeSeriesStatusResult `json:"results,omitempty"`
 }
 
+// UpgradeSeriesStatusParams contains the entities and desired statuses for
+// those entities.
 type UpgradeSeriesStatusParams struct {
 	Params []UpgradeSeriesStatusParam `json:"params"`
 }
 
+// UpgradeSeriesStatusParam contains the entity and desired status for
+// that entity.
 type UpgradeSeriesStatusParam struct {
 	Entity Entity                    `json:"entity"`
 	Status model.UpgradeSeriesStatus `json:"status"`
+}
+
+// UpgradeSeriesUnitsResults contains the units affected by a series per
+// machine entity.
+type UpgradeSeriesUnitsResults struct {
+	Results []UpgradeSeriesUnitsResult
+}
+
+// UpgradeSeriesUnitsResults contains the units affected by a series for
+// a given machine.
+type UpgradeSeriesUnitsResult struct {
+	Error     *Error   `json:"error,omitempty"`
+	UnitNames []string `json:"unit-names"`
 }

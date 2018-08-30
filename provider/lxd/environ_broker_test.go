@@ -23,7 +23,8 @@ import (
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
-	callCtx context.ProviderCallContext
+	callCtx        context.ProviderCallContext
+	defaultProfile *api.Profile
 }
 
 var _ = gc.Suite(&environBrokerSuite{})
@@ -31,6 +32,13 @@ var _ = gc.Suite(&environBrokerSuite{})
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.callCtx = context.NewCloudCallContext()
+	s.defaultProfile = &api.Profile{
+		ProfilePut: api.ProfilePut{
+			Devices: map[string]map[string]string{
+				"eth0": {},
+			},
+		},
+	}
 }
 
 // containerSpecMatcher is a gomock matcher for testing a container spec
@@ -71,7 +79,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
-		exp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
@@ -160,7 +168,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
+		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 		sExp.UseTargetServer("node01").Return(jujuTarget, nil),
@@ -200,7 +208,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
+		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 	)
@@ -232,7 +240,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
+		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 	)
@@ -259,7 +267,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
+		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 	)
 	env := s.NewEnviron(c, svr, nil)
 
@@ -291,7 +299,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
-		exp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)

@@ -36,6 +36,18 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
+// FinishUpgradeSeries mocks base method
+func (m *MockFacade) FinishUpgradeSeries() error {
+	ret := m.ctrl.Call(m, "FinishUpgradeSeries")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FinishUpgradeSeries indicates an expected call of FinishUpgradeSeries
+func (mr *MockFacadeMockRecorder) FinishUpgradeSeries() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinishUpgradeSeries", reflect.TypeOf((*MockFacade)(nil).FinishUpgradeSeries))
+}
+
 // MachineStatus mocks base method
 func (m *MockFacade) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "MachineStatus")

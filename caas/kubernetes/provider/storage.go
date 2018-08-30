@@ -89,7 +89,7 @@ type storageConfig struct {
 	storageLabels []string
 }
 
-func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
+func newStorageConfig(attrs map[string]interface{}, defaultStorageClass string) (*storageConfig, error) {
 	out, err := storageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating storage config")
@@ -121,7 +121,7 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 
 // ValidateConfig is defined on the storage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
-	_, err := newStorageConfig(cfg.Attrs())
+	_, err := newStorageConfig(cfg.Attrs(), defaultStorageClass)
 	return errors.Trace(err)
 }
 

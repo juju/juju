@@ -105,11 +105,19 @@ func NewMachineManagerAPI(
 }
 
 func (mm *MachineManagerAPI) checkCanWrite() error {
-	canWrite, err := mm.authorizer.HasPermission(permission.WriteAccess, mm.modelTag)
+	return mm.checkAccess(permission.WriteAccess)
+}
+
+func (mm *MachineManagerAPI) checkCanRead() error {
+	return mm.checkAccess(permission.ReadAccess)
+}
+
+func (mm *MachineManagerAPI) checkAccess(access permission.Access) error {
+	canAccess, err := mm.authorizer.HasPermission(access, mm.modelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canWrite {
+	if !canAccess {
 		return common.ErrPerm
 	}
 	return nil
@@ -387,13 +395,6 @@ func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) err
 			}
 		}
 	}()
-
-	// TODO (hml) 2018-06-26 managed series upgrade
-	// Next steps in updateSeriesPrepare:
-	// 1. verify success of pre-upgrade-series hook run on each unit
-	// 2. stop each unit's agent on machine
-	// 3. write systemd unit agent files if necessary and copy tools based on series.
-
 	return nil
 }
 
@@ -411,6 +412,39 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	}
 
 	return params.ErrorResult{}, nil
+}
+
+// UpgradeSeriesComplete returns the set of units affected by the series upgrade
+// of a particular machine.
+func (mm *MachineManagerAPI) UnitsToUpgrade(args params.UpdateSeriesArgs) (params.UpgradeSeriesUnitsResults, error) {
+	err := mm.checkCanRead()
+	if err != nil {
+		return params.UpgradeSeriesUnitsResults{}, err
+	}
+	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
+	for i, arg := range args.Args {
+		machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := mm.st.Machine(machineTag.Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		units, err := machine.Units()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		unitNames := []string{}
+		for _, unit := range units {
+			unitNames = append(unitNames, unit.Name())
+		}
+		results[i].UnitNames = unitNames
+	}
+	return params.UpgradeSeriesUnitsResults{Results: results}, nil
 }
 
 // DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
@@ -465,9 +499,6 @@ func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) e
 	return machine.CompleteUpgradeSeries()
 }
 
-// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
-// RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
-// given machine.
 func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
 	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {

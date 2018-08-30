@@ -3126,6 +3126,7 @@ var statusTests = []testCase{
 	),
 	test( // 24
 		"set meter status on the model",
+		setSLA{"advanced"},
 		setModelMeterStatus{"RED", "status message"},
 		expect{
 			what: "simulate just the two applications and a bootstrap node",
@@ -3145,7 +3146,7 @@ var statusTests = []testCase{
 						"color":   "red",
 						"message": "status message",
 					},
-					"sla": "unsupported",
+					"sla": "advanced",
 				},
 				"machines":     M{},
 				"applications": M{},

@@ -15,8 +15,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 )
+
+const LibSystemdDir = "/lib/systemd/system"
 
 var (
 	logger = loggo.GetLogger("juju.service.systemd")
@@ -73,8 +76,18 @@ type Service struct {
 	newDBus DBusAPIFactory
 }
 
-// NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fallBackDirName string) (*Service, error) {
+// NewServiceWithDefaults returns a new systemd service reference populated
+// with sensible defaults.
+func NewServiceWithDefaults(name string, conf common.Conf) (*Service, error) {
+	svc, err := NewService(name, conf, LibSystemdDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
+	return svc, errors.Trace(err)
+}
+
+// NewService returns a new reference to an object that implements the Service
+// interface for systemd.
+func NewService(
+	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fallBackDirName string,
+) (*Service, error) {
 	confName := name + ".service"
 	var volName string
 	if conf.ExecStart != "" {

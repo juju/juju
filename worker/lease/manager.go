@@ -115,7 +115,8 @@ type Manager struct {
 	// goroutines back to the main loop.
 	errors chan error
 
-	// wg is a waitgroup for the goroutines that are fired off.
+	// wg is used to ensure that all child goroutines are finished
+	// before we stop.
 	wg sync.WaitGroup
 }
 

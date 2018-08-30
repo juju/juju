@@ -253,6 +253,11 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 func (env *environ) InstanceAvailabilityZoneNames(
 	ctx context.ProviderCallContext, ids []instance.Id,
 ) ([]string, error) {
+	instances, err := env.Instances(ctx, ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+
 	// If not clustered, just report all input IDs as being in the zone
 	// represented by the single server.
 	if !env.server.IsClustered() {
@@ -262,11 +267,6 @@ func (env *environ) InstanceAvailabilityZoneNames(
 			zones[i] = n
 		}
 		return zones, nil
-	}
-
-	instances, err := env.Instances(ctx, ids)
-	if err != nil && err != environs.ErrPartialInstances {
-		return nil, err
 	}
 
 	zones := make([]string, len(instances))

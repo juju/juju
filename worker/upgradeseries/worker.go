@@ -150,6 +150,8 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		err = w.handlePrepareMachine()
 	case model.UpgradeSeriesCompleteStarted:
 		err = w.handleCompleteStarted()
+	case model.UpgradeSeriesCompleted:
+		err = w.handleCompleted()
 	default:
 		w.logger.Debugf("machine series upgrade status is %q", machineStatus)
 	}
@@ -265,6 +267,18 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
 	}
 
+	return nil
+}
+
+// handleCompleted givens the worker a chance to perform any final operations
+// before returning control to the server (controller) which will then perform its own
+// post upgrade routine.
+func (w *upgradeSeriesWorker) handleCompleted() error {
+	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
+	err := w.FinishUpgradeSeries()
+	if err != nil {
+		errors.Trace(err)
+	}
 	return nil
 }
 
