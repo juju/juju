@@ -25,12 +25,14 @@ var hostSeries = series.HostSeries
 
 type seriesGetter = func() (string, error)
 
+// Upgrader describes methods required to perform file-system manipulation in
+// preparation for upgrading the host Ubuntu version.
 type Upgrader interface {
 	PerformUpgrade() error
 }
 
-// Upgrader handles host machine concerns required to
-// upgrade the version of Ubuntu.
+// upgrader implements the Upgrader interface for a specific (from/to) upgrade
+// of the host Ubuntu version, via the systemd service manager.
 type upgrader struct {
 	logger Logger
 
