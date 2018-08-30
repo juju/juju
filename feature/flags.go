@@ -55,3 +55,7 @@ const UpgradeSeries = "upgrade-series"
 // LegacyLeases will switch all lease management to be handled by the
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"
+
+// LXDProfile will allow for lxd-profile.yaml files in a charm to be used
+// in container creation.
+const LXDProfile = "lxd-profile"
