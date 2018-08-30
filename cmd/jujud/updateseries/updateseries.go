@@ -17,6 +17,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/systemd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.updateseries")
@@ -38,8 +39,8 @@ type UpdateSeriesCommand struct {
 }
 
 var (
-	systemdDir          = "/etc/systemd/system"
-	systemdMultiUserDir = systemdDir + "/multi-user.target.wants"
+	systemdDir          = systemd.EtcSystemdDir
+	systemdMultiUserDir = systemd.EtcSystemdMultiUserDir
 )
 
 func (c *UpdateSeriesCommand) Info() *cmd.Info {

@@ -102,8 +102,8 @@ func (s *systemdServiceManager) WriteServiceFiles() error {
 		machineAgent,
 		unitAgents,
 		paths.NixDataDir,
-		"/etc/systemd/system",
-		"/etc/systemd/system/multi-user.target.wants",
+		systemd.EtcSystemdDir,
+		systemd.EtcSystemdMultiUserDir,
 	)
 	if err != nil {
 		for _, agent := range failed {
