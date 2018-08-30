@@ -118,11 +118,11 @@ func (w *EgressAddressWatcher) loop() error {
 	var haveInitialModelConfig bool
 
 	for {
-		var ready = sentInitial
+		var ready bool
 		if !sentInitial {
 			ready = haveInitialRelationUnits && haveInitialRelationEgressNetworks && haveInitialModelConfig
 		}
-		if ready && changed {
+		if ready || changed {
 			addresses = nil
 			if len(w.known) > 0 {
 				// Egress CIDRs, if configured, override unit
@@ -140,13 +140,17 @@ func (w *EgressAddressWatcher) loop() error {
 					}
 				}
 			}
-			if !sentInitial || !setEquals(addresses, lastAddresses) {
+			changed = false
+			if !setEquals(addresses, lastAddresses) {
 				addressesCIDR, err = network.FormatAsCIDR(addresses.Values())
 				if err != nil {
 					return errors.Trace(err)
 				}
-				out = w.out
+				ready = ready || sentInitial
 			}
+		}
+		if ready {
+			out = w.out
 		}
 
 		select {
@@ -155,7 +159,6 @@ func (w *EgressAddressWatcher) loop() error {
 
 		case out <- addressesCIDR:
 			sentInitial = true
-			changed = false
 			lastAddresses = addresses
 			out = nil
 
