@@ -91,8 +91,8 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
-	s.config.OpenState = nil
-	s.startManifoldInvalidConfig(c, s.config, "nil OpenState not valid")
+	s.config.OpenStatePool = nil
+	s.startManifoldInvalidConfig(c, s.config, "nil OpenStatePool not valid")
 }
 
 func (s *ManifoldSuite) TestStartPrometheusRegistererNil(c *gc.C) {

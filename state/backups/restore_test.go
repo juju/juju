@@ -215,12 +215,12 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	ctlr, pool := statetesting.InitializeWithArgs(c,
+	ctlr := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
 			Clock: testclock.NewClock(coretesting.NonZeroTime()),
 		})
-	st := pool.SystemState()
+	st := ctlr.SystemState()
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)

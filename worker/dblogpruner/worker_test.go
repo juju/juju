@@ -69,13 +69,13 @@ func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
 		"max-logs-size": maxCollectionMB,
 	}
 
-	ctlr, pool := statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
+	ctlr := statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
 		Owner:            names.NewLocalUserTag("test-admin"),
 		Clock:            testclock.NewClock(testing.NonZeroTime()),
 		ControllerConfig: controllerConfig,
 	})
 	s.AddCleanup(func(*gc.C) { ctlr.Close() })
-	s.state = pool.SystemState()
+	s.state = ctlr.SystemState()
 	s.logsColl = s.state.MongoSession().DB("logs").C("logs." + s.state.ModelUUID())
 }
 
