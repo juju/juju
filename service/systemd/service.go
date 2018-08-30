@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-const DataDir = "/lib/systemd/system"
+const LibSystemdDir = "/lib/systemd/system"
 
 var (
 	logger = loggo.GetLogger("juju.service.systemd")
@@ -79,7 +79,7 @@ type Service struct {
 // NewServiceWithDefaults returns a new systemd service reference populated
 // with sensible defaults.
 func NewServiceWithDefaults(name string, conf common.Conf) (*Service, error) {
-	svc, err := NewService(name, conf, DataDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
+	svc, err := NewService(name, conf, LibSystemdDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
 	return svc, errors.Trace(err)
 }
 

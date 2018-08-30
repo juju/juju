@@ -90,7 +90,8 @@ func NewServiceManager(
 	}
 }
 
-// WriteServiceFiles writes the service life in standard '/lib/systemd/system' path.
+// WriteServiceFiles writes service files to the standard
+// "/lib/systemd/system" path.
 func (s *systemdServiceManager) WriteServiceFiles() error {
 	machineAgent, unitAgents, _, err := s.FindAgents(paths.NixDataDir)
 	if err != nil {
@@ -215,13 +216,13 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 
 		// Otherwise we need to manually ensure the service unit links.
 		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(systemd.DataDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
 			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf(
 				"failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
 		}
 
-		if err = os.Symlink(path.Join(systemd.DataDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
 			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf(
 				"failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
