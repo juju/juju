@@ -12,11 +12,13 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Actions
@@ -47,6 +49,8 @@ type UpgradeMachineSeriesAPI interface {
 	UpgradeSeriesValidate(string, string) ([]string, error)
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
+	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, error)
+	GetUpgradeSeriesNotification(string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -61,6 +65,8 @@ type upgradeSeriesCommand struct {
 	machineNumber string
 	series        string
 	agree         bool
+
+	catacomb catacomb.Catacomb
 }
 
 var upgradeSeriesDoc = `
@@ -215,7 +221,44 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	err = c.displayNotifications(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
+}
+
+// displayNotifications handles the writing of upgrade series notifications to
+// standard out.
+func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) error {
+	uw, err := c.upgradeMachineSeriesClient.WatchUpgradeSeriesNotifications(c.machineNumber)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.catacomb.Add(uw)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for {
+		select {
+		case <-c.catacomb.Dying():
+			return c.catacomb.ErrDying()
+		case <-uw.Changes():
+			if err := c.handleUpgradeSeriesChange(ctx); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+}
+
+func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context) error {
+	notification, err := c.upgradeMachineSeriesClient.GetUpgradeSeriesNotification(c.machineNumber)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = fmt.Fprint(ctx.Stdout, notification)
+	return errors.Trace(err)
 }
 
 // UpgradeSeriesComplete completes a series for a given machine, that is

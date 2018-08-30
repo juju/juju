@@ -8,7 +8,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 )
 
 const machineManagerFacade = "MachineManager"
@@ -212,4 +214,59 @@ func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]strin
 		return nil, results.Results[0].Error
 	}
 	return results.Results[0].UnitNames, nil
+}
+
+// WatchUpgadeSeriesNotifications returns a NotifyWatcher for observing the state of
+// a series upgrade.
+func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watcher.NotifyWatcher, string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, "", errors.NotSupportedf("WatchUpgradeSeriesNotifications")
+	}
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewMachineTag(machineName).String()}},
+	}
+	err := client.facade.FacadeCall("WatchUpgradeSeriesNotifications", args, &results)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, "", result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(client.facade.RawAPICaller(), result)
+	return w, result.NotifyWatcherId, nil
+}
+
+// WatchActionNotifications returns a StringsWatcher for observing the state of
+// a series upgrade.
+func (client *Client) GetUpgradeSeriesNotification(machineName, watcherId string) ([]string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, errors.NotSupportedf("GetUpgradeSeriesNotification")
+	}
+	var results params.StringsResults
+	args := params.UpgradeSeriesNotificationParams{
+		Params: []params.UpgradeSeriesNotificationParam{
+			{
+				Entity:    params.Entity{Tag: names.NewMachineTag(machineName).String()},
+				WatcherId: watcherId,
+			},
+		},
+	}
+	err := client.facade.FacadeCall("GetUpgradeSeriesNotification", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return result.Result, nil
 }
