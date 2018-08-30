@@ -537,6 +537,40 @@ Credential "blah" added locally for cloud "somecloud".
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }
 
+func (s *addCredentialSuite) TestHiddenFromUI(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.InteractiveAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.InteractiveAuthType: {
+			{
+				"trust-password",
+				jujucloud.CredentialAttr{
+					Description: "trust-password",
+					Hidden:      true,
+				},
+			},
+			{
+				"cert",
+				jujucloud.CredentialAttr{
+					Description: "cert",
+					HideFromUI:  true,
+				},
+			},
+		},
+	}
+	stdin := strings.NewReader("blah\nfred\n")
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := `
+Enter credential name: 
+Using auth-type "interactive".
+
+Enter trust-password: 
+Credential "blah" added locally for cloud "somecloud".
+
+`[1:]
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
+}
+
 func (s *addCredentialSuite) TestShouldFinalizeCredentialWithEnvironProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

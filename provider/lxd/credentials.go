@@ -103,32 +103,25 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
 					Description: "the LXD server trust password",
-					// TODO: (hml) 2018-08-24
-					// Hidden and Optional are mutually exclusive, when prompting for a response,
-					// according to cloud.promptFieldValue()
-					Hidden:   true,
-					Optional: true,
+					Hidden:      true,
 				},
 			}, {
 				Name: credAttrServerCert,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the path to the PEM-encoded LXD server certificate file",
-					ExpandFilePath: true,
-					Optional:       true,
+					Description: "the path to the PEM-encoded LXD server certificate file",
+					HideFromUI:  true,
 				},
 			}, {
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the path to the PEM-encoded LXD client certificate file",
-					ExpandFilePath: true,
-					Optional:       true,
+					Description: "the path to the PEM-encoded LXD client certificate file",
+					HideFromUI:  true,
 				},
 			}, {
 				Name: credAttrClientKey,
 				CredentialAttr: cloud.CredentialAttr{
-					Description:    "the path to the PEM-encoded LXD client key file",
-					ExpandFilePath: true,
-					Optional:       true,
+					Description: "the path to the PEM-encoded LXD client key file",
+					HideFromUI:  true,
 				},
 			},
 		},
