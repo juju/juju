@@ -372,7 +372,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
-			OpenStatePool:              config.OpenStatePool,
+			OpenStatePool:          config.OpenStatePool,
 			PrometheusRegisterer:   config.PrometheusRegisterer,
 			SetStatePool:           config.SetStatePool,
 		}),
