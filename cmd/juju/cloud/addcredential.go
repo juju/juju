@@ -390,12 +390,6 @@ func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, 
 }
 
 func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujucloud.NamedCredentialAttr) (string, error) {
-	// If the attribute contains the HideFromUI value, then just skip this part.
-	// see cloud.CredentialAttr#HideFromUI
-	if attr.HideFromUI {
-		return "", nil
-	}
-
 	name := attr.Name
 
 	if len(attr.Options) > 0 {

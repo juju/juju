@@ -319,13 +319,6 @@ type CredentialAttr struct {
 	// attributes are provided only to the Juju controllers.
 	Hidden bool
 
-	// HideFromUI controls if the attribute should be displayed at all in the
-	// UI. This differs from Hidden, where we want to display the field, but
-	// hide the input. It's analogous to Optional, but we don't display it in
-	// the UI. The reason for this existence is that we want an attribute
-	// with in the "schema", but we don't want to ask the user for the values.
-	HideFromUI bool
-
 	// FileAttr is the name of an attribute that may be specified instead
 	// of this one, which points to a file that will be read in and its
 	// value used for this attribute.
