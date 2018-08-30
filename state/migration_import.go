@@ -41,7 +41,8 @@ import (
 var initialLeaderClaimTime = time.Minute
 
 // Import the database agnostic model representation into the database.
-func (st *State) Import(model description.Model) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
+	st := ctrl.pool.SystemState()
 	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", modelUUID)
@@ -124,7 +125,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 		args.CloudCredential = credTag
 	}
-	dbModel, newSt, err := st.NewModel(args)
+	dbModel, newSt, err := ctrl.NewModel(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

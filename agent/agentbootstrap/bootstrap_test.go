@@ -192,12 +192,12 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, m, err := agentbootstrap.InitializeState(
+	ctlr, m, err := agentbootstrap.InitializeState(
 		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
+	defer ctlr.Close()
+	st := ctlr.SystemState()
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -256,9 +256,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
 	// controller model.
-	statePool := state.NewStatePool(st)
-	defer statePool.Close()
-	hostedModelSt, err := statePool.Get(hostedModelUUID)
+	hostedModelSt, err := ctlr.StatePool().Get(hostedModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	defer hostedModelSt.Release()
 	gotModelConstraints, err = hostedModelSt.ModelConstraints()

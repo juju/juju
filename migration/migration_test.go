@@ -25,6 +25,7 @@ import (
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -56,7 +57,8 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
-	model, st, err := migration.ImportModel(s.State, bytes)
+	controller := state.NewController(s.StatePool)
+	model, st, err := migration.ImportModel(controller, bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
@@ -78,7 +80,8 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	bytes, err := description.Serialize(model)
 	c.Check(err, jc.ErrorIsNil)
 
-	dbModel, dbState, err := migration.ImportModel(s.State, bytes)
+	controller := state.NewController(s.StatePool)
+	dbModel, dbState, err := migration.ImportModel(controller, bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	defer dbState.Close()
 

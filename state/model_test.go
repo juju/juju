@@ -60,7 +60,7 @@ func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("non-existent@local")
 
-	_, _, err := s.State.NewModel(state.ModelArgs{
+	_, _, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -76,7 +76,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first model.
-	model, st1, err := s.State.NewModel(state.ModelArgs{
+	model, st1, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -96,7 +96,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 		"name": cfg.Name(),
 		"uuid": newUUID.String(),
 	})
-	_, _, err = s.State.NewModel(state.ModelArgs{
+	_, _, err = s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -122,7 +122,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
-	model2, st2, err := s.State.NewModel(state.ModelArgs{
+	model2, st2, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -139,7 +139,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 func (s *ModelSuite) TestNewModelMissingType(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
+	_, _, err := s.Controller.NewModel(state.ModelArgs{
 		// No type
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -155,7 +155,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	cfg, uuid := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -211,7 +211,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 
 func (s *ModelSuite) TestNewModelRegionNameEscaped(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dotty.region",
@@ -228,7 +228,7 @@ func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
@@ -247,7 +247,7 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -279,7 +279,7 @@ func (s *ModelSuite) TestSLA(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -325,7 +325,7 @@ func (s *ModelSuite) TestMeterStatus(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -507,7 +507,7 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2).MakeApplication(c, nil)
+	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -533,7 +533,7 @@ func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2).MakeApplication(c, nil)
+	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -644,7 +644,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c
 
 	// Add a unit with persistent storage, which will prevent Destroy
 	// from succeeding on account of DestroyStorage being nil.
-	otherFactory := factory.NewFactory(otherSt)
+	otherFactory := factory.NewFactory(otherSt, s.StatePool)
 	otherFactory.MakeUnit(c, &factory.UnitParams{
 		Application: otherFactory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: otherFactory.MakeCharm(c, &factory.CharmParams{
@@ -698,7 +698,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		// the controller from being destroyed.
 		st3 := s.Factory.MakeModel(c, nil)
 		defer st3.Close()
-		factory.NewFactory(st3).MakeApplication(c, nil)
+		factory.NewFactory(st3, s.StatePool).MakeApplication(c, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -712,7 +712,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		st := s.Factory.MakeModel(c, nil)
 		defer st.Close()
-		factory.NewFactory(st).MakeApplication(c, nil)
+		factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -861,7 +861,7 @@ func (s *ModelSuite) TestDestroyModelAddApplicationConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st).MakeApplication(c, nil)
+		factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -876,7 +876,7 @@ func (s *ModelSuite) TestDestroyModelAddMachineConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st).MakeMachine(c, nil)
+		factory.NewFactory(st, s.StatePool).MakeMachine(c, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -939,7 +939,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 	// Add a application to prevent the model from transitioning directly to Dead.
 	// Add the application before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	app := factory.NewFactory(st).MakeApplication(c, nil)
+	app := factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1116,7 +1116,7 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 	// Add a non-empty model to the controller.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	factory.NewFactory(st).MakeApplication(c, nil)
+	factory.NewFactory(st, s.StatePool).MakeApplication(c, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1136,7 +1136,7 @@ func (s *ModelSuite) TestListModelUsers(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := addModelUsers(c, s.State)
+	expected := s.addModelUsers(c, s.State)
 	obtained, err := model.Users()
 	c.Assert(err, gc.IsNil)
 
@@ -1147,7 +1147,7 @@ func (s *ModelSuite) TestListUsersIgnoredDeletedUsers(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedUsers := addModelUsers(c, s.State)
+	expectedUsers := s.addModelUsers(c, s.State)
 
 	obtainedUsers, err := model.Users()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1173,8 +1173,8 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add users to both models
-	expectedUsers := addModelUsers(c, s.State)
-	expectedUsersOtherModel := addModelUsers(c, otherModelState)
+	expectedUsers := s.addModelUsers(c, s.State)
+	expectedUsersOtherModel := s.addModelUsers(c, otherModelState)
 
 	// test that only the expected users are listed for each model
 	obtainedUsers, err := model.Users()
@@ -1194,7 +1194,7 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel2, expectedUsersOtherModel)
 }
 
-func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {
+func (s *ModelSuite) addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {
 	// get the model owner
 	testAdmin := names.NewUserTag("test-admin")
 	m, err := st.Model()
@@ -1202,7 +1202,7 @@ func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) 
 	owner, err := st.UserAccess(testAdmin, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	return []permission.UserAccess{
 		// we expect the owner to be an existing model user
 		owner,
@@ -1362,10 +1362,11 @@ var _ = gc.Suite(&ModelCloudValidationSuite{})
 // and update/remove credentials.
 
 func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
-	st, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer st.Close()
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	defer controller.Close()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := st.NewModel(state.ModelArgs{
+	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:      state.ModelTypeIAAS,
 		CloudName: "another",
 		Config:    cfg,
@@ -1376,10 +1377,11 @@ func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
-	st, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer st.Close()
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	defer controller.Close()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := st.NewModel(state.ModelArgs{
+	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -1391,10 +1393,11 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
-	st, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer st.Close()
+	controller, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	defer controller.Close()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := st.NewModel(state.ModelArgs{
+	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:      state.ModelTypeIAAS,
 		CloudName: "dummy",
 		Config:    cfg,
@@ -1407,15 +1410,16 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) {
 	regions := []cloud.Region{{Name: "dummy-region"}}
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
-	st, owner := s.initializeState(
+	controller, owner := s.initializeState(
 		c, regions, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
 			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 	unknownCredentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/unknown-credential")
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := st.NewModel(state.ModelArgs{
+	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
@@ -1430,14 +1434,15 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredential(c *gc.C) {
 	regions := []cloud.Region{{Name: "dummy-region"}}
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
-	st, owner := s.initializeState(
+	controller, owner := s.initializeState(
 		c, regions, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
 			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := st.NewModel(state.ModelArgs{
+	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -1457,12 +1462,13 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEm
 			StorageEndpoint:  "dummy-storage-endpoint",
 		},
 	}
-	st, owner := s.initializeState(c, regions, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer st.Close()
+	controller, owner := s.initializeState(c, regions, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	defer controller.Close()
+	st := controller.SystemState()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	cfg, err := cfg.Apply(map[string]interface{}{"name": "whatever"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, newSt, err := st.NewModel(state.ModelArgs{
+	_, newSt, err := controller.NewModel(state.ModelArgs{
 		Type:      state.ModelTypeIAAS,
 		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
@@ -1473,15 +1479,16 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEm
 
 func (s *ModelCloudValidationSuite) TestNewModelOtherUserCloudCredential(c *gc.C) {
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
-	st, _ := s.initializeState(
+	controller, _ := s.initializeState(
 		c, nil, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
 			controllerCredentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
 	)
-	defer st.Close()
-	owner := factory.NewFactory(st).MakeUser(c, nil).UserTag()
+	defer controller.Close()
+	st := controller.SystemState()
+	owner := factory.NewFactory(st, controller.StatePool()).MakeUser(c, nil).UserTag()
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err := st.NewModel(state.ModelArgs{
+	_, _, err := controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		Config:                  cfg,
@@ -1497,7 +1504,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 	regions []cloud.Region,
 	authTypes []cloud.AuthType,
 	credentials map[names.CloudCredentialTag]cloud.Credential,
-) (*state.State, names.UserTag) {
+) (*state.Controller, names.UserTag) {
 	owner := names.NewUserTag("test@remote")
 	cfg, _ := createTestModelConfig(c, "")
 	var controllerRegion string
@@ -1511,7 +1518,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		}
 	}
 	controllerCfg := testing.FakeControllerConfig()
-	ctlr, st, err := state.Initialize(state.InitializeParams{
+	controller, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -1534,8 +1541,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr.Close(), jc.ErrorIsNil)
-	return st, owner
+	return controller, owner
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {

@@ -54,7 +54,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestNewState(c *gc.C) {
-	st, err := s.Controller.NewState(s.Model.ModelTag())
+	st, err := s.Controller.GetState(s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	c.Check(st.ModelUUID(), gc.Equals, s.State.ModelUUID())

@@ -1985,7 +1985,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 }
@@ -2234,10 +2234,18 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
+	// Ensure the following operation to set the unit as Dying
+	// is not short circuited to remove the unit.
+	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	c.Assert(err, jc.ErrorIsNil)
 	// Make it Dying: not reported.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+	// Double check the unit is dying and not removed.
+	err = unit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
 
 	// Make it Dead: not reported.
 	err = unit.EnsureDead()

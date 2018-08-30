@@ -3096,7 +3096,6 @@ func (w *relationNetworksWatcher) loop() error {
 		err         error
 	)
 	if _, err = w.loadCIDRs(); err != nil {
-		logger.Criticalf(err.Error())
 		return errors.Trace(err)
 	}
 	for {

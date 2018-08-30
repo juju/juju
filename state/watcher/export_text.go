@@ -11,6 +11,7 @@ import (
 
 const (
 	TxnWatcherStarting   = txnWatcherStarting
+	TxnWatcherSyncErr    = txnWatcherSyncErr
 	TxnWatcherCollection = txnWatcherCollection
 	TxnWatcherShortWait  = txnWatcherShortWait
 )

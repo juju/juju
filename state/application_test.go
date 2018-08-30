@@ -100,7 +100,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
 	})
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
@@ -1888,7 +1888,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
 	})
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
@@ -1937,7 +1937,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
 	})
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
@@ -1954,7 +1954,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
@@ -3402,7 +3402,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.caasSt = s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
 
-	f := factory.NewFactory(s.caasSt)
+	f := factory.NewFactory(s.caasSt, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 }

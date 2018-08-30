@@ -44,13 +44,14 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialNone(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) TestInvalidateModelCredential(c *gc.C) {
-	s.addModel(c, "abcmodel", s.credentialTag)
+	st := s.addModel(c, "abcmodel", s.credentialTag)
+	defer st.Close()
 	credential, err := s.State.CloudCredential(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credential.IsValid(), jc.IsTrue)
 
 	reason := "special invalidation"
-	err = s.State.InvalidateModelCredential(reason)
+	err = st.InvalidateModelCredential(reason)
 	c.Assert(err, jc.ErrorIsNil)
 
 	invalidated, err := s.State.CloudCredential(s.credentialTag)
@@ -96,14 +97,14 @@ func (s *ModelCredentialSuite) createCloudCredential(c *gc.C, credentialName str
 	return tag
 }
 
-func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.CloudCredentialTag) {
+func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.CloudCredentialTag) *state.State {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": modelName,
 		"uuid": uuid.String(),
 	})
-	_, st, err := s.State.NewModel(state.ModelArgs{
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",
@@ -113,6 +114,5 @@ func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.Clo
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.Close()
-	s.State = st
+	return st
 }

@@ -219,7 +219,7 @@ func (s *ModelUserSuite) TestCaseSensitiveModelUserErrors(c *gc.C) {
 
 func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 	assertIsolated := func(st1, st2 *state.State, usernames ...string) {
-		f := factory.NewFactory(st1)
+		f := factory.NewFactory(st1, s.StatePool)
 		expectedUser := f.MakeModelUser(c, &factory.ModelUserParams{User: usernames[0]})
 
 		m1, err := st1.Model()
@@ -509,7 +509,7 @@ func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.
 		"name": uuidStr[:8],
 		"uuid": uuidStr,
 	})
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",

@@ -8,13 +8,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -29,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -183,40 +179,6 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st, err = api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
-}
-
-func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
-	mongoInfo := s.MongoInfo(c)
-
-	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
-	mongoInfo.Addrs = []string{proxy.Addr()}
-
-	dialOpts := mongo.DialOpts{
-		Timeout:       5 * time.Second,
-		SocketTimeout: 5 * time.Second,
-	}
-	session, err := mongo.DialWithInfo(*mongoInfo, dialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer session.Close()
-
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.Model.ModelTag(),
-		MongoSession:       session,
-	})
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	// Now close the proxy so that any attempts to use the
-	// controller will fail.
-	proxy.Close()
-
-	// Creating the server should succeed because it doesn't
-	// access the state (note that newServer does not log in,
-	// which *would* access the state).
-	srv := testserver.NewServer(c, s.StatePool)
-	srv.Stop()
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {

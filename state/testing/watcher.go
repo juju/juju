@@ -30,7 +30,7 @@ type KillWaiter interface {
 
 func AssertKillAndWait(c *gc.C, killWaiter KillWaiter) {
 	killWaiter.Kill()
-	c.Assert(killWaiter.Wait(), gc.IsNil)
+	c.Assert(killWaiter.Wait(), jc.ErrorIsNil)
 }
 
 // AssertCanStopWhenSending ensures even when there are changes

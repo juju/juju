@@ -89,12 +89,9 @@ func newHubWatcher(hub HubSource, logger Logger) (*HubWatcher, <-chan struct{}) 
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
 	case txnWatcherStarting:
-		// This message is published when the main txns.log watcher starts. If
-		// this message is received here it means that the main watcher has
-		// restarted. It is highly likely that it restarted because it lost
-		// track of where it was, or the connection shut down. Either way, we
-		// need to stop this worker to release all the watchers.
-		w.tomb.Kill(errors.New("txn watcher restarted"))
+		// We don't do anything on a start.
+	case txnWatcherSyncErr:
+		w.tomb.Kill(errors.New("txn watcher sync error"))
 	case txnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
@@ -188,6 +185,8 @@ func (w *HubWatcher) UnwatchCollection(collection string, ch chan<- Change) {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *HubWatcher) loop() error {
+	w.logger.Tracef("loop started")
+	defer w.logger.Tracef("loop finished")
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -198,7 +197,12 @@ func (w *HubWatcher) loop() error {
 			w.handle(req)
 		}
 		for (len(w.syncEvents) + len(w.requestEvents)) > 0 {
-			w.flush()
+			select {
+			case <-w.tomb.Dying():
+				return errors.Trace(tomb.ErrDying)
+			default:
+				w.flush()
+			}
 		}
 	}
 }
@@ -222,7 +226,7 @@ func (w *HubWatcher) flush() {
 				w.queueChange(change)
 				continue
 			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
-				w.logger.Tracef("e.ch=%v has been notified", e.ch)
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
 			}
 			break
 		}
@@ -246,6 +250,7 @@ func (w *HubWatcher) flush() {
 				w.queueChange(change)
 				continue
 			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
 			}
 			break
 		}

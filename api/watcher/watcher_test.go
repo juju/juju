@@ -183,8 +183,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 // TODO(fwereade): 2015-11-18 lp:1517391
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
-	f := factory.NewFactory(s.BackingState)
-	f.MakeMachine(c, &factory.MachineParams{
+	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
@@ -522,7 +521,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	// Create a model to migrate.
 	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{})
 	defer hostedState.Close()
-	hostedFactory := factory.NewFactory(hostedState)
+	hostedFactory := factory.NewFactory(hostedState, s.StatePool)
 
 	// Create a machine in the hosted model to connect as.
 	m, password := hostedFactory.MakeMachineReturningPassword(c, &factory.MachineParams{

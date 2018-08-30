@@ -133,7 +133,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dashboard4miner", Charm: ch})
 

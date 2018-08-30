@@ -140,14 +140,14 @@ func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddres
 var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
 
-// newStateConnection tries to connect to the newly restored controller.
-func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.State, error) {
+// connectToDB tries to connect to the newly restored controller.
+func connectToDB(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.StatePool, error) {
 	// We need to retry here to allow mongo to come up on the restored controller.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
 	var (
-		st  *state.State
-		err error
+		pool *state.StatePool
+		err  error
 	)
 	const (
 		newStateConnDelay       = 15 * time.Second
@@ -163,7 +163,7 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	defer session.Close()
 
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(state.OpenParams{
+		pool, err = state.OpenStatePool(state.OpenParams{
 			Clock:              clock.WallClock,
 			ControllerTag:      controllerTag,
 			ControllerModelTag: modelTag,
@@ -171,11 +171,11 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 			NewPolicy:          environsGetNewPolicyFunc(),
 		})
 		if err == nil {
-			return st, nil
+			return pool, nil
 		}
 		logger.Errorf("cannot open state, retrying: %v", err)
 	}
-	return st, errors.Annotate(err, "cannot open state")
+	return nil, errors.Annotate(err, "cannot open state")
 }
 
 type machineModel struct {

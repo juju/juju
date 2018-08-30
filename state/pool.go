@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -70,6 +71,8 @@ func (ps *PooledState) Release() bool {
 	return removed
 }
 
+// TODO: implement Close that hides the state.Close for a PooledState?
+
 // Annotate writes the supplied context information back to the pool item.
 // The information is stored against the unique ID for the referer,
 // indicated by the itemKey member.
@@ -113,51 +116,88 @@ type StatePool struct {
 	watcherRunner *worker.Runner
 }
 
-// NewStatePool returns a new StatePool instance. It takes a State
-// connected to the system (controller model).
-func NewStatePool(systemState *State) *StatePool {
-	pool := &StatePool{
-		systemState: systemState,
-		pool:        make(map[string]*PoolItem),
-		hub:         pubsub.NewSimpleHub(nil),
-	}
-	// If systemState is nil, this is clearly a test, and a poorly
-	// isolated one. However now is not the time to fix all those broken
-	// tests.
-	if systemState == nil {
-		logger.Warningf("creating test pool with no txn watcher")
-		return pool
+// OpenStatePool returns a new StatePool instance.
+func OpenStatePool(args OpenParams) (*StatePool, error) {
+	logger.Tracef("opening state pool")
+	if err := args.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating args")
 	}
 
+	pool := &StatePool{
+		pool: make(map[string]*PoolItem),
+		hub:  pubsub.NewSimpleHub(nil),
+	}
+
+	session := args.MongoSession.Copy()
+	st, err := open(
+		args.ControllerModelTag,
+		session,
+		args.InitDatabaseFunc,
+		nil,
+		args.NewPolicy,
+		args.Clock,
+		args.RunTransactionObserver,
+	)
+	if err != nil {
+		session.Close()
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil {
+			if closeErr := st.Close(); closeErr != nil {
+				logger.Errorf("closing State for %s: %v", args.ControllerModelTag, closeErr)
+			}
+		}
+	}()
+	// If the InitDatabaseFunc is set, then we are initializing the
+	// database, and the model won't be there. So we only look for the model
+	// if we aren't initializing.
+	if args.InitDatabaseFunc == nil {
+		if _, err = st.Model(); err != nil {
+			return nil, errors.Trace(mongo.MaybeUnauthorizedf(err, "cannot read model %s", args.ControllerModelTag.Id()))
+		}
+	}
+	if err = st.start(args.ControllerTag, pool.hub); err != nil {
+		return nil, errors.Trace(err)
+	}
+	pool.systemState = st
+	// When creating the txn watchers and the worker to keep it running
+	// we really want to use wall clocks. Otherwise the events never get
+	// noticed. The clocks in the runner and the txn watcher are used to
+	// control polling, and never return the actual times.
 	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
 		// TODO add a Logger parameter to RunnerParams:
 		// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
-		Clock:        systemState.clock(),
+		Clock:        args.Clock,
 	})
 	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
-				ChangeLog: systemState.getTxnLogCollection(),
+				ChangeLog: st.getTxnLogCollection(),
 				Hub:       pool.hub,
-				Clock:     systemState.clock(),
+				Clock:     args.Clock,
 				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
 			})
 	})
-	return pool
+	return pool, nil
 }
 
 // Get returns a PooledState for a given model, creating a new State instance
 // if required.
 // If the State has been marked for removal, an error is returned.
 func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.pool == nil {
+		return nil, errors.New("pool is closed")
+	}
+
 	if modelUUID == p.systemState.ModelUUID() {
 		return newPooledState(p.systemState, p, modelUUID, true), nil
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	item, ok := p.pool[modelUUID]
 	if ok && item.remove {
@@ -293,6 +333,12 @@ func (p *StatePool) SystemState() *State {
 func (p *StatePool) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	// A nil pool map indicates that the pool has already been closed.
+	if p.pool == nil {
+		return nil
+	}
+
+	logger.Tracef("state pool closed from:\n%s", debug.Stack())
 
 	var lastErr error
 	for _, item := range p.pool {
@@ -309,10 +355,14 @@ func (p *StatePool) Close() error {
 			lastErr = err
 		}
 	}
-	p.pool = make(map[string]*PoolItem)
+	p.pool = nil
 	if p.watcherRunner != nil {
 		worker.Stop(p.watcherRunner)
 	}
+	if err := p.systemState.Close(); err != nil {
+		lastErr = err
+	}
+	p.systemState = nil
 	return errors.Annotate(lastErr, "at least one error closing a state")
 }
 

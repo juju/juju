@@ -30,6 +30,7 @@ type Clock interface {
 
 const (
 	txnWatcherStarting   = "starting"
+	txnWatcherSyncErr    = "sync err"
 	txnWatcherCollection = "collection"
 
 	txnWatcherShortWait = 10 * time.Millisecond
@@ -170,6 +171,8 @@ func (w *TxnWatcher) Err() error {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *TxnWatcher) loop() error {
+	w.logger.Tracef("loop started")
+	defer w.logger.Tracef("loop finished")
 	if err := w.initLastId(); err != nil {
 		return errors.Trace(err)
 	}
@@ -193,6 +196,7 @@ func (w *TxnWatcher) loop() error {
 
 		added, err := w.sync()
 		if err != nil {
+			w.hub.Publish(txnWatcherSyncErr, nil)
 			return errors.Trace(err)
 		}
 		w.flush()

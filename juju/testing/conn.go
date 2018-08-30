@@ -136,7 +136,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
-	s.Factory = factory.NewFactory(s.State)
+	s.Factory = factory.NewFactory(s.State, s.StatePool)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
@@ -406,10 +406,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.Hub = getStater.GetHubInAPIServer()
 	s.LeaseManager = getStater.GetLeaseManagerInAPIServer()
 
-	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
+	s.StatePool, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.StatePool = state.NewStatePool(s.State)
+	s.State = s.StatePool.SystemState()
 
 	s.Model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -479,7 +478,7 @@ var redialStrategy = utils.AttemptStrategy{
 
 // newState returns a new State that uses the given environment.
 // The environment must have already been bootstrapped.
-func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
+func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.StatePool, error) {
 	if controllerUUID == "" {
 		return nil, errors.New("missing controller UUID")
 	}
@@ -503,13 +502,13 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		MongoSession:       session,
 		NewPolicy:          newPolicyFunc,
 	}
-	st, err := state.Open(args)
+	pool, err := state.OpenStatePool(args)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(args)
+			pool, err = state.OpenStatePool(args)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -520,7 +519,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 	} else if err != nil {
 		return nil, err
 	}
-	return st, nil
+	return pool, nil
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -658,17 +657,6 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.StatePool.Close()
 		c.Check(err, jc.ErrorIsNil)
 		s.StatePool = nil
-	}
-	// Close state.
-	if s.State != nil {
-		err := s.State.Close()
-		if serverAlive {
-			// This happens way too often with failing tests,
-			// so add some context in case of an error.
-			c.Check(err, gc.IsNil,
-				gc.Commentf("closing state failed\n%s\n", errors.ErrorStack(err)),
-			)
-		}
 		s.State = nil
 	}
 

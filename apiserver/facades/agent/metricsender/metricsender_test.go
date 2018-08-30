@@ -91,7 +91,7 @@ func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 
 	state := s.Factory.MakeModel(c, &factory.ModelParams{Name: "test-model"})
 	defer state.Close()
-	f := factory.NewFactory(state)
+	f := factory.NewFactory(state, s.StatePool)
 	model, err := state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelName := model.Name()

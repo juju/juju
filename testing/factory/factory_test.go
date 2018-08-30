@@ -27,7 +27,6 @@ import (
 
 type factorySuite struct {
 	statetesting.StateSuite
-	Factory *factory.Factory
 }
 
 var _ = gc.Suite(&factorySuite{})
@@ -41,7 +40,6 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 		}
 	}
 	s.StateSuite.SetUpTest(c)
-	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {

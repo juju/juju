@@ -215,12 +215,12 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	ctlr, st := statetesting.InitializeWithArgs(c,
+	ctlr := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
 			Clock: testclock.NewClock(coretesting.NonZeroTime()),
 		})
-	c.Assert(st.Close(), jc.ErrorIsNil)
+	st := ctlr.SystemState()
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
@@ -228,9 +228,9 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 		return nil
 	})
 
-	st, err = newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
+	newConnection, err := connectToDB(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st.Close(), jc.ErrorIsNil)
+	c.Assert(newConnection.Close(), jc.ErrorIsNil)
 }
 
 func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {

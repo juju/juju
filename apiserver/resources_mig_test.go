@@ -48,7 +48,7 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	s.importingModel, err = s.importingState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newFactory := factory.NewFactory(s.importingState)
+	newFactory := factory.NewFactory(s.importingState, s.StatePool)
 	app := newFactory.MakeApplication(c, nil)
 	s.appName = app.Name()
 

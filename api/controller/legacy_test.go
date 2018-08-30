@@ -89,7 +89,7 @@ func (s *legacySuite) TestControllerConfig(c *gc.C) {
 
 func (s *legacySuite) TestDestroyController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
-	factory.NewFactory(st).MakeMachine(c, nil) // make it non-empty
+	factory.NewFactory(st, s.StatePool).MakeMachine(c, nil) // make it non-empty
 	st.Close()
 
 	sysManager := s.OpenAPI(c)

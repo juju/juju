@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -1120,7 +1119,6 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
-	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	// The return values for the setup and trigger functions are the
 	// number of changes to expect.
 	for i, test := range []struct {
@@ -1287,7 +1285,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 					w.AssertChanges(c, expected)
 					otherW.AssertNoChange(c)
 				}
-
+				c.Logf("triggering event")
 				expected := test.triggerEvent(st)
 				// Check event was isolated to the correct watcher.
 				w.AssertChanges(c, expected)
@@ -1328,13 +1326,7 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 }
 
 func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
-	return s.NewAllModelWatcherStateBackingForState(s.state)
-}
-
-func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
-	pool := NewStatePool(st)
-	s.AddCleanup(func(*gc.C) { pool.Close() })
-	return NewAllModelWatcherStateBacking(st, pool)
+	return NewAllModelWatcherStateBacking(s.state, s.pool)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.
@@ -1754,7 +1746,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	backing := s.NewAllModelWatcherStateBackingForState(st0)
+	backing := s.NewAllModelWatcherStateBacking()
 	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
@@ -3861,7 +3853,7 @@ done:
 					break done
 				}
 			}
-		case <-tw.st.clock().After(maxDuration):
+		case <-time.After(maxDuration):
 			// timed out
 			break done
 		}
@@ -3882,7 +3874,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 		if len(d) > 0 {
 			c.Error("change detected")
 		}
-	case <-tw.st.clock().After(testing.ShortWait):
+	case <-time.After(testing.ShortWait):
 		// expected
 	}
 }

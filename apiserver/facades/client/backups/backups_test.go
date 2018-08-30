@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type backupsSuite struct {
@@ -93,7 +92,7 @@ func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
-	otherState := factory.NewFactory(s.State).MakeModel(c, nil)
+	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)

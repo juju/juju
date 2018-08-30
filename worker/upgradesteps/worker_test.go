@@ -82,7 +82,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.machineIsMaster = true
-	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
+	fakeIsMachineMaster := func(*state.StatePool, string) (bool, error) {
 		return s.machineIsMaster, nil
 	}
 	s.PatchValue(&IsMachineMaster, fakeIsMachineMaster)
@@ -426,9 +426,9 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
 
-func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
+func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc()
-	st, err := state.Open(state.OpenParams{
+	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.Model.ModelTag(),
@@ -438,10 +438,10 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	if err != nil {
 		return nil, err
 	}
-	return st, nil
+	return pool, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMasterController bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(pool *state.StatePool, agentConf agent.Config, isController, isMasterController bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}

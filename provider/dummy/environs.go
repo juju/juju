@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -327,6 +326,7 @@ func Reset(c *gc.C) {
 	// EnvironProvider (e.g. EnvironProvider.Open).
 	for _, s := range oldState {
 		if s.httpServer != nil {
+			logger.Debugf("closing httpServer")
 			s.httpServer.Close()
 		}
 		s.destroy()
@@ -359,7 +359,6 @@ func (state *environState) destroyLocked() {
 	}
 	apiServer := state.apiServer
 	apiStatePool := state.apiStatePool
-	apiState := state.apiState
 	leaseManager := state.leaseManager
 	state.apiServer = nil
 	state.apiStatePool = nil
@@ -376,6 +375,7 @@ func (state *environState) destroyLocked() {
 	defer state.mu.Lock()
 
 	if apiServer != nil {
+		logger.Debugf("stopping apiServer")
 		if err := apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
@@ -388,18 +388,14 @@ func (state *environState) destroyLocked() {
 	}
 
 	if apiStatePool != nil {
+		logger.Debugf("closing apiStatePool")
 		if err := apiStatePool.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 	}
 
-	if apiState != nil {
-		if err := apiState.Close(); err != nil && mongoAlive() {
-			panic(err)
-		}
-	}
-
 	if mongoAlive() {
+		logger.Debugf("resetting MgoServer")
 		gitjujutesting.MgoServer.Reset()
 	}
 }
@@ -826,7 +822,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
 			// It is set just below.
-			ctlr, st, err := state.Initialize(state.InitializeParams{
+			controller, err := state.Initialize(state.InitializeParams{
 				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
@@ -848,41 +844,38 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return err
 			}
+			st := controller.SystemState()
 			defer func() {
 				if err != nil {
-					st.Close()
+					controller.Close()
 				}
 			}()
-			ctlr.Close()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
-				return err
+				return errors.Trace(err)
 			}
-
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			// We log this out for test purposes only. No one in real life can use
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
-
-			statePool := state.NewStatePool(st)
+			statePool := controller.StatePool()
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
-				statePool.Close()
-				return err
+				return errors.Trace(err)
 			}
 			stateAuthenticator.AddHandlers(estate.mux)
 
@@ -896,23 +889,30 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				st,
 			)
 			if err != nil {
-				statePool.Close()
 				return errors.Trace(err)
 			}
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
-				StatePool:       statePool,
-				Authenticator:   stateAuthenticator,
-				Clock:           clock.WallClock,
-				GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
-				Tag:             machineTag,
-				DataDir:         DataDir,
-				LogDir:          LogDir,
-				Mux:             estate.mux,
-				Hub:             estate.hub,
-				Presence:        estate.presence,
-				LeaseManager:    estate.leaseManager,
-				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+				StatePool:      statePool,
+				Authenticator:  stateAuthenticator,
+				Clock:          clock.WallClock,
+				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
+				Tag:            machineTag,
+				DataDir:        DataDir,
+				LogDir:         LogDir,
+				Mux:            estate.mux,
+				Hub:            estate.hub,
+				Presence:       estate.presence,
+				LeaseManager:   estate.leaseManager,
+				NewObserver: func() observer.Observer {
+					logger := loggo.GetLogger("juju.apiserver")
+					ctx := observer.RequestObserverContext{
+						Clock:  clock.WallClock,
+						Logger: logger,
+						Hub:    estate.hub,
+					}
+					return observer.NewRequestObserver(ctx)
+				},
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
 				UpgradeComplete: func() bool {
@@ -923,7 +923,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 			})
 			if err != nil {
-				statePool.Close()
 				panic(err)
 			}
 			estate.apiState = st

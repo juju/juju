@@ -66,7 +66,7 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 		fmt.Sprintf("caas-cloud/%s/dummy-credential", owner.Id()))
 	err = s.State.UpdateCloudCredential(credTag, cred)
 	c.Assert(err, jc.ErrorIsNil)
-	model, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "caas-cloud",
 		Config:                  cfg,
@@ -99,7 +99,7 @@ func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -130,7 +130,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 		},
 	}
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem"),
@@ -158,7 +158,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 
 func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
-	_, _, err := s.State.NewModel(state.ModelArgs{
+	_, _, err := s.Controller.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeCAAS,
 		CloudName:   "dummy",
 		CloudRegion: "fork",
@@ -172,7 +172,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	st2 := s.Factory.MakeCAASModel(c, nil)
 	defer st2.Close()
 
-	f := factory.NewFactory(st2)
+	f := factory.NewFactory(st2, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
@@ -275,7 +275,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 
 func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
 	_, st := s.newCAASModel(c)
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "gitlab",
 		Series: "kubernetes",
@@ -291,7 +291,7 @@ func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
 
 func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	m, st := s.newCAASModel(c)
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "gitlab",
 		Series: "kubernetes",

@@ -71,25 +71,14 @@ func (p OpenParams) Validate() error {
 //
 // OpenController returns unauthorizedError if access is unauthorized.
 func OpenController(args OpenParams) (*Controller, error) {
-	if err := args.Validate(); err != nil {
-		return nil, errors.Annotate(err, "validating args")
-	}
-
-	session := args.MongoSession.Copy()
-	if args.InitDatabaseFunc != nil {
-		if err := args.InitDatabaseFunc(session, args.ControllerModelTag.Id(), nil); err != nil {
-			return nil, errors.Trace(err)
-		}
-		logger.Debugf("mongodb initialised")
+	pool, err := OpenStatePool(args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return &Controller{
-		clock:                  args.Clock,
-		controllerTag:          args.ControllerTag,
-		controllerModelTag:     args.ControllerModelTag,
-		session:                session,
-		newPolicy:              args.NewPolicy,
-		runTransactionObserver: args.RunTransactionObserver,
+		pool:     pool,
+		ownsPool: true,
 	}, nil
 }
 

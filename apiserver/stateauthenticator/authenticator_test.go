@@ -34,8 +34,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
-	fact := factory.NewFactory(s.State)
-	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)

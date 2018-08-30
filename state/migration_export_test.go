@@ -400,7 +400,7 @@ func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -522,7 +522,7 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),

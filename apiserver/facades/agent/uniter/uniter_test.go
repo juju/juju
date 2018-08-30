@@ -36,7 +36,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	jujufactory "github.com/juju/juju/testing/factory"
 )
 
 // uniterSuiteBase implements common testing suite for all API versions.
@@ -65,48 +64,47 @@ type uniterSuiteBase struct {
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	factory := jujufactory.NewFactory(s.State)
 	// Create two machines, two services and add a unit to each service.
-	s.machine0 = factory.MakeMachine(c, &jujufactory.MachineParams{
+	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.machine1 = factory.MakeMachine(c, &jujufactory.MachineParams{
+	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	s.wpCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress",
 		URL:  "cs:quantal/wordpress-3",
 	})
-	s.wordpress = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.wpCharm,
 	})
-	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
+	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
 
-	s.meteredCharm = s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredApplication = s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
-	s.meteredUnit = s.Factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.meteredApplication,
 		SetCharmURL: true,
 	})
@@ -1205,11 +1203,11 @@ func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 
 func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	// The logging charm is subordinate (and the info endpoint is scope=container).
-	loggingCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
 		URL:  "cs:quantal/logging-1",
 	})
-	loggingApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
 	})
@@ -1264,20 +1262,20 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	// relations with applications that aren't the one this unit is
 	// attached to if they have global scope.
 	// The logging charm is subordinate (and the info endpoint is scope=container).
-	loggingCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
 		URL:  "cs:quantal/logging-1",
 	})
-	loggingApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
 	})
 
-	uiCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+	uiCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging-frontend",
 		URL:  "cs:quantal/logging-frontend-1",
 	})
-	uiApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	uiApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging-frontend",
 		Charm: uiCharm,
 	})
@@ -1316,7 +1314,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	uiEndpoint, err := uiApp.Endpoint("logging-client")
 	c.Assert(err, jc.ErrorIsNil)
-	rel := s.Factory.MakeRelation(c, &jujufactory.RelationParams{
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{subEndpoint, uiEndpoint},
 	})
 
@@ -1328,19 +1326,19 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	// We should be notified about relations to other subordinates
 	// (since it's possible that they'll be colocated in the same
 	// container).
-	loggingCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
 		URL:  "cs:quantal/logging-1",
 	})
-	loggingApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	loggingApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
 	})
-	monitoringCharm := s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+	monitoringCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "monitoring",
 		URL:  "cs:quantal/monitoring-1",
 	})
-	monitoringApp := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	monitoringApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "monitoring",
 		Charm: monitoringCharm,
 	})
@@ -1384,7 +1382,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 
 	logEp, err := loggingApp.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	rel := s.Factory.MakeRelation(c, &jujufactory.RelationParams{
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{monEp, logEp},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1406,7 +1404,7 @@ func (s *uniterSuite) makeSubordinateRelation(c *gc.C, subApp, principalApp *sta
 
 	principalEndpoint, err := principalApp.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	rel := s.Factory.MakeRelation(c, &jujufactory.RelationParams{
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{subEndpoint, principalEndpoint},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3104,7 +3102,7 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	cm, err := m.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	unit := f.MakeUnit(c, &factory.UnitParams{
@@ -3308,8 +3306,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 
 	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
 
-	factory := jujufactory.NewFactory(s.State)
-	s.wpCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress-extra-bindings",
 		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
@@ -3323,25 +3320,25 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
 
 	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
-	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
+	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -3559,8 +3556,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
 
-	factory := jujufactory.NewFactory(s.State)
-	s.wpCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress-extra-bindings",
 		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
@@ -3576,28 +3572,28 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
 
 	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
-	s.mysqlCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.mysqlCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: s.mysqlCharm,
 		EndpointBindings: map[string]string{
 			"server": "database",
 		},
 	})
-	s.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -3990,12 +3986,11 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Recreate mysql app without endpoint binding.
-	factory := jujufactory.NewFactory(s.State)
-	s.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql-default",
 		Charm: s.mysqlCharm,
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -4094,7 +4089,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
 	st := cm.State()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
 	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 	eps, err := st.InferEndpoints("gitlab", "mysql")
@@ -4157,7 +4152,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	_, cm, wp, wpUnit := s.setupCAASModel(c)
 
 	st := cm.State()
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
 	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 

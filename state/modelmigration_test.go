@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -25,7 +24,6 @@ import (
 type MigrationSuite struct {
 	ConnSuite
 	State2  *state.State
-	clock   *testclock.Clock
 	stdSpec state.MigrationSpec
 }
 
@@ -33,9 +31,6 @@ var _ = gc.Suite(new(MigrationSuite))
 
 func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.clock = testclock.NewClock(truncateDBTime(time.Now()))
-	err := s.State.SetClockForTesting(s.clock)
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a hosted model to migrate.
 	s.State2 = s.Factory.MakeModel(c, nil)
@@ -71,7 +66,7 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
 	checkIdAndAttempt(c, mig, 0)
 
-	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
+	c.Check(mig.StartTime(), gc.Equals, s.Clock.Now())
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "starting")
@@ -329,7 +324,7 @@ func (s *MigrationSuite) TestMigration(c *gc.C) {
 	mig2, err := s.State2.Migration(mig1.Id())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(mig1.Id(), gc.Equals, mig2.Id())
-	c.Check(mig2.StartTime(), gc.Equals, s.clock.Now())
+	c.Check(mig2.StartTime(), gc.Equals, s.Clock.Now())
 }
 
 func (s *MigrationSuite) TestMigrationNotFound(c *gc.C) {
@@ -379,7 +374,7 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		assertPhase(c, mig, phase)
-		c.Assert(mig.PhaseChangedTime(), gc.Equals, s.clock.Now())
+		c.Assert(mig.PhaseChangedTime(), gc.Equals, s.Clock.Now())
 
 		// Check success timestamp is set only when SUCCESS is
 		// reached.
@@ -387,7 +382,7 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 			c.Assert(mig.SuccessTime().IsZero(), jc.IsTrue)
 		} else {
 			if phase == migration.SUCCESS {
-				successTime = s.clock.Now()
+				successTime = s.Clock.Now()
 			}
 			c.Assert(mig.SuccessTime(), gc.Equals, successTime)
 		}
@@ -400,7 +395,7 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 		c.Assert(mig2.Refresh(), jc.ErrorIsNil)
 		assertPhase(c, mig2, phase)
 
-		s.clock.Advance(time.Millisecond)
+		s.Clock.Advance(time.Millisecond)
 	}
 
 	// Now move to the final phase (DONE) and ensure fields are set as
@@ -415,9 +410,9 @@ func (s *MigrationSuite) TestABORTCleanup(c *gc.C) {
 	mig, err := s.State2.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.clock.Advance(time.Millisecond)
+	s.Clock.Advance(time.Millisecond)
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-	s.clock.Advance(time.Millisecond)
+	s.Clock.Advance(time.Millisecond)
 	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	s.assertMigrationCleanedUp(c, mig)
@@ -442,7 +437,7 @@ func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 		migration.REAPFAILED,
 	}
 	for _, phase := range phases {
-		s.clock.Advance(time.Millisecond)
+		s.Clock.Advance(time.Millisecond)
 		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
 	}
 
@@ -450,8 +445,8 @@ func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 }
 
 func (s *MigrationSuite) assertMigrationCleanedUp(c *gc.C, mig state.ModelMigration) {
-	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.clock.Now())
-	c.Assert(mig.EndTime(), gc.Equals, s.clock.Now())
+	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.Clock.Now())
+	c.Assert(mig.EndTime(), gc.Equals, s.Clock.Now())
 	assertMigrationNotActive(c, s.State2)
 }
 
@@ -641,7 +636,7 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 
 func (s *MigrationSuite) TestMinionReports(c *gc.C) {
 	// Create some machines and units to report with.
-	factory2 := factory.NewFactory(s.State2)
+	factory2 := factory.NewFactory(s.State2, s.StatePool)
 	m0 := factory2.MakeMachine(c, nil)
 	u0 := factory2.MakeUnit(c, &factory.UnitParams{Machine: m0})
 	m1 := factory2.MakeMachine(c, nil)

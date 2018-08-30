@@ -115,7 +115,7 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	err := undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -150,7 +150,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	err := undertakerClient.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
