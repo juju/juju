@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -413,15 +414,18 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	var version string
 	versionPath := filepath.Join(extractPath, "version")
 	if file, err := os.Open(versionPath); err == nil {
-		_, err = fmt.Fscanln(file, &version)
+		scanner := bufio.NewScanner(file)
+		scanner.Scan()
 		file.Close()
-		if err != nil {
-			errors.New("invalid version file")
-			version = ""
+		if err := scanner.Err(); err != nil {
+			return errors.Annotate(err, "cannot read version file")
 		}
-		version = fmt.Sprintf("%.100s", version)
-	} else {
-		errors.Annotate(err, "cannot open version file")
+		revLine := scanner.Text()
+		// bzr revision info starts with "revision-id: " so strip that.
+		revLine = strings.TrimPrefix(revLine, "revision-id: ")
+		version = fmt.Sprintf("%.100s", revLine)
+	} else if !os.IsNotExist(err) {
+		return errors.Annotate(err, "cannot open version file")
 	}
 
 	// Bundle the charm and calculate its sha256 hash at the same time.
