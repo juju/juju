@@ -82,7 +82,7 @@ func (s *upgraderSuite) setupMocks(ctrl *gomock.Controller) {
 	s.manager.EXPECT().FindAgents(paths.NixDataDir).Return(s.machineService, s.unitServices, nil, nil)
 }
 
-func (s *upgraderSuite) newUpgrader(c *gc.C, fromSeries string) *upgradeseries.Upgrader {
+func (s *upgraderSuite) newUpgrader(c *gc.C, fromSeries string) upgradeseries.Upgrader {
 	upg, err := upgradeseries.NewUpgrader(
 		func() (string, error) { return fromSeries, nil },
 		s.manager,

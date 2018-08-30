@@ -23,9 +23,15 @@ var (
 
 var hostSeries = series.HostSeries
 
+type seriesGetter = func() (string, error)
+
+type Upgrader interface {
+	PerformUpgrade() error
+}
+
 // Upgrader handles host machine concerns required to
 // upgrade the version of Ubuntu.
-type Upgrader struct {
+type upgrader struct {
 	logger Logger
 
 	fromSeries string
@@ -42,10 +48,10 @@ type Upgrader struct {
 // NewUpgrader uses the input function to determine the series that should be
 // supported, and returns a reference to a new Upgrader that supports it.
 func NewUpgrader(
-	targetSeries func() (string, error),
+	targetSeries seriesGetter,
 	manager service.SystemdServiceManager,
 	logger Logger,
-) (*Upgrader, error) {
+) (Upgrader, error) {
 	fromSeries, err := hostSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -64,7 +70,7 @@ func NewUpgrader(
 		return nil, errors.Trace(err)
 	}
 
-	return &Upgrader{
+	return &upgrader{
 		logger:     logger,
 		fromSeries: fromSeries,
 		fromInit:   fromInit,
@@ -76,7 +82,7 @@ func NewUpgrader(
 
 // PerformUpgrade writes Juju binaries and service files that allow the machine
 // and unit agents to run on the target version of Ubuntu.
-func (u *Upgrader) PerformUpgrade() error {
+func (u *upgrader) PerformUpgrade() error {
 	if err := u.populateAgents(); err != nil {
 		return errors.Trace(err)
 	}
@@ -93,7 +99,7 @@ func (u *Upgrader) PerformUpgrade() error {
 // Populate agents discovers and sets the names of the machine and unit agents.
 // If there are any other agents determined, a warning is logged to notify that
 // they are being skipped from the upgrade process.
-func (u *Upgrader) populateAgents() (err error) {
+func (u *upgrader) populateAgents() (err error) {
 	var unknown []string
 	u.machineAgent, u.unitAgents, unknown, err = u.manager.FindAgents(paths.NixDataDir)
 	if err != nil {
@@ -108,7 +114,7 @@ func (u *Upgrader) populateAgents() (err error) {
 // ensureSystemdFiles determines whether re-writing service files to target
 // systemd is required. If it is, the necessary changes are invoked via the
 // service manager.
-func (u *Upgrader) ensureSystemdFiles() (err error) {
+func (u *upgrader) ensureSystemdFiles() (err error) {
 	if u.fromInit == service.InitSystemSystemd || u.toInit != service.InitSystemSystemd {
 		return nil
 	}
