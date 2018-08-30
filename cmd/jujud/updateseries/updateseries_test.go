@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 	coretest "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -67,8 +68,11 @@ func (s *updateSeriesCmdSuite) SetUpTest(c *gc.C) {
 	s.machineName = "machine-0"
 	s.unitNames = []string{"unit-ubuntu-0", "unit-mysql-0"}
 
-	// Equalivent to reboot after upgrade
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return true, nil })
+	// Equivalent to reboot after upgrade.
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return true, nil },
+		s.newService,
+	)
 
 	s.assertSetupAgentsForTest(c)
 	s.setUpAgentConf(c)
@@ -110,12 +114,11 @@ func (s *updateSeriesCmdSuite) setUpServices(c *gc.C) {
 	for _, fake := range append(s.unitNames, s.machineName) {
 		s.addService("jujud-" + fake)
 	}
-	s.PatchValue(&service.NewService, s.newService)
 	s.PatchValue(&service.ListServices, s.listServices)
 }
 
 func (s *updateSeriesCmdSuite) addService(name string) {
-	svc, _ := s.newService(name, common.Conf{}, "")
+	svc, _ := s.newService(name, common.Conf{})
 	svc.Install()
 	svc.Start()
 }
@@ -124,7 +127,7 @@ func (s *updateSeriesCmdSuite) listServices() ([]string, error) {
 	return s.serviceData.InstalledNames(), nil
 }
 
-func (s *updateSeriesCmdSuite) newService(name string, conf common.Conf, series string) (service.Service, error) {
+func (s *updateSeriesCmdSuite) newService(name string, conf common.Conf) (service.Service, error) {
 	for _, svc := range s.services {
 		if svc.Name() == name {
 			return svc, nil
@@ -268,7 +271,11 @@ func (s *updateSeriesCmdSuite) assertSetupAgentsForTest(c *gc.C) {
 }
 
 func (s *updateSeriesCmdSuite) TestRunPreUpstartToSystemdUpgradeReboot(c *gc.C) {
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return false, nil },
+		s.newService,
+	)
+
 	s.assertRunTest(c)
 	s.assertServiceSymLinks(c)
 	// Check idempotence
@@ -338,7 +345,11 @@ func (s *updateSeriesCmdSuite) TestSystemdToSystemdUpgradeStartAllAgents(c *gc.C
 }
 
 func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstSystemdWriteService(c *gc.C) {
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return false, nil },
+		s.newService,
+	)
+
 	s.services[0].SetErrors(
 		errors.New("fail me"),
 	)
@@ -391,7 +402,11 @@ func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstWriteService(c *gc.C) {
 }
 
 func (s *updateSeriesCmdSuite) TestRunTwiceRewriteToolsLink(c *gc.C) {
-	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
+	s.manager = service.NewServiceManager(
+		func() (bool, error) { return false, nil },
+		s.newService,
+	)
+
 	s.assertRunTest(c)
 	s.assertServiceSymLinks(c)
 
@@ -447,12 +462,12 @@ func (s *updateSeriesCmdSuite) assertToolsCopySymlink(c *gc.C, series string) {
 }
 
 func (s *updateSeriesCmdSuite) assertServiceSymLinks(c *gc.C) {
-	for _, agent := range append(s.unitNames, s.machineName) {
-		svcName := "jujud-" + agent
+	for _, name := range append(s.unitNames, s.machineName) {
+		svcName := "jujud-" + name
 		svcFileName := svcName + ".service"
 		result, err := os.Readlink(path.Join(systemdDir, svcFileName))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.Equals, path.Join(service.SystemdDataDir, svcName, svcFileName))
+		c.Assert(result, gc.Equals, path.Join(systemd.LibSystemdDir, svcName, svcFileName))
 	}
 }
 

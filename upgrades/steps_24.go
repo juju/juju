@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 )
 
 // stateStepsFor24 returns upgrade steps for Juju 2.4.0 that manipulate state directly.
@@ -84,8 +83,8 @@ func installServiceFile(context Context) error {
 				oldDataDir := context.AgentConfig().DataDir()
 				oldInitDataDir := filepath.Join(oldDataDir, "init")
 
-				sysdManager := service.NewSystemdServiceManager(systemd.IsRunning)
-				err = sysdManager.WriteServiceFile()
+				sysdManager := service.NewServiceManagerWithDefaults()
+				err = sysdManager.WriteServiceFiles()
 				if err != nil {
 					logger.Errorf("unsuccessful writing the service files in /lib/systemd/system path")
 					return err
