@@ -23,8 +23,6 @@ var (
 
 var hostSeries = series.HostSeries
 
-type seriesGetter = func() (string, error)
-
 // Upgrader describes methods required to perform file-system manipulation in
 // preparation for upgrading the host Ubuntu version.
 type Upgrader interface {
@@ -49,11 +47,7 @@ type upgrader struct {
 
 // NewUpgrader uses the input function to determine the series that should be
 // supported, and returns a reference to a new Upgrader that supports it.
-func NewUpgrader(
-	targetSeries seriesGetter,
-	manager service.SystemdServiceManager,
-	logger Logger,
-) (Upgrader, error) {
+func NewUpgrader(toSeries string, manager service.SystemdServiceManager, logger Logger) (Upgrader, error) {
 	fromSeries, err := hostSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -63,10 +57,6 @@ func NewUpgrader(
 		return nil, errors.Trace(err)
 	}
 
-	toSeries, err := targetSeries()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	toInit, err := service.VersionInitSystem(toSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,7 +88,7 @@ func (u *upgrader) PerformUpgrade() error {
 	return nil
 }
 
-// Populate agents discovers and sets the names of the machine and unit agents.
+// populateAgents discovers and sets the names of the machine and unit agents.
 // If there are any other agents determined, a warning is logged to notify that
 // they are being skipped from the upgrade process.
 func (u *upgrader) populateAgents() (err error) {

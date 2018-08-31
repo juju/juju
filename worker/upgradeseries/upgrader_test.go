@@ -44,7 +44,7 @@ func (s *upgraderSuite) TestNotToSystemdNoAction(c *gc.C) {
 	// No expectations.
 
 	upg := s.newUpgrader(c, "trusty")
-	upg.PerformUpgrade()
+	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
 func (s *upgraderSuite) TestFromSystemdNoAction(c *gc.C) {
@@ -57,7 +57,7 @@ func (s *upgraderSuite) TestFromSystemdNoAction(c *gc.C) {
 	// No expectations.
 
 	upg := s.newUpgrader(c, "bionic")
-	upg.PerformUpgrade()
+	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
 func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 	).Return(append(s.unitServices, s.machineService), nil, nil, nil)
 
 	upg := s.newUpgrader(c, "xenial")
-	upg.PerformUpgrade()
+	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
 func (s *upgraderSuite) setupMocks(ctrl *gomock.Controller) {
@@ -82,12 +82,8 @@ func (s *upgraderSuite) setupMocks(ctrl *gomock.Controller) {
 	s.manager.EXPECT().FindAgents(paths.NixDataDir).Return(s.machineService, s.unitServices, nil, nil)
 }
 
-func (s *upgraderSuite) newUpgrader(c *gc.C, fromSeries string) upgradeseries.Upgrader {
-	upg, err := upgradeseries.NewUpgrader(
-		func() (string, error) { return fromSeries, nil },
-		s.manager,
-		s.logger,
-	)
+func (s *upgraderSuite) newUpgrader(c *gc.C, toSeries string) upgradeseries.Upgrader {
+	upg, err := upgradeseries.NewUpgrader(toSeries, s.manager, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	return upg
 }

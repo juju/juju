@@ -137,6 +137,7 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
+	exp.TargetSeries().Return("xenial", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 
@@ -216,7 +217,7 @@ func (s *workerSuite) newWorker(c *gc.C, ctrl *gomock.Controller, behaviours ...
 		FacadeFactory:   func(_ names.Tag) upgradeseries.Facade { return s.facade },
 		Tag:             names.NewMachineTag("0"),
 		Service:         s.service,
-		UpgraderFactory: func(_ func() (string, error)) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
+		UpgraderFactory: func(_ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
 	}
 
 	for _, b := range behaviours {

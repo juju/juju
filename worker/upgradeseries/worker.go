@@ -46,7 +46,7 @@ type Config struct {
 	// UpgraderFactory is a factory method that will return an upgrader capable
 	// of handling service and agent binary manipulation for a
 	// runtime-determined target OS series.
-	UpgraderFactory func(seriesGetter) (Upgrader, error)
+	UpgraderFactory func(string) (Upgrader, error)
 }
 
 // Validate validates the upgrade-series worker configuration.
@@ -84,7 +84,7 @@ type upgradeSeriesWorker struct {
 	catacomb        catacomb.Catacomb
 	logger          Logger
 	service         ServiceAccess
-	upgraderFactory func(seriesGetter) (Upgrader, error)
+	upgraderFactory func(string) (Upgrader, error)
 }
 
 // NewWorker creates, starts and returns a new upgrade-series worker based on
@@ -243,7 +243,11 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
 	w.logger.Infof("preparing service units for series upgrade")
 
-	upgrader, err := w.upgraderFactory(w.TargetSeries)
+	toSeries, err := w.TargetSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	upgrader, err := w.upgraderFactory(toSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
