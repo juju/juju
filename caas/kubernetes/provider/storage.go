@@ -87,6 +87,9 @@ type storageConfig struct {
 	// storageLabels define the labels used to
 	// search for a storage class.
 	storageLabels []string
+
+	// reclaimPolicy defines the volume reclaim policy.
+	reclaimPolicy core.PersistentVolumeReclaimPolicy
 }
 
 func newStorageConfig(attrs map[string]interface{}, defaultStorageClass string) (*storageConfig, error) {
@@ -107,6 +110,8 @@ func newStorageConfig(attrs map[string]interface{}, defaultStorageClass string) 
 	if storageConfig.storageProvisioner != "" && storageConfig.storageClass == "" {
 		return nil, errors.New("storage-class must be specified if storage-provisioner is specified")
 	}
+	// By default, we'll retain volumes used for charm storage.
+	storageConfig.reclaimPolicy = core.PersistentVolumeReclaimRetain
 	storageConfig.parameters = make(map[string]string)
 	for k, v := range attrs {
 		k = strings.TrimPrefix(k, "parameters.")

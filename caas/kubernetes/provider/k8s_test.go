@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -192,6 +193,25 @@ func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
 
 	// Check idempotent.
 	err = s.broker.EnsureNamespace()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	// Delete operations below return a not found to ensure it's treated as a no-op.
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground),
+			v1.ListOptions{LabelSelector: "juju-model==test"},
+		).Times(1).
+			Return(s.k8sNotFoundError()),
+	)
+
+	err := s.broker.Destroy(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
