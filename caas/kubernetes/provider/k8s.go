@@ -126,7 +126,21 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 
 // Destroy is part of the Broker interface.
 func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
-	return k.deleteNamespace()
+	if err := k.deleteNamespace(); err != nil {
+		return errors.Annotate(err, "deleting model namespace")
+	}
+	// Delete any storage classes created as part of this model.
+	// Storage classes live outside the namespace so need to be deleted separately.
+	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
+	err := k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector: modelSelector,
+	})
+	if !k8serrors.IsNotFound(err) {
+		return errors.Annotate(err, "deleting model storage classes")
+	}
+	return nil
 }
 
 // EnsureNamespace ensures this broker's namespace is created.
@@ -233,6 +247,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		if err != nil {
 			return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
 		}
+		// We want operator storage to be deleted when the operator goes away.
+		params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
 	}
 	logger.Debugf("operator storage config %#v", *params.storageConfig)
 
@@ -454,7 +470,6 @@ func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) (*k8sstorage.S
 				cfg.storageClass))
 	}
 
-	reclaimPolicy := core.PersistentVolumeReclaimRetain
 	// Create the storage class with the specified provisioner.
 	storageClasses := k.StorageV1().StorageClasses()
 	sc, err = storageClasses.Create(&k8sstorage.StorageClass{
@@ -463,7 +478,7 @@ func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) (*k8sstorage.S
 			Labels: map[string]string{labelModel: k.namespace},
 		},
 		Provisioner:   cfg.storageProvisioner,
-		ReclaimPolicy: &reclaimPolicy,
+		ReclaimPolicy: &cfg.reclaimPolicy,
 		Parameters:    cfg.parameters,
 	})
 	return sc, errors.Annotatef(err, "creating storage class %q", cfg.storageClass)

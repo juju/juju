@@ -79,7 +79,7 @@ go-install:
 	@go install -ldflags "-s -w" -v $(PROJECT_PACKAGES)
 
 go-build:
-	go build $(PROJECT_PACKAGES)
+	@go build $(PROJECT_PACKAGES)
 
 else # --------------------------------
 
