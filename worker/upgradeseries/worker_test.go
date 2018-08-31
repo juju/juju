@@ -34,10 +34,12 @@ func (w *fakeWatcher) Changes() watcher.NotifyChannel {
 type workerSuite struct {
 	testing.BaseSuite
 
-	logger         *MockLogger
-	facade         *MockFacade
-	notifyWorker   *MockWorker
-	service        *MockServiceAccess
+	logger       *MockLogger
+	facade       *MockFacade
+	notifyWorker *MockWorker
+	service      *MockServiceAccess
+	upgrader     *MockUpgrader
+
 	wordPressAgent *MockAgentService
 	mySQLAgent     *MockAgentService
 
@@ -135,8 +137,9 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
+	exp.TargetSeries().Return("xenial", nil)
 
-	// TODO (manadart 2018-08-09): Assertions for service unit manipulation.
+	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 
 	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
@@ -200,6 +203,7 @@ func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
 	s.facade = NewMockFacade(ctrl)
 	s.notifyWorker = NewMockWorker(ctrl)
 	s.service = NewMockServiceAccess(ctrl)
+	s.upgrader = NewMockUpgrader(ctrl)
 	s.wordPressAgent = NewMockAgentService(ctrl)
 	s.mySQLAgent = NewMockAgentService(ctrl)
 }
@@ -209,10 +213,11 @@ func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
 // is started and returned.
 func (s *workerSuite) newWorker(c *gc.C, ctrl *gomock.Controller, behaviours ...suiteBehaviour) worker.Worker {
 	cfg := upgradeseries.Config{
-		Logger:        s.logger,
-		FacadeFactory: func(_ names.Tag) upgradeseries.Facade { return s.facade },
-		Tag:           names.NewMachineTag("0"),
-		Service:       s.service,
+		Logger:          s.logger,
+		FacadeFactory:   func(_ names.Tag) upgradeseries.Facade { return s.facade },
+		Tag:             names.NewMachineTag("0"),
+		Service:         s.service,
+		UpgraderFactory: func(_ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
 	}
 
 	for _, b := range behaviours {

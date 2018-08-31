@@ -19,7 +19,11 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-const LibSystemdDir = "/lib/systemd/system"
+const (
+	LibSystemdDir          = "/lib/systemd/system"
+	EtcSystemdDir          = "/etc/systemd/system"
+	EtcSystemdMultiUserDir = EtcSystemdDir + "/multi-user.target.wants"
+)
 
 var (
 	logger = loggo.GetLogger("juju.service.systemd")

@@ -142,6 +142,16 @@ func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockD
 	}
 }
 
+// UpgradeSeriesTarget returns the series
+// that the machine is being upgraded to.
+func (m *Machine) UpgradeSeriesTarget() (string, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return lock.ToSeries, nil
+}
+
 // StartUpgradeSeriesUnitCompletion notifies units and machines that an
 // upgrade-series workflow is ready for its "completion" phase.
 func (m *Machine) StartUpgradeSeriesUnitCompletion() error {

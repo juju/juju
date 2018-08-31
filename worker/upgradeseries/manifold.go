@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/service"
 )
 
 // ManifoldConfig holds the information necessary for the dependency engine to
@@ -62,17 +63,26 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 		return nil, errors.Errorf("expected a machine tag, got %v", tag)
 	}
 
-	// We curry the NewFacade method and pass it as a factory.
+	// Partially apply the NewFacade method and pass it as a factory.
 	// This is so the worker can use the API server in different contexts.
+	// TODO (manadart 2018-08-30): This behaviour is vestigial.
+	// We no longer need a factory and can pass a concrete facade.
 	newFacade := func(t names.Tag) Facade {
 		return config.NewFacade(apiCaller, t)
 	}
 
+	// Partially apply Upgrader factory function so we only need to request
+	// using the getter for the target OS series.
+	newUpgrader := func(targetSeries string) (Upgrader, error) {
+		return NewUpgrader(targetSeries, service.NewServiceManagerWithDefaults(), config.Logger)
+	}
+
 	cfg := Config{
-		Tag:           tag,
-		Logger:        config.Logger,
-		FacadeFactory: newFacade,
-		Service:       &serviceAccess{},
+		Tag:             tag,
+		Logger:          config.Logger,
+		FacadeFactory:   newFacade,
+		Service:         &serviceAccess{},
+		UpgraderFactory: newUpgrader,
 	}
 
 	w, err := config.NewWorker(cfg)

@@ -71,6 +71,18 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockUnitsChanged(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Units have changed, please retry (.*)")
 }
 
+func (s *MachineSuite) TestUpgradeSeriesTarget(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+
+	units := []string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}
+	err := mach.CreateUpgradeSeriesLock(units, "bionic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	target, err := mach.UpgradeSeriesTarget()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(target, gc.Equals, "bionic")
+}
+
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

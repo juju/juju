@@ -21,6 +21,8 @@ type UpgradeSeriesBackend interface {
 	Unit(string) (UpgradeSeriesUnit, error)
 }
 
+// UpgradeSeriesMachine describes machine-receiver state methods
+// for executing a series upgrade.
 type UpgradeSeriesMachine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	Units() ([]UpgradeSeriesUnit, error)
@@ -29,8 +31,11 @@ type UpgradeSeriesMachine interface {
 	StartUpgradeSeriesUnitCompletion() error
 	UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error)
 	RemoveUpgradeSeriesLock() error
+	UpgradeSeriesTarget() (string, error)
 }
 
+// UpgradeSeriesUnit describes unit-receiver state methods
+// for executing a series upgrade.
 type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)

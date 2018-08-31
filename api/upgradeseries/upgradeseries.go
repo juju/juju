@@ -63,6 +63,31 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	return "", errors.Trace(r.Error)
 }
 
+func (s *Client) TargetSeries() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.authTag.String()}},
+	}
+
+	err := s.facade.FacadeCall("TargetSeries", args, &results)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	r := results.Results[0]
+	if r.Error == nil {
+		return r.Result, nil
+	}
+
+	if params.IsCodeNotFound(r.Error) {
+		return "", errors.NewNotFound(r.Error, "")
+	}
+	return "", errors.Trace(r.Error)
+}
+
 // UnitsPrepared returns the units running on this machine that have
 // completed their upgrade-series preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
@@ -139,11 +164,10 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 // StartUnitCompletion starts the complete phase for all subordinate units.
 func (s *Client) StartUnitCompletion() error {
 	var results params.ErrorResults
-	args := params.UpgradeSeriesStatusParams{
-		Params: []params.UpgradeSeriesStatusParam{{
-			Entity: params.Entity{Tag: s.authTag.String()},
-		}},
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
+
 	err := s.facade.FacadeCall("StartUnitCompletion", args, &results)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ import (
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
 
-//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
@@ -28,7 +28,7 @@ type Logger interface {
 	Errorf(message string, args ...interface{})
 }
 
-// Config is the configuration needed to constuct an UpgradeSeries worker.
+// Config is the configuration needed to construct an UpgradeSeries worker.
 type Config struct {
 	// FacadeFactory is used to acquire back-end state with
 	// the input tag context.
@@ -42,6 +42,11 @@ type Config struct {
 
 	// ServiceAccess provides access to the local init system.
 	Service ServiceAccess
+
+	// UpgraderFactory is a factory method that will return an upgrader capable
+	// of handling service and agent binary manipulation for a
+	// runtime-determined target OS series.
+	UpgraderFactory func(string) (Upgrader, error)
 }
 
 // Validate validates the upgrade-series worker configuration.
@@ -75,10 +80,11 @@ func (config Config) Validate() error {
 type upgradeSeriesWorker struct {
 	Facade
 
-	facadeFactory func(names.Tag) Facade
-	catacomb      catacomb.Catacomb
-	logger        Logger
-	service       ServiceAccess
+	facadeFactory   func(names.Tag) Facade
+	catacomb        catacomb.Catacomb
+	logger          Logger
+	service         ServiceAccess
+	upgraderFactory func(string) (Upgrader, error)
 }
 
 // NewWorker creates, starts and returns a new upgrade-series worker based on
@@ -89,10 +95,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &upgradeSeriesWorker{
-		Facade:        config.FacadeFactory(config.Tag),
-		facadeFactory: config.FacadeFactory,
-		logger:        config.Logger,
-		service:       config.Service,
+		Facade:          config.FacadeFactory(config.Tag),
+		facadeFactory:   config.FacadeFactory,
+		logger:          config.Logger,
+		service:         config.Service,
+		upgraderFactory: config.UpgraderFactory,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -232,12 +239,22 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 
 // transitionPrepareComplete rewrites service unit files for unit agents running
 // on this machine so that they are compatible with the init system of the
-// series upgrade target
+// series upgrade target.
 func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
 	w.logger.Infof("preparing service units for series upgrade")
 
-	// TODO (manadart 2018-08-09): Unit file wrangling to come.
-	// For now we just update the machine status to progress the workflow.
+	toSeries, err := w.TargetSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	upgrader, err := w.upgraderFactory(toSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := upgrader.PerformUpgrade(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted))
 }
 
@@ -270,18 +287,6 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	return nil
 }
 
-// handleCompleted givens the worker a chance to perform any final operations
-// before returning control to the server (controller) which will then perform its own
-// post upgrade routine.
-func (w *upgradeSeriesWorker) handleCompleted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
-	err := w.FinishUpgradeSeries()
-	if err != nil {
-		errors.Trace(err)
-	}
-	return nil
-}
-
 // transitionUnitsStarted iterates over units managed by this machine. Starts
 // the unit's agent service, and transitions all unit subordinate statuses.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]string) error {
@@ -307,9 +312,17 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 	return errors.Trace(w.StartUnitCompletion())
 }
 
-// unitsInState is a type alias for retrieving a slice of unit tags for units
-// in a particular state.
-type unitsInState = func() ([]names.UnitTag, error)
+// handleCompleted givens the worker a chance to perform any final operations
+// before returning control to the server (controller) which will then perform its own
+// post upgrade routine.
+func (w *upgradeSeriesWorker) handleCompleted() error {
+	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
+	err := w.FinishUpgradeSeries()
+	if err != nil {
+		errors.Trace(err)
+	}
+	return nil
+}
 
 // compareUnitsAgentServices executes the input getter method to retrieve a
 // collection of unit tags.
@@ -320,7 +333,9 @@ type unitsInState = func() ([]names.UnitTag, error)
 // service map.
 // NOTE: No unit tags and no agent services returns true, meaning that the
 // workflow can progress.
-func (w *upgradeSeriesWorker) compareUnitAgentServices(getUnits unitsInState) (map[string]string, bool, error) {
+func (w *upgradeSeriesWorker) compareUnitAgentServices(
+	getUnits func() ([]names.UnitTag, error),
+) (map[string]string, bool, error) {
 	units, err := getUnits()
 	if err != nil {
 		return nil, false, errors.Trace(err)
@@ -342,20 +357,6 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(getUnits unitsInState) (m
 		}
 	}
 	return unitServices, true, nil
-}
-
-func unitsCompleted(statuses []string) bool {
-	return unitsAllWithStatus(statuses, model.UpgradeSeriesCompleted)
-}
-
-func unitsAllWithStatus(statuses []string, status model.UpgradeSeriesStatus) bool {
-	t := string(status)
-	for _, s := range statuses {
-		if s != t {
-			return false
-		}
-	}
-	return true
 }
 
 // Kill implements worker.Worker.Kill.

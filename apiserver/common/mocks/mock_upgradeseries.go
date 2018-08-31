@@ -147,6 +147,19 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) UpgradeSeriesStatus() *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpgradeSeriesStatus))
 }
 
+// UpgradeSeriesTarget mocks base method
+func (m *MockUpgradeSeriesMachine) UpgradeSeriesTarget() (string, error) {
+	ret := m.ctrl.Call(m, "UpgradeSeriesTarget")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpgradeSeriesTarget indicates an expected call of UpgradeSeriesTarget
+func (mr *MockUpgradeSeriesMachineMockRecorder) UpgradeSeriesTarget() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesTarget", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpgradeSeriesTarget))
+}
+
 // UpgradeSeriesUnitStatuses mocks base method
 func (m *MockUpgradeSeriesMachine) UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error) {
 	ret := m.ctrl.Call(m, "UpgradeSeriesUnitStatuses")
