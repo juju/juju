@@ -102,6 +102,7 @@ type applicationStatus struct {
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
 	CharmVersion     string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
 	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	Scale            *int                  `json:"scale,omitempty" yaml:"scale,omitempty"`
 	ProviderId       string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Address          string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Exposed          bool                  `json:"exposed" yaml:"exposed"`
@@ -237,6 +238,9 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 		for _, u := range app.Units {
 			match(u)
 		}
+	}
+	if app.Scale != nil {
+		desiredUnitCount = *app.Scale
 	}
 	if currentUnitCount == desiredUnitCount {
 		return fmt.Sprint(currentUnitCount), false

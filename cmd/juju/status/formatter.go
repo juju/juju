@@ -210,6 +210,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CharmVersion:     application.CharmVersion,
 		Exposed:          application.Exposed,
 		Life:             application.Life,
+		Scale:            application.Scale,
 		ProviderId:       application.ProviderId,
 		Address:          application.PublicAddress,
 		Relations:        application.Relations,

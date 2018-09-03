@@ -126,7 +126,7 @@ type Value struct {
 	// Server is the stringified machine tag of the API server.
 	Server string
 
-	// Agent is the stringified machine or unit tag of the agent.
+	// Agent is the stringified machine, unit, or application tag of the agent.
 	Agent string
 
 	// ControllerAgent is true if the agent is in the controller model.

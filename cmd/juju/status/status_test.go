@@ -4817,12 +4817,14 @@ foo/1  maintenance  executing                                  (backup database)
 }
 
 func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
+	scale := 3
 	status := formattedStatus{
 		Model: modelStatus{
 			Type: "caas",
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
+				Scale:   &scale,
 				Address: "54.32.1.2",
 				Units: map[string]unitStatus{
 					"foo/0": {
@@ -4856,7 +4858,7 @@ Model  Controller  Cloud/Region  Version
                                  
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Charm version  Notes
-foo                     1/2                  0      54.32.1.2                 
+foo                     1/3                  0      54.32.1.2                 
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  error     allocating                    no storage
