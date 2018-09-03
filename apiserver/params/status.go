@@ -133,6 +133,7 @@ type ApplicationStatus struct {
 	EndpointBindings map[string]string      `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.
+	Scale         *int   `json:"int,omitempty"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
 }

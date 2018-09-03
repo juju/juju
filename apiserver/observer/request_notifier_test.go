@@ -49,22 +49,33 @@ func (s *RequestObserverSuite) TestAgentConnectionPublished(c *gc.C) {
 	})
 }
 
-func (s *RequestObserverSuite) TestControllerAgentConnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) assertControllerAgentConnectionPublished(c *gc.C, agent names.Tag) {
 	notifier, hub := s.makeNotifier(c)
 
-	agent := names.NewMachineTag("2")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(agent, model, true, "user data")
 
 	c.Assert(hub.called, gc.Equals, 1)
 	c.Assert(hub.topic, gc.Equals, apiserver.ConnectTopic)
 	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
-		AgentTag:        "machine-2",
+		AgentTag:        agent.String(),
 		ModelUUID:       "fake-uuid",
 		ControllerAgent: true,
 		UserData:        "user data",
 		ConnectionID:    0,
 	})
+}
+
+func (s *RequestObserverSuite) TestControllerMachineAgentConnectionPublished(c *gc.C) {
+	s.assertControllerAgentConnectionPublished(c, names.NewMachineTag("2"))
+}
+
+func (s *RequestObserverSuite) TestControllerUnitAgentConnectionPublished(c *gc.C) {
+	s.assertControllerAgentConnectionPublished(c, names.NewUnitTag("mariadb/0"))
+}
+
+func (s *RequestObserverSuite) TestControllerApplicationAgentConnectionPublished(c *gc.C) {
+	s.assertControllerAgentConnectionPublished(c, names.NewApplicationTag("gitlab"))
 }
 
 func (s *RequestObserverSuite) TestUserConnectionsNotPublished(c *gc.C) {

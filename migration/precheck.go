@@ -86,6 +86,7 @@ type PrecheckUnit interface {
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	AgentPresence() (bool, error)
+	ShouldBeAssigned() bool
 }
 
 // PrecheckRelation describes the state interface for relations needed

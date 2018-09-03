@@ -994,6 +994,10 @@ func (u *fakeUnit) Life() state.Life {
 	return u.life
 }
 
+func (u *fakeUnit) ShouldBeAssigned() bool {
+	return true
+}
+
 func (u *fakeUnit) CharmURL() (*charm.URL, bool) {
 	url := u.charmURL
 	if url == "" {

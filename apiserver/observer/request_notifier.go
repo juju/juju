@@ -77,7 +77,7 @@ func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
 
 func (n *RequestObserver) isAgent(entity names.Tag) bool {
 	switch entity.(type) {
-	case names.UnitTag, names.MachineTag:
+	case names.UnitTag, names.MachineTag, names.ApplicationTag:
 		return true
 	default:
 		return false
