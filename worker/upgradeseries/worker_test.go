@@ -58,35 +58,29 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	// If the lock is not found, no further processing occurs.
 	// This is the only call we expect to see.
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	// If the workflow is completed, no further processing occurs.
 	// This is the only call we expect to see.
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// Only one of the two units has completed preparation.
@@ -96,16 +90,14 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	// no further action is taken.
 	s.expectServiceDiscovery(false)
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestFullWorkflow(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(4),
+	w := s.workerForScenario(c, ignoreLogging(c), notify(4),
 		expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
 		expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
 		expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
@@ -115,11 +107,9 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachine(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1),
 		expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine)
 
 	s.cleanKill(c, w)
@@ -140,11 +130,9 @@ func expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine(s *workerSuit
 }
 
 func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1),
 		expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete)
 	s.cleanKill(c, w)
 }
@@ -164,11 +152,9 @@ func expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete(s *worke
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1),
 		expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted)
 	s.cleanKill(c, w)
 }
@@ -187,9 +173,7 @@ func expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(s *workerSuite
 }
 
 func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
@@ -202,16 +186,14 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	// Progress directly to completed.
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
 
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1),
 		expectMachineCompleteStartedUnitsCompleteProgressComplete)
 	s.cleanKill(c, w)
 }
@@ -236,9 +218,7 @@ func expectMachineCompleteStartedUnitsCompleteProgressComplete(s *workerSuite) {
 }
 
 func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupMocks(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	s.patchHost("xenial")
 
@@ -246,11 +226,13 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
 	exp.FinishUpgradeSeries("xenial").Return(nil)
 
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
-func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
 	s.logger = NewMockLogger(ctrl)
 	s.facade = NewMockFacade(ctrl)
 	s.notifyWorker = NewMockWorker(ctrl)
@@ -258,12 +240,14 @@ func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
 	s.upgrader = NewMockUpgrader(ctrl)
 	s.wordPressAgent = NewMockAgentService(ctrl)
 	s.mySQLAgent = NewMockAgentService(ctrl)
+
+	return ctrl
 }
 
 // workerForScenario creates worker dependency mocks using the input controller.
 // Any supplied behaviour functions are applied to the suite, then a new worker
 // is started and returned.
-func (s *workerSuite) workerForScenario(c *gc.C, ctrl *gomock.Controller, behaviours ...suiteBehaviour) worker.Worker {
+func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...suiteBehaviour) worker.Worker {
 	cfg := upgradeseries.Config{
 		Logger:          s.logger,
 		FacadeFactory:   func(_ names.Tag) upgradeseries.Facade { return s.facade },
