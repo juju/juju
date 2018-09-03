@@ -36,17 +36,24 @@ const (
 	txnWatcherShortWait = 10 * time.Millisecond
 )
 
-// PollStrategy is used to determine how long
-// to delay between poll intervals. A new timer
-// is created each time some watcher event is
-// fired or if the old timer completes.
-//
-// It must not be changed when any watchers are active.
-var PollStrategy retry.Strategy = retry.Exponential{
-	Initial:  10 * time.Millisecond,
-	Factor:   1.5,
-	MaxDelay: 5 * time.Second,
-}
+var (
+
+	// PollStrategy is used to determine how long
+	// to delay between poll intervals. A new timer
+	// is created each time some watcher event is
+	// fired or if the old timer completes.
+	//
+	// It must not be changed when any watchers are active.
+	PollStrategy retry.Strategy = retry.Exponential{
+		Initial:  10 * time.Millisecond,
+		Factor:   1.5,
+		MaxDelay: 5 * time.Second,
+	}
+
+	// TxnPollNotifyFunc allows tests to be able to specify
+	// callbacks each time the database has been polled and processed.
+	TxnPollNotifyFunc func()
+)
 
 type txnChange struct {
 	collection string
@@ -65,6 +72,10 @@ type TxnWatcher struct {
 	iteratorFunc func() mongo.Iterator
 	log          *mgo.Collection
 
+	// notifySync is copied from the package variable when the watcher
+	// is created.
+	notifySync func()
+
 	// syncEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
@@ -76,7 +87,7 @@ type TxnWatcher struct {
 	lastId interface{}
 }
 
-// TxnWatcherConfig container the configuration parameters required
+// TxnWatcherConfig contains the configuration parameters required
 // for a NewTxnWatcher.
 type TxnWatcherConfig struct {
 	// ChangeLog is usually the tnxs.log collection.
@@ -119,6 +130,7 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		logger:       config.Logger,
 		log:          config.ChangeLog,
 		iteratorFunc: config.IteratorFunc,
+		notifySync:   TxnPollNotifyFunc,
 	}
 	if w.iteratorFunc == nil {
 		w.iteratorFunc = w.iter
@@ -205,6 +217,8 @@ func (w *TxnWatcher) loop() error {
 			// so we'll retry again quickly.
 			backoff = PollStrategy.NewTimer(w.clock.Now())
 			next = w.clock.After(txnWatcherShortWait)
+		} else if w.notifySync != nil {
+			w.notifySync()
 		}
 	}
 }

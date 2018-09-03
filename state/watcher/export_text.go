@@ -20,6 +20,6 @@ func NewTestWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterato
 	return newWatcher(changelog, iteratorFunc)
 }
 
-func NewTestHubWatcher(hub HubSource, logger Logger) (*HubWatcher, <-chan struct{}) {
-	return newHubWatcher(hub, logger)
+func NewTestHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
+	return newHubWatcher(hub, clock, modelUUID, logger)
 }
