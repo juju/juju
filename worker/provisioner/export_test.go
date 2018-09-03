@@ -61,7 +61,7 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	return retvalues
 }
 
-func SetupToStartMachine(p ProvisionerTask, machine *apiprovisioner.Machine, version *version.Number) (
+func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvisioner, version *version.Number) (
 	environs.StartInstanceParams,
 	error,
 ) {

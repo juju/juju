@@ -29,14 +29,14 @@ type State struct {
 // MachineResult provides a found Machine and any Error related to
 // finding it.
 type MachineResult struct {
-	Machine *Machine
+	Machine MachineProvisioner
 	Err     *params.Error
 }
 
 // MachineStatusResult provides a found Machine and Status Results
 // for it.
 type MachineStatusResult struct {
-	Machine *Machine
+	Machine MachineProvisioner
 	Status  params.StatusResult
 }
 

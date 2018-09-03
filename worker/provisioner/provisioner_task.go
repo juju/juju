@@ -103,7 +103,7 @@ func NewProvisionerTask(
 		auth:                       auth,
 		harvestMode:                harvestMode,
 		harvestModeChan:            make(chan config.HarvestMode, 1),
-		machines:                   make(map[string]*apiprovisioner.Machine),
+		machines:                   make(map[string]apiprovisioner.MachineProvisioner),
 		availabilityZoneMachines:   make([]*AvailabilityZoneMachine, 0),
 		imageStream:                imageStream,
 		retryStartInstanceStrategy: retryStartInstanceStrategy,
@@ -144,7 +144,7 @@ type provisionerTask struct {
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
-	machines                 map[string]*apiprovisioner.Machine
+	machines                 map[string]apiprovisioner.MachineProvisioner
 	machinesMutex            sync.RWMutex
 	availabilityZoneMachines []*AvailabilityZoneMachine
 	cloudCallCtx             context.ProviderCallContext
@@ -220,7 +220,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 		return nil
 	}
 	logger.Tracef("processMachinesWithTransientErrors(%v)", results)
-	var pending []*apiprovisioner.Machine
+	var pending []apiprovisioner.MachineProvisioner
 	for _, result := range results {
 		if result.Status.Error != nil {
 			logger.Errorf("cannot retry provisioning of machine %q: %v", result.Machine.Id(), result.Status.Error)
@@ -300,9 +300,9 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Remove any dead machines from state.
 	for _, machine := range dead {
-		logger.Infof("removing dead machine %q", machine)
+		logger.Infof("removing dead machine %q", machine.Id())
 		if err := machine.MarkForRemoval(); err != nil {
-			logger.Errorf("failed to remove dead machine %q", machine)
+			logger.Errorf("failed to remove dead machine %q", machine.Id())
 		}
 		task.removeMachineFromAZMap(machine)
 		task.machinesMutex.Lock()
@@ -366,7 +366,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dead, maintain []*apiprovisioner.Machine, err error) {
+func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dead, maintain []apiprovisioner.MachineProvisioner, err error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	for _, id := range ids {
@@ -498,7 +498,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 // instancesForDeadMachines returns a list of instance.Instance that represent
 // the list of dead machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForDeadMachines(deadMachines []*apiprovisioner.Machine) []instance.Instance {
+func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisioner.MachineProvisioner) []instance.Instance {
 	var instances []instance.Instance
 	for _, machine := range deadMachines {
 		instId, err := machine.InstanceId()
@@ -539,7 +539,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 }
 
 func (task *provisionerTask) constructInstanceConfig(
-	machine *apiprovisioner.Machine,
+	machine apiprovisioner.MachineProvisioner,
 	auth authentication.AuthenticationProvider,
 	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
@@ -597,7 +597,7 @@ func (task *provisionerTask) constructInstanceConfig(
 
 func (task *provisionerTask) constructStartInstanceParams(
 	controllerUUID string,
-	machine *apiprovisioner.Machine,
+	machine apiprovisioner.MachineProvisioner,
 	instanceConfig *instancecfg.InstanceConfig,
 	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
@@ -715,7 +715,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 	return startInstanceParams, nil
 }
 
-func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine) error {
+func (task *provisionerTask) maintainMachines(machines []apiprovisioner.MachineProvisioner) error {
 	for _, m := range machines {
 		logger.Infof("maintainMachines: %v", m)
 		startInstanceParams := environs.StartInstanceParams{}
@@ -888,7 +888,7 @@ func (b byPopulationThenNames) Swap(i, j int) {
 
 // startMachines starts a goroutine for each specified machine to
 // start it.  Errors from individual start machine attempts will be logged.
-func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
+func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProvisioner) error {
 	if len(machines) == 0 {
 		return nil
 	}
@@ -916,7 +916,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			continue
 		}
 		wg.Add(1)
-		go func(machine *apiprovisioner.Machine, dg []string, index int) {
+		go func(machine apiprovisioner.MachineProvisioner, dg []string, index int) {
 			defer wg.Done()
 			if err := task.startMachine(machine, dg); err != nil {
 				task.removeMachineFromAZMap(machine)
@@ -943,7 +943,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	return nil
 }
 
-func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
+func (task *provisionerTask) setErrorStatus(message string, machine apiprovisioner.MachineProvisioner, err error) error {
 	logger.Errorf(message, machine, err)
 	errForStatus := errors.Cause(err)
 	if err2 := machine.SetInstanceStatus(status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
@@ -955,7 +955,7 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 
 // setupToStartMachine gathers the nessecessary information, based on the specified
 // machine, to create ProvisioningInfo and StartInstanceParms to be used by startMachine.
-func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine, version *version.Number) (
+func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineProvisioner, version *version.Number) (
 	environs.StartInstanceParams,
 	error,
 ) {
@@ -1026,7 +1026,7 @@ func (task *provisionerTask) populateExcludedMachines(machineId string, startIns
 }
 
 func (task *provisionerTask) startMachine(
-	machine *apiprovisioner.Machine,
+	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
 ) error {
 	v, err := machine.ModelAgentVersion()
@@ -1166,7 +1166,7 @@ func (task *provisionerTask) startMachine(
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
 // in availabilityZoneMachines, report if there are any availability zones not failed for
 // the specified machine.
-func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machine, zone string) (bool, error) {
+func (task *provisionerTask) markMachineFailedInAZ(machine apiprovisioner.MachineProvisioner, zone string) (bool, error) {
 	if zone == "" {
 		return false, errors.New("no zone provided")
 	}
@@ -1189,7 +1189,7 @@ func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machi
 	return azRemaining, nil
 }
 
-func (task *provisionerTask) clearMachineAZFailures(machine *apiprovisioner.Machine) {
+func (task *provisionerTask) clearMachineAZFailures(machine apiprovisioner.MachineProvisioner) {
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
@@ -1212,7 +1212,7 @@ func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, 
 // removeMachineFromAZMap removes the specified machine from availabilityZoneMachines.
 // It is assumed this is called when the machines are being deleted from state, or failed
 // provisioning.
-func (task *provisionerTask) removeMachineFromAZMap(machine *apiprovisioner.Machine) {
+func (task *provisionerTask) removeMachineFromAZMap(machine apiprovisioner.MachineProvisioner) {
 	machineId := machine.Id()
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
