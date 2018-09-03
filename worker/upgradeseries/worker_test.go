@@ -88,10 +88,9 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
-	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// Only one of the two units has completed preparation.
-	exp.UnitsPrepared().Return([]names.UnitTag{names.NewUnitTag("wordpress/0")}, nil)
+	s.expectUnitsPrepared("wordpress/0")
 
 	// After comparing the prepare-complete units with the services,
 	// no further action is taken.
@@ -106,14 +105,10 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
-	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// All known units have completed preparation - the workflow progresses.
-	exp.UnitsPrepared().Return([]names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
-	}, nil)
-	exp.SetMachineStatus(model.UpgradeSeriesPrepareMachine).Return(nil)
+	s.expectUnitsPrepared("wordpress/0", "mysql/0")
+	s.facade.EXPECT().SetMachineStatus(model.UpgradeSeriesPrepareMachine).Return(nil)
 
 	s.expectServiceDiscovery(true)
 
@@ -133,10 +128,7 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareMachine, nil)
-	exp.UnitsPrepared().Return([]names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
-	}, nil)
+	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 	exp.TargetSeries().Return("xenial", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
@@ -154,13 +146,9 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
-	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
-	exp.UnitsPrepared().Return([]names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
-	}, nil)
-	exp.StartUnitCompletion().Return(nil)
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	s.expectUnitsPrepared("wordpress/0", "mysql/0")
+	s.facade.EXPECT().StartUnitCompletion().Return(nil)
 
 	s.expectServiceDiscovery(true)
 
@@ -202,8 +190,8 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
-	exp.UnitsPrepared().Return([]names.UnitTag{}, nil)
-	exp.UnitsCompleted().Return([]names.UnitTag{
+	s.expectUnitsPrepared()
+	s.facade.EXPECT().UnitsCompleted().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
@@ -262,6 +250,16 @@ func (s *workerSuite) newWorker(c *gc.C, ctrl *gomock.Controller, behaviours ...
 	w, err := upgradeseries.NewWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
+}
+
+// expectUnitsCompleted represents the scenario where the input unit names
+// have completed their upgrade-series preparation.
+func (s *workerSuite) expectUnitsPrepared(units ...string) {
+	tags := make([]names.UnitTag, len(units))
+	for i, u := range units {
+		tags[i] = names.NewUnitTag(u)
+	}
+	s.facade.EXPECT().UnitsPrepared().Return(tags, nil)
 }
 
 // expectServiceDiscovery is a convenience method for expectations that mimic
