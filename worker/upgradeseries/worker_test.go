@@ -66,7 +66,7 @@ func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
 	// This is the only call we expect to see.
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
@@ -79,7 +79,7 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 	// This is the only call we expect to see.
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
 }
 
@@ -96,7 +96,21 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	// no further action is taken.
 	s.expectServiceDiscovery(false)
 
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestFullWorkflow(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(4),
+		expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
+		expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
+		expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
+		expectMachineCompleteStartedUnitsCompleteProgressComplete)
+
 	s.cleanKill(c, w)
 }
 
@@ -105,6 +119,13 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+		expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine)
+
+	s.cleanKill(c, w)
+}
+
+func expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine(s *workerSuite) {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// All known units have completed preparation - the workflow progresses.
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
@@ -116,9 +137,6 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 	s.wordPressAgent.EXPECT().Stop().Return(nil)
 
 	s.mySQLAgent.EXPECT().Running().Return(false, nil)
-
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
-	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
@@ -126,7 +144,14 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+		expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete)
+	s.cleanKill(c, w)
+}
+
+func expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete(s *workerSuite) {
 	exp := s.facade.EXPECT()
+
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareMachine, nil)
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 	exp.TargetSeries().Return("xenial", nil)
@@ -136,9 +161,6 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
 	s.expectServiceDiscovery(false)
-
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
-	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(c *gc.C) {
@@ -146,6 +168,12 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+		expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted)
+	s.cleanKill(c, w)
+}
+
+func expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(s *workerSuite) {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 	s.facade.EXPECT().StartUnitCompletion().Return(nil)
@@ -156,9 +184,6 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 	s.wordPressAgent.EXPECT().Start().Return(nil)
 
 	s.mySQLAgent.EXPECT().Running().Return(true, nil)
-
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
-	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {
@@ -186,7 +211,14 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	w := s.workerForScenario(c, ctrl, ignoreLogging(c), notify(1),
+		expectMachineCompleteStartedUnitsCompleteProgressComplete)
+	s.cleanKill(c, w)
+}
+
+func expectMachineCompleteStartedUnitsCompleteProgressComplete(s *workerSuite) {
 	exp := s.facade.EXPECT()
+
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
@@ -201,9 +233,6 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	// are detected just the one time.
 	s.expectServiceDiscovery(false)
 	s.expectServiceDiscovery(false)
-
-	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
-	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
@@ -231,10 +260,10 @@ func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
 	s.mySQLAgent = NewMockAgentService(ctrl)
 }
 
-// newWorker creates worker dependency mocks using the input controller.
+// workerForScenario creates worker dependency mocks using the input controller.
 // Any supplied behaviour functions are applied to the suite, then a new worker
 // is started and returned.
-func (s *workerSuite) newWorker(c *gc.C, ctrl *gomock.Controller, behaviours ...suiteBehaviour) worker.Worker {
+func (s *workerSuite) workerForScenario(c *gc.C, ctrl *gomock.Controller, behaviours ...suiteBehaviour) worker.Worker {
 	cfg := upgradeseries.Config{
 		Logger:          s.logger,
 		FacadeFactory:   func(_ names.Tag) upgradeseries.Facade { return s.facade },
