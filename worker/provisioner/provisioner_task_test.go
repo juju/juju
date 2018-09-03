@@ -134,10 +134,10 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	c.Assert(m1.markForRemoval, jc.IsFalse)
 
 	s.machinesResults = []apiprovisioner.MachineResult{
-		apiprovisioner.MachineResult{
+		{
 			Machine: m0,
 		},
-		apiprovisioner.MachineResult{
+		{
 			Machine: m1,
 		},
 	}
