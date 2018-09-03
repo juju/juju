@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/version"
 )
 
 //go:generate mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
@@ -83,9 +84,7 @@ func (u *upgrader) PerformUpgrade() error {
 		return errors.Trace(err)
 	}
 
-	// TODO (manadart 2018-08-29): Write agent binaries.
-
-	return nil
+	return errors.Trace(u.ensureAgentBinaries())
 }
 
 // populateAgents discovers and sets the names of the machine and unit agents.
@@ -106,7 +105,7 @@ func (u *upgrader) populateAgents() (err error) {
 // ensureSystemdFiles determines whether re-writing service files to target
 // systemd is required. If it is, the necessary changes are invoked via the
 // service manager.
-func (u *upgrader) ensureSystemdFiles() (err error) {
+func (u *upgrader) ensureSystemdFiles() error {
 	if u.fromInit == service.InitSystemSystemd || u.toInit != service.InitSystemSystemd {
 		return nil
 	}
@@ -122,4 +121,17 @@ func (u *upgrader) ensureSystemdFiles() (err error) {
 	}
 
 	return errors.Annotatef(err, "failed to write agents: %s", strings.Join(failed, ", "))
+}
+
+// ensureAgentBinaries ensures that the jujud binary and links exist in the
+// right tools path for the target OS series, and that individual agents use
+// those files.
+func (u *upgrader) ensureAgentBinaries() error {
+	if err := u.manager.CopyAgentBinary(
+		u.machineAgent, u.unitAgents, paths.NixDataDir, u.toSeries, u.fromSeries, version.Current); err != nil {
+		return errors.Trace(err)
+	}
+
+	u.logger.Infof("copied agent binaries for series %q", u.toSeries)
+	return nil
 }
