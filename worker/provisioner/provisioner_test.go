@@ -1469,7 +1469,6 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
-
 	task := s.newProvisionerTask(c,
 		config.HarvestAll,
 		s.Environ,
@@ -1488,6 +1487,9 @@ func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
 	i1 := s.checkStartInstance(c, m1)
 	err = m1.SetKeepInstance(true)
 	c.Assert(err, jc.ErrorIsNil)
+	// we must ensure that m1's harvest mode is set correctly
+	// before proceeding with the test.
+	s.BackingState.StartSync()
 
 	// Mark them both as dead.
 	c.Assert(m0.EnsureDead(), gc.IsNil)

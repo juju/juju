@@ -285,7 +285,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	if len(stopping) > 0 {
-		logger.Infof("stopping known instances %v", stopping)
+		logger.Infof("stopping known instances %v", instanceIds(stopping))
 	}
 	if len(unknown) > 0 {
 		logger.Infof("stopping unknown instances %v", instanceIds(unknown))
