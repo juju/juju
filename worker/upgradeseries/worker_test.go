@@ -94,6 +94,9 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	s.cleanKill(c, w)
 }
 
+// TestFullWorkflow uses the the expectation scenarios from each of the tests
+// below to compose a test of the whole upgrade-series scenario, from start
+// to finish.
 func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
