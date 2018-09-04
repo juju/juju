@@ -864,12 +864,18 @@ func dbCollectionSizeToInt(result bson.M, collectionName string) (int, error) {
 		return 0, nil
 	}
 	if asint, ok := size.(int); ok {
+		if asint < 0 {
+			return 0, errors.Errorf("mongo collStats for %q returned a negative value: %v", collectionName, size)
+		}
 		return asint, nil
 	}
 	if asint64, ok := size.(int64); ok {
 		// 2billion megabytes is 2 petabytes, which is outside our range anyway.
 		if asint64 > math.MaxInt32 {
 			return math.MaxInt32, nil
+		}
+		if asint64 < 0 {
+			return 0, errors.Errorf("mongo collStats for %q returned a negative value: %v", collectionName, size)
 		}
 		return int(asint64), nil
 	}

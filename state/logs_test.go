@@ -962,6 +962,13 @@ func (*DBLogSizeSuite) TestDBLogSizeInt64SizeOverflow(c *gc.C) {
 	c.Check(res, gc.Equals, int((1<<31)-1))
 }
 
+func (*DBLogSizeSuite) TestDBLogSizeNegativeSize(c *gc.C) {
+	_, err := state.DBCollectionSizeToInt(bson.M{"size": int(-10)}, "coll-name")
+	c.Check(err, gc.ErrorMatches, `mongo collStats for "coll-name" returned a negative value: -10`)
+	_, err = state.DBCollectionSizeToInt(bson.M{"size": int64(-10)}, "coll-name")
+	c.Check(err, gc.ErrorMatches, `mongo collStats for "coll-name" returned a negative value: -10`)
+}
+
 func (*DBLogSizeSuite) TestDBLogSizeUnknownType(c *gc.C) {
 	_, err := state.DBCollectionSizeToInt(bson.M{"size": float64(12345)}, "coll-name")
 	c.Check(err, gc.ErrorMatches, `mongo collStats for "coll-name" did not return an int or int64 for size, returned float64: 12345`)
