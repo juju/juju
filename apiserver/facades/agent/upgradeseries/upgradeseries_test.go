@@ -22,6 +22,13 @@ import (
 type upgradeSeriesSuite struct {
 	testing.BaseSuite
 
+	backend *mocks.MockUpgradeSeriesBackend
+	machine *mocks.MockUpgradeSeriesMachine
+
+	entityArgs params.Entities
+
+	api *upgradeseries.API
+
 	machineTag names.MachineTag
 	unitTag    names.UnitTag
 }
@@ -33,24 +40,16 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 
 	s.machineTag = names.NewMachineTag("0")
 	s.unitTag = names.NewUnitTag("redis/0")
+
+	s.entityArgs = params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.arrangeTest(c).Finish()
 
-	api, backend := s.newAPI(c, ctrl)
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+	s.machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
-	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
-
-	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.Entities{
-		Entities: []params.Entity{entity},
-	}
-
-	results, err := api.MachineStatus(args)
+	results, err := s.api.MachineStatus(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{{Status: model.UpgradeSeriesPrepareCompleted}},
@@ -58,21 +57,16 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 }
 
 func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.arrangeTest(c).Finish()
 
-	api, backend := s.newAPI(c, ctrl)
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
-
-	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
+	s.machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{Entity: entity, Status: model.UpgradeSeriesPrepareCompleted}},
 	}
 
-	results, err := api.SetMachineStatus(args)
+	results, err := s.api.SetMachineStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -80,21 +74,11 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 }
 
 func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.arrangeTest(c).Finish()
 
-	api, backend := s.newAPI(c, ctrl)
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+	s.machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
 
-	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
-
-	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.Entities{
-		Entities: []params.Entity{entity},
-	}
-
-	results, err := api.TargetSeries(args)
+	results, err := s.api.TargetSeries(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "bionic"}},
@@ -102,21 +86,11 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
 }
 
 func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.arrangeTest(c).Finish()
 
-	api, backend := s.newAPI(c, ctrl)
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
+	s.machine.EXPECT().StartUpgradeSeriesUnitCompletion().Return(nil)
 
-	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().StartUpgradeSeriesUnitCompletion().Return(nil)
-
-	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.Entities{
-		Entities: []params.Entity{entity},
-	}
-
-	results, err := api.StartUnitCompletion(args)
+	results, err := s.api.StartUnitCompletion(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -124,21 +98,14 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 }
 
 func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.arrangeTest(c).Finish()
 
-	api, backend := s.newAPI(c, ctrl)
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
-
-	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
+	s.machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
 		"redis/0": {Status: model.UpgradeSeriesPrepareCompleted},
 		"redis/1": {Status: model.UpgradeSeriesPrepareStarted},
 	}, nil)
 
-	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
-
-	results, err := api.UnitsPrepared(args)
+	results, err := s.api.UnitsPrepared(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
@@ -146,39 +113,49 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 }
 
 func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.arrangeTest(c).Finish()
 
-	api, backend := s.newAPI(c, ctrl)
-	machine := mocks.NewMockUpgradeSeriesMachine(ctrl)
-
-	backend.EXPECT().Machine(s.machineTag.Id()).Return(machine, nil)
-	machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
+	s.machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
 		"redis/0": {Status: model.UpgradeSeriesCompleted},
 		"redis/1": {Status: model.UpgradeSeriesCompleteStarted},
 	}, nil)
 
-	args := params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
-
-	results, err := api.UnitsCompleted(args)
+	results, err := s.api.UnitsCompleted(s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
 	})
 }
 
-func (s *upgradeSeriesSuite) newAPI(
-	c *gc.C, ctrl *gomock.Controller,
-) (*upgradeseries.API, *mocks.MockUpgradeSeriesBackend) {
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
+	defer s.arrangeTest(c).Finish()
+
+	exp := s.machine.EXPECT()
+	exp.UpgradeSeriesTarget().Return("xenial", nil)
+	exp.UpdateMachineSeries("xenial", true).Return(nil)
+	exp.RemoveUpgradeSeriesLock().Return(nil)
+
+	results, err := s.api.FinishUpgradeSeries(s.entityArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
 	resources := common.NewResources()
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag: s.machineTag,
-	}
+	authorizer := apiservertesting.FakeAuthorizer{Tag: s.machineTag}
 
-	mockBackend := mocks.NewMockUpgradeSeriesBackend(ctrl)
+	s.backend = mocks.NewMockUpgradeSeriesBackend(ctrl)
+	s.machine = mocks.NewMockUpgradeSeriesMachine(ctrl)
 
-	api, err := upgradeseries.NewUpgradeSeriesAPI(mockBackend, resources, authorizer)
+	s.backend.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+
+	var err error
+	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return api, mockBackend
+	return ctrl
 }
