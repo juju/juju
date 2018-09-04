@@ -317,9 +317,10 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 // post upgrade routine.
 func (w *upgradeSeriesWorker) handleCompleted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
+
 	err := w.FinishUpgradeSeries()
 	if err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
 	return nil
 }
