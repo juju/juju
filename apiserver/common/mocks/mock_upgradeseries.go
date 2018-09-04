@@ -134,6 +134,18 @@ func (mr *MockUpgradeSeriesMachineMockRecorder) Units() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).Units))
 }
 
+// UpdateMachineSeries mocks base method
+func (m *MockUpgradeSeriesMachine) UpdateMachineSeries(arg0 string, arg1 bool) error {
+	ret := m.ctrl.Call(m, "UpdateMachineSeries", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateMachineSeries indicates an expected call of UpdateMachineSeries
+func (mr *MockUpgradeSeriesMachineMockRecorder) UpdateMachineSeries(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMachineSeries", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpdateMachineSeries), arg0, arg1)
+}
+
 // UpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
