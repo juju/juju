@@ -170,8 +170,10 @@ func (a *API) StartUnitCompletion(args params.Entities) (params.ErrorResults, er
 	return result, nil
 }
 
-// CompleteSeriesUpgrade is intended to clean away the upgrade series lock after
-// all phases of upgrade are completed.
+// FinishUpgradeSeries is the last action in the upgrade workflow and is
+// called after all machine and unit statuses are "completed".
+// It updates the machine series to reflect the completed upgrade, then
+// removes the upgrade-series lock.
 func (a *API) FinishUpgradeSeries(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -186,6 +188,17 @@ func (a *API) FinishUpgradeSeries(args params.Entities) (params.ErrorResults, er
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
+
+		target, err := machine.UpgradeSeriesTarget()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := machine.UpdateMachineSeries(target, true); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
 		err = machine.RemoveUpgradeSeriesLock()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
