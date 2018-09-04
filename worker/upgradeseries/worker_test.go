@@ -154,8 +154,12 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	s.patchHost("xenial")
+
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	exp.TargetSeries().Return("xenial", nil)
+
 	exp.UnitsPrepared().Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
@@ -178,8 +182,11 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	s.patchHost("xenial")
+
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	exp.TargetSeries().Return("xenial", nil)
 
 	// Machine with no units - API calls return none, no services discovered.
 	exp.UnitsPrepared().Return(nil, nil)
@@ -197,8 +204,12 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	defer ctrl.Finish()
 	s.setupMocks(ctrl)
 
+	s.patchHost("xenial")
+
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	exp.TargetSeries().Return("xenial", nil)
+
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
 	exp.UnitsPrepared().Return([]names.UnitTag{}, nil)
@@ -215,6 +226,28 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestMachineCompleteStartedNotUpgradedError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	s.patchHost("trusty")
+
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	exp.TargetSeries().Return("xenial", nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+
+	select {
+	case <-s.done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
+
+	c.Assert(workertest.CheckKill(c, w), gc.ErrorMatches, `host series "trusty" does not match upgrade target "xenial"`)
 }
 
 func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
@@ -279,6 +312,10 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) patchHost(series string) {
+	upgradeseries.PatchHostSeries(s, series)
 }
 
 // notify returns a suite behaviour that will cause the upgrade-series watcher

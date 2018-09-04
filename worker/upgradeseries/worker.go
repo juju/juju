@@ -13,7 +13,10 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
+	"github.com/juju/os/series"
 )
+
+var hostSeries = series.HostSeries
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
@@ -261,9 +264,9 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleteStarted)
 
-	// TODO (manadart 2018-09-04): We should check the actual series here to
-	// ensure that it has actually been upgraded before advancing this
-	// workflow any further.
+	if err := w.verifyUpgraded(); err != nil {
+		return errors.Trace(err)
+	}
 
 	// If the units are still all in the "PrepareComplete" state, then the
 	// manual tasks have been run and an operator has executed the
@@ -296,6 +299,24 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
 	}
 
+	return nil
+}
+
+// verifyUpgraded checks to see that the host OS series has been upgraded to
+// the target version from the upgrade-series lock.
+// If not, an error is returned.
+func (w *upgradeSeriesWorker) verifyUpgraded() error {
+	target, err := w.TargetSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	actual, err := hostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if actual != target {
+		return errors.Errorf("host series %q does not match upgrade target %q", actual, target)
+	}
 	return nil
 }
 
