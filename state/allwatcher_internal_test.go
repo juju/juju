@@ -372,6 +372,9 @@ func addTestingRemoteApplication(
 		IsConsumerProxy: isProxy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	status, err := rs.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
 	return rs, multiwatcher.RemoteApplicationInfo{
 		ModelUUID: st.ModelUUID(),
 		Name:      name,
@@ -379,8 +382,10 @@ func addTestingRemoteApplication(
 		OfferURL:  url,
 		Life:      multiwatcher.Life(rs.Life().String()),
 		Status: multiwatcher.StatusInfo{
-			Current: "unknown",
-			Data:    map[string]interface{}{},
+			Current: status.Status,
+			Message: status.Message,
+			Data:    status.Data,
+			Since:   status.Since,
 		},
 	}
 }
@@ -3590,6 +3595,8 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 		func(c *gc.C, st *State) changeTestCase {
 			_, remoteApplicationInfo := addTestingRemoteApplication(
 				c, st, "remote-mysql2", "me/model.mysql", "remote-mysql2-uuid", mysqlRelations, false)
+			// Zero out the since time in the status entry.
+			remoteApplicationInfo.Status.Since = nil
 			return changeTestCase{
 				about: "remote application is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -3624,11 +3631,20 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			err = wru.EnterScope(nil)
 			c.Assert(err, jc.ErrorIsNil)
 
+			status, err := mysql.Status()
+			c.Assert(err, jc.ErrorIsNil)
+
 			err = mysql.Destroy()
 			c.Assert(err, jc.ErrorIsNil)
+
 			initialRemoteApplicationInfo := remoteApplicationInfo
 			remoteApplicationInfo.Life = "dying"
-			remoteApplicationInfo.Status = multiwatcher.StatusInfo{}
+			remoteApplicationInfo.Status = multiwatcher.StatusInfo{
+				Current: status.Status,
+				Message: status.Message,
+				Data:    status.Data,
+				// We replace Since with zero, so no time expected.
+			}
 			return changeTestCase{
 				about:           "remote application is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&initialRemoteApplicationInfo},
