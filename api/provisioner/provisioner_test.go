@@ -78,7 +78,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
-func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) *provisioner.Machine {
+func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) provisioner.MachineProvisioner {
 	result, err := s.provisioner.Machines(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result), gc.Equals, 1)

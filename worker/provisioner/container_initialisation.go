@@ -45,7 +45,7 @@ type ContainerSetup struct {
 	runner              *worker.Runner
 	supportedContainers []instance.ContainerType
 	provisioner         *apiprovisioner.State
-	machine             *apiprovisioner.Machine
+	machine             apiprovisioner.MachineProvisioner
 	config              agent.Config
 	machineLock         machinelock.Lock
 
@@ -66,7 +66,7 @@ type ContainerSetupParams struct {
 	Runner              *worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
-	Machine             *apiprovisioner.Machine
+	Machine             apiprovisioner.MachineProvisioner
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
 	MachineLock         machinelock.Lock

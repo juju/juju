@@ -17,6 +17,107 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+// MachineProvisioner defines what provisioner needs to provision a machine.
+type MachineProvisioner interface {
+	// Tag returns the machine's tag.
+	Tag() names.Tag
+
+	// ModelAgentVersion returns the agent version the machine's model is currently
+	// running or an error.
+	ModelAgentVersion() (*version.Number, error)
+
+	// MachineTag returns the identifier for the machine as the most specific type.
+	MachineTag() names.MachineTag
+
+	// Id returns the machine id.
+	Id() string
+
+	// String returns the machine as a string.
+	String() string
+
+	// Life returns the machine's lifecycle value.
+	Life() params.Life
+
+	// Refresh updates the cached local copy of the machine's data.
+	Refresh() error
+
+	// ProvisioningInfo returns the information required to provision a machine.
+	ProvisioningInfo() (*params.ProvisioningInfo, error)
+
+	// SetInstanceStatus sets the status for the provider instance.
+	SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error
+
+	// InstanceStatus returns the status of the provider instance.
+	InstanceStatus() (status.Status, string, error)
+
+	// SetStatus sets the status of the machine.
+	SetStatus(status status.Status, info string, data map[string]interface{}) error
+
+	// Status returns the status of the machine.
+	Status() (status.Status, string, error)
+
+	// EnsureDead sets the machine lifecycle to Dead if it is Alive or
+	// Dying. It does nothing otherwise.
+	EnsureDead() error
+
+	// Remove removes the machine from state. It will fail if the machine
+	// is not Dead.
+	Remove() error
+
+	// MarkForRemoval indicates that the machine is ready to have any
+	// provider-level resources cleaned up and be removed.
+	MarkForRemoval() error
+
+	// Series returns the operating system series running on the machine.
+	//
+	// NOTE: Unlike state.Machine.Series(), this method returns an error
+	// as well, because it needs to do an API call.
+	Series() (string, error)
+
+	// AvailabilityZone returns an underlying provider's availability zone
+	// for a machine.
+	AvailabilityZone() (string, error)
+
+	// DistributionGroup returns a slice of instance.Ids
+	// that belong to the same distribution group as this
+	// Machine. The provisioner may use this information
+	// to distribute instances for high availability.
+	DistributionGroup() ([]instance.Id, error)
+
+	// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
+	// network config for this machine. Once set, the instance id cannot be changed.
+	SetInstanceInfo(
+		id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+		networkConfig []params.NetworkConfig, volumes []params.Volume,
+		volumeAttachments map[string]params.VolumeAttachmentInfo,
+	) error
+
+	// InstanceId returns the provider specific instance id for the
+	// machine or an CodeNotProvisioned error, if not set.
+	InstanceId() (instance.Id, error)
+
+	// KeepInstance returns the value of the keep-instance
+	// for the machine.
+	KeepInstance() (bool, error)
+
+	// SetPassword sets the machine's password.
+	SetPassword(password string) error
+
+	// WatchContainers returns a StringsWatcher that notifies of changes
+	// to the lifecycles of containers of the specified type on the machine.
+	WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error)
+
+	// WatchAllContainers returns a StringsWatcher that notifies of changes
+	// to the lifecycles of all containers on the machine.
+	WatchAllContainers() (watcher.StringsWatcher, error)
+
+	// SetSupportedContainers updates the list of containers supported by this machine.
+	SetSupportedContainers(containerTypes ...instance.ContainerType) error
+
+	// SupportsNoContainers records the fact that this machine doesn't support any containers.
+	SupportsNoContainers() error
+}
+
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
 	tag  names.MachineTag
@@ -24,13 +125,12 @@ type Machine struct {
 	st   *State
 }
 
-// Tag returns the machine's tag.
+// Tag implements MachineProvisioner.Tag.
 func (m *Machine) Tag() names.Tag {
 	return m.tag
 }
 
-// ModelAgentVersion returns the agent version the machine's model is currently
-// running or an error.
+// ModelAgentVersion implements MachineProvisioner.ModelAgentVersion.
 func (m *Machine) ModelAgentVersion() (*version.Number, error) {
 	mc, err := m.st.ModelConfig()
 	if err != nil {
@@ -44,27 +144,27 @@ func (m *Machine) ModelAgentVersion() (*version.Number, error) {
 	return nil, errors.New("failed to get model's agent version.")
 }
 
-// MachineTag returns the identifier for the machine as the most specific type
+// MachineTag implements MachineProvisioner.MachineTag.
 func (m *Machine) MachineTag() names.MachineTag {
 	return m.tag
 }
 
-// Id returns the machine id.
+// Id implements MachineProvisioner.Id.
 func (m *Machine) Id() string {
 	return m.tag.Id()
 }
 
-// String returns the machine as a string.
+// String implements MachineProvisioner.String.
 func (m *Machine) String() string {
 	return m.Id()
 }
 
-// Life returns the machine's lifecycle value.
+// Life implements MachineProvisioner..
 func (m *Machine) Life() params.Life {
 	return m.life
 }
 
-// Refresh updates the cached local copy of the machine's data.
+// Refresh implements MachineProvisioner.Refresh.
 func (m *Machine) Refresh() error {
 	life, err := m.st.machineLife(m.tag)
 	if err != nil {
@@ -74,7 +174,7 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// ProvisioningInfo returns the information required to provision a machine.
+// ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
 func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
@@ -92,7 +192,7 @@ func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return result.Result, nil
 }
 
-// SetInstanceStatus sets the status for the provider instance.
+// SetInstanceStatus implements MachineProvisioner.SetInstanceStatus.
 func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
@@ -105,7 +205,7 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 	return result.OneError()
 }
 
-// InstanceStatus returns the status of the provider instance.
+// InstanceStatus implements MachineProvisioner.InstanceStatus.
 func (m *Machine) InstanceStatus() (status.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{Entities: []params.Entity{
@@ -126,7 +226,7 @@ func (m *Machine) InstanceStatus() (status.Status, string, error) {
 	return status.Status(result.Status), result.Info, nil
 }
 
-// SetStatus sets the status of the machine.
+// SetStatus implements MachineProvisioner.SetStatus.
 func (m *Machine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
@@ -141,7 +241,7 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 	return result.OneError()
 }
 
-// Status returns the status of the machine.
+// Status implements MachineProvisioner.Status.
 func (m *Machine) Status() (status.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{
@@ -162,8 +262,7 @@ func (m *Machine) Status() (status.Status, string, error) {
 	return status.Status(result.Status), result.Info, nil
 }
 
-// EnsureDead sets the machine lifecycle to Dead if it is Alive or
-// Dying. It does nothing otherwise.
+// EnsureDead implements MachineProvisioner.EnsureDead.
 func (m *Machine) EnsureDead() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -176,8 +275,7 @@ func (m *Machine) EnsureDead() error {
 	return result.OneError()
 }
 
-// Remove removes the machine from state. It will fail if the machine
-// is not Dead.
+// Remove implements MachineProvisioner.Remove.
 func (m *Machine) Remove() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -190,8 +288,7 @@ func (m *Machine) Remove() error {
 	return result.OneError()
 }
 
-// MarkForRemoval indicates that the machine is ready to have any
-// provider-level resources cleaned up and be removed.
+// MarkForRemoval implements MachineProvisioner.MarkForRemoval.
 func (m *Machine) MarkForRemoval() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -204,10 +301,7 @@ func (m *Machine) MarkForRemoval() error {
 	return result.OneError()
 }
 
-// Series returns the operating system series running on the machine.
-//
-// NOTE: Unlike state.Machine.Series(), this method returns an error
-// as well, because it needs to do an API call.
+// Series implements MachineProvisioner.Series.
 func (m *Machine) Series() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -227,8 +321,7 @@ func (m *Machine) Series() (string, error) {
 	return result.Result, nil
 }
 
-// AvailabilityZone returns an underlying provider's availability zone
-// for a machine
+// AvailabilityZone implements MachineProvisioner.AvailabilityZone.
 func (m *Machine) AvailabilityZone() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -248,10 +341,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 	return result.Result, nil
 }
 
-// DistributionGroup returns a slice of instance.Ids
-// that belong to the same distribution group as this
-// Machine. The provisioner may use this information
-// to distribute instances for high availability.
+// DistributionGroup implements MachineProvisioner.DistributionGroup.
 func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	var results params.DistributionGroupResults
 	args := params.Entities{
@@ -271,8 +361,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
-// network config for this machine. Once set, the instance id cannot be changed.
+// SetInstanceInfo implements MachineProvisioner.SetInstanceInfo.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
@@ -297,8 +386,7 @@ func (m *Machine) SetInstanceInfo(
 	return result.OneError()
 }
 
-// InstanceId returns the provider specific instance id for the
-// machine or an CodeNotProvisioned error, if not set.
+// InstanceId implements MachineProvisioner.InstanceId.
 func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -318,8 +406,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	return instance.Id(result.Result), nil
 }
 
-// KeepInstance returns the value of the keep-instance
-// for the machine.
+// KeepInstance implements MachineProvisioner.KeepInstance.
 func (m *Machine) KeepInstance() (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
@@ -342,7 +429,7 @@ func (m *Machine) KeepInstance() (bool, error) {
 	return result.Result, nil
 }
 
-// SetPassword sets the machine's password.
+// SetPassword implements MachineProvisioner.SetPassword.
 func (m *Machine) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.EntityPasswords{
@@ -357,8 +444,7 @@ func (m *Machine) SetPassword(password string) error {
 	return result.OneError()
 }
 
-// WatchContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of containers of the specified type on the machine.
+// WatchContainers implements MachineProvisioner.WatchContainers.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
 	if string(ctype) == "" {
 		return nil, fmt.Errorf("container type must be specified")
@@ -394,8 +480,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	return w, nil
 }
 
-// WatchAllContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of all containers on the machine.
+// WatchAllContainers implements MachineProvisioner.WatchAllContainers.
 func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
@@ -418,7 +503,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// SetSupportedContainers updates the list of containers supported by this machine.
+// SetSupportedContainers implements MachineProvisioner.SetSupportedContainers.
 func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
 	var results params.ErrorResults
 	args := params.MachineContainersParams{
@@ -440,7 +525,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 	return nil
 }
 
-// SupportsNoContainers records the fact that this machine doesn't support any containers.
+// SupportsNoContainers implements MachineProvisioner.SupportsNoContainers.
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }

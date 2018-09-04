@@ -55,7 +55,7 @@ type environProvisioner struct {
 type containerProvisioner struct {
 	provisioner
 	containerType  instance.ContainerType
-	machine        *apiprovisioner.Machine
+	machine        apiprovisioner.MachineProvisioner
 	configObserver configObserver
 }
 
@@ -361,7 +361,7 @@ func (p *containerProvisioner) loop() error {
 	}
 }
 
-func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
+func (p *containerProvisioner) getMachine() (apiprovisioner.MachineProvisioner, error) {
 	if p.machine == nil {
 		tag := p.agentConfig.Tag()
 		machineTag, ok := tag.(names.MachineTag)
