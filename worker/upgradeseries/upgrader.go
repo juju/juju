@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
@@ -21,8 +20,6 @@ var (
 	systemdDir          = systemd.EtcSystemdDir
 	systemdMultiUserDir = systemd.EtcSystemdMultiUserDir
 )
-
-var hostSeries = series.HostSeries
 
 // Upgrader describes methods required to perform file-system manipulation in
 // preparation for upgrading the host Ubuntu version.

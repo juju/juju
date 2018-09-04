@@ -13,7 +13,10 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
+	"github.com/juju/os/series"
 )
+
+var hostSeries = series.HostSeries
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
@@ -261,29 +264,59 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleteStarted)
 
+	if err := w.verifyUpgraded(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// If the units are still all in the "PrepareComplete" state, then the
 	// manual tasks have been run and an operator has executed the
 	// upgrade-series completion command; start all the unit agents,
 	// and progress the workflow.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if allConfirmed {
-		return errors.Trace(w.transitionUnitsStarted(units))
+	servicesPresent := len(unitServices) > 0
+
+	// allConfirmed returns true when there are no units, so we only need this
+	// transition when there are services to start.
+	// If there are none, just proceed to the completed stage.
+	if allConfirmed && servicesPresent {
+		return errors.Trace(w.transitionUnitsStarted(unitServices))
 	}
 
-	// If the units have all completed their workflow, then we are done.
-	// Make the final update to the lock to say the machine is completed.
-	units, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
-	if err != nil {
-		return errors.Trace(err)
+	if servicesPresent {
+		// If the units have all completed their workflow, then we are done.
+		// Make the final update to the lock to say the machine is completed.
+		unitServices, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+
 	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
 		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
 	}
 
+	return nil
+}
+
+// verifyUpgraded checks to see that the host OS series has been upgraded to
+// the target version from the upgrade-series lock.
+// If not, an error is returned.
+func (w *upgradeSeriesWorker) verifyUpgraded() error {
+	target, err := w.TargetSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	actual, err := hostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if actual != target {
+		return errors.Errorf("host series %q does not match upgrade target %q", actual, target)
+	}
 	return nil
 }
 
@@ -317,9 +350,10 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 // post upgrade routine.
 func (w *upgradeSeriesWorker) handleCompleted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
+
 	err := w.FinishUpgradeSeries()
 	if err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
 	return nil
 }
