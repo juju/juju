@@ -32,6 +32,7 @@ type UpgradeSeriesMachine interface {
 	UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error)
 	RemoveUpgradeSeriesLock() error
 	UpgradeSeriesTarget() (string, error)
+	Series() string
 	UpdateMachineSeries(series string, force bool) error
 }
 

@@ -174,29 +174,34 @@ func (a *API) StartUnitCompletion(args params.Entities) (params.ErrorResults, er
 // called after all machine and unit statuses are "completed".
 // It updates the machine series to reflect the completed upgrade, then
 // removes the upgrade-series lock.
-func (a *API) FinishUpgradeSeries(args params.Entities) (params.ErrorResults, error) {
+func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	canAccess, err := a.AccessMachine()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+	for i, arg := range args.Args {
+		machine, err := a.authAndMachine(arg.Entity, canAccess)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		target, err := machine.UpgradeSeriesTarget()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if err := machine.UpdateMachineSeries(target, true); err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+		// Actually running "do-release-upgrade" is not required to complete a
+		// series upgrade, so we compare the incoming host OS with the machine.
+		// Only update if they differ, because calling UpgradeSeriesTarget
+		// cascades through units and subordinates to verify series support,
+		// which we might as well skip unless an update is required.
+		ms := machine.Series()
+		if arg.Series == ms {
+			logger.Debugf("%q series is unchanged from %q", arg.Entity.Tag, ms)
+		} else {
+			if err := machine.UpdateMachineSeries(arg.Series, true); err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
 		}
 
 		err = machine.RemoveUpgradeSeriesLock()

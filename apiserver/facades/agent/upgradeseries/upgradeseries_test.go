@@ -127,15 +127,39 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 	})
 }
 
-func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.UpgradeSeriesTarget().Return("xenial", nil)
+	exp.Series().Return("trusty")
 	exp.UpdateMachineSeries("xenial", true).Return(nil)
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
-	results, err := s.api.FinishUpgradeSeries(s.entityArgs)
+	entity := params.Entity{Tag: s.machineTag.String()}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "xenial"}},
+	}
+
+	results, err := s.api.FinishUpgradeSeries(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
+	defer s.arrangeTest(c).Finish()
+
+	exp := s.machine.EXPECT()
+	exp.Series().Return("trusty")
+	exp.RemoveUpgradeSeriesLock().Return(nil)
+
+	entity := params.Entity{Tag: s.machineTag.String()}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "trusty"}},
+	}
+
+	results, err := s.api.FinishUpgradeSeries(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
