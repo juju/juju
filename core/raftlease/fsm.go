@@ -33,10 +33,8 @@ const (
 	// OperationExtend denotes extending an already-held lease.
 	OperationExtend = "extend"
 
-	// OperationExpire denotes removing a lease after its duration.
-	OperationExpire = "expire"
-
-	// OperationSetTime denotes updating stored global time.
+	// OperationSetTime denotes updating stored global time (which
+	// will also remove any expired leases).
 	OperationSetTime = "setTime"
 )
 
@@ -103,21 +101,6 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 	return &response{}
 }
 
-func (f *FSM) expire(key lease.Key) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	entry, found := f.entries[key]
-	if !found {
-		return invalidResponse()
-	}
-	expiry := entry.start.Add(entry.duration)
-	if !f.globalTime.After(expiry) {
-		return invalidResponse()
-	}
-	delete(f.entries, key)
-	return &response{expired: []lease.Key{key}}
-}
-
 func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -125,7 +108,15 @@ func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 		return &response{err: globalclock.ErrConcurrentUpdate}
 	}
 	f.globalTime = newTime
-	return &response{}
+	var expired []lease.Key
+	for key, entry := range f.entries {
+		expiry := entry.start.Add(entry.duration)
+		if expiry.Before(newTime) {
+			delete(f.entries, key)
+			expired = append(expired, key)
+		}
+	}
+	return &response{expired: expired}
 }
 
 // GlobalTime returns the FSM's internal time.
@@ -209,8 +200,6 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 		return f.claim(command.LeaseKey(), command.Holder, command.Duration)
 	case OperationExtend:
 		return f.extend(command.LeaseKey(), command.Holder, command.Duration)
-	case OperationExpire:
-		return f.expire(command.LeaseKey())
 	case OperationSetTime:
 		return f.setTime(command.OldTime, command.NewTime)
 	default:
@@ -382,28 +371,6 @@ func (c *Command) Validate() error {
 		}
 		if c.NewTime != zeroTime {
 			return errors.NotValidf("%s with new time", c.Operation)
-		}
-	case OperationExpire:
-		if c.Namespace == "" {
-			return errors.NotValidf("expire with empty namespace")
-		}
-		if c.ModelUUID == "" {
-			return errors.NotValidf("expire with empty model UUID")
-		}
-		if c.Lease == "" {
-			return errors.NotValidf("expire with empty lease")
-		}
-		if c.Holder != "" {
-			return errors.NotValidf("expire with holder")
-		}
-		if c.Duration != 0 {
-			return errors.NotValidf("expire with duration")
-		}
-		if c.OldTime != zeroTime {
-			return errors.NotValidf("expire with old time")
-		}
-		if c.NewTime != zeroTime {
-			return errors.NotValidf("expire with new time")
 		}
 	case OperationSetTime:
 		// An old time of 0 is valid when starting up.

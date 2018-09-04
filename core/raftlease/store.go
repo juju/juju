@@ -106,14 +106,9 @@ func (s *Store) ExtendLease(key lease.Key, req lease.Request) error {
 
 // ExpireLease is part of lease.Store.
 func (s *Store) ExpireLease(key lease.Key) error {
-	err := s.runOnLeader(&Command{
-		Version:   CommandVersion,
-		Operation: OperationExpire,
-		Namespace: key.Namespace,
-		ModelUUID: key.ModelUUID,
-		Lease:     key.Lease,
-	})
-	return errors.Trace(err)
+	// It's always an invalid operation - expiration happens
+	// automatically when time is advanced.
+	return lease.ErrInvalid
 }
 
 // Leases is part of lease.Store.
