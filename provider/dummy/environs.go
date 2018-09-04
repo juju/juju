@@ -953,7 +953,7 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 		ioutil.Discard,
 		loggo.GetLogger("juju.state.raftlease"),
 	)
-	dummyStore := newLeaseStore(clock.WallClock, target)
+	dummyStore := newLeaseStore(clock.WallClock, target, state.LeaseTrapdoorFunc())
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:  lease.SecretaryFinder(controllerUUID),
 		Store:      dummyStore,

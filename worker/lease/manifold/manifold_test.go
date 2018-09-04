@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/juju/worker.v1/workertest"
+	"gopkg.in/mgo.v2/txn"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -171,6 +172,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	storeConfig := args[0].(raftlease.StoreConfig)
 	c.Assert(storeConfig.ResponseTopic(1234), gc.Matches, "lease.manifold_test.[0-9a-f]{8}.1234")
 	storeConfig.ResponseTopic = nil
+	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, state.LeaseTrapdoorFunc())
+	storeConfig.Trapdoor = nil
 	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
 		FSM:            s.fsm,
 		Hub:            s.hub,
@@ -238,6 +241,19 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	var other io.Writer
 	err = s.manifold.Output(w, &other)
 	c.Assert(err, gc.ErrorMatches, `expected output of type \*globalclock.Updater or \*core/lease.Manager, got \*io.Writer`)
+}
+
+func assertTrapdoorFuncsEqual(c *gc.C, actual, expected raftlease.TrapdoorFunc) {
+	if actual == nil {
+		c.Assert(expected, gc.Equals, nil)
+		return
+	}
+	var actualOps, expectedOps []txn.Op
+	err := actual(corelease.Key{"ns", "model", "lease"}, "holder")(&actualOps)
+	c.Assert(err, jc.ErrorIsNil)
+	err = expected(corelease.Key{"ns", "model", "lease"}, "holder")(&expectedOps)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actualOps, gc.DeepEquals, expectedOps)
 }
 
 type mockAgent struct {

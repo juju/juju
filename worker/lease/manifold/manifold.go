@@ -166,6 +166,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		FSM:          s.config.FSM,
 		Hub:          hub,
 		Target:       notifyTarget,
+		Trapdoor:     state.LeaseTrapdoorFunc(),
 		RequestTopic: s.config.RequestTopic,
 		ResponseTopic: func(requestID uint64) string {
 			return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)

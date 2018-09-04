@@ -201,26 +201,29 @@ func (t *notifyTarget) Expired(key lease.Key) {
 	t.log("expired %q", docId)
 }
 
-// Trapdoor is part of raftlease.NotifyTarget.
-func (t *notifyTarget) Trapdoor(key lease.Key, holder string) lease.Trapdoor {
-	op := txn.Op{
-		C: t.collection,
-		Id: leaseHolderDocId(
-			key.Namespace,
-			key.ModelUUID,
-			key.Lease,
-		),
-		Assert: bson.M{
-			fieldHolder: holder,
-		},
-	}
-	return func(out interface{}) error {
-		outPtr, ok := out.(*[]txn.Op)
-		if !ok {
-			return errors.NotValidf("expected *[]txn.Op; %T", out)
+// MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
+// collection.
+func MakeTrapdoorFunc(collection string) raftlease.TrapdoorFunc {
+	return func(key lease.Key, holder string) lease.Trapdoor {
+		op := txn.Op{
+			C: collection,
+			Id: leaseHolderDocId(
+				key.Namespace,
+				key.ModelUUID,
+				key.Lease,
+			),
+			Assert: bson.M{
+				fieldHolder: holder,
+			},
 		}
-		*outPtr = []txn.Op{op}
-		return nil
+		return func(out interface{}) error {
+			outPtr, ok := out.(*[]txn.Op)
+			if !ok {
+				return errors.NotValidf("expected *[]txn.Op; %T", out)
+			}
+			*outPtr = []txn.Op{op}
+			return nil
+		}
 	}
 }
 

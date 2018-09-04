@@ -48,6 +48,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 		FSM:          s.fsm,
 		Hub:          s.hub,
 		Target:       s.target,
+		Trapdoor:     FakeTrapdoor,
 		RequestTopic: "lease.request",
 		ResponseTopic: func(reqID uint64) string {
 			return fmt.Sprintf("lease.request.%d", reqID)
@@ -453,7 +454,7 @@ func (t *fakeTarget) Expired(key lease.Key) {
 	t.AddCall("Expired", key)
 }
 
-func (t *fakeTarget) Trapdoor(key lease.Key, holder string) lease.Trapdoor {
+func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
 	return func(out interface{}) error {
 		if s, ok := out.(*string); ok {
 			*s = fmt.Sprintf("%v held by %s", key, holder)
