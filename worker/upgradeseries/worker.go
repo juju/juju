@@ -261,24 +261,36 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleteStarted)
 
+	// TODO (manadart 2018-09-04): We should check the actual series here to
+	// ensure that it has actually been upgraded before advancing this
+	// workflow any further.
+
 	// If the units are still all in the "PrepareComplete" state, then the
 	// manual tasks have been run and an operator has executed the
 	// upgrade-series completion command; start all the unit agents,
 	// and progress the workflow.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if allConfirmed {
-		return errors.Trace(w.transitionUnitsStarted(units))
+	servicesPresent := len(unitServices) > 0
+
+	// allConfirmed returns true when there are no units, so we only need this
+	// transition when there are services to start.
+	// If there are none, just proceed to the completed stage.
+	if allConfirmed && servicesPresent {
+		return errors.Trace(w.transitionUnitsStarted(unitServices))
 	}
 
-	// If the units have all completed their workflow, then we are done.
-	// Make the final update to the lock to say the machine is completed.
-	units, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
-	if err != nil {
-		return errors.Trace(err)
+	if servicesPresent {
+		// If the units have all completed their workflow, then we are done.
+		// Make the final update to the lock to say the machine is completed.
+		unitServices, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+
 	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
 		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
