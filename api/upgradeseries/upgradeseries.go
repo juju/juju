@@ -184,13 +184,16 @@ func (s *Client) StartUnitCompletion() error {
 }
 
 // FinishUpgradeSeries notifies the controller that the upgrade process is
-// completely finished. We use the name "Finish" to distinguish this method from
-// the various "Complete" phases.
-func (s *Client) FinishUpgradeSeries() error {
+// completely finished, passing the current host OS series.
+// We use the name "Finish" to distinguish this method from the various
+// "Complete" phases.
+func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	var results params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.authTag.String()}},
-	}
+	args := params.UpdateSeriesArgs{Args: []params.UpdateSeriesArg{{
+		Entity: params.Entity{Tag: s.authTag.String()},
+		Series: hostSeries,
+	}}}
+
 	err := s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
