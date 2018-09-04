@@ -20,7 +20,7 @@ type Facade interface {
 	UnitsCompleted() ([]names.UnitTag, error)
 	StartUnitCompletion() error
 	SetMachineStatus(status model.UpgradeSeriesStatus) error
-	FinishUpgradeSeries() error
+	FinishUpgradeSeries(string) error
 	TargetSeries() (string, error)
 }
 

@@ -13,12 +13,15 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
+	"github.com/juju/os/series"
 )
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
 
 //go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
+
+var hostSeries = series.HostSeries
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
@@ -261,10 +264,6 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleteStarted)
 
-	// TODO (manadart 2018-09-04): We should check the actual series here to
-	// ensure that it has actually been upgraded before advancing this
-	// workflow any further.
-
 	// If the units are still all in the "PrepareComplete" state, then the
 	// manual tasks have been run and an operator has executed the
 	// upgrade-series completion command; start all the unit agents,
@@ -330,7 +329,11 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 func (w *upgradeSeriesWorker) handleCompleted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
 
-	err := w.FinishUpgradeSeries()
+	s, err := hostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = w.FinishUpgradeSeries(s)
 	if err != nil {
 		return errors.Trace(err)
 	}

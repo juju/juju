@@ -217,6 +217,21 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	s.cleanKill(c, w)
 }
 
+func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	s.patchHost("xenial")
+
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
+	exp.FinishUpgradeSeries("xenial").Return(nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
 func (s *workerSuite) setupMocks(ctrl *gomock.Controller) {
 	s.logger = NewMockLogger(ctrl)
 	s.facade = NewMockFacade(ctrl)
@@ -279,6 +294,10 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) patchHost(series string) {
+	upgradeseries.PatchHostSeries(s, series)
 }
 
 // notify returns a suite behaviour that will cause the upgrade-series watcher
