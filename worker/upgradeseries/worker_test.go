@@ -183,7 +183,8 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 
 	// Machine with no units - API calls return none, no services discovered.
 	exp.UnitsPrepared().Return(nil, nil)
-	s.service.EXPECT().ListServices().Return(nil, nil)
+	exp.UnitsCompleted().Return(nil, nil)
+	s.service.EXPECT().ListServices().Return(nil, nil).Times(2)
 
 	// Progress directly to completed.
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)

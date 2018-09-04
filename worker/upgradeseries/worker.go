@@ -281,13 +281,11 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(w.transitionUnitsStarted(unitServices))
 	}
 
-	if servicesPresent {
-		// If the units have all completed their workflow, then we are done.
-		// Make the final update to the lock to say the machine is completed.
-		unitServices, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	// If the units have all completed their workflow, then we are done.
+	// Make the final update to the lock to say the machine is completed.
+	unitServices, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	if allConfirmed {
@@ -363,6 +361,9 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(
 	}
 
 	unitServices := service.FindUnitServiceNames(services)
+	if len(unitServices) == 0 {
+		w.logger.Debugf("no unit agent services found")
+	}
 	if len(units) != len(unitServices) {
 		return unitServices, false, nil
 	}
