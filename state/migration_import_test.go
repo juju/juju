@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -582,33 +581,6 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudService.ProviderId(), gc.Equals, "provider-id")
 	c.Assert(cloudService.Addresses(), jc.DeepEquals, []network.Address{addr})
-}
-
-func (s *MigrationImportSuite) TestApplicationLeadersLegacy(c *gc.C) {
-	// TODO(raftlease): handle application leaders in migrations.
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.LegacyLeases},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.makeApplicationWithUnits(c, "mysql", 2)
-	s.makeUnitApplicationLeaderLegacy(c, "mysql/1", "mysql")
-
-	s.makeApplicationWithUnits(c, "wordpress", 4)
-	s.makeUnitApplicationLeaderLegacy(c, "wordpress/2", "wordpress")
-
-	_, newSt := s.importModel(c, s.State)
-
-	leaders := make(map[string]string)
-	leases, err := state.LeadershipLeases(newSt)
-	c.Assert(err, jc.ErrorIsNil)
-	for key, value := range leases {
-		leaders[key.Lease] = value.Holder
-	}
-	c.Assert(leaders, jc.DeepEquals, map[string]string{
-		"mysql":     "mysql/1",
-		"wordpress": "wordpress/2",
-	})
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {

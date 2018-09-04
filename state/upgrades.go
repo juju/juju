@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1272,6 +1273,8 @@ func MigrateLeasesToGlobalTime(pool *StatePool) error {
 	return runForAllModelStates(pool, migrateModelLeasesToGlobalTime)
 }
 
+const InitialLeaderClaimTime = time.Minute
+
 func migrateModelLeasesToGlobalTime(st *State) error {
 	coll, closer := st.db().GetCollection(leasesC)
 	defer closer()
@@ -1324,7 +1327,7 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 				doc.Writer,
 				coll.Name(),
 				globalclock.GlobalEpoch(),
-				initialLeaderClaimTime,
+				InitialLeaderClaimTime,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)

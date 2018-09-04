@@ -4,10 +4,12 @@
 package migrationtarget_test
 
 import (
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -21,6 +23,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
@@ -35,9 +39,10 @@ import (
 type Suite struct {
 	statetesting.StateSuite
 	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
+	authorizer *apiservertesting.FakeAuthorizer
 
-	callContext context.ProviderCallContext
+	facadeContext facadetest.Context
+	callContext   context.ProviderCallContext
 }
 
 var _ = gc.Suite(&Suite{})
@@ -54,11 +59,17 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
 	s.callContext = context.NewCloudCallContext()
+	s.facadeContext = facadetest.Context{
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	}
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
@@ -137,6 +148,33 @@ func (s *Suite) TestImport(c *gc.C) {
 	defer ph.Release()
 	c.Assert(model.Name(), gc.Equals, "some-model")
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+}
+
+func (s *Suite) TestImportLeadership(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	for i := 0; i < 3; i++ {
+		s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+	}
+	target := s.State.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("migrationtarget_test"),
+	)
+	target.Claimed(
+		lease.Key{"application-leadership", s.State.ModelUUID(), "wordpress"},
+		"wordpress/2",
+	)
+
+	var claimer fakeClaimer
+	s.facadeContext.LeadershipClaimer_ = &claimer
+	api := s.mustNewAPI(c)
+	s.importModel(c, api)
+
+	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
+	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/2", time.Minute)
 }
 
 func (s *Suite) TestAbort(c *gc.C) {
@@ -417,13 +455,7 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, error) {
-	ctx := facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	}
-	api, err := migrationtarget.NewAPI(ctx, environFunc, s.callContext)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, s.callContext)
 	return api, err
 }
 
@@ -492,4 +524,14 @@ type mockInstance struct {
 
 func (i *mockInstance) Id() instance.Id {
 	return instance.Id(i.id)
+}
+
+type fakeClaimer struct {
+	leadership.Claimer
+	stub testing.Stub
+}
+
+func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {
+	c.stub.AddCall("ClaimLeadership", application, unit, duration)
+	return c.stub.NextErr()
 }

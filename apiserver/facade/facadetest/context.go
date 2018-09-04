@@ -75,7 +75,7 @@ func (context Context) ModelPresence(modelUUID string) facade.ModelPresence {
 }
 
 // LeadershipClaimer implements facade.Context.
-func (context Context) LeadershipClaimer() (leadership.Claimer, error) {
+func (context Context) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
 	return context.LeadershipClaimer_, nil
 }
 

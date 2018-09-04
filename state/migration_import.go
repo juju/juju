@@ -33,13 +33,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// When we import a new model, we need to give the leaders some time to
-// settle. We don't want to have leader switches just because we migrated an
-// model, so this time needs to be long enough to make sure we cover
-// the time taken to migration a reasonable sized model. We don't yet
-// know how long this is going to be, but we need something.
-var initialLeaderClaimTime = time.Minute
-
 // Import the database agnostic model representation into the database.
 func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
 	st := ctrl.pool.SystemState()
@@ -818,15 +811,6 @@ func (i *importer) application(a description.Application) error {
 
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if a.Leader() != "" {
-		if err := i.st.LeadershipClaimer().ClaimLeadership(
-			a.Name(),
-			a.Leader(),
-			initialLeaderClaimTime); err != nil {
 			return errors.Trace(err)
 		}
 	}
