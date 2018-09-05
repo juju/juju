@@ -582,9 +582,14 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 			Since:   appStatus.Since,
 		}
 		logger.Debugf("remote application status %#v", info.Status)
-	}
-	if store.Get(info.EntityId()) == nil {
-		logger.Debugf("new remote application %q added to backing state", app.Name)
+	} else {
+		logger.Debugf("use status from existing app")
+		switch t := oldInfo.(type) {
+		case *multiwatcher.RemoteApplicationInfo:
+			info.Status = t.Status
+		default:
+			logger.Debugf("unexpected type %t", t)
+		}
 	}
 	store.Update(info)
 	return nil

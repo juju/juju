@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -730,7 +729,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			statusDoc := statusDoc{
 				ModelUUID: st.ModelUUID(),
 				Status:    status.Unknown,
-				Updated:   time.Now().UnixNano(),
+				Updated:   st.clock().Now().UnixNano(),
 			}
 			ops = append(ops, createStatusOp(st, app.globalKey(), statusDoc))
 		}
