@@ -21,17 +21,29 @@ type MeterStatus interface {
 	WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error)
 }
 
+// MeterStatusState represents the state of an model required by the MeterStatus.
+//go:generate mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
+type MeterStatusState interface {
+
+	// Application returns a application state by name.
+	Application(name string) (*state.Application, error)
+
+	// Unit returns a unit by name.
+	Unit(id string) (*state.Unit, error)
+}
+
 // MeterStatusAPI implements the MeterStatus interface and is the concrete implementation
 // of the API endpoint.
 type MeterStatusAPI struct {
-	state      *state.State
+	state      MeterStatusState
 	accessUnit common.GetAuthFunc
 	resources  facade.Resources
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
+//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 func NewMeterStatusAPI(
-	st *state.State,
+	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
@@ -73,6 +85,18 @@ func NewMeterStatusAPI(
 	}, nil
 }
 
+// NewMeterStatusAPIWithState creates a new MeterStatusAPI, but uses the
+// state.State for creating the MeterStatusAPI. This is so we fulfill the
+// allfacades registration setup (i.e. it requires the state rather than
+// the well defined interface that the MeterStatusAPI requires)
+func NewMeterStatusAPIWithState(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*MeterStatusAPI, error) {
+	return NewMeterStatusAPI(st, resources, authorizer)
+}
+
 // WatchMeterStatus returns a NotifyWatcher for observing changes
 // to each unit's meter status.
 func (m *MeterStatusAPI) WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error) {
@@ -90,7 +114,7 @@ func (m *MeterStatusAPI) WatchMeterStatus(args params.Entities) (params.NotifyWa
 			continue
 		}
 		err = common.ErrPerm
-		watcherId := ""
+		var watcherId string
 		if canAccess(tag) {
 			watcherId, err = m.watchOneUnitMeterStatus(tag)
 		}
