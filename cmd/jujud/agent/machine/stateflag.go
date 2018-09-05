@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"fmt"
+
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -20,8 +22,10 @@ func isControllerFlagManifold() dependency.Manifold {
 		Output: engine.FlagOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := context.Get(stateName, nil); err != nil {
+				// fmt.Printf("isControllerFlagManifold: stateName -> %q, err -> %#v, cause -> %#v\n", stateName, err, errors.Cause(err))
 				return nil, err
 			}
+			fmt.Printf("isControllerFlagManifold: stateName  all good -> %q\n", stateName)
 			return engine.NewStaticFlagWorker(true), nil
 		},
 	}

@@ -409,6 +409,7 @@ type AgentConfigParams struct {
 // NewAgentConfig returns a new config object suitable for use for a
 // machine or unit agent.
 func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
+	logger.Criticalf("NewAgentConfig.configParams ---> %#v", configParams)
 	if configParams.Paths.DataDir == "" {
 		return nil, errors.Trace(requiredError("data directory"))
 	}
@@ -462,6 +463,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		mongoVersion:       configParams.MongoVersion.String(),
 		mongoMemoryProfile: configParams.MongoMemoryProfile.String(),
 	}
+	logger.Criticalf("NewAgentConfig configParams.APIAddresses ---> %#v, config.apiDetails -> %#v", configParams.APIAddresses, config.apiDetails)
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
 			addresses: configParams.APIAddresses,
@@ -558,6 +560,7 @@ func (c0 *configInternal) Clone() Config {
 		info := *c0.servingInfo
 		c1.servingInfo = &info
 	}
+	logger.Criticalf("c0.apiDetails -> %#v, c1.apiDetails -> %#v", c0.apiDetails, c1.apiDetails)
 	return &c1
 }
 
@@ -573,8 +576,10 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	for _, serverHostPorts := range servers {
 		hps := network.PrioritizeInternalHostPorts(serverHostPorts, false)
 		addrs = append(addrs, hps...)
+		logger.Criticalf("SetAPIHostPorts: servers -> %#v, hps -> %#v", servers, hps)
 	}
-	c.apiDetails.addresses = addrs
+	// addrs is always [] !!!!!!!!!!!!!!!!!
+	// c.apiDetails.addresses = addrs
 	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
 }
 
@@ -611,6 +616,7 @@ func (c *configInternal) SetPassword(newPassword string) {
 	if c.apiDetails != nil {
 		c.apiDetails.password = newPassword
 	}
+	logger.Criticalf("SetPassword -> %q, %#v", newPassword, c)
 }
 
 func (c *configInternal) Write() error {
@@ -766,6 +772,7 @@ func checkAddrs(addrs []string, what string) error {
 }
 
 func (c *configInternal) Render() ([]byte, error) {
+	logger.Criticalf("configInternal.Render c -> %#v", c)
 	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
@@ -831,15 +838,19 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
 	addrs := []string{local}
 
+	logger.Criticalf("configInternal MongoInfo addrs 1 -> %#v, c.apiDetails -> %#v", addrs, c.apiDetails)
 	for _, addr := range c.apiDetails.addresses {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, false
 		}
+		logger.Criticalf("configInternal MongoInfo host 1 -> %#v", host)
 		if host := net.JoinHostPort(host, strconv.Itoa(ssi.StatePort)); host != local {
+			logger.Criticalf("configInternal MongoInfo host 2 -> %#v", host)
 			addrs = append(addrs, host)
 		}
 	}
+	logger.Criticalf("configInternal MongoInfo addrs 2 -> %#v, c.apiDetails -> %#v", addrs, c.apiDetails)
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  addrs,

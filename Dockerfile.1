@@ -1,0 +1,6 @@
+# STEP 1 build executable binary
+FROM scratch
+COPY . /var/lib/juju/tools
+
+ENTRYPOINT ["/var/lib/juju/tools/jujud"]
+CMD ["machine", "--data-dir", "/var/lib/juju", "--machine-id", "0", "--debug"]

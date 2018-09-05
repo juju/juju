@@ -229,13 +229,14 @@ func DialWithInfo(info MongoInfo, opts DialOpts) (*mgo.Session, error) {
 // Login logs in to the mongodb admin database.
 func Login(session *mgo.Session, user, password string) error {
 	admin := session.DB("admin")
+	logger.Criticalf("mongo.Login -> user: %q, password: %q, %#v", user, password, session)
 	if err := admin.Login(user, password); err != nil {
 		return MaybeUnauthorizedf(err, "cannot log in to admin database as %q", user)
 	}
 	return nil
 }
 
-// MaybeUnauthorized checks if the cause of the given error is a Mongo
+// MaybeUnauthorizedf checks if the cause of the given error is a Mongo
 // authorization error, and if so, wraps the error with errors.Unauthorizedf.
 func MaybeUnauthorizedf(err error, message string, args ...interface{}) error {
 	if isUnauthorized(errors.Cause(err)) {

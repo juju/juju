@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -35,7 +34,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	jujuversion "github.com/juju/juju/version"
@@ -96,11 +94,11 @@ address.
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 
-By default, the Juju version of the agent binary that is downloaded and 
-installed on all models for the new controller will be the same as that 
+By default, the Juju version of the agent binary that is downloaded and
+installed on all models for the new controller will be the same as that
 of the Juju client used to perform the bootstrap.
-However, a user can specify a different agent version via '--agent-version' 
-option to bootstrap command. Juju will use this version for models' agents 
+However, a user can specify a different agent version via '--agent-version'
+option to bootstrap command. Juju will use this version for models' agents
 as long as the client's version is from the same Juju release series.
 In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
 bootstrap any 2.0.x or 2.1.x agents.
@@ -111,7 +109,7 @@ agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
     * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
     * 2.3.1 controller by running '... bootstrap ...';
     * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
-However, if this client has a copy of codebase, then a local copy of Juju 
+However, if this client has a copy of codebase, then a local copy of Juju
 will be built and bootstrapped - 2.3.1.1.
 
 Examples:
@@ -495,24 +493,24 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	hostedModelUUID, err := utils.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// hostedModelUUID, err := utils.NewUUID()
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
 
-	// Set the current model to the initial hosted model.
-	if err := store.UpdateModel(
-		c.controllerName,
-		c.hostedModelName,
-		jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
-	); err != nil {
-		return errors.Trace(err)
-	}
+	// // Set the current model to the initial hosted model.
+	// if err := store.UpdateModel(
+	// 	c.controllerName,
+	// 	c.hostedModelName,
+	// 	jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
+	// ); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	if !c.noSwitch {
-		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-			return errors.Trace(err)
-		}
+		// if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+		// 	return errors.Trace(err)
+		// }
 		if err := store.SetCurrentController(c.controllerName); err != nil {
 			return errors.Trace(err)
 		}
@@ -532,13 +530,13 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
 				ctx.Infof(`
-bootstrap failed but --keep-broken was specified. 
-This means that cloud resources are left behind, but not registered to 
-your local client, as the controller was not successfully created. 
-However, you should be able to ssh into the machine using the user "ubuntu" and 
+bootstrap failed but --keep-broken was specified.
+This means that cloud resources are left behind, but not registered to
+your local client, as the controller was not successfully created.
+However, you should be able to ssh into the machine using the user "ubuntu" and
 their IP address for diagnosis and investigation.
-When you are ready to clean up the failed controller, use your cloud console or 
-equivalent CLI tools to terminate the instances and remove remaining resources. 
+When you are ready to clean up the failed controller, use your cloud console or
+equivalent CLI tools to terminate the instances and remove remaining resources.
 
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
@@ -594,8 +592,8 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
-	hostedModelConfig := c.hostedModelConfig(
-		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ)
+	// hostedModelConfig := c.hostedModelConfig(
+	// 	hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ)
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
@@ -633,10 +631,10 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			ControllerConfig:          config.controller,
 			ControllerInheritedConfig: config.inheritedControllerAttrs,
 			RegionInheritedConfig:     cloud.RegionConfig,
-			HostedModelConfig:         hostedModelConfig,
-			GUIDataSourceBaseURL:      guiDataSourceBaseURL,
-			AdminSecret:               config.bootstrap.AdminSecret,
-			CAPrivateKey:              config.bootstrap.CAPrivateKey,
+			// HostedModelConfig:         hostedModelConfig,
+			GUIDataSourceBaseURL: guiDataSourceBaseURL,
+			AdminSecret:          config.bootstrap.AdminSecret,
+			CAPrivateKey:         config.bootstrap.CAPrivateKey,
 			DialOpts: environs.BootstrapDialOpts{
 				Timeout:        config.bootstrap.BootstrapTimeout,
 				RetryDelay:     config.bootstrap.BootstrapRetryDelay,
@@ -655,10 +653,12 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	addrs, err := common.BootstrapEndpointAddresses(environ, cloudCallCtx)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// addrs, err := common.BootstrapEndpointAddresses(environ, cloudCallCtx)
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
+	addrs := []network.Address{{Value: "127.0.0.1"}}
+	logger.Criticalf("common.BootstrapEndpointAddresses addrs  -> %#v", addrs)
 	if err := juju.UpdateControllerDetailsFromLogin(
 		c.ClientStore(),
 		c.controllerName,
@@ -672,10 +672,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
-	// To avoid race conditions when running scripted bootstraps, wait
-	// for the controller's machine agent to be ready to accept commands
-	// before exiting this bootstrap command.
-	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName, c.hostedModelName)
+	// // To avoid race conditions when running scripted bootstraps, wait
+	// // for the controller's machine agent to be ready to accept commands
+	// // before exiting this bootstrap command.
+	// return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName, c.hostedModelName)
+	return nil
 }
 
 func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Context) (bool, error) {

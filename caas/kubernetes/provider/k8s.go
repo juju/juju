@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/keyvalues"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -34,12 +35,16 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -68,6 +73,78 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+}
+
+// PrepareForBootstrap is part of the Environ interface.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// AdoptResources is part of the Environ interface.
+func (k *kubernetesClient) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+	// This provider doesn't track instance -> controller.
+	return nil
+}
+
+// AllInstances returns all the instance.Instance in this provider.
+func (k *kubernetesClient) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	return []instance.Instance{}, errors.NotSupportedf("AllInstances")
+}
+
+// Bootstrap is part of the Environ interface.
+func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return nil, nil
+}
+
+// Config -
+func (k *kubernetesClient) Config() *config.Config {
+	return nil
+}
+
+// ControllerInstances -
+func (k *kubernetesClient) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+	return []instance.Id{}, errors.NotSupportedf("ControllerInstances")
+}
+
+// Create is part of the Environ interface.
+func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
+	return nil
+}
+
+// DestroyController implements the Environ interface.
+func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// TODO(caas): destroy controller and all models
+	return nil
+}
+
+// InstanceTypes implements InstanceTypesFetcher
+func (k *kubernetesClient) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	return instances.InstanceTypesWithCostMetadata{}, errors.NotSupportedf("InstanceTypes")
+}
+
+// Instances -
+func (k *kubernetesClient) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+	return []instance.Instance{}, errors.NotSupportedf("Instances")
+}
+
+// MaintainInstance is specified in the InstanceBroker interface.
+func (k *kubernetesClient) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+	return errors.NotSupportedf("MaintainInstance")
+}
+
+// StartInstance -
+func (k *kubernetesClient) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return nil, errors.NotSupportedf("StartInstance")
+}
+
+// StopInstances implements environs.InstanceBroker.
+func (k *kubernetesClient) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
+	return errors.NotSupportedf("StopInstances")
+}
+
+// SetConfig is specified in the Environ interface.
+func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
+	return errors.NotSupportedf("SetConfig")
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -122,7 +199,7 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 }
 
 // Provider is part of the Broker interface.
-func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
+func (*kubernetesClient) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 

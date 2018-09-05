@@ -28,14 +28,9 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -43,7 +38,6 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -148,72 +142,78 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	newConfigAttrs := make(map[string]interface{})
 
-	// Check to see if a newer agent version has been requested
-	// by the bootstrap client.
-	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
-	if ok && desiredVersion != jujuversion.Current {
-		// If we have been asked for a newer version, ensure the newer
-		// tools can actually be found, or else bootstrap won't complete.
-		streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
-		logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
-		hostSeries, err := series.HostSeries()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		filter := tools.Filter{
-			Number: desiredVersion,
-			Arch:   arch.HostArch(),
-			Series: hostSeries,
-		}
-		_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
-		if toolsErr == nil {
-			logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
-		}
-		if errors.IsNotFound(toolsErr) {
-			// Newer tools not available, so revert to using the tools
-			// matching the current agent version.
-			logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
-			newConfigAttrs["agent-version"] = jujuversion.Current.String()
-		} else if toolsErr != nil {
-			logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
-			return toolsErr
-		}
-	}
+	// // Check to see if a newer agent version has been requested
+	// // by the bootstrap client.
+	// desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
+	// if ok && desiredVersion != jujuversion.Current {
+	// 	// If we have been asked for a newer version, ensure the newer
+	// 	// tools can actually be found, or else bootstrap won't complete.
+	// 	streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
+	// 	logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
+	// 	hostSeries, err := series.HostSeries()
+	// 	if err != nil {
+	// 		return errors.Trace(err)
+	// 	}
+	// 	filter := tools.Filter{
+	// 		Number: desiredVersion,
+	// 		Arch:   arch.HostArch(),
+	// 		Series: hostSeries,
+	// 	}
+	// 	_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
+	// 	if toolsErr == nil {
+	// 		logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
+	// 	}
+	// 	if errors.IsNotFound(toolsErr) {
+	// 		// Newer tools not available, so revert to using the tools
+	// 		// matching the current agent version.
+	// 		logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+	// 		newConfigAttrs["agent-version"] = jujuversion.Current.String()
+	// 	} else if toolsErr != nil {
+	// 		logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
+	// 		return toolsErr
+	// 	}
+	// }
+	newConfigAttrs["agent-version"] = jujuversion.Current.String()
 
-	callCtx := context.NewCloudCallContext()
-	// At this stage, cloud credential has not yet been stored server-side
-	// as there is no server-side. If these cloud calls will fail with
-	// invalid credential, just log it.
-	callCtx.InvalidateCredentialFunc = func(reason string) error {
-		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
-		return nil
-	}
+	// callCtx := context.NewCloudCallContext()
+	// // At this stage, cloud credential has not yet been stored server-side
+	// // as there is no server-side. If these cloud calls will fail with
+	// // invalid credential, just log it.
+	// callCtx.InvalidateCredentialFunc = func(reason string) error {
+	// 	logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
+	// 	return nil
+	// }
 
-	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
-	if err != nil {
-		return errors.Annotate(err, "getting bootstrap instance")
-	}
-	addrs, err := instances[0].Addresses(callCtx)
-	if err != nil {
-		return errors.Annotate(err, "bootstrap instance addresses")
-	}
+	// instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
+	// logger.Criticalf("instances ---> %#v, args -> %#v", instances, args)
+	// if err != nil {
+	// 	return errors.Annotate(err, "getting bootstrap instance")
+	// }
+	// addrs, err := instances[0].Addresses(callCtx)
+	// if err != nil {
+	// 	return errors.Annotate(err, "bootstrap instance addresses")
+	// }
+	// logger.Criticalf("addrs 1 -> %#v", addrs)
 
-	// When machine addresses are reported from state, they have
-	// duplicates removed.  We should do the same here so that
-	// there is not unnecessary churn in the mongo replicaset.
-	// TODO (cherylj) Add explicit unit tests for this - tracked
-	// by bug #1544158.
+	addrs := []network.Address{network.NewAddress("127.0.0.1")}
+
+	// // When machine addresses are reported from state, they have
+	// // duplicates removed.  We should do the same here so that
+	// // there is not unnecessary churn in the mongo replicaset.
+	// // TODO (cherylj) Add explicit unit tests for this - tracked
+	// // by bug #1544158.
 	addrs = network.MergedAddresses([]network.Address{}, addrs)
+	logger.Criticalf("addrs 2 -> %#v", addrs)
 
-	// Generate a private SSH key for the controllers, and add
-	// the public key to the environment config. We'll add the
-	// private key to StateServingInfo below.
-	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
-	if err != nil {
-		return errors.Annotate(err, "failed to generate system key")
-	}
-	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
+	// // Generate a private SSH key for the controllers, and add
+	// // the public key to the environment config. We'll add the
+	// // private key to StateServingInfo below.
+	// privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+	// if err != nil {
+	// 	return errors.Annotate(err, "failed to generate system key")
+	// }
+	// authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
+	// newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
@@ -225,7 +225,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
-	info.SystemIdentity = privateKey
+	// info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
@@ -320,10 +320,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	// Populate the tools catalogue.
-	if err := c.populateTools(st, env); err != nil {
-		return err
-	}
+	// // Populate the tools catalogue.
+	// if err := c.populateTools(st, env); err != nil {
+	// 	return err
+	// }
 
 	// Populate the GUI archive catalogue.
 	if err := c.populateGUIArchive(st, env); err != nil {
@@ -373,21 +373,22 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
 	}
 
-	logger.Debugf("calling ensureMongoServer")
-	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
-	if err != nil {
-		return err
-	}
-	_, err = cmdutil.EnsureMongoServer(ensureServerParams)
-	if err != nil {
-		return err
-	}
+	// logger.Debugf("calling ensureMongoServer")
+	// ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+	// if err != nil {
+	// 	return err
+	// }
+	// _, err = cmdutil.EnsureMongoServer(ensureServerParams)
+	// if err != nil {
+	// 	return err
+	// }
 
-	peerAddr := mongo.SelectPeerAddress(addrs)
-	if peerAddr == "" {
-		return fmt.Errorf("no appropriate peer address found in %q", addrs)
-	}
-	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
+	// peerAddr := mongo.SelectPeerAddress(addrs)
+	// logger.Criticalf("peerAddr -> %#v", peerAddr)
+	// if peerAddr == "" {
+	// 	return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	// }
+	peerHostPort := net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort))
 
 	if err := initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,

@@ -58,6 +58,7 @@ func (fc *FanConfigurer) processNewConfig() error {
 		logger.Debugf("Adding config for %d: %s %s", i, fan.Underlay, fan.Overlay)
 		line := fmt.Sprintf("fanatic enable-fan -u %s -o %s", fan.Underlay, fan.Overlay)
 		result, err := scriptrunner.RunCommand(line, os.Environ(), fc.clock, 5000*time.Millisecond)
+		logger.Criticalf("processNewConfig: line -> %q, result -> %#v", line, result)
 		logger.Debugf("Launched %s - result %v %v %d", line, string(result.Stdout), string(result.Stderr), result.Code)
 		if err != nil {
 			return err

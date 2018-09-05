@@ -50,7 +50,7 @@ type EnvironProvider interface {
 	PrepareConfig(PrepareConfigParams) (*config.Config, error)
 }
 
-// A EnvironProvider represents a computing and storage provider
+// A CloudEnvironProvider represents a computing and storage provider
 // for a traditional cloud like AWS or Openstack.
 type CloudEnvironProvider interface {
 	EnvironProvider
@@ -283,11 +283,25 @@ type CloudDestroyer interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
+	GenericEnviron
+}
+
+// GenericEnviron -
+type GenericEnviron interface {
 	// Environ implements storage.ProviderRegistry for acquiring
 	// environ-scoped storage providers supported by the Environ.
 	// StorageProviders returned from Environ.StorageProvider will
 	// be scoped specifically to that Environ.
 	storage.ProviderRegistry
+
+	// Provider returns the EnvironProvider that created this Environ.
+	Provider() EnvironProvider
+
+	// SetConfig updates the Environ's configuration.
+	//
+	// Calls to SetConfig do not affect the configuration of
+	// values previously obtained from Storage.
+	SetConfig(cfg *config.Config) error
 
 	// CloudDestroyer provides the API to cleanup cloud resources.
 	CloudDestroyer
@@ -347,12 +361,6 @@ type Environ interface {
 	// ConstraintsChecker provides a means to check that constraints are valid.
 	ConstraintsChecker
 
-	// SetConfig updates the Environ's configuration.
-	//
-	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage.
-	SetConfig(cfg *config.Config) error
-
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
 	// was no other error, it will return ErrNoInstances.  If
@@ -376,9 +384,6 @@ type Environ interface {
 	// This ensures that "kill-controller" can clean up hosted models
 	// when the Juju controller process is unavailable.
 	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
-
-	// Provider returns the EnvironProvider that created this Environ.
-	Provider() EnvironProvider
 
 	InstancePrechecker
 

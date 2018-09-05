@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -48,6 +50,7 @@ var ErrDenied = errors.New("entity operation impossible")
 
 // NewConnFacade returns a ConnFacade backed by the supplied APICaller.
 func NewConnFacade(caller base.APICaller) (ConnFacade, error) {
+	fmt.Printf("NewConnFacade.caller.BestFacadeVersion('Agent') --> %#v\n", caller.BestFacadeVersion("Agent"))
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &connFacade{
 		caller: facadeCaller,

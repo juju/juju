@@ -59,6 +59,7 @@ func NewAgentUpgrader(
 	upgradeStepsWaiter gate.Waiter,
 	initialUpgradeCheckComplete gate.Unlocker,
 ) (*Upgrader, error) {
+
 	u := &Upgrader{
 		st:                          st,
 		dataDir:                     agentConfig.DataDir(),
@@ -67,13 +68,14 @@ func NewAgentUpgrader(
 		upgradeStepsWaiter:          upgradeStepsWaiter,
 		initialUpgradeCheckComplete: initialUpgradeCheckComplete,
 	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &u.catacomb,
-		Work: u.loop,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	// err := catacomb.Invoke(catacomb.Plan{
+	// 	Site: &u.catacomb,
+	// 	Work: u.loop,
+	// })
+	// if err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
+	initialUpgradeCheckComplete.Unlock()
 	return u, nil
 }
 
