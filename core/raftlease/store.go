@@ -48,7 +48,6 @@ type ReadonlyFSM interface {
 type StoreConfig struct {
 	FSM           ReadonlyFSM
 	Hub           *pubsub.StructuredHub
-	Target        NotifyTarget
 	Trapdoor      TrapdoorFunc
 	RequestTopic  string
 	ResponseTopic func(requestID uint64) string
@@ -89,9 +88,6 @@ func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
 		Holder:    req.Holder,
 		Duration:  req.Duration,
 	})
-	if err == nil {
-		s.config.Target.Claimed(key, req.Holder)
-	}
 	return errors.Trace(err)
 }
 
@@ -117,9 +113,6 @@ func (s *Store) ExpireLease(key lease.Key) error {
 		ModelUUID: key.ModelUUID,
 		Lease:     key.Lease,
 	})
-	if err == nil {
-		s.config.Target.Expired(key)
-	}
 	return errors.Trace(err)
 }
 

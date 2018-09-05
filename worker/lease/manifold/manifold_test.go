@@ -5,8 +5,6 @@ package manifold_test
 
 import (
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -20,17 +18,13 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
-	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2/txn"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/globalclock"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 )
@@ -41,20 +35,17 @@ type manifoldSuite struct {
 	context  dependency.Context
 	manifold dependency.Manifold
 
-	agent        *mockAgent
-	clock        *testclock.Clock
-	stateTracker *stubStateTracker
-	hub          *pubsub.StructuredHub
+	agent *mockAgent
+	clock *testclock.Clock
+	hub   *pubsub.StructuredHub
 
 	fsm    *raftlease.FSM
 	logger loggo.Logger
 
 	worker worker.Worker
 	store  *raftlease.Store
-	target raftlease.NotifyTarget
 
-	logDir string
-	stub   testing.Stub
+	stub testing.Stub
 }
 
 var _ = gc.Suite(&manifoldSuite{})
@@ -64,35 +55,27 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub.ResetCalls()
 
-	s.logDir = c.MkDir()
 	s.agent = &mockAgent{conf: mockAgentConfig{
-		logDir: s.logDir,
-		uuid:   "controller-uuid",
+		uuid: "controller-uuid",
 	}}
 	s.clock = testclock.NewClock(time.Now())
-	s.stateTracker = &stubStateTracker{
-		done: make(chan struct{}),
-	}
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.fsm = raftlease.NewFSM()
 	s.logger = loggo.GetLogger("lease.manifold_test")
 
 	s.worker = &mockWorker{}
 	s.store = &raftlease.Store{}
-	s.target = &struct{ raftlease.NotifyTarget }{}
 
 	s.context = s.newContext(nil)
 	s.manifold = leasemanager.Manifold(leasemanager.ManifoldConfig{
 		AgentName:      "agent",
 		ClockName:      "clock",
-		StateName:      "state",
 		CentralHubName: "hub",
 		FSM:            s.fsm,
 		RequestTopic:   "lease.manifold_test",
 		Logger:         &s.logger,
 		NewWorker:      s.newWorker,
 		NewStore:       s.newStore,
-		NewTarget:      s.newTarget,
 	})
 }
 
@@ -100,7 +83,6 @@ func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	resources := map[string]interface{}{
 		"agent": s.agent,
 		"clock": s.clock,
-		"state": s.stateTracker,
 		"hub":   s.hub,
 	}
 	for k, v := range overlay {
@@ -122,13 +104,8 @@ func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store 
 	return s.store
 }
 
-func (s *manifoldSuite) newTarget(st *state.State, logFile io.Writer, logger lease.Logger) raftlease.NotifyTarget {
-	s.stub.MethodCall(s, "NewTarget", st, logFile, logger)
-	return s.target
-}
-
 var expectedInputs = []string{
-	"agent", "clock", "state", "hub",
+	"agent", "clock", "hub",
 }
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
@@ -148,25 +125,11 @@ func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanupW, ok := w.(*common.CleanupWorker)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(cleanupW.Worker, gc.Equals, s.worker)
+	c.Assert(w, gc.Equals, s.worker)
 
-	s.stub.CheckCallNames(c, "NewTarget", "NewStore", "NewWorker")
+	s.stub.CheckCallNames(c, "NewStore", "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 3)
-	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
-	c.Assert(args[1], gc.FitsTypeOf, &lumberjack.Logger{})
-
-	expectedPath := filepath.Join(s.logDir, "lease.log")
-	c.Assert(args[1].(*lumberjack.Logger).Filename, gc.Equals, expectedPath)
-	stat, err := os.Stat(expectedPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Mode(), gc.Equals, os.FileMode(0600))
-	c.Assert(args[2], gc.Equals, &s.logger)
-
-	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
 	storeConfig := args[0].(raftlease.StoreConfig)
@@ -177,13 +140,12 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
 		FSM:            s.fsm,
 		Hub:            s.hub,
-		Target:         s.target,
 		RequestTopic:   "lease.manifold_test",
 		Clock:          s.clock,
 		ForwardTimeout: 5 * time.Second,
 	})
 
-	args = s.stub.Calls()[2].Args
+	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, lease.ManagerConfig{})
 	config := args[0].(lease.ManagerConfig)
@@ -202,25 +164,6 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		MaxSleep:   time.Minute,
 		EntityUUID: "controller-uuid",
 	})
-}
-
-func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stateTracker.CheckCallNames(c, "Use")
-	select {
-	case <-s.stateTracker.done:
-		c.Fatal("unexpected state release")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	// Stopping the worker should cause the state to
-	// eventually be released.
-	workertest.CleanKill(c, w)
-
-	s.stateTracker.waitDone(c)
-	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *manifoldSuite) TestOutput(c *gc.C) {
@@ -267,42 +210,11 @@ func (ma *mockAgent) CurrentConfig() agent.Config {
 
 type mockAgentConfig struct {
 	agent.Config
-	logDir string
-	uuid   string
-}
-
-func (c *mockAgentConfig) LogDir() string {
-	return c.logDir
+	uuid string
 }
 
 func (c *mockAgentConfig) Controller() names.ControllerTag {
 	return names.NewControllerTag(c.uuid)
-}
-
-type stubStateTracker struct {
-	testing.Stub
-	pool state.StatePool
-	done chan struct{}
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
-	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	err := s.NextErr()
-	close(s.done)
-	return err
-}
-
-func (s *stubStateTracker) waitDone(c *gc.C) {
-	select {
-	case <-s.done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for state to be released")
-	}
 }
 
 type mockWorker struct{}

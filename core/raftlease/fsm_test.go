@@ -449,6 +449,18 @@ func assertNoNotifications(c *gc.C, resp raftlease.FSMResponse) {
 	c.Assert(target.Calls(), gc.HasLen, 0)
 }
 
+type fakeTarget struct {
+	testing.Stub
+}
+
+func (t *fakeTarget) Claimed(key lease.Key, holder string) {
+	t.AddCall("Claimed", key, holder)
+}
+
+func (t *fakeTarget) Expired(key lease.Key) {
+	t.AddCall("Expired", key)
+}
+
 type fakeSnapshotSink struct {
 	io.Writer
 	cancelled bool
