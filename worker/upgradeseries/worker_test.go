@@ -103,11 +103,12 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	// All of the anonymous funcs passed could be called directly on the suite
 	// here, with the same effect and greater clarity.
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(4),
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(5),
 		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
 		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
 		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
-		s.expectMachineCompleteStartedUnitsCompleteProgressComplete)
+		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
+		s.expectMachineCompletedFinishUpgradeSeries)
 
 	s.cleanKill(c, w)
 }
@@ -229,14 +230,17 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete(
 func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
+		s.expectMachineCompletedFinishUpgradeSeries)
+
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 	s.patchHost("xenial")
 
-	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
-	exp.FinishUpgradeSeries("xenial").Return(nil)
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
-	s.cleanKill(c, w)
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
+	s.facade.EXPECT().FinishUpgradeSeries("xenial").Return(nil)
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
