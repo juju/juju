@@ -179,7 +179,7 @@ func (s *workerSuite) TestBadResponseType(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.worker)
-	c.Assert(err, gc.ErrorMatches, `applying command: expected an FSMResponse, got "23 skidoo!"`)
+	c.Assert(err, gc.ErrorMatches, `applying command: expected an FSMResponse, got string: "23 skidoo!"`)
 
 	select {
 	case <-s.resps:

@@ -165,6 +165,8 @@ type entry struct {
 	duration time.Duration
 }
 
+var _ FSMResponse = (*response)(nil)
+
 // response stores what happened as a result of applying a command.
 type response struct {
 	err     error

@@ -36,6 +36,7 @@ type manifoldSuite struct {
 
 	context  dependency.Context
 	manifold dependency.Manifold
+	config   raftforwarder.ManifoldConfig
 
 	agent        *mockAgent
 	raft         *raft.Raft
@@ -73,7 +74,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.target = &struct{ raftlease.NotifyTarget }{}
 
 	s.context = s.newContext(nil)
-	s.manifold = raftforwarder.Manifold(raftforwarder.ManifoldConfig{
+	s.config = raftforwarder.ManifoldConfig{
 		AgentName:      "agent",
 		RaftName:       "raft",
 		StateName:      "state",
@@ -82,7 +83,8 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		Logger:         &s.logger,
 		NewWorker:      s.newWorker,
 		NewTarget:      s.newTarget,
-	})
+	}
+	s.manifold = raftforwarder.Manifold(s.config)
 }
 
 func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
@@ -109,6 +111,43 @@ func (s *manifoldSuite) newWorker(config raftforwarder.Config) (worker.Worker, e
 func (s *manifoldSuite) newTarget(st *state.State, logFile io.Writer, logger raftforwarder.Logger) raftlease.NotifyTarget {
 	s.stub.MethodCall(s, "NewTarget", st, logFile, logger)
 	return s.target
+}
+
+func (s *manifoldSuite) TestValidate(c *gc.C) {
+	c.Assert(s.config.Validate(), jc.ErrorIsNil)
+	type test struct {
+		f      func(cfg *raftforwarder.ManifoldConfig)
+		expect string
+	}
+	tests := []test{{
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.AgentName = "" },
+		"empty AgentName not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.StateName = "" },
+		"empty StateName not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.CentralHubName = "" },
+		"empty CentralHubName not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.RequestTopic = "" },
+		"empty RequestTopic not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.Logger = nil },
+		"nil Logger not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.NewWorker = nil },
+		"nil NewWorker not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.NewTarget = nil },
+		"nil NewTarget not valid",
+	}}
+	for i, test := range tests {
+		c.Logf("test #%d (%s)", i, test.expect)
+		// Local copy before mutating.
+		cfg := s.config
+		test.f(&cfg)
+		c.Assert(cfg.Validate(), gc.ErrorMatches, test.expect)
+	}
 }
 
 var expectedInputs = []string{

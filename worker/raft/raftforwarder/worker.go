@@ -28,6 +28,7 @@ type RaftApplier interface {
 // Logger specifies the interface we use from loggo.Logger.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 
@@ -134,7 +135,7 @@ func (w *forwarder) processRequest(command []byte) (raftlease.ForwardResponse, e
 	respValue := future.Response()
 	response, ok := respValue.(raftlease.FSMResponse)
 	if !ok {
-		return empty, errors.Errorf("expected an FSMResponse, got %#v", respValue)
+		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
 	}
 	response.Notify(w.config.Target)
 	return responseFromError(response.Error()), nil

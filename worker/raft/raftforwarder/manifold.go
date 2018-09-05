@@ -106,7 +106,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := primeLogFile(logPath); err != nil {
 		// This isn't a fatal error, so log and continue if priming
 		// fails.
-		config.Logger.Errorf(
+		config.Logger.Warningf(
 			"unable to prime log file %q (proceeding anyway): %s",
 			logPath,
 			err.Error(),
