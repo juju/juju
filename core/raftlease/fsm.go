@@ -40,6 +40,18 @@ const (
 	OperationSetTime = "setTime"
 )
 
+// FSMResponse defines what will be available on the return value from
+// FSM apply calls.
+type FSMResponse interface {
+	// Error is a lease error (rather than anything to do with the
+	// raft machinery).
+	Error() error
+
+	// Notify tells the target what changes occurred because of the
+	// applied command.
+	Notify(NotifyTarget)
+}
+
 // NewFSM returns a new FSM to store lease information.
 func NewFSM() *FSM {
 	return &FSM{
@@ -54,66 +66,66 @@ type FSM struct {
 	entries    map[lease.Key]*entry
 }
 
-func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) error {
+func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *response {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if _, found := f.entries[key]; found {
-		return lease.ErrInvalid
+		return invalidResponse()
 	}
 	f.entries[key] = &entry{
 		holder:   holder,
 		start:    f.globalTime,
 		duration: duration,
 	}
-	return nil
+	return &response{claimed: key, claimer: holder}
 }
 
-func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) error {
+func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *response {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	entry, found := f.entries[key]
 	if !found {
-		return lease.ErrInvalid
+		return invalidResponse()
 	}
 	if entry.holder != holder {
-		return lease.ErrInvalid
+		return invalidResponse()
 	}
 	expiry := f.globalTime.Add(duration)
 	if !expiry.After(entry.start.Add(entry.duration)) {
 		// No extension needed - the lease already expires after the
 		// new time.
-		return nil
+		return &response{}
 	}
 	// entry is a pointer back into the f.entries map, so this update
 	// isn't lost.
 	entry.start = f.globalTime
 	entry.duration = duration
-	return nil
+	return &response{}
 }
 
-func (f *FSM) expire(key lease.Key) error {
+func (f *FSM) expire(key lease.Key) *response {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	entry, found := f.entries[key]
 	if !found {
-		return lease.ErrInvalid
+		return invalidResponse()
 	}
 	expiry := entry.start.Add(entry.duration)
 	if !f.globalTime.After(expiry) {
-		return lease.ErrInvalid
+		return invalidResponse()
 	}
 	delete(f.entries, key)
-	return nil
+	return &response{expired: []lease.Key{key}}
 }
 
-func (f *FSM) setTime(oldTime, newTime time.Time) error {
+func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.globalTime != oldTime {
-		return globalclock.ErrConcurrentUpdate
+		return &response{err: globalclock.ErrConcurrentUpdate}
 	}
 	f.globalTime = newTime
-	return nil
+	return &response{}
 }
 
 // GlobalTime returns the FSM's internal time.
@@ -153,15 +165,42 @@ type entry struct {
 	duration time.Duration
 }
 
+// response stores what happened as a result of applying a command.
+type response struct {
+	err     error
+	claimer string
+	claimed lease.Key
+	expired []lease.Key
+}
+
+// Error is part of FSMResponse.
+func (r *response) Error() error {
+	return r.err
+}
+
+// Notify is part of FSMResponse.
+func (r *response) Notify(target NotifyTarget) {
+	if r.claimer != "" {
+		target.Claimed(r.claimed, r.claimer)
+	}
+	for _, expiredKey := range r.expired {
+		target.Expired(expiredKey)
+	}
+}
+
+func invalidResponse() *response {
+	return &response{err: lease.ErrInvalid}
+}
+
 // Apply is part of raft.FSM.
 func (f *FSM) Apply(log *raft.Log) interface{} {
 	var command Command
 	err := yaml.Unmarshal(log.Data, &command)
 	if err != nil {
-		return errors.Trace(err)
+		return &response{err: errors.Trace(err)}
 	}
 	if err := command.Validate(); err != nil {
-		return errors.Trace(err)
+		return &response{err: errors.Trace(err)}
 	}
 	switch command.Operation {
 	case OperationClaim:
@@ -173,7 +212,7 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 	case OperationSetTime:
 		return f.setTime(command.OldTime, command.NewTime)
 	default:
-		return errors.NotValidf("operation %q", command.Operation)
+		return &response{err: errors.NotValidf("operation %q", command.Operation)}
 	}
 }
 

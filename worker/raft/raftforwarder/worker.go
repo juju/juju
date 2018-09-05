@@ -127,11 +127,11 @@ func (w *forwarder) processRequest(command []byte) (raftlease.ForwardResponse, e
 		return empty, errors.Trace(err)
 	}
 	respValue := future.Response()
-	responseErr, ok := respValue.(error)
-	if respValue != nil && !ok {
-		return empty, errors.Errorf("FSM response must be an error or nil, got %#v", respValue)
+	response, ok := respValue.(raftlease.FSMResponse)
+	if !ok {
+		return empty, errors.Errorf("expected an FSMResponse, got %#v", respValue)
 	}
-	return responseFromError(responseErr), nil
+	return responseFromError(response.Error()), nil
 }
 
 func responseFromError(err error) raftlease.ForwardResponse {
