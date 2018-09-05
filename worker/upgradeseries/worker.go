@@ -173,19 +173,19 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesPrepareStarted)
 
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !allConfirmed {
 		w.logger.Debugf(
-			"still waiting for units to complete series upgrade preparation; known unit agent services:\n\t%s",
-			unitNames(units),
+			"still waiting for units to complete series upgrade preparation; known unit agent services: %s",
+			unitNames(unitServices),
 		)
 		return nil
 	}
 
-	return errors.Trace(w.transitionPrepareMachine(units))
+	return errors.Trace(w.transitionPrepareMachine(unitServices))
 }
 
 // transitionPrepareMachine stops all unit agents on this machine and updates
@@ -225,19 +225,19 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 
 	// This is a sanity check.
 	// The units should all still be in the "PrepareComplete" state.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !allConfirmed {
-		w.logger.Debugf(
+		w.logger.Warningf(
 			"units are not all in the expected state for series upgrade preparation (complete); "+
-				"known unit agent services:\n\t%s",
-			unitNames(units),
+				"known unit agent services: %s",
+			unitNames(unitServices),
 		)
 	}
 
-	return errors.Trace(w.transitionPrepareComplete(units))
+	return errors.Trace(w.transitionPrepareComplete(unitServices))
 }
 
 // transitionPrepareComplete rewrites service unit files for unit agents running
