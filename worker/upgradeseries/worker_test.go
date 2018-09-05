@@ -111,6 +111,9 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 		s.expectMachineCompletedFinishUpgradeSeries)
 
 	s.cleanKill(c, w)
+	c.Check(upgradeseries.MachineStatus(w), gc.Equals, model.UpgradeSeriesNotStarted)
+	c.Check(upgradeseries.PreparedUnits(w), gc.IsNil)
+	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachine(c *gc.C) {
@@ -120,6 +123,12 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine)
 
 	s.cleanKill(c, w)
+	expected := []names.UnitTag{
+		names.NewUnitTag("wordpress/0"),
+		names.NewUnitTag("mysql/0"),
+	}
+	c.Check(upgradeseries.PreparedUnits(w), jc.SameContents, expected)
+	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine() {
@@ -143,6 +152,12 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete)
 
 	s.cleanKill(c, w)
+	expected := []names.UnitTag{
+		names.NewUnitTag("wordpress/0"),
+		names.NewUnitTag("mysql/0"),
+	}
+	c.Check(upgradeseries.PreparedUnits(w), jc.SameContents, expected)
+	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
 }
 
 func (s *workerSuite) expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete() {
@@ -166,6 +181,12 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted)
 
 	s.cleanKill(c, w)
+	expected := []names.UnitTag{
+		names.NewUnitTag("wordpress/0"),
+		names.NewUnitTag("mysql/0"),
+	}
+	c.Check(upgradeseries.PreparedUnits(w), jc.SameContents, expected)
+	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
@@ -196,7 +217,10 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+
 	s.cleanKill(c, w)
+	c.Check(upgradeseries.PreparedUnits(w), gc.IsNil)
+	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
@@ -206,6 +230,12 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 		s.expectMachineCompleteStartedUnitsCompleteProgressComplete)
 
 	s.cleanKill(c, w)
+	c.Check(upgradeseries.PreparedUnits(w), gc.HasLen, 0)
+	expected := []names.UnitTag{
+		names.NewUnitTag("wordpress/0"),
+		names.NewUnitTag("mysql/0"),
+	}
+	c.Check(upgradeseries.CompletedUnits(w), jc.SameContents, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete() {
