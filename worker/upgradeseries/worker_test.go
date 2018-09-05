@@ -98,6 +98,11 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// TODO (manadart 2018-09-05): The idea of passing behaviours into a
+	// scenario (as below) evolved so as to make itself redundant.
+	// All of the anonymous funcs passed could be called directly on the suite
+	// here, with the same effect and greater clarity.
+
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(4),
 		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
 		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
