@@ -173,6 +173,26 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 	s.cleanKill(c, w)
 }
 
+func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+
+	// Machine with no units - API calls return none, no services discovered.
+	exp.UnitsPrepared().Return(nil, nil)
+	exp.UnitsCompleted().Return(nil, nil)
+	s.service.EXPECT().ListServices().Return(nil, nil).Times(2)
+
+	// Progress directly to completed.
+	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
 func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -193,6 +213,21 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 	// are detected just the one time.
 	s.expectServiceDiscovery(false)
 	s.expectServiceDiscovery(false)
+
+	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
+	s.cleanKill(c, w)
+}
+
+func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	s.patchHost("xenial")
+
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
+	exp.FinishUpgradeSeries("xenial").Return(nil)
 
 	w := s.newWorker(c, ctrl, ignoreLogging(c), notify(1))
 	s.cleanKill(c, w)
@@ -262,6 +297,10 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) patchHost(series string) {
+	upgradeseries.PatchHostSeries(s, series)
+}
+
 // notify returns a suite behaviour that will cause the upgrade-series watcher
 // to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
@@ -290,10 +329,10 @@ func notify(times int) suiteBehaviour {
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
 // Logs are still emitted via the test logger.
 func ignoreLogging(c *gc.C) suiteBehaviour {
-	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args...) }
-	infoIt := func(message string, args ...interface{}) { logIt(c, loggo.INFO, message, args...) }
-	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args...) }
-	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args...) }
+	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
+	infoIt := func(message string, args ...interface{}) { logIt(c, loggo.INFO, message, args) }
+	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args) }
+	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }
 
 	return func(s *workerSuite) {
 		e := s.logger.EXPECT()
@@ -304,7 +343,14 @@ func ignoreLogging(c *gc.C) suiteBehaviour {
 	}
 }
 
-func logIt(c *gc.C, level loggo.Level, message string, args ...interface{}) {
-	nArgs := append([]interface{}{level}, args)
+func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
+	var nArgs []interface{}
+	var ok bool
+	if nArgs, ok = args.([]interface{}); ok {
+		nArgs = append([]interface{}{level}, nArgs...)
+	} else {
+		nArgs = append([]interface{}{level}, args)
+	}
+
 	c.Logf("%s "+message, nArgs...)
 }

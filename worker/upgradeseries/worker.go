@@ -13,12 +13,15 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
+	"github.com/juju/os/series"
 )
 
 // TODO (manadart 2018-07-30) Relocate this somewhere more central?
 //go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
 
 //go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
+
+var hostSeries = series.HostSeries
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
@@ -170,19 +173,19 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesPrepareStarted)
 
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !allConfirmed {
 		w.logger.Debugf(
-			"still waiting for units to complete series upgrade preparation; known unit agent services:\n\t%s",
-			unitNames(units),
+			"still waiting for units to complete series upgrade preparation; known unit agent services: %s",
+			unitNames(unitServices),
 		)
 		return nil
 	}
 
-	return errors.Trace(w.transitionPrepareMachine(units))
+	return errors.Trace(w.transitionPrepareMachine(unitServices))
 }
 
 // transitionPrepareMachine stops all unit agents on this machine and updates
@@ -222,19 +225,19 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 
 	// This is a sanity check.
 	// The units should all still be in the "PrepareComplete" state.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !allConfirmed {
-		w.logger.Debugf(
+		w.logger.Warningf(
 			"units are not all in the expected state for series upgrade preparation (complete); "+
-				"known unit agent services:\n\t%s",
-			unitNames(units),
+				"known unit agent services: %s",
+			unitNames(unitServices),
 		)
 	}
 
-	return errors.Trace(w.transitionPrepareComplete(units))
+	return errors.Trace(w.transitionPrepareComplete(unitServices))
 }
 
 // transitionPrepareComplete rewrites service unit files for unit agents running
@@ -265,20 +268,26 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	// manual tasks have been run and an operator has executed the
 	// upgrade-series completion command; start all the unit agents,
 	// and progress the workflow.
-	units, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if allConfirmed {
-		return errors.Trace(w.transitionUnitsStarted(units))
+	servicesPresent := len(unitServices) > 0
+
+	// allConfirmed returns true when there are no units, so we only need this
+	// transition when there are services to start.
+	// If there are none, just proceed to the completed stage.
+	if allConfirmed && servicesPresent {
+		return errors.Trace(w.transitionUnitsStarted(unitServices))
 	}
 
 	// If the units have all completed their workflow, then we are done.
 	// Make the final update to the lock to say the machine is completed.
-	units, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
+	unitServices, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
 		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
@@ -317,9 +326,14 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 // post upgrade routine.
 func (w *upgradeSeriesWorker) handleCompleted() error {
 	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
-	err := w.FinishUpgradeSeries()
+
+	s, err := hostSeries()
 	if err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
+	}
+	err = w.FinishUpgradeSeries(s)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -347,6 +361,9 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(
 	}
 
 	unitServices := service.FindUnitServiceNames(services)
+	if len(unitServices) == 0 {
+		w.logger.Debugf("no unit agent services found")
+	}
 	if len(units) != len(unitServices) {
 		return unitServices, false, nil
 	}
