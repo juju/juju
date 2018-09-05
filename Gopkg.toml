@@ -488,10 +488,6 @@
   name = "gopkg.in/httprequest.v1"
   revision = "1a21782420ea13c3c6fb1d03578f446b3248edb1"
 
-[[override]]
-  name = "gopkg.in/juju/charmrepo.v2"
-  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
-
 [[constraint]]
   name = "gopkg.in/juju/worker.v1"
   revision = "e63ca51523be524b34f05ffa0c62eed10e231f8f"

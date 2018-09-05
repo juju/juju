@@ -1277,17 +1277,6 @@
   revision = "c254caf8b8704ff71a10c552fa9e6f5df981ad06"
 
 [[projects]]
-  digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
-  name = "gopkg.in/juju/charmrepo.v2"
-  packages = [
-    ".",
-    "csclient",
-    "csclient/params",
-  ]
-  pruneopts = ""
-  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
-
-[[projects]]
   digest = "1:58b987791edd26aa46f1964df3fad56359386e5b872bd145c4cd5eadfb7be646"
   name = "gopkg.in/juju/charmrepo.v3"
   packages = [
