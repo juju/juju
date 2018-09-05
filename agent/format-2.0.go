@@ -152,10 +152,12 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	if format.MongoMemoryProfile != "" {
 		config.mongoMemoryProfile = format.MongoMemoryProfile
 	}
+	logger.Criticalf("formatter_2_0.unmarshal config.apiDetails -> %#v", config.apiDetails)
 	return config, nil
 }
 
 func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
+	logger.Criticalf("formatter_2_0.marshal config.apiDetails -> %#v", config.apiDetails)
 	controllerTag := config.controller.String()
 	modelTag := config.model.String()
 	format := &format_2_0Serialization{

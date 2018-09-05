@@ -396,6 +396,7 @@ func (c Config) Features() set.Strings {
 			features.Add(item.(string))
 		}
 	}
+	fmt.Printf("features ->>> %#v\n", features)
 	return features
 }
 

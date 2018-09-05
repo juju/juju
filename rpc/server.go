@@ -388,10 +388,12 @@ func (conn *Conn) loop() error {
 			return errors.Annotate(err, "codec.ReadHeader error")
 		case hdr.IsRequest():
 			if err := conn.handleRequest(&hdr); err != nil {
+				logger.Criticalf("handleRequest.err -> %#v", err)
 				return errors.Annotatef(err, "codec.handleRequest %#v error", hdr)
 			}
 		default:
 			if err := conn.handleResponse(&hdr); err != nil {
+				logger.Criticalf("handleResponse.err -> %#v", err)
 				return errors.Annotatef(err, "codec.handleResponse %#v error", hdr)
 			}
 		}
@@ -517,6 +519,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	caller, err := root.FindMethod(
 		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
 	if err != nil {
+		logger.Criticalf("bindRequest: hdr.Request -> %#v", hdr.Request)
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
 			err = &serverError{
 				error: err,

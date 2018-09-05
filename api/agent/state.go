@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -32,6 +33,7 @@ func NewState(caller base.APICaller) (*State, error) {
 	if !isModel {
 		return nil, errors.New("expected model specific API connection")
 	}
+	fmt.Printf("NewState.caller.BestFacadeVersion('Agent') --> %#v\n", caller.BestFacadeVersion("Agent"))
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &State{
 		facade:              facadeCaller,
@@ -48,6 +50,7 @@ func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error
 	}
 	err := st.facade.FacadeCall("GetEntities", args, &results)
 	if err != nil {
+		logger.Errorf("facade.FacadeCall(GetEntities -> %#v", err)
 		return nil, err
 	}
 	if len(results.Entities) != 1 {

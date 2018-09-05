@@ -224,7 +224,7 @@ func BootstrapInstance(
 		}
 		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
-
+	logger.Criticalf("StartInstanceResult: result.Instance -> %#v, result.Config -> %#v, result.Hardware -> %#v", result.Instance, result.Config, result.Hardware)
 	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
 	// We need some padding below to overwrite any previous messages.
 	if len(msg) < 40 {
@@ -391,10 +391,11 @@ func ConfigureMachine(
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	logger.Criticalf("ConfigureMachine: cloudcfg 1 -> %#v", cloudcfg)
 	// Set packaging update here
 	cloudcfg.SetSystemUpdate(instanceConfig.EnableOSRefreshUpdate)
 	cloudcfg.SetSystemUpgrade(instanceConfig.EnableOSUpgrade)
+	logger.Criticalf("ConfigureMachine: cloudcfg 2 -> %#v", cloudcfg)
 
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudcfg)
 	if err != nil {
@@ -406,12 +407,15 @@ func ConfigureMachine(
 	if err := udata.ConfigureCustomOverrides(); err != nil {
 		return err
 	}
+	// logger.Criticalf("ConfigureMachine: udata -> %#v", udata)
 	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return err
 	}
+	// logger.Criticalf("ConfigureMachine: configScript -> %#v", configScript)
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	ctx.Infof("Running machine configuration script...")
+	// logger.Criticalf("ConfigureMachine: script -> %#v", script)
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,

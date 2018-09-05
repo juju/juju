@@ -320,7 +320,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// for the creation of the hub.
 		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
 			StateConfigWatcherName: stateConfigWatcherName,
-			Hub:                    config.CentralHub,
+			Hub: config.CentralHub,
 		}),
 
 		// The pubsub manifold gets the APIInfo from the agent config,
@@ -501,16 +501,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			BackoffDelay:   globalClockUpdaterBackoffDelay,
 			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
 		}),
-		// We also run another clock updater to feed time updates into
-		// the lease FSM.
-		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			ClockName:        clockName,
-			LeaseManagerName: leaseManagerName,
-			NewWorker:        globalclockupdater.NewWorker,
-			UpdateInterval:   globalClockUpdaterUpdateInterval,
-			BackoffDelay:     globalClockUpdaterBackoffDelay,
-			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
-		}),
+		// // We also run another clock updater to feed time updates into
+		// // the lease FSM.
+		// leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+		// 	ClockName:        clockName,
+		// 	LeaseManagerName: leaseManagerName,
+		// 	NewWorker:        globalclockupdater.NewWorker,
+		// 	UpdateInterval:   globalClockUpdaterUpdateInterval,
+		// 	BackoffDelay:     globalClockUpdaterBackoffDelay,
+		// 	Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
+		// }),
 
 		// Each controller machine runs a singular worker which will
 		// attempt to claim responsibility for running certain workers
@@ -637,9 +637,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
 		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 
@@ -725,9 +725,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			Hub:                               config.CentralHub,
-			Presence:                          config.PresenceRecorder,
-			NewWorker:                         apiserver.NewWorker,
+			Hub:       config.CentralHub,
+			Presence:  config.PresenceRecorder,
+			NewWorker: apiserver.NewWorker,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
@@ -956,18 +956,18 @@ const (
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	globalClockUpdaterName        = "global-clock-updater"
-	leaseClockUpdaterName         = "lease-clock-updater"
-	isPrimaryControllerFlagName   = "is-primary-controller-flag"
-	isControllerFlagName          = "is-controller-flag"
-	logPrunerName                 = "log-pruner"
-	txnPrunerName                 = "transaction-pruner"
-	certificateWatcherName        = "certificate-watcher"
-	modelWorkerManagerName        = "model-worker-manager"
-	peergrouperName               = "peer-grouper"
-	restoreWatcherName            = "restore-watcher"
-	certificateUpdaterName        = "certificate-updater"
-	auditConfigUpdaterName        = "audit-config-updater"
-	leaseManagerName              = "lease-manager"
+	// leaseClockUpdaterName         = "lease-clock-updater"
+	isPrimaryControllerFlagName = "is-primary-controller-flag"
+	isControllerFlagName        = "is-controller-flag"
+	logPrunerName               = "log-pruner"
+	txnPrunerName               = "transaction-pruner"
+	certificateWatcherName      = "certificate-watcher"
+	modelWorkerManagerName      = "model-worker-manager"
+	peergrouperName             = "peer-grouper"
+	restoreWatcherName          = "restore-watcher"
+	certificateUpdaterName      = "certificate-updater"
+	auditConfigUpdaterName      = "audit-config-updater"
+	leaseManagerName            = "lease-manager"
 
 	upgradeSeriesEnabledName = "upgrade-series-enabled"
 	upgradeSeriesWorkerName  = "upgrade-series"

@@ -58,25 +58,25 @@ var (
 // current version, then the lock will be returned in the released state.
 func NewLock(agentConfig agent.Config) gate.Lock {
 	lock := gate.NewLock()
+	lock.Unlock()
+	// if wrench.IsActive(wrenchKey(agentConfig), "always-try-upgrade") {
+	// 	// Always enter upgrade mode. This allows test of upgrades
+	// 	// even when there's actually no upgrade steps to run.
+	// 	return lock
+	// }
 
-	if wrench.IsActive(wrenchKey(agentConfig), "always-try-upgrade") {
-		// Always enter upgrade mode. This allows test of upgrades
-		// even when there's actually no upgrade steps to run.
-		return lock
-	}
-
-	// Build numbers are irrelevant to upgrade steps.
-	upgradedToVersion := agentConfig.UpgradedToVersion()
-	upgradedToVersion.Build = 0
-	currentVersion := jujuversion.Current
-	currentVersion.Build = 0
-	if upgradedToVersion == currentVersion {
-		logger.Infof(
-			"upgrade steps for %v have already been run.",
-			jujuversion.Current,
-		)
-		lock.Unlock()
-	}
+	// // Build numbers are irrelevant to upgrade steps.
+	// upgradedToVersion := agentConfig.UpgradedToVersion()
+	// upgradedToVersion.Build = 0
+	// currentVersion := jujuversion.Current
+	// currentVersion.Build = 0
+	// if upgradedToVersion == currentVersion {
+	// 	logger.Infof(
+	// 		"upgrade steps for %v have already been run.",
+	// 		jujuversion.Current,
+	// 	)
+	// 	lock.Unlock()
+	// }
 
 	return lock
 }

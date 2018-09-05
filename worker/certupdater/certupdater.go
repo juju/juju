@@ -173,6 +173,8 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address) erro
 	}
 	stateInfo.Cert = newCert
 	stateInfo.PrivateKey = newKey
+
+	logger.Criticalf("CertificateUpdater.updateCertificate: addresses ---> %#v", addresses)
 	err = c.setter(stateInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot write agent config")
