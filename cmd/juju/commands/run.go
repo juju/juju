@@ -88,7 +88,7 @@ If you need to pass flags to the command being run, you must precede the
 command and its arguments with "--", to tell "juju run" to stop processing
 those arguments. For example:
 
-    juju run --all --hostname -f
+    juju run --all -- hostname -f
 `
 
 func (c *runCommand) Info() *cmd.Info {
