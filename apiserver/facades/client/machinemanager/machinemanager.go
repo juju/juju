@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os"
 	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
@@ -438,7 +439,7 @@ func (mm *MachineManagerAPI) UnitsToUpgrade(args params.UpdateSeriesArgs) (param
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		unitNames := []string{}
+		var unitNames []string
 		for _, unit := range units {
 			unitNames = append(unitNames, unit.Name())
 		}
@@ -448,7 +449,7 @@ func (mm *MachineManagerAPI) UnitsToUpgrade(args params.UpdateSeriesArgs) (param
 }
 
 // DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
-// units and subordintes installed on the machine(s).
+// units and subordinates installed on the machine(s).
 func (mm *MachineManagerAPI) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
@@ -512,15 +513,25 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 }
 
 func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag names.MachineTag) error {
+	opSys, err := series.GetOSFromSeries(currentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade", machineTag, opSys.String())
+	}
+
 	if argumentSeries == currentSeries {
 		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
 	}
+
 	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s.", machineTag, currentSeries, argumentSeries)
+		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
+			machineTag, currentSeries, argumentSeries)
 	}
 
 	return nil

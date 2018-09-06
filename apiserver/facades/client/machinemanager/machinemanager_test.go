@@ -265,7 +265,10 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesNoParams(c *gc.C) {
 
 func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
-	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
+		SeriesList: []string{"yakkety", "zesty"},
+		Series:     "xenial",
+	})
 	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
@@ -435,7 +438,10 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
-	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
+		SeriesList: []string{"yakkety", "zesty"},
+		Series:     "xenial",
+	})
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	result, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
@@ -499,13 +505,23 @@ func (s *MachineManagerSuite) TestUnitsToUpgrade(c *gc.C) {
 	units, err := s.st.machines["0"].Units()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedUnitNames := []string{}
+	var expectedUnitNames []string
 	for _, unit := range units {
 		expectedUnitNames = append(expectedUnitNames, unit.Name())
 	}
 	actualUnitNames := results.Results[0].UnitNames
 
 	c.Assert(actualUnitNames, gc.DeepEquals, expectedUnitNames)
+}
+
+func (s *MachineManagerSuite) TestValidateSeriesNotUbuntuError(c *gc.C) {
+	err := machinemanager.MachineManagerAPIV5{}.ValidateSeries("xenial", "centos7", names.NewMachineTag("0"))
+	c.Assert(err, gc.ErrorMatches, "machine-0 is running CentOS and is not valid for Ubuntu series upgrade")
+}
+
+func (s *MachineManagerSuite) TestValidateSeriesUbuntuLessThanCurrentOK(c *gc.C) {
+	err := machinemanager.MachineManagerAPIV5{}.ValidateSeries("xenial", "trusty", names.NewMachineTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestIsSeriesLessThan tests a validation method which is not very complicated
