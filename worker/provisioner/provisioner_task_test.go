@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -182,8 +181,6 @@ func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
 }
 
 func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
-	logger := loggo.GetLogger("juju.provisioner")
-	logger.SetLogLevel(loggo.TRACE)
 	s.instanceBrocker.SetErrors(
 		errors.New("errors 1"),
 		errors.New("errors 2"),
