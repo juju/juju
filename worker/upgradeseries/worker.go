@@ -348,7 +348,6 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 
 // handleCompleted notifies the server that it has completed the upgrade
 // workflow, passing back the current host OS series.
-// It then clears relevant internal state.
 func (w *upgradeSeriesWorker) handleCompleted() error {
 	s, err := hostSeries()
 	if err != nil {
