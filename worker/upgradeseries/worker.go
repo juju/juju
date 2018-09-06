@@ -159,6 +159,8 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 			// - The lock is removed after a completed upgrade.
 			w.logger.Warningf("no series upgrade lock present")
 			w.machineStatus = model.UpgradeSeriesNotStarted
+			w.preparedUnits = nil
+			w.completedUnits = nil
 			return nil
 		}
 		return errors.Trace(err)
@@ -356,10 +358,6 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	w.machineStatus = model.UpgradeSeriesNotStarted
-	w.preparedUnits = nil
-	w.completedUnits = nil
 
 	return nil
 }

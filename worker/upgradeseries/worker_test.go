@@ -55,20 +55,49 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.done = make(chan struct{})
 }
 
-func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
+// TestFullWorkflow uses the the expectation scenarios from each of the tests
+// below to compose a test of the whole upgrade-series scenario, from start
+// to finish.
+func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// If the lock is not found, no further processing occurs.
-	// This is the only call we expect to see.
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
+	// TODO (manadart 2018-09-05): The idea of passing behaviours into a
+	// scenario (as below) evolved so as to make itself redundant.
+	// All of the anonymous funcs passed could be called directly on the suite
+	// here, with the same effect and greater clarity.
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(6),
+		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
+		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
+		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
+		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
+		s.expectMachineCompletedFinishUpgradeSeries,
+		s.expectLockNotFoundNoAction)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesNotStarted,
 	}
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+}
+
+func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
+		s.expectLockNotFoundNoAction)
+
+	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesNotStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+}
+
+func (s *workerSuite) expectLockNotFoundNoAction() {
+	// If the lock is not found, no further processing occurs.
+	// This is the only call we expect to see.
+	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 }
 
 func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
@@ -104,31 +133,6 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesPrepareStarted,
 		"prepared units": []string{"wordpress/0"},
-	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
-}
-
-// TestFullWorkflow uses the the expectation scenarios from each of the tests
-// below to compose a test of the whole upgrade-series scenario, from start
-// to finish.
-func (s *workerSuite) TestFullWorkflow(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// TODO (manadart 2018-09-05): The idea of passing behaviours into a
-	// scenario (as below) evolved so as to make itself redundant.
-	// All of the anonymous funcs passed could be called directly on the suite
-	// here, with the same effect and greater clarity.
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(5),
-		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
-		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
-		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
-		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
-		s.expectMachineCompletedFinishUpgradeSeries)
-
-	s.cleanKill(c, w)
-	expected := map[string]interface{}{
-		"machine status": model.UpgradeSeriesNotStarted,
 	}
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
@@ -280,7 +284,7 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
-		"machine status": model.UpgradeSeriesNotStarted,
+		"machine status": model.UpgradeSeriesCompleted,
 	}
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
