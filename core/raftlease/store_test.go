@@ -183,29 +183,10 @@ func (s *storeSuite) TestExtend(c *gc.C) {
 }
 
 func (s *storeSuite) TestExpire(c *gc.C) {
-	s.handleHubRequest(c,
-		func() {
-			err := s.store.ExpireLease(
-				lease.Key{"warframe", "oberon", "prime"},
-			)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-
-		raftlease.Command{
-			Version:   1,
-			Operation: raftlease.OperationExpire,
-			Namespace: "warframe",
-			ModelUUID: "oberon",
-			Lease:     "prime",
-		},
-		func(req raftlease.ForwardRequest) {
-			_, err := s.hub.Publish(
-				req.ResponseTopic,
-				raftlease.ForwardResponse{},
-			)
-			c.Check(err, jc.ErrorIsNil)
-		},
+	err := s.store.ExpireLease(
+		lease.Key{"warframe", "oberon", "prime"},
 	)
+	c.Assert(err, jc.Satisfies, lease.IsInvalid)
 }
 
 func (s *storeSuite) TestLeases(c *gc.C) {
