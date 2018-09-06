@@ -157,7 +157,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 			// No upgrade-series lock. This can happen when:
 			// - The first watch call is made.
 			// - The lock is removed after a completed upgrade.
-			w.logger.Warningf("no series upgrade lock present")
+			w.logger.Infof("no series upgrade lock present")
 			w.machineStatus = model.UpgradeSeriesNotStarted
 			w.preparedUnits = nil
 			w.completedUnits = nil
@@ -165,7 +165,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		}
 		return errors.Trace(err)
 	}
-	w.logger.Debugf("machine series upgrade status changed to %q", w.machineStatus)
+	w.logger.Infof("machine series upgrade status changed to %q", w.machineStatus)
 
 	switch w.machineStatus {
 	case model.UpgradeSeriesPrepareStarted:
