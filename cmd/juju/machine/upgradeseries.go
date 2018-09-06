@@ -221,7 +221,17 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	err = c.displayNotifications(ctx)
+	err = catacomb.Invoke(catacomb.Plan{
+		Site: &c.catacomb,
+		Work: c.displayNotifications(ctx),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Here we wait for the loop to finish by waiting for the catacomb's
+	// worker to finish.
+	err = c.catacomb.Wait()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -231,34 +241,42 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 
 // displayNotifications handles the writing of upgrade series notifications to
 // standard out.
-func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) error {
-	uw, err := c.upgradeMachineSeriesClient.WatchUpgradeSeriesNotifications(c.machineNumber)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = c.catacomb.Add(uw)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for {
-		select {
-		case <-c.catacomb.Dying():
-			return c.catacomb.ErrDying()
-		case <-uw.Changes():
-			if err := c.handleUpgradeSeriesChange(ctx); err != nil {
-				return errors.Trace(err)
+func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) func() error {
+	// We return and anonymous function here to satisfy the catacomb plan's
+	// need for a work function and to close over the commands context.
+	return func() error {
+		uw, err := c.upgradeMachineSeriesClient.WatchUpgradeSeriesNotifications(c.machineNumber)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = c.catacomb.Add(uw)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for {
+			select {
+			case <-c.catacomb.Dying():
+				return c.catacomb.ErrDying()
+			case <-uw.Changes():
+				if err := c.handleUpgradeSeriesChange(ctx); err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}
 }
 
 func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context) error {
-	notification, err := c.upgradeMachineSeriesClient.GetUpgradeSeriesNotification(c.machineNumber)
+	notifications, err := c.upgradeMachineSeriesClient.GetUpgradeSeriesNotification(c.machineNumber)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = fmt.Fprint(ctx.Stdout, notification)
-	return errors.Trace(err)
+	formattedNotifications := strings.Join(notifications, "\n")
+	_, err = fmt.Fprint(ctx.Stdout, formattedNotifications+"\n")
+	if err != nil {
+		errors.Trace(err)
+	}
+	return nil
 }
 
 // UpgradeSeriesComplete completes a series for a given machine, that is

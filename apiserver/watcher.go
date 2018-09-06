@@ -102,6 +102,7 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		logger.Criticalf("It was in creating the watcher")
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.NotifyWatcher)

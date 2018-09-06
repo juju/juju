@@ -27,7 +27,7 @@ func NewUpgradeSeriesAPI(facade base.FacadeCaller, tag names.Tag) *UpgradeSeries
 	return &UpgradeSeriesAPI{facade: facade, tag: tag}
 }
 
-// WatchActionNotifications returns a StringsWatcher for observing the state of
+// WatchActionNotifications returns a NotifyWatcher for observing the state of
 // a series upgrade.
 func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
