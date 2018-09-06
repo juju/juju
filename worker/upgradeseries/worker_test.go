@@ -63,7 +63,12 @@ func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesNotStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
@@ -74,7 +79,12 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareCompleted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
@@ -89,7 +99,13 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	s.expectServiceDiscovery(false)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareStarted,
+		"prepared units": []string{"wordpress/0"},
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
@@ -111,9 +127,10 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 		s.expectMachineCompletedFinishUpgradeSeries)
 
 	s.cleanKill(c, w)
-	c.Check(upgradeseries.MachineStatus(w), gc.Equals, model.UpgradeSeriesNotStarted)
-	c.Check(upgradeseries.PreparedUnits(w), gc.IsNil)
-	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesNotStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachine(c *gc.C) {
@@ -123,12 +140,11 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine)
 
 	s.cleanKill(c, w)
-	expected := []names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareStarted,
+		"prepared units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(upgradeseries.PreparedUnits(w), jc.SameContents, expected)
-	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine() {
@@ -152,12 +168,11 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete)
 
 	s.cleanKill(c, w)
-	expected := []names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareMachine,
+		"prepared units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(upgradeseries.PreparedUnits(w), jc.SameContents, expected)
-	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete() {
@@ -181,12 +196,11 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted)
 
 	s.cleanKill(c, w)
-	expected := []names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesCompleteStarted,
+		"prepared units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(upgradeseries.PreparedUnits(w), jc.SameContents, expected)
-	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
@@ -219,8 +233,10 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
 
 	s.cleanKill(c, w)
-	c.Check(upgradeseries.PreparedUnits(w), gc.IsNil)
-	c.Check(upgradeseries.CompletedUnits(w), gc.IsNil)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesCompleteStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
@@ -230,12 +246,11 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 		s.expectMachineCompleteStartedUnitsCompleteProgressComplete)
 
 	s.cleanKill(c, w)
-	c.Check(upgradeseries.PreparedUnits(w), gc.HasLen, 0)
-	expected := []names.UnitTag{
-		names.NewUnitTag("wordpress/0"),
-		names.NewUnitTag("mysql/0"),
+	expected := map[string]interface{}{
+		"machine status":  model.UpgradeSeriesCompleteStarted,
+		"completed units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(upgradeseries.CompletedUnits(w), jc.SameContents, expected)
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete() {
@@ -264,6 +279,10 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 		s.expectMachineCompletedFinishUpgradeSeries)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesNotStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {

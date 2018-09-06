@@ -5,6 +5,7 @@ package upgradeseries
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -89,9 +90,8 @@ type upgradeSeriesWorker struct {
 	service         ServiceAccess
 	upgraderFactory func(string) (Upgrader, error)
 
-	// actions is used to run Goroutine-safe operations in the worker loop.
-	// In particular it is used for generating a worker report.
-	actions        chan func()
+	// Some local state retained for reporting purposes.
+	mu             sync.Mutex
 	machineStatus  model.UpgradeSeriesStatus
 	preparedUnits  []names.UnitTag
 	completedUnits []names.UnitTag
@@ -110,7 +110,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		logger:          config.Logger,
 		service:         config.Service,
 		upgraderFactory: config.UpgraderFactory,
-		actions:         make(chan func()),
 		machineStatus:   model.UpgradeSeriesNotStarted,
 	}
 
@@ -149,6 +148,9 @@ func (w *upgradeSeriesWorker) loop() error {
 // this machine and based on the status, calls methods that will progress
 // the workflow accordingly.
 func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	var err error
 	if w.machineStatus, err = w.MachineStatus(); err != nil {
 		if errors.IsNotFound(err) {
@@ -389,6 +391,32 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(units []names.UnitTag) (m
 		}
 	}
 	return unitServices, true, nil
+}
+
+// Report (worker.Reporter) generates a report for the Juju engine.
+func (w *upgradeSeriesWorker) Report() map[string]interface{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	report := map[string]interface{}{"machine status": w.machineStatus}
+
+	if len(w.preparedUnits) > 0 {
+		units := make([]string, len(w.preparedUnits))
+		for i, u := range w.preparedUnits {
+			units[i] = u.Id()
+		}
+		report["prepared units"] = units
+	}
+
+	if len(w.completedUnits) > 0 {
+		units := make([]string, len(w.completedUnits))
+		for i, u := range w.completedUnits {
+			units[i] = u.Id()
+		}
+		report["completed units"] = units
+	}
+
+	return report
 }
 
 // Kill implements worker.Worker.Kill.
