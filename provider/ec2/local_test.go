@@ -731,8 +731,8 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 	_, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
-	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
