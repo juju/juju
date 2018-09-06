@@ -170,6 +170,25 @@ var imagesData = `
        }
      }
    },
+   "com.ubuntu.cloud:server:18.04:s390x": {
+     "release": "xenial",
+     "version": "18.04",
+     "arch": "s390x",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604s390x": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604s390x"
+           }
+         },
+         "pubname": "ubuntu-xenial-18.04-s390x-server-20121111",
+         "label": "release"
+       }
+     }
+   },
    "com.ubuntu.cloud:server:16.04:amd64": {
      "release": "trusty",
      "version": "16.04",
