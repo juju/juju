@@ -4,16 +4,23 @@
 package provisioner_test
 
 import (
+	"reflect"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
@@ -21,6 +28,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
+	jujuversion "github.com/juju/juju/juju/version"
+	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -43,6 +52,8 @@ type ProvisionerTaskSuite struct {
 
 	callCtx           *context.CloudCallContext
 	invalidCredential bool
+
+	auth *testAuthenticationProvider
 }
 
 var _ = gc.Suite(&ProvisionerTaskSuite{})
@@ -70,7 +81,8 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 
 	s.instances = []instance.Instance{}
 	s.instanceBrocker = &testInstanceBrocker{
-		Stub: &testing.Stub{},
+		Stub:      &testing.Stub{},
+		callsChan: make(chan string, 2),
 		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 			return s.instances, nil
 		},
@@ -82,7 +94,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 			return nil
 		},
 	}
-
+	s.auth = &testAuthenticationProvider{&testing.Stub{}}
 }
 
 func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
@@ -134,24 +146,71 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	c.Assert(m1.markForRemoval, jc.IsFalse)
 
 	s.machinesResults = []apiprovisioner.MachineResult{
-		{
-			Machine: m0,
-		},
-		{
-			Machine: m1,
-		},
+		{Machine: m0},
+		{Machine: m1},
 	}
 
 	s.sendModelMachinesChange(c, "0", "1")
 
-	s.machineGetter.CheckCallNames(c, "Machines")
+	s.waitForTask(c, []string{"AllInstances", "StopInstances"})
 
-	// Only one instance is being stopped on provider but both are marked for removal in Juju api.
+	workertest.CleanKill(c, task)
+	close(s.instanceBrocker.callsChan)
+	s.machineGetter.CheckCallNames(c, "Machines")
 	s.instanceBrocker.CheckCalls(c, []testing.StubCall{
 		{"AllInstances", []interface{}{s.callCtx}},
-		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}}})
+		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
+	})
 	c.Assert(m0.markForRemoval, jc.IsTrue)
 	c.Assert(m1.markForRemoval, jc.IsTrue)
+}
+
+func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
+	calls := []string{}
+	for {
+		select {
+		case call := <-s.instanceBrocker.callsChan:
+			calls = append(calls, call)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("stopping worker chan didn't stop")
+		}
+		if reflect.DeepEqual(expectedCalls, calls) {
+			// we are done
+			break
+		}
+	}
+}
+
+func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
+	logger := loggo.GetLogger("juju.provisioner")
+	logger.SetLogLevel(loggo.TRACE)
+	s.instanceBrocker.SetErrors(
+		errors.New("errors 1"),
+		errors.New("errors 2"),
+	)
+
+	task := s.newProvisionerTaskWithRetry(c,
+		config.HarvestAll,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		provisioner.NewRetryStrategy(0*time.Second, 1),
+	)
+
+	m0 := &testMachine{
+		id: "0",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{
+		{Machine: m0, Status: params.StatusResult{}},
+	}
+	s.sendMachineErrorRetryChange(c)
+
+	s.waitForTask(c, []string{"StartInstance", "StartInstance"})
+
+	workertest.CleanKill(c, task)
+	close(s.instanceBrocker.callsChan)
+	s.machineGetter.CheckCallNames(c, "MachinesWithTransientErrors")
+	s.auth.CheckCallNames(c, "SetupAuthentication")
+	s.instanceBrocker.CheckCallNames(c, "StartInstance", "StartInstance")
 }
 
 func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
@@ -176,11 +235,23 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
+	return s.newProvisionerTaskWithRetry(c,
+		harvestingMethod,
+		distributionGroupFinder,
+		toolsFinder,
+		provisioner.NewRetryStrategy(0*time.Second, 0),
+	)
+}
 
-	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
-
+func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
+	c *gc.C,
+	harvestingMethod config.HarvestMode,
+	distributionGroupFinder provisioner.DistributionGroupFinder,
+	toolsFinder provisioner.ToolsFinder,
+	retryStrategy provisioner.RetryStrategy,
+) provisioner.ProvisionerTask {
 	w, err := provisioner.NewProvisionerTask(
-		"controller-UUID",
+		coretesting.ControllerTag.Id(),
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		s.machineGetter,
@@ -189,8 +260,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTask(
 		s.modelMachinesWatcher,
 		s.machineErrorRetryWatcher,
 		s.instanceBrocker,
-		// auth,
-		nil,
+		s.auth,
 		imagemetadata.ReleasedStream,
 		retryStrategy,
 		s.callCtx,
@@ -219,26 +289,32 @@ func (m *testMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.Mach
 type testInstanceBrocker struct {
 	*testing.Stub
 
+	callsChan chan string
+
 	allInstancesFunc func(ctx context.ProviderCallContext) ([]instance.Instance, error)
 }
 
 func (t *testInstanceBrocker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	t.AddCall("StartInstance", ctx, args)
-	return nil, nil
+	t.callsChan <- "StartInstance"
+	return nil, t.NextErr()
 }
 
 func (t *testInstanceBrocker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	t.AddCall("StopInstances", ctx, ids)
-	return nil
+	t.callsChan <- "StopInstances"
+	return t.NextErr()
 }
 
 func (t *testInstanceBrocker) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	t.AddCall("AllInstances", ctx)
+	t.callsChan <- "AllInstances"
 	return t.allInstancesFunc(ctx)
 }
 
 func (t *testInstanceBrocker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	t.AddCall("MaintainInstance", ctx, args)
+	t.callsChan <- "MaintainInstance"
 	return nil
 }
 
@@ -266,6 +342,10 @@ func (m *testMachine) Id() string {
 	return m.id
 }
 
+func (m *testMachine) String() string {
+	return m.Id()
+}
+
 func (m *testMachine) Life() params.Life {
 	return m.life
 }
@@ -281,4 +361,52 @@ func (m *testMachine) KeepInstance() (bool, error) {
 func (m *testMachine) MarkForRemoval() error {
 	m.markForRemoval = true
 	return nil
+}
+
+func (m *testMachine) Tag() names.Tag {
+	return m.MachineTag()
+}
+
+func (m *testMachine) MachineTag() names.MachineTag {
+	return names.NewMachineTag(m.id)
+}
+
+func (m *testMachine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
+	return nil
+}
+
+func (m *testMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+	return nil
+}
+
+func (m *testMachine) Status() (status.Status, string, error) {
+	return status.Status(""), "", nil
+}
+
+func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
+	return &coretesting.FakeVersionNumber, nil
+}
+
+func (m *testMachine) SetInstanceInfo(
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
+	volumeAttachments map[string]params.VolumeAttachmentInfo,
+) error {
+	return nil
+}
+
+func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
+	return &params.ProvisioningInfo{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		Series:           jujuversion.SupportedLTS(),
+	}, nil
+}
+
+type testAuthenticationProvider struct {
+	*testing.Stub
+}
+
+func (m *testAuthenticationProvider) SetupAuthentication(machine authentication.TaggedPasswordChanger) (*mongo.MongoInfo, *api.Info, error) {
+	m.AddCall("SetupAuthentication", machine)
+	return nil, nil, nil
 }
