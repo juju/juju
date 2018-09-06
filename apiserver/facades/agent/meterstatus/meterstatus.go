@@ -40,6 +40,13 @@ type MeterStatusAPI struct {
 	resources  facade.Resources
 }
 
+// NewMeterStatusFacade provides the signature required for facade registration.
+func NewMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
+	authorizer := ctx.Auth()
+	resources := ctx.Resources()
+	return NewMeterStatusAPI(ctx.State(), resources, authorizer)
+}
+
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 //go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 func NewMeterStatusAPI(
@@ -83,18 +90,6 @@ func NewMeterStatusAPI(
 		},
 		resources: resources,
 	}, nil
-}
-
-// NewMeterStatusAPIWithState creates a new MeterStatusAPI, but uses the
-// state.State for creating the MeterStatusAPI. This is so we fulfill the
-// allfacades registration setup (i.e. it requires the state rather than
-// the well defined interface that the MeterStatusAPI requires)
-func NewMeterStatusAPIWithState(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*MeterStatusAPI, error) {
-	return NewMeterStatusAPI(st, resources, authorizer)
 }
 
 // WatchMeterStatus returns a NotifyWatcher for observing changes

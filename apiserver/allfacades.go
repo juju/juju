@@ -210,7 +210,7 @@ func AllFacades() *facade.Registry {
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
 	reg("Machiner", 1, machine.NewMachinerAPI)
 
-	reg("MeterStatus", 1, meterstatus.NewMeterStatusAPIWithState)
+	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacade)
 	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI)
 	reg("MetricsDebug", 2, metricsdebug.NewMetricsDebugAPI)
 	reg("MetricsManager", 1, metricsmanager.NewFacade)
