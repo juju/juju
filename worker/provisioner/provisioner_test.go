@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -1466,77 +1465,6 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	// Everything must die!
 	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
 	s.waitForRemovalMark(c, m0)
-}
-
-func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
-	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	e := &mockBroker{
-		Environ:    s.Environ,
-		retryCount: make(map[string]int),
-		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
-			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
-		},
-	}
-	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
-	defer workertest.CleanKill(c, task)
-
-	logger := loggo.GetLogger("juju.provisioner")
-	logger.SetLogLevel(loggo.TRACE)
-
-	// Provision some machines, some will be started first time,
-	// another will require retries.
-	m1, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m1)
-	m2, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m2)
-	m3, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	m4, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// mockBroker will fail to start machine-3 several times;
-	// keep setting the transient flag to retry until the
-	// instance has started.
-	runSetStatusGoroutine := make(chan struct{})
-	setStatusGoroutineDone := make(chan struct{})
-	go func() {
-		defer close(setStatusGoroutineDone)
-		for {
-			select {
-			case <-runSetStatusGoroutine:
-				return
-			case <-time.After(coretesting.ShortWait):
-				now := time.Now()
-				sInfo := status.StatusInfo{
-					Status:  status.ProvisioningError,
-					Message: "info",
-					Data:    map[string]interface{}{"transient": true},
-					Since:   &now,
-				}
-				logger.Infof("setting instance status provisioning error as transient for m3")
-				err := m3.SetInstanceStatus(sInfo)
-				c.Check(err, jc.ErrorIsNil)
-			}
-		}
-	}()
-	s.checkStartInstance(c, m3)
-	close(runSetStatusGoroutine)
-
-	select {
-	case <-setStatusGoroutineDone:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("status setting goroutine didn't stop")
-	}
-
-	// Machine 4 is never provisioned.
-	statusInfo, err := m4.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.ProvisioningError)
-	_, err = m4.InstanceId()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
