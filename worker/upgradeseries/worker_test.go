@@ -55,15 +55,49 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.done = make(chan struct{})
 }
 
+// TestFullWorkflow uses the the expectation scenarios from each of the tests
+// below to compose a test of the whole upgrade-series scenario, from start
+// to finish.
+func (s *workerSuite) TestFullWorkflow(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// TODO (manadart 2018-09-05): The idea of passing behaviours into a
+	// scenario (as below) evolved so as to make itself redundant.
+	// All of the anonymous funcs passed could be called directly on the suite
+	// here, with the same effect and greater clarity.
+
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(6),
+		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
+		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
+		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
+		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
+		s.expectMachineCompletedFinishUpgradeSeries,
+		s.expectLockNotFoundNoAction)
+
+	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesNotStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+}
+
 func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
+		s.expectLockNotFoundNoAction)
+
+	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesNotStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+}
+
+func (s *workerSuite) expectLockNotFoundNoAction() {
 	// If the lock is not found, no further processing occurs.
 	// This is the only call we expect to see.
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
-	s.cleanKill(c, w)
 }
 
 func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
@@ -74,7 +108,12 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareCompleted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
@@ -89,28 +128,13 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	s.expectServiceDiscovery(false)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
-	s.cleanKill(c, w)
-}
-
-// TestFullWorkflow uses the the expectation scenarios from each of the tests
-// below to compose a test of the whole upgrade-series scenario, from start
-// to finish.
-func (s *workerSuite) TestFullWorkflow(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// TODO (manadart 2018-09-05): The idea of passing behaviours into a
-	// scenario (as below) evolved so as to make itself redundant.
-	// All of the anonymous funcs passed could be called directly on the suite
-	// here, with the same effect and greater clarity.
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(5),
-		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
-		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
-		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
-		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
-		s.expectMachineCompletedFinishUpgradeSeries)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareStarted,
+		"prepared units": []string{"wordpress/0"},
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachine(c *gc.C) {
@@ -120,6 +144,11 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachin
 		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareStarted,
+		"prepared units": []string{"wordpress/0", "mysql/0"},
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine() {
@@ -143,6 +172,11 @@ func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareCo
 		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesPrepareMachine,
+		"prepared units": []string{"wordpress/0", "mysql/0"},
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete() {
@@ -166,6 +200,11 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesCompleteStarted,
+		"prepared units": []string{"wordpress/0", "mysql/0"},
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
@@ -196,7 +235,12 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesCompleteStarted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
@@ -206,6 +250,11 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 		s.expectMachineCompleteStartedUnitsCompleteProgressComplete)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status":  model.UpgradeSeriesCompleteStarted,
+		"completed units": []string{"wordpress/0", "mysql/0"},
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete() {
@@ -234,6 +283,10 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 		s.expectMachineCompletedFinishUpgradeSeries)
 
 	s.cleanKill(c, w)
+	expected := map[string]interface{}{
+		"machine status": model.UpgradeSeriesCompleted,
+	}
+	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {

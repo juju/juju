@@ -5,6 +5,7 @@ package upgradeseries
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -88,6 +89,12 @@ type upgradeSeriesWorker struct {
 	logger          Logger
 	service         ServiceAccess
 	upgraderFactory func(string) (Upgrader, error)
+
+	// Some local state retained for reporting purposes.
+	mu             sync.Mutex
+	machineStatus  model.UpgradeSeriesStatus
+	preparedUnits  []names.UnitTag
+	completedUnits []names.UnitTag
 }
 
 // NewWorker creates, starts and returns a new upgrade-series worker based on
@@ -103,6 +110,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		logger:          config.Logger,
 		service:         config.Service,
 		upgraderFactory: config.UpgraderFactory,
+		machineStatus:   model.UpgradeSeriesNotStarted,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -140,20 +148,26 @@ func (w *upgradeSeriesWorker) loop() error {
 // this machine and based on the status, calls methods that will progress
 // the workflow accordingly.
 func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
-	machineStatus, err := w.MachineStatus()
-	if err != nil {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	var err error
+	if w.machineStatus, err = w.MachineStatus(); err != nil {
 		if errors.IsNotFound(err) {
-			// No upgrade-series lock.
-			// This can only happen on the first watch call.
-			// Does it happen if the lock is deleted?
-			w.logger.Warningf("no series upgrade lock present")
+			// No upgrade-series lock. This can happen when:
+			// - The first watch call is made.
+			// - The lock is removed after a completed upgrade.
+			w.logger.Infof("no series upgrade lock present")
+			w.machineStatus = model.UpgradeSeriesNotStarted
+			w.preparedUnits = nil
+			w.completedUnits = nil
 			return nil
 		}
 		return errors.Trace(err)
 	}
-	w.logger.Debugf("series upgrade lock changed")
+	w.logger.Infof("machine series upgrade status changed to %q", w.machineStatus)
 
-	switch machineStatus {
+	switch w.machineStatus {
 	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted()
 	case model.UpgradeSeriesPrepareMachine:
@@ -162,8 +176,6 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		err = w.handleCompleteStarted()
 	case model.UpgradeSeriesCompleted:
 		err = w.handleCompleted()
-	default:
-		w.logger.Debugf("machine series upgrade status is %q", machineStatus)
 	}
 	return errors.Trace(err)
 }
@@ -171,9 +183,12 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 // handlePrepareStarted handles workflow for the machine with an upgrade-series
 // lock status of "UpgradeSeriesPrepareStarted"
 func (w *upgradeSeriesWorker) handlePrepareStarted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesPrepareStarted)
+	var err error
+	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
+		return errors.Trace(err)
+	}
 
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -221,11 +236,14 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]s
 // TODO (manadart 2018-08-09): Rename when a better name is contrived for
 // "UpgradeSeriesPrepareMachine".
 func (w *upgradeSeriesWorker) handlePrepareMachine() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesPrepareMachine)
+	var err error
+	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
+		return errors.Trace(err)
+	}
 
 	// This is a sanity check.
 	// The units should all still be in the "PrepareComplete" state.
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -262,13 +280,16 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleteStarted)
+	var err error
+	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
+		return errors.Trace(err)
+	}
 
 	// If the units are still all in the "PrepareComplete" state, then the
 	// manual tasks have been run and an operator has executed the
 	// upgrade-series completion command; start all the unit agents,
 	// and progress the workflow.
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.UnitsPrepared)
+	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -283,7 +304,11 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 
 	// If the units have all completed their workflow, then we are done.
 	// Make the final update to the lock to say the machine is completed.
-	unitServices, allConfirmed, err = w.compareUnitAgentServices(w.UnitsCompleted)
+	if w.completedUnits, err = w.UnitsCompleted(); err != nil {
+		return errors.Trace(err)
+	}
+
+	unitServices, allConfirmed, err = w.compareUnitAgentServices(w.completedUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -321,12 +346,9 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 	return errors.Trace(w.StartUnitCompletion())
 }
 
-// handleCompleted givens the worker a chance to perform any final operations
-// before returning control to the server (controller) which will then perform its own
-// post upgrade routine.
+// handleCompleted notifies the server that it has completed the upgrade
+// workflow, passing back the current host OS series.
 func (w *upgradeSeriesWorker) handleCompleted() error {
-	w.logger.Debugf("machine series upgrade status is %q", model.UpgradeSeriesCompleted)
-
 	s, err := hostSeries()
 	if err != nil {
 		return errors.Trace(err)
@@ -335,26 +357,18 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
-// compareUnitsAgentServices executes the input getter method to retrieve a
-// collection of unit tags.
-// It then filters the services running on the local machine to those that are
-// for unit agents.
+// compareUnitsAgentServices filters the services running on the local machine
+// to those that are for unit agents.
 // The service names keyed by unit names are returned, along with a boolean
-// indicating whether all the retrieved unit tags are represented in the
+// indicating whether all the input unit tags are represented in the
 // service map.
 // NOTE: No unit tags and no agent services returns true, meaning that the
 // workflow can progress.
-func (w *upgradeSeriesWorker) compareUnitAgentServices(
-	getUnits func() ([]names.UnitTag, error),
-) (map[string]string, bool, error) {
-	units, err := getUnits()
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
-
+func (w *upgradeSeriesWorker) compareUnitAgentServices(units []names.UnitTag) (map[string]string, bool, error) {
 	services, err := w.service.ListServices()
 	if err != nil {
 		return nil, false, errors.Trace(err)
@@ -374,6 +388,32 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(
 		}
 	}
 	return unitServices, true, nil
+}
+
+// Report (worker.Reporter) generates a report for the Juju engine.
+func (w *upgradeSeriesWorker) Report() map[string]interface{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	report := map[string]interface{}{"machine status": w.machineStatus}
+
+	if len(w.preparedUnits) > 0 {
+		units := make([]string, len(w.preparedUnits))
+		for i, u := range w.preparedUnits {
+			units[i] = u.Id()
+		}
+		report["prepared units"] = units
+	}
+
+	if len(w.completedUnits) > 0 {
+		units := make([]string, len(w.completedUnits))
+		for i, u := range w.completedUnits {
+			units[i] = u.Id()
+		}
+		report["completed units"] = units
+	}
+
+	return report
 }
 
 // Kill implements worker.Worker.Kill.
