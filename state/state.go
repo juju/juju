@@ -509,6 +509,12 @@ func (st *State) LeaseNotifyTarget(logDest io.Writer, errorLogger raftleasestore
 	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logDest, errorLogger)
 }
 
+// LeaseTrapdoorFunc returns a raftlease.TrapdoorFunc for checking
+// lease state in a database.
+func LeaseTrapdoorFunc() raftlease.TrapdoorFunc {
+	return raftleasestore.MakeTrapdoorFunc(leaseHoldersC)
+}
+
 // ModelUUID returns the model UUID for the model
 // controlled by this state instance.
 func (st *State) ModelUUID() string {

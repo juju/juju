@@ -35,11 +35,13 @@ func (s *fsmSuite) SetUpTest(c *gc.C) {
 	s.fsm = raftlease.NewFSM()
 }
 
-func (s *fsmSuite) apply(c *gc.C, command raftlease.Command) interface{} {
+func (s *fsmSuite) apply(c *gc.C, command raftlease.Command) raftlease.FSMResponse {
 	data, err := command.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
 	result := s.fsm.Apply(&raft.Log{Data: data})
-	return result
+	response, ok := result.(raftlease.FSMResponse)
+	c.Assert(ok, gc.Equals, true)
+	return response
 }
 
 func (s *fsmSuite) TestClaim(c *gc.C) {
@@ -52,8 +54,9 @@ func (s *fsmSuite) TestClaim(c *gc.C) {
 		Holder:    "me",
 		Duration:  time.Second,
 	}
-	err := s.apply(c, command)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.apply(c, command)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertClaimed(c, resp, lease.Key{"ns", "model", "lease"}, "me")
 
 	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
 		map[lease.Key]lease.Info{
@@ -65,14 +68,15 @@ func (s *fsmSuite) TestClaim(c *gc.C) {
 	)
 
 	// Can't claim it again.
-	err = s.apply(c, command)
-	c.Assert(err, jc.Satisfies, lease.IsInvalid)
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	assertNoNotifications(c, resp)
 
 	// Someone else trying to claim the lease.
 	command.Holder = "you"
-	err = s.apply(c, command)
-	c.Assert(err, jc.Satisfies, lease.IsInvalid)
-
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	assertNoNotifications(c, resp)
 }
 
 func offset(d time.Duration) time.Time {
@@ -90,16 +94,22 @@ func (s *fsmSuite) TestExtend(c *gc.C) {
 		Holder:    "me",
 		Duration:  time.Second,
 	}
-	c.Assert(s.apply(c, command), jc.Satisfies, lease.IsInvalid)
+	resp := s.apply(c, command)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	assertNoNotifications(c, resp)
 
 	// Ok, so we'll claim it.
 	command.Operation = raftlease.OperationClaim
-	c.Assert(s.apply(c, command), jc.ErrorIsNil)
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertClaimed(c, resp, lease.Key{"ns", "model", "lease"}, "me")
 
 	// Now we can extend it.
 	command.Operation = raftlease.OperationExtend
 	command.Duration = 2 * time.Second
-	c.Assert(s.apply(c, command), jc.ErrorIsNil)
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertNoNotifications(c, resp)
 
 	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
 		map[lease.Key]lease.Info{
@@ -113,7 +123,9 @@ func (s *fsmSuite) TestExtend(c *gc.C) {
 	// Extending by a time less than the remaining duration doesn't
 	// shorten the lease (but does succeed).
 	command.Duration = time.Millisecond
-	c.Assert(s.apply(c, command), jc.ErrorIsNil)
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertNoNotifications(c, resp)
 
 	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
 		map[lease.Key]lease.Info{
@@ -126,7 +138,9 @@ func (s *fsmSuite) TestExtend(c *gc.C) {
 
 	// Someone else can't extend it.
 	command.Holder = "you"
-	c.Assert(s.apply(c, command), jc.Satisfies, lease.IsInvalid)
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	assertNoNotifications(c, resp)
 }
 
 func (s *fsmSuite) TestExpire(c *gc.C) {
@@ -138,7 +152,7 @@ func (s *fsmSuite) TestExpire(c *gc.C) {
 		ModelUUID: "model",
 		Lease:     "lease",
 	}
-	c.Assert(s.apply(c, command), jc.Satisfies, lease.IsInvalid)
+	c.Assert(s.apply(c, command).Error(), jc.Satisfies, lease.IsInvalid)
 
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
@@ -148,18 +162,20 @@ func (s *fsmSuite) TestExpire(c *gc.C) {
 		Lease:     "lease",
 		Holder:    "me",
 		Duration:  time.Second,
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 
 	// Not allowed to expire too early.
-	c.Assert(s.apply(c, command), jc.Satisfies, lease.IsInvalid)
+	c.Assert(s.apply(c, command).Error(), jc.Satisfies, lease.IsInvalid)
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationSetTime,
 		OldTime:   s.fsm.GlobalTime(),
 		NewTime:   s.fsm.GlobalTime().Add(2 * time.Second),
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 
-	c.Assert(s.apply(c, command), jc.ErrorIsNil)
+	resp := s.apply(c, command)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertExpired(c, resp, lease.Key{"ns", "model", "lease"})
 	c.Assert(s.fsm.Leases(zero), gc.DeepEquals, map[lease.Key]lease.Info{})
 }
 
@@ -170,7 +186,7 @@ func (s *fsmSuite) TestSetTime(c *gc.C) {
 		Operation: raftlease.OperationSetTime,
 		OldTime:   zero,
 		NewTime:   zero.Add(2 * time.Second),
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 	c.Assert(s.fsm.GlobalTime(), gc.Equals, zero.Add(2*time.Second))
 
 	c.Assert(s.apply(c, raftlease.Command{
@@ -178,7 +194,7 @@ func (s *fsmSuite) TestSetTime(c *gc.C) {
 		Operation: raftlease.OperationSetTime,
 		OldTime:   zero,
 		NewTime:   zero.Add(time.Second),
-	}), jc.Satisfies, globalclock.IsConcurrentUpdate)
+	}).Error(), jc.Satisfies, globalclock.IsConcurrentUpdate)
 }
 
 func (s *fsmSuite) TestLeases(c *gc.C) {
@@ -190,7 +206,7 @@ func (s *fsmSuite) TestLeases(c *gc.C) {
 		Lease:     "lease",
 		Holder:    "me",
 		Duration:  time.Second,
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationClaim,
@@ -199,7 +215,7 @@ func (s *fsmSuite) TestLeases(c *gc.C) {
 		Lease:     "lease",
 		Holder:    "you",
 		Duration:  4 * time.Second,
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 
 	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
 		map[lease.Key]lease.Info{
@@ -221,11 +237,11 @@ func (s *fsmSuite) TestApplyInvalidCommand(c *gc.C) {
 		Operation: raftlease.OperationSetTime,
 		OldTime:   zero,
 		NewTime:   zero.Add(2 * time.Second),
-	}), jc.Satisfies, errors.IsNotValid)
+	}).Error(), jc.Satisfies, errors.IsNotValid)
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: "libera-me",
-	}), jc.Satisfies, errors.IsNotValid)
+	}).Error(), jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *fsmSuite) TestSnapshot(c *gc.C) {
@@ -237,13 +253,13 @@ func (s *fsmSuite) TestSnapshot(c *gc.C) {
 		Lease:     "lease",
 		Holder:    "me",
 		Duration:  time.Second,
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationSetTime,
 		OldTime:   zero,
 		NewTime:   zero.Add(2 * time.Second),
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationClaim,
@@ -252,7 +268,7 @@ func (s *fsmSuite) TestSnapshot(c *gc.C) {
 		Lease:     "lease",
 		Holder:    "you",
 		Duration:  4 * time.Second,
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 
 	snapshot, err := s.fsm.Snapshot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -283,7 +299,7 @@ func (s *fsmSuite) TestRestore(c *gc.C) {
 		Lease:     "lease",
 		Holder:    "me",
 		Duration:  time.Second,
-	}), jc.ErrorIsNil)
+	}).Error(), jc.ErrorIsNil)
 
 	// Restoring overwrites the state.
 	reader := closer{Reader: bytes.NewBuffer([]byte(snapshotYaml))}
@@ -409,6 +425,40 @@ func (s *fsmSuite) TestCommandValidationSetTime(c *gc.C) {
 	command.Duration = 0
 	command.NewTime = time.Time{}
 	c.Assert(command.Validate(), gc.ErrorMatches, "setTime with zero new time not valid")
+}
+
+func assertClaimed(c *gc.C, resp raftlease.FSMResponse, key lease.Key, holder string) {
+	var target fakeTarget
+	resp.Notify(&target)
+	c.Assert(target.Calls(), gc.HasLen, 1)
+	target.CheckCall(c, 0, "Claimed", key, holder)
+}
+
+func assertExpired(c *gc.C, resp raftlease.FSMResponse, keys ...lease.Key) {
+	var target fakeTarget
+	resp.Notify(&target)
+	c.Assert(target.Calls(), gc.HasLen, len(keys))
+	for i, key := range keys {
+		target.CheckCall(c, i, "Expired", key)
+	}
+}
+
+func assertNoNotifications(c *gc.C, resp raftlease.FSMResponse) {
+	var target fakeTarget
+	resp.Notify(&target)
+	c.Assert(target.Calls(), gc.HasLen, 0)
+}
+
+type fakeTarget struct {
+	testing.Stub
+}
+
+func (t *fakeTarget) Claimed(key lease.Key, holder string) {
+	t.AddCall("Claimed", key, holder)
+}
+
+func (t *fakeTarget) Expired(key lease.Key) {
+	t.AddCall("Expired", key)
 }
 
 type fakeSnapshotSink struct {

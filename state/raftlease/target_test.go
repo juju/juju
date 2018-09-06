@@ -253,7 +253,7 @@ func (s *targetSuite) TestExpiredError(c *gc.C) {
 }
 
 func (s *targetSuite) TestTrapdoor(c *gc.C) {
-	trapdoor := s.newTarget().Trapdoor(lease.Key{"ns", "model", "landfall"}, "roy")
+	trapdoor := raftlease.MakeTrapdoorFunc(collection)(lease.Key{"ns", "model", "landfall"}, "roy")
 	var result []txn.Op
 	err := trapdoor(&result)
 	c.Assert(err, jc.ErrorIsNil)

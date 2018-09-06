@@ -11,19 +11,14 @@ package manifold
 
 import (
 	"fmt"
-	"io"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/globalclock"
@@ -32,7 +27,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/lease"
-	workerstate "github.com/juju/juju/worker/state"
 )
 
 const (
@@ -47,13 +41,6 @@ const (
 	// request during a raft-leadership election). This should be long
 	// enough that we can be very confident the request was missed.
 	ForwardTimeout = 5 * time.Second
-
-	// maxLogs is the maximum number of backup store log files to keep.
-	maxLogs = 10
-
-	// maxLogSizeMB is the maximum size of the store log file on disk
-	// in megabytes.
-	maxLogSizeMB = 30
 )
 
 // TODO(raftlease): This manifold does too much - split out a worker
@@ -65,7 +52,6 @@ const (
 type ManifoldConfig struct {
 	AgentName      string
 	ClockName      string
-	StateName      string
 	CentralHubName string
 
 	FSM          *raftlease.FSM
@@ -73,7 +59,6 @@ type ManifoldConfig struct {
 	Logger       lease.Logger
 	NewWorker    func(lease.ManagerConfig) (worker.Worker, error)
 	NewStore     func(raftlease.StoreConfig) *raftlease.Store
-	NewTarget    func(*state.State, io.Writer, lease.Logger) raftlease.NotifyTarget
 }
 
 // Validate checks that the config has all the required values.
@@ -83,9 +68,6 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
-	}
-	if c.StateName == "" {
-		return errors.NotValidf("empty StateName")
 	}
 	if c.CentralHubName == "" {
 		return errors.NotValidf("empty CentralHubName")
@@ -104,9 +86,6 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.NewStore == nil {
 		return errors.NotValidf("nil NewStore")
-	}
-	if c.NewTarget == nil {
-		return errors.NotValidf("nil NewTarget")
 	}
 	return nil
 }
@@ -136,36 +115,13 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := context.Get(s.config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-	statePool, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	st := statePool.SystemState()
-
 	source := rand.NewSource(clock.Now().UnixNano())
 	runID := rand.New(source).Int31()
 
-	logPath := filepath.Join(agent.CurrentConfig().LogDir(), "lease.log")
-	if err := primeLogFile(logPath); err != nil {
-		// This isn't a fatal error, so log and continue if priming
-		// fails.
-		s.config.Logger.Errorf(
-			"unable to prime log file %q (proceeding anyway): %s",
-			logPath,
-			err.Error(),
-		)
-	}
-
-	notifyTarget := s.config.NewTarget(st, makeLogger(logPath), s.config.Logger)
 	s.store = s.config.NewStore(raftlease.StoreConfig{
 		FSM:          s.config.FSM,
 		Hub:          hub,
-		Target:       notifyTarget,
+		Trapdoor:     state.LeaseTrapdoorFunc(),
 		RequestTopic: s.config.RequestTopic,
 		ResponseTopic: func(requestID uint64) string {
 			return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)
@@ -175,7 +131,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	})
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
-	w, err := s.config.NewWorker(lease.ManagerConfig{
+	return s.config.NewWorker(lease.ManagerConfig{
 		Secretary:  lease.SecretaryFinder(controllerUUID),
 		Store:      s.store,
 		Clock:      clock,
@@ -183,11 +139,6 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		MaxSleep:   MaxSleep,
 		EntityUUID: controllerUUID,
 	})
-	if err != nil {
-		stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }
 
 func (s *manifoldState) output(in worker.Worker, out interface{}) error {
@@ -217,7 +168,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.ClockName,
-			config.StateName,
 			config.CentralHubName,
 		},
 		Start:  s.start,
@@ -233,32 +183,4 @@ func NewWorker(config lease.ManagerConfig) (worker.Worker, error) {
 // NewStore is a shim to make a raftlease.Store for testability.
 func NewStore(config raftlease.StoreConfig) *raftlease.Store {
 	return raftlease.NewStore(config)
-}
-
-// NewTarget is a shim to construct a raftlease.NotifyTarget for testability.
-func NewTarget(st *state.State, logFile io.Writer, errorLog lease.Logger) raftlease.NotifyTarget {
-	return st.LeaseNotifyTarget(logFile, errorLog)
-}
-
-func makeLogger(path string) *lumberjack.Logger {
-	return &lumberjack.Logger{
-		Filename:   path,
-		MaxSize:    maxLogSizeMB,
-		MaxBackups: maxLogs,
-		Compress:   true,
-	}
-}
-
-// primeLogFile ensures the lease log file is created with the
-// correct mode and ownership.
-func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := f.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
 }

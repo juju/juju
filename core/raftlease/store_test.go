@@ -23,11 +23,10 @@ import (
 type storeSuite struct {
 	testing.IsolationSuite
 
-	clock  *testclock.Clock
-	target *fakeTarget
-	fsm    *fakeFSM
-	hub    *pubsub.StructuredHub
-	store  *raftlease.Store
+	clock *testclock.Clock
+	fsm   *fakeFSM
+	hub   *pubsub.StructuredHub
+	store *raftlease.Store
 }
 
 var _ = gc.Suite(&storeSuite{})
@@ -38,7 +37,6 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 	startTime, err := time.Parse(time.RFC3339, "2018-08-08T08:08:08+08:00")
 	c.Assert(err, jc.ErrorIsNil)
 	s.clock = testclock.NewClock(startTime)
-	s.target = &fakeTarget{}
 	s.fsm = &fakeFSM{
 		leases:     make(map[lease.Key]lease.Info),
 		globalTime: s.clock.Now(),
@@ -47,7 +45,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 	s.store = raftlease.NewStore(raftlease.StoreConfig{
 		FSM:          s.fsm,
 		Hub:          s.hub,
-		Target:       s.target,
+		Trapdoor:     FakeTrapdoor,
 		RequestTopic: "lease.request",
 		ResponseTopic: func(reqID uint64) string {
 			return fmt.Sprintf("lease.request.%d", reqID)
@@ -83,10 +81,6 @@ func (s *storeSuite) TestClaim(c *gc.C) {
 			)
 			c.Check(err, jc.ErrorIsNil)
 		},
-	)
-	s.target.CheckCall(c, 0, "Claimed",
-		lease.Key{"warframe", "rhino", "prime"},
-		"lotus",
 	)
 }
 
@@ -124,7 +118,6 @@ func (s *storeSuite) TestClaimTimeout(c *gc.C) {
 			// We never send a response, to trigger a timeout.
 		},
 	)
-	c.Assert(s.target.Calls(), gc.HasLen, 0)
 }
 
 func (s *storeSuite) TestClaimInvalid(c *gc.C) {
@@ -158,7 +151,6 @@ func (s *storeSuite) TestClaimInvalid(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		},
 	)
-	c.Assert(s.target.Calls(), gc.HasLen, 0)
 }
 
 func (s *storeSuite) TestExtend(c *gc.C) {
@@ -188,7 +180,6 @@ func (s *storeSuite) TestExtend(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		},
 	)
-	c.Assert(s.target.Calls(), gc.HasLen, 0)
 }
 
 func (s *storeSuite) TestExpire(c *gc.C) {
@@ -214,9 +205,6 @@ func (s *storeSuite) TestExpire(c *gc.C) {
 			)
 			c.Check(err, jc.ErrorIsNil)
 		},
-	)
-	s.target.CheckCall(c, 0, "Expired",
-		lease.Key{"warframe", "oberon", "prime"},
 	)
 }
 
@@ -441,19 +429,7 @@ func (f *fakeFSM) GlobalTime() time.Time {
 	return f.globalTime
 }
 
-type fakeTarget struct {
-	testing.Stub
-}
-
-func (t *fakeTarget) Claimed(key lease.Key, holder string) {
-	t.AddCall("Claimed", key, holder)
-}
-
-func (t *fakeTarget) Expired(key lease.Key) {
-	t.AddCall("Expired", key)
-}
-
-func (t *fakeTarget) Trapdoor(key lease.Key, holder string) lease.Trapdoor {
+func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
 	return func(out interface{}) error {
 		if s, ok := out.(*string); ok {
 			*s = fmt.Sprintf("%v held by %s", key, holder)

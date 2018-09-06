@@ -16,10 +16,11 @@ import (
 // leaseStore implements lease.Store as simply as possible for use in
 // the dummy provider. Heavily cribbed from raftlease.FSM.
 type leaseStore struct {
-	mu      sync.Mutex
-	clock   clock.Clock
-	entries map[lease.Key]*entry
-	target  raftlease.NotifyTarget
+	mu       sync.Mutex
+	clock    clock.Clock
+	entries  map[lease.Key]*entry
+	trapdoor raftlease.TrapdoorFunc
+	target   raftlease.NotifyTarget
 }
 
 // entry holds the details of a lease.
@@ -35,11 +36,12 @@ type entry struct {
 	duration time.Duration
 }
 
-func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget) *leaseStore {
+func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor raftlease.TrapdoorFunc) *leaseStore {
 	return &leaseStore{
-		clock:   clock,
-		entries: make(map[lease.Key]*entry),
-		target:  target,
+		clock:    clock,
+		entries:  make(map[lease.Key]*entry),
+		target:   target,
+		trapdoor: trapdoor,
 	}
 }
 
@@ -110,7 +112,7 @@ func (s *leaseStore) Leases() map[lease.Key]lease.Info {
 		results[key] = lease.Info{
 			Holder:   entry.holder,
 			Expiry:   entry.start.Add(entry.duration),
-			Trapdoor: s.target.Trapdoor(key, entry.holder),
+			Trapdoor: s.trapdoor(key, entry.holder),
 		}
 	}
 	return results

@@ -29,13 +29,13 @@ type NotifyTarget interface {
 	// Expired will be called when an existing lease has expired. Not
 	// allowed to return an error because this is purely advisory.
 	Expired(lease.Key)
-
-	// Trapdoor returns a trapdoor to be attached to lease details for
-	// use by clients. This is intended to hold assertions that can be
-	// added to state transactions to ensure the lease is still held
-	// when the transaction is applied.
-	Trapdoor(lease.Key, string) lease.Trapdoor
 }
+
+// TrapdoorFunc returns a trapdoor to be attached to lease details for
+// use by clients. This is intended to hold assertions that can be
+// added to state transactions to ensure the lease is still held when
+// the transaction is applied.
+type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 
 // ReadonlyFSM defines the methods of the lease FSM the store can use
 // - any writes must go through the hub.
@@ -48,7 +48,7 @@ type ReadonlyFSM interface {
 type StoreConfig struct {
 	FSM           ReadonlyFSM
 	Hub           *pubsub.StructuredHub
-	Target        NotifyTarget
+	Trapdoor      TrapdoorFunc
 	RequestTopic  string
 	ResponseTopic func(requestID uint64) string
 
@@ -88,9 +88,6 @@ func (s *Store) ClaimLease(key lease.Key, req lease.Request) error {
 		Holder:    req.Holder,
 		Duration:  req.Duration,
 	})
-	if err == nil {
-		s.config.Target.Claimed(key, req.Holder)
-	}
 	return errors.Trace(err)
 }
 
@@ -116,9 +113,6 @@ func (s *Store) ExpireLease(key lease.Key) error {
 		ModelUUID: key.ModelUUID,
 		Lease:     key.Lease,
 	})
-	if err == nil {
-		s.config.Target.Expired(key)
-	}
 	return errors.Trace(err)
 }
 
@@ -128,7 +122,7 @@ func (s *Store) Leases() map[lease.Key]lease.Info {
 	result := make(map[lease.Key]lease.Info, len(leaseMap))
 	// Add trapdoors into the information from the FSM.
 	for k, v := range leaseMap {
-		v.Trapdoor = s.config.Target.Trapdoor(k, v.Holder)
+		v.Trapdoor = s.config.Trapdoor(k, v.Holder)
 		result[k] = v
 	}
 	return result

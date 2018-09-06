@@ -27,6 +27,8 @@ type RaftApplier interface {
 
 // Logger specifies the interface we use from loggo.Logger.
 type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 
@@ -36,6 +38,7 @@ type Config struct {
 	Raft   RaftApplier
 	Logger Logger
 	Topic  string
+	Target raftlease.NotifyTarget
 }
 
 // Validate checks that this config can be used.
@@ -51,6 +54,9 @@ func (config Config) Validate() error {
 	}
 	if config.Topic == "" {
 		return errors.NotValidf("empty Topic")
+	}
+	if config.Target == nil {
+		return errors.NotValidf("nil Target")
 	}
 	return nil
 }
@@ -127,11 +133,12 @@ func (w *forwarder) processRequest(command []byte) (raftlease.ForwardResponse, e
 		return empty, errors.Trace(err)
 	}
 	respValue := future.Response()
-	responseErr, ok := respValue.(error)
-	if respValue != nil && !ok {
-		return empty, errors.Errorf("FSM response must be an error or nil, got %#v", respValue)
+	response, ok := respValue.(raftlease.FSMResponse)
+	if !ok {
+		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
 	}
-	return responseFromError(responseErr), nil
+	response.Notify(w.config.Target)
+	return responseFromError(response.Error()), nil
 }
 
 func responseFromError(err error) raftlease.ForwardResponse {

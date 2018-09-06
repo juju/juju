@@ -818,11 +818,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The raft forwarder accepts FSM commands from the hub and
 		// applies them to the raft leader.
 		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
+			AgentName:      agentName,
 			RaftName:       raftName,
+			StateName:      stateName,
 			CentralHubName: centralHubName,
 			RequestTopic:   leaseRequestTopic,
 			Logger:         loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			NewWorker:      raftforwarder.NewWorker,
+			NewTarget:      raftforwarder.NewTarget,
 		})),
 
 		// The global lease manager tracks lease information in the raft
@@ -830,14 +833,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
 			AgentName:      agentName,
 			ClockName:      clockName,
-			StateName:      stateName,
 			CentralHubName: centralHubName,
 			FSM:            leaseFSM,
 			RequestTopic:   leaseRequestTopic,
 			Logger:         loggo.GetLogger("juju.worker.lease.raft"),
 			NewWorker:      leasemanager.NewWorker,
 			NewStore:       leasemanager.NewStore,
-			NewTarget:      leasemanager.NewTarget,
 		})),
 
 		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
