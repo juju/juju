@@ -77,13 +77,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 
-			return NewAgentUpgrader(
-				upgraderFacade,
-				currentConfig,
-				config.PreviousAgentVersion,
-				upgradeStepsWaiter,
-				initialCheckUnlocker,
-			)
+			return NewAgentUpgrader(Config{
+				State:                       upgraderFacade,
+				AgentConfig:                 currentConfig,
+				OrigAgentVersion:            config.PreviousAgentVersion,
+				UpgradeStepsWaiter:          upgradeStepsWaiter,
+				InitialUpgradeCheckComplete: initialCheckUnlocker,
+			})
 		},
 	}
 }

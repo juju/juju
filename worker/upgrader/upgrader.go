@@ -37,13 +37,20 @@ var logger = loggo.GetLogger("juju.worker.upgrader")
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
-	catacomb                    catacomb.Catacomb
-	st                          *upgrader.State
-	dataDir                     string
-	tag                         names.Tag
-	origAgentVersion            version.Number
-	upgradeStepsWaiter          gate.Waiter
-	initialUpgradeCheckComplete gate.Unlocker
+	catacomb catacomb.Catacomb
+	st       *upgrader.State
+	dataDir  string
+	tag      names.Tag
+	config   Config
+}
+
+// Config contains the items the worker needs to start.
+type Config struct {
+	State                       *upgrader.State
+	AgentConfig                 agent.Config
+	OrigAgentVersion            version.Number
+	UpgradeStepsWaiter          gate.Waiter
+	InitialUpgradeCheckComplete gate.Unlocker
 }
 
 // NewAgentUpgrader returns a new upgrader worker. It watches changes to the
@@ -52,20 +59,12 @@ type Upgrader struct {
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewAgentUpgrader(
-	st *upgrader.State,
-	agentConfig agent.Config,
-	origAgentVersion version.Number,
-	upgradeStepsWaiter gate.Waiter,
-	initialUpgradeCheckComplete gate.Unlocker,
-) (*Upgrader, error) {
+func NewAgentUpgrader(config Config) (*Upgrader, error) {
 	u := &Upgrader{
-		st:                          st,
-		dataDir:                     agentConfig.DataDir(),
-		tag:                         agentConfig.Tag(),
-		origAgentVersion:            origAgentVersion,
-		upgradeStepsWaiter:          upgradeStepsWaiter,
-		initialUpgradeCheckComplete: initialUpgradeCheckComplete,
+		st:      config.State,
+		dataDir: config.AgentConfig.DataDir(),
+		tag:     config.AgentConfig.Tag(),
+		config:  config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -178,12 +177,12 @@ func (u *Upgrader) loop() error {
 		logger.Infof("desired agent binary version: %v", wantVersion)
 
 		if wantVersion == jujuversion.Current {
-			u.initialUpgradeCheckComplete.Unlock()
+			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !allowedTargetVersion(
-			u.origAgentVersion,
+			u.config.OrigAgentVersion,
 			jujuversion.Current,
-			!u.upgradeStepsWaiter.IsUnlocked(),
+			!u.config.UpgradeStepsWaiter.IsUnlocked(),
 			wantVersion,
 		) {
 			// See also bug #1299802 where when upgrading from
@@ -193,7 +192,7 @@ func (u *Upgrader) loop() error {
 			// finished upgrading.
 			logger.Infof("desired agent binary version: %s is older than current %s, refusing to downgrade",
 				wantVersion, jujuversion.Current)
-			u.initialUpgradeCheckComplete.Unlock()
+			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
 		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
