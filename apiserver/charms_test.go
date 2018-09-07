@@ -161,7 +161,7 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// Pretend we upload a zip by setting the Content-Type, so we can
 	// check the error at extraction time later.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &empty)
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*cannot open charm archive: zip: not a valid zip file$")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*zip: not a valid zip file$")
 
 	// Now try with the default Content-Type.
 	resp = s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/octet-stream", &empty)
