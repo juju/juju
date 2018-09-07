@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -30,6 +31,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
@@ -105,6 +107,7 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 		OrigAgentVersion:            s.confVersion,
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
+		CheckDiskSpace:              func(string, uint64) error { return nil },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -384,6 +387,44 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
+	stor := s.DefaultToolsStorage
+	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.patchVersion(oldTools.Version)
+	newTools := envtesting.AssertUploadFakeToolsVersions(
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var stub testing.Stub
+	stub.SetErrors(nil, errors.Errorf("full-up"))
+
+	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
+		State:                       s.state.Upgrader(),
+		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
+		OrigAgentVersion:            s.confVersion,
+		UpgradeStepsWaiter:          s.upgradeStepsComplete,
+		InitialUpgradeCheckComplete: s.initialCheckComplete,
+		CheckDiskSpace: func(dir string, size uint64) error {
+			stub.AddCall("CheckDiskSpace", dir, size)
+			return stub.NextErr()
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Stop()
+	s.expectInitialUpgradeCheckNotDone(c)
+
+	c.Assert(err, gc.ErrorMatches, "full-up")
+	c.Assert(stub.Calls(), gc.HasLen, 2)
+	stub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
+	stub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
+
+	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
+	// Would end with "no such file or directory" on *nix - not sure
+	// about Windows so leaving it off.
+	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory .*`)
 }
 
 type allowedTest struct {

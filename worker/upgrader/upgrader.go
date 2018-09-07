@@ -6,6 +6,7 @@ package upgrader
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,6 +21,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/gate"
@@ -51,6 +53,7 @@ type Config struct {
 	OrigAgentVersion            version.Number
 	UpgradeStepsWaiter          gate.Waiter
 	InitialUpgradeCheckComplete gate.Unlocker
+	CheckDiskSpace              func(string, uint64) error
 }
 
 // NewAgentUpgrader returns a new upgrader worker. It watches changes to the
@@ -215,6 +218,9 @@ func (u *Upgrader) loop() error {
 		// as we have got as far as this, we will still be able to
 		// upgrade the agent.
 		for _, wantTools := range wantToolsList {
+			if err := u.checkForSpace(); err != nil {
+				return errors.Trace(err)
+			}
 			err = u.ensureTools(wantTools)
 			if err == nil {
 				return u.newUpgradeReadyError(wantTools.Version)
@@ -265,5 +271,18 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 		return fmt.Errorf("cannot unpack agent binaries: %v", err)
 	}
 	logger.Infof("unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
+	return nil
+}
+
+func (u *Upgrader) checkForSpace() error {
+	logger.Debugf("checking available space before downloading")
+	err := u.config.CheckDiskSpace(u.dataDir, upgrades.MinDiskSpaceMib)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = u.config.CheckDiskSpace(os.TempDir(), upgrades.MinDiskSpaceMib)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
