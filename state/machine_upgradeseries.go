@@ -24,7 +24,7 @@ type upgradeSeriesLockDoc struct {
 	ToSeries      string                             `bson:"to-series"`
 	FromSeries    string                             `bson:"from-series"`
 	MachineStatus model.UpgradeSeriesStatus          `bson:"machine-status"`
-	Messages      []UpgradeSeriesMessage             `bson:"messages`
+	Messages      []UpgradeSeriesMessage             `bson:"messages"`
 	TimeStamp     time.Time                          `bson:"timestamp"`
 	UnitStatuses  map[string]UpgradeSeriesUnitStatus `bson:"unit-statuses"`
 }

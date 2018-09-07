@@ -1342,6 +1342,12 @@ type UpgradeSeriesStatusParam struct {
 	Message string                    `json:"message"`
 }
 
+// UpgradeSeriesStartUnitCompletionParam contains entities and a context message.
+type UpgradeSeriesStartUnitCompletionParam struct {
+	Entities []Entity `json:"entities"`
+	Message  string   `json:"message"`
+}
+
 // UpgradeSeriesUnitsResults contains the units affected by a series per
 // machine entity.
 type UpgradeSeriesUnitsResults struct {

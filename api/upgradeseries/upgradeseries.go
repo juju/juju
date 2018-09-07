@@ -163,10 +163,11 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason strin
 }
 
 // StartUnitCompletion starts the complete phase for all subordinate units.
-func (s *Client) StartUnitCompletion() error {
+func (s *Client) StartUnitCompletion(reason string) error {
 	var results params.ErrorResults
-	args := params.Entities{
+	args := params.UpgradeSeriesStartUnitCompletionParam{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
+		Message:  reason,
 	}
 
 	err := s.facade.FacadeCall("StartUnitCompletion", args, &results)

@@ -312,7 +312,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 
 	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
-		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
+		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted, "series upgrade complete"))
 	}
 
 	return nil
@@ -340,7 +340,7 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 		}
 	}
 
-	return errors.Trace(w.StartUnitCompletion())
+	return errors.Trace(w.StartUnitCompletion("starting all unit agents after series upgrade"))
 }
 
 // handleCompleted notifies the server that it has completed the upgrade
