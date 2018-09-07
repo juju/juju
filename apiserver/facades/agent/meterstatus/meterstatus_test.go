@@ -94,10 +94,10 @@ func (s *meterStatusSuite) TestGetMeterStatus(c *gc.C) {
 }
 
 func (s *meterStatusSuite) TestWatchMeterStatus(c *gc.C) {
-	status, ctrl := s.setupMeterStatusAPI(c, func(st *mocks.MockMeterStatusState, res *mocks.MockResources, auth *mocks.MockAuthorizer) {
-		aExp := auth.EXPECT()
-		sExp := st.EXPECT()
-		rExp := res.EXPECT()
+	status, ctrl := s.setupMeterStatusAPI(c, func(mocks meterStatusAPIMocks) {
+		aExp := mocks.authorizer.EXPECT()
+		sExp := mocks.state.EXPECT()
+		rExp := mocks.resources.EXPECT()
 
 		tag := s.unit.UnitTag()
 		aExp.GetAuthTag().Return(tag)
@@ -125,10 +125,10 @@ func (s *meterStatusSuite) TestWatchMeterStatus(c *gc.C) {
 }
 
 func (s *meterStatusSuite) TestWatchMeterStatusWithStateChange(c *gc.C) {
-	status, ctrl := s.setupMeterStatusAPI(c, func(st *mocks.MockMeterStatusState, res *mocks.MockResources, auth *mocks.MockAuthorizer) {
-		aExp := auth.EXPECT()
-		sExp := st.EXPECT()
-		rExp := res.EXPECT()
+	status, ctrl := s.setupMeterStatusAPI(c, func(mocks meterStatusAPIMocks) {
+		aExp := mocks.authorizer.EXPECT()
+		sExp := mocks.state.EXPECT()
+		rExp := mocks.resources.EXPECT()
 
 		tag := s.unit.UnitTag()
 		aExp.GetAuthTag().Return(tag)
@@ -160,10 +160,10 @@ func (s *meterStatusSuite) TestWatchMeterStatusWithApplicationTag(c *gc.C) {
 
 	unit := units[0]
 
-	status, ctrl := s.setupMeterStatusAPI(c, func(st *mocks.MockMeterStatusState, res *mocks.MockResources, auth *mocks.MockAuthorizer) {
-		aExp := auth.EXPECT()
-		sExp := st.EXPECT()
-		rExp := res.EXPECT()
+	status, ctrl := s.setupMeterStatusAPI(c, func(mocks meterStatusAPIMocks) {
+		aExp := mocks.authorizer.EXPECT()
+		sExp := mocks.state.EXPECT()
+		rExp := mocks.resources.EXPECT()
 
 		tag := names.ApplicationTag{
 			Name: "mysql",
@@ -188,7 +188,13 @@ func (s *meterStatusSuite) TestWatchMeterStatusWithApplicationTag(c *gc.C) {
 	})
 }
 
-func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(*mocks.MockMeterStatusState, *mocks.MockResources, *mocks.MockAuthorizer)) (*meterstatus.MeterStatusAPI, *gomock.Controller) {
+type meterStatusAPIMocks struct {
+	state      *mocks.MockMeterStatusState
+	resources  *mocks.MockResources
+	authorizer *mocks.MockAuthorizer
+}
+
+func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(meterStatusAPIMocks)) (*meterstatus.MeterStatusAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	mockState := mocks.NewMockMeterStatusState(ctrl)
@@ -200,7 +206,11 @@ func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(*mocks.MockMeter
 	status, err := meterstatus.NewMeterStatusAPI(mockState, mockResources, mockAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn(mockState, mockResources, mockAuthorizer)
+	fn(meterStatusAPIMocks{
+		state:      mockState,
+		resources:  mockResources,
+		authorizer: mockAuthorizer,
+	})
 
 	return status, ctrl
 }
