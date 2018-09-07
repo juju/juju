@@ -25,16 +25,19 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ApplicationSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
-	backend     mockBackend
-	endpoints   []state.Endpoint
-	relation    mockRelation
-	application mockApplication
+	backend            mockBackend
+	endpoints          []state.Endpoint
+	relation           mockRelation
+	application        mockApplication
+	storagePoolManager *mockStoragePoolManager
 
 	env          environs.Environ
 	blockChecker mockBlockChecker
@@ -46,6 +49,7 @@ var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
+	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
 	api, err := application.NewAPIBase(
 		&s.backend,
 		&s.backend,
@@ -59,6 +63,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
 			return nil, nil
 		},
+		s.storagePoolManager,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = &application.APIv8{api}
@@ -494,6 +499,68 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, "Placement may not be specified for caas models")
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	_, err := s.api.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, `deploying a Kubernetes application requires a storage pool called "operator-storage": .*`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.storagePoolManager.storageType = provider.RootfsProviderType
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	_, err := s.api.Deploy(args)
+	c.Assert(err, gc.ErrorMatches, `the "operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelNoStoragePool(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Storage: map[string]storage.Constraints{
+				"database": {},
+			},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `storage pool for "database" must be specified`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelWrongStorageType(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Storage: map[string]storage.Constraints{
+				"database": {Pool: "db"},
+			},
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `invalid storage provider type "rootfs" for "database"`)
 }
 
 func (s *ApplicationSuite) TestAddUnits(c *gc.C) {

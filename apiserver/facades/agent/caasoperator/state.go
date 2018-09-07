@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -17,7 +18,11 @@ import (
 type CAASOperatorState interface {
 	Application(string) (Application, error)
 	Model() (Model, error)
+	ModelUUID() string
 	FindEntity(names.Tag) (state.Entity, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
+	Addresses() ([]string, error)
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 // Model provides the subset of CAAS model state required

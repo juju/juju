@@ -27,6 +27,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"FilesystemAttachmentsWatcher",
 	"LeadershipService",
 	"LifeFlag",
+	"Logger",
 	"MeterStatus",
 	"MigrationFlag",
 	"MigrationMaster",

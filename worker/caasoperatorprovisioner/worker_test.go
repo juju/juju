@@ -71,7 +71,6 @@ func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchApplications", nil},
-		{"WatchAPIHostPorts", nil},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
@@ -83,7 +82,7 @@ func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
+func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
 	s.provisionerFacade.life = "alive"
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
@@ -92,9 +91,13 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 			break
 		}
 	}
-	s.caasClient.CheckCallNames(c, "EnsureOperator")
+	s.caasClient.CheckCallNames(c, "OperatorExists", "EnsureOperator")
 
 	args := s.caasClient.Calls()[0].Args
+	c.Assert(args, gc.HasLen, 1)
+	c.Assert(args[0], gc.Equals, "myapp")
+
+	args = s.caasClient.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 3)
 	c.Assert(args[0], gc.Equals, "myapp")
 	c.Assert(args[1], gc.Equals, "/var/lib/juju")
@@ -109,42 +112,61 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 		Attributes:   map[string]interface{}{"key": "value"},
 	})
 
-	agentFile := filepath.Join(c.MkDir(), "agent.config")
-	err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := agent.ReadConfig(agentFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.CACert(), gc.Equals, coretesting.CACert)
-	addr, err := cfg.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
+	if !exists {
+		agentFile := filepath.Join(c.MkDir(), "agent.config")
+		err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		cfg, err := agent.ReadConfig(agentFile)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cfg.CACert(), gc.Equals, coretesting.CACert)
+		addr, err := cfg.APIAddresses()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
+	} else {
+		c.Assert(config.AgentConf, gc.IsNil)
+	}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.provisionerFacade.stub.Calls()) > 0 {
 			break
 		}
 	}
-	s.provisionerFacade.stub.CheckCallNames(c, "Life", "SetPasswords", "APIAddresses", "OperatorProvisioningInfo")
+
+	if exists {
+		s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo")
+		c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
+		return
+	}
+
+	s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo", "SetPasswords")
 	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
-	passwords := s.provisionerFacade.stub.Calls()[1].Args[0].([]apicaasprovisioner.ApplicationPassword)
+	passwords := s.provisionerFacade.stub.Calls()[2].Args[0].([]apicaasprovisioner.ApplicationPassword)
 
 	c.Assert(passwords, gc.HasLen, 1)
 	c.Assert(passwords[0].Name, gc.Equals, "myapp")
 	c.Assert(passwords[0].Password, gc.Not(gc.Equals), "")
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationCreatesOperator(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationCreatesNewOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c)
+	s.assertOperatorCreated(c, false)
+}
+
+func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
+	s.caasClient.operatorExists = true
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.assertOperatorCreated(c, true)
 }
 
 func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c)
+	s.assertOperatorCreated(c, false)
 	s.caasClient.ResetCalls()
 	s.provisionerFacade.stub.SetErrors(errors.NotFoundf("myapp"))
 	s.provisionerFacade.life = "dead"
@@ -157,22 +179,4 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	}
 	s.caasClient.CheckCallNames(c, "DeleteOperator")
 	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
-}
-
-func (s *CAASProvisionerSuite) TestAddressChanges(c *gc.C) {
-	w := s.assertWorker(c)
-	defer workertest.CleanKill(c, w)
-
-	s.assertOperatorCreated(c)
-	s.stub.ResetCalls()
-	s.caasClient.ResetCalls()
-
-	s.provisionerFacade.apiWatcher.changes <- struct{}{}
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.caasClient.Calls()) > 0 {
-			break
-		}
-	}
-	s.stub.CheckCallNames(c, "APIAddresses", "OperatorProvisioningInfo")
-	s.caasClient.CheckCallNames(c, "EnsureOperator")
 }

@@ -334,7 +334,7 @@ func (op *caasOperator) loop() (err error) {
 		case <-watcher.RemoteStateChanged():
 			snap := watcher.Snapshot()
 			if charmModified(localState, snap) {
-				// Charm changed so download and install the ne version.
+				// Charm changed so download and install the new version.
 				charmURL, charmModifiedVersion, err := op.ensureCharm()
 				if err != nil {
 					return errors.Annotatef(err, "error downloading updated charm %v", charmURL.String())
@@ -406,6 +406,10 @@ func charmModified(local LocalState, remote remotestate.Snapshot) bool {
 	// CAAS models may not yet have read the charm url from state.
 	if remote.CharmURL == nil {
 		return false
+	}
+	if local.CharmURL == nil {
+		logger.Warningf("unexpected nil local charm URL")
+		return true
 	}
 	if *local.CharmURL != *remote.CharmURL {
 		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)

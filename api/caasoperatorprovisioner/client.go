@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -19,7 +18,6 @@ import (
 
 // Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
-	*common.APIAddresser
 	facade base.FacadeCaller
 }
 
@@ -27,8 +25,7 @@ type Client struct {
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
 	return &Client{
-		facade:       facadeCaller,
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
+		facade: facadeCaller,
 	}
 }
 
@@ -108,6 +105,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 type OperatorProvisioningInfo struct {
 	ImagePath    string
 	Version      version.Number
+	APIAddresses []string
 	CharmStorage storage.KubernetesFilesystemParams
 }
 
@@ -120,6 +118,7 @@ func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
 	info := OperatorProvisioningInfo{
 		ImagePath:    result.ImagePath,
 		Version:      result.Version,
+		APIAddresses: result.APIAddresses,
 		CharmStorage: filesystemFromParams(result.CharmStorage),
 	}
 	return info, nil

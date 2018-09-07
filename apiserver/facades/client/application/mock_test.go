@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
@@ -27,6 +28,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -671,4 +674,22 @@ func (s *recordingStorage) Remove(path string) error {
 	}
 	s.blobs.Remove(path)
 	return nil
+}
+
+type mockStoragePoolManager struct {
+	jtesting.Stub
+	poolmanager.PoolManager
+	storageType storage.ProviderType
+}
+
+func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
+	m.MethodCall(m, "Get", name)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	storageType := m.storageType
+	if name == "db" {
+		storageType = provider.RootfsProviderType
+	}
+	return storage.NewConfig(name, storageType, map[string]interface{}{"foo": "bar"})
 }

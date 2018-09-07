@@ -125,8 +125,9 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath: fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
-		Version:   version.Current,
+		ImagePath:    fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
+		Version:      version.Current,
+		APIAddresses: []string{"10.0.0.1:1"},
 		CharmStorage: params.KubernetesFilesystemParams{
 			Size:       uint64(1024),
 			Provider:   "kubernetes",
@@ -140,8 +141,9 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath: s.st.operatorImage,
-		Version:   version.Current,
+		ImagePath:    s.st.operatorImage,
+		Version:      version.Current,
+		APIAddresses: []string{"10.0.0.1:1"},
 		CharmStorage: params.KubernetesFilesystemParams{
 			Size:       uint64(1024),
 			Provider:   "kubernetes",
@@ -153,25 +155,12 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C) {
 	s.storagePoolManager.SetErrors(errors.NotFoundf("pool"))
 	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
-	result, err := s.api.OperatorProvisioningInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath: s.st.operatorImage,
-		Version:   version.Current,
-		CharmStorage: params.KubernetesFilesystemParams{
-			Size: uint64(1024),
-		},
-	})
+	_, err := s.api.OperatorProvisioningInfo()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CAASProvisionerSuite) TestAddresses(c *gc.C) {
 	_, err := s.api.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "APIHostPortsForAgents")
-}
-
-func (s *CAASProvisionerSuite) TestWatchAPIHostPorts(c *gc.C) {
-	_, err := s.api.WatchAPIHostPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	s.st.CheckCallNames(c, "WatchAPIHostPortsForAgents")
 }

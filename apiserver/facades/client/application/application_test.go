@@ -33,9 +33,11 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -92,6 +94,8 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv8 {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
+	registry := stateenvirons.NewStorageProviderRegistry(s.Environ)
+	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
 	api, err := application.NewAPIBase(
 		application.GetState(s.State),
 		storageAccess,
@@ -101,6 +105,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv8 {
 		model.Type(),
 		application.CharmToStateCharm,
 		application.DeployApplication,
+		pm,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &application.APIv8{api}

@@ -320,3 +320,15 @@ func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
 	})
 	s.st.app.CheckCall(c, 0, "SetAgentVersion", vers)
 }
+
+func (s *CAASOperatorSuite) TestAddresses(c *gc.C) {
+	_, err := s.facade.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "Model", "APIHostPortsForAgents")
+}
+
+func (s *CAASOperatorSuite) TestWatchAPIHostPorts(c *gc.C) {
+	_, err := s.facade.WatchAPIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "Model", "WatchAPIHostPortsForAgents")
+}
