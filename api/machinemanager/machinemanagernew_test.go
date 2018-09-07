@@ -41,7 +41,7 @@ func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *NewMachineManagerSuite) UpgradeSeriesValidate(c *gc.C) {
+func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	fFacade := mocks.NewMockClientFacade(ctrl)
@@ -52,6 +52,7 @@ func (s *NewMachineManagerSuite) UpgradeSeriesValidate(c *gc.C) {
 		Args: []params.UpdateSeriesArg{
 			{
 				Entity: params.Entity{Tag: names.NewMachineTag(arbitraryName).String()},
+				Series: "xenial",
 			},
 		},
 	}
@@ -65,7 +66,7 @@ func (s *NewMachineManagerSuite) UpgradeSeriesValidate(c *gc.C) {
 	fCaller.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
 	client := machinemanager.ConstructClient(fFacade, fCaller)
 
-	unitNames, err := client.UpgradeSeriesVerify(arbitraryName)
+	unitNames, err := client.UpgradeSeriesValidate(arbitraryName, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(unitNames, gc.DeepEquals, result.UnitNames)
