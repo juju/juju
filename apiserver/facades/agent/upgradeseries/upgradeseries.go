@@ -161,7 +161,7 @@ func (a *API) StartUnitCompletion(args params.Entities) (params.ErrorResults, er
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.StartUpgradeSeriesUnitCompletion()
+		err = machine.StartUpgradeSeriesUnitCompletion(param.Message)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

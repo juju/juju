@@ -50,7 +50,7 @@ type UpgradeMachineSeriesAPI interface {
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
 	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, error)
-	GetUpgradeSeriesNotification(string) ([]string, error)
+	GetUpgradeSeriesNotification(string) (string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -271,8 +271,7 @@ func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context) error
 	if err != nil {
 		return errors.Trace(err)
 	}
-	formattedNotifications := strings.Join(notifications, "\n")
-	_, err = fmt.Fprint(ctx.Stdout, formattedNotifications+"\n")
+	_, err = fmt.Fprint(ctx.Stdout, notifications+"\n")
 	if err != nil {
 		errors.Trace(err)
 	}

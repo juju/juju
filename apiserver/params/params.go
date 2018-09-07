@@ -1337,8 +1337,9 @@ type UpgradeSeriesStatusParams struct {
 // UpgradeSeriesStatusParam contains the entity and desired status for
 // that entity.
 type UpgradeSeriesStatusParam struct {
-	Entity Entity                    `json:"entity"`
-	Status model.UpgradeSeriesStatus `json:"status"`
+	Entity  Entity                    `json:"entity"`
+	Status  model.UpgradeSeriesStatus `json:"status"`
+	Message string                    `json:message`
 }
 
 // UpgradeSeriesUnitsResults contains the units affected by a series per

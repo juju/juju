@@ -28,7 +28,7 @@ type UpgradeSeriesMachine interface {
 	Units() ([]UpgradeSeriesUnit, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
-	StartUpgradeSeriesUnitCompletion() error
+	StartUpgradeSeriesUnitCompletion(string) error
 	UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error)
 	RemoveUpgradeSeriesLock() error
 	UpgradeSeriesTarget() (string, error)

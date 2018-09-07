@@ -24,14 +24,27 @@ type upgradeSeriesLockDoc struct {
 	ToSeries      string                             `bson:"to-series"`
 	FromSeries    string                             `bson:"from-series"`
 	MachineStatus model.UpgradeSeriesStatus          `bson:"machine-status"`
+	Messages      []UpgradeSeriesMessage             `bson:"messages`
+	TimeStamp     time.Time                          `bson:"timestamp"`
 	UnitStatuses  map[string]UpgradeSeriesUnitStatus `bson:"unit-statuses"`
 }
 
 type UpgradeSeriesUnitStatus struct {
-	Status model.UpgradeSeriesStatus
-
-	// The time that the status was set
+	Status    model.UpgradeSeriesStatus
 	Timestamp time.Time
+	Messages  []UpgradeSeriesMessage
+}
+
+type UpgradeSeriesMessage struct {
+	message   string
+	timeStamp time.Time
+}
+
+func newUpgradeSeriesMessage(message string, timestamp time.Time) UpgradeSeriesMessage {
+	return UpgradeSeriesMessage{
+		message:   message,
+		timeStamp: timestamp,
+	}
 }
 
 // CreateUpgradeSeriesLock create a prepare lock for series upgrade. If
@@ -117,12 +130,17 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	for _, name := range unitNames {
 		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.UpgradeSeriesPrepareStarted, Timestamp: bson.Now()}
 	}
+	timestamp := bson.Now()
+	message := fmt.Sprintf("started upgrade series for machine %s from series %s to series %s", m.Id(), m.Series(), toSeries)
+	updateMessage := newUpgradeSeriesMessage(message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
 		FromSeries:    m.Series(),
 		MachineStatus: model.UpgradeSeriesPrepareStarted,
 		UnitStatuses:  unitStatuses,
+		TimeStamp:     timestamp,
+		Messages:      []UpgradeSeriesMessage{updateMessage},
 	}
 }
 
@@ -152,9 +170,9 @@ func (m *Machine) UpgradeSeriesTarget() (string, error) {
 	return lock.ToSeries, nil
 }
 
-// StartUpgradeSeriesUnitCompletion notifies units and machines that an
-// upgrade-series workflow is ready for its "completion" phase.
-func (m *Machine) StartUpgradeSeriesUnitCompletion() error {
+// StartUpgradeSeriesUnitCompletion notifies units that an upgrade-series
+// workflow is ready for its "completion" phase.
+func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
