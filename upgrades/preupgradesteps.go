@@ -45,10 +45,10 @@ var MinDiskSpaceMib = uint64(250)
 // containing dir.
 func CheckFreeDiskSpace(dir string, thresholdMib uint64) error {
 	usage := du.NewDiskUsage(dir)
-	free := usage.Free()
-	if free < thresholdMib*humanize.MiByte {
-		return errors.Errorf("not enough free disk space for upgrade at %q: %s available, require %dMiB",
-			dir, humanize.IBytes(free), thresholdMib)
+	available := usage.Available()
+	if available < thresholdMib*humanize.MiByte {
+		return errors.Errorf("not enough free disk space on %q for upgrade: %s available, require %dMiB",
+			dir, humanize.IBytes(available), thresholdMib)
 	}
 	return nil
 }
