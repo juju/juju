@@ -137,12 +137,13 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 }
 
 // SetMachineStatus sets the machine status in remote state.
-func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
+func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{
-			Entity: params.Entity{Tag: s.authTag.String()},
-			Status: status,
+			Entity:  params.Entity{Tag: s.authTag.String()},
+			Status:  status,
+			Message: reason,
 		}},
 	}
 

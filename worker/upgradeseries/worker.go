@@ -227,8 +227,7 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]s
 			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
 		}
 	}
-
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "stopping all units for series upgrade"))
 }
 
 // handlePrepareMachine handles workflow for the machine with an upgrade-series
@@ -263,7 +262,6 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 // series upgrade target.
 func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
 	w.logger.Infof("preparing service units for series upgrade")
-
 	toSeries, err := w.TargetSeries()
 	if err != nil {
 		return errors.Trace(err)
@@ -275,8 +273,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 	if err := upgrader.PerformUpgrade(); err != nil {
 		return errors.Trace(err)
 	}
-
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, ""))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
