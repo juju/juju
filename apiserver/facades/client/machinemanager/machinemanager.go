@@ -290,7 +290,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
-				params.Entity{unit.UnitTag().String()},
+				params.Entity{Tag: unit.UnitTag().String()},
 			)
 			storage, err := storagecommon.UnitStorage(mm.storageAccess, unit.UnitTag())
 			if err != nil {
@@ -339,6 +339,43 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	return params.DestroyMachineResults{results}, nil
 }
 
+// UpgradeSeriesValidate validates that the incoming arguments correspond to a
+// valid series upgrade for the target machine.
+// If they do, a list of the machine's current units is returned for use in
+// soliciting user confirmation of the command.
+func (mm *MachineManagerAPI) UpgradeSeriesValidate(
+	args params.UpdateSeriesArgs,
+) (params.UpgradeSeriesUnitsResults, error) {
+	err := mm.checkCanRead()
+	if err != nil {
+		return params.UpgradeSeriesUnitsResults{}, err
+	}
+
+	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
+	for i, arg := range args.Args {
+		machine, err := mm.machineFromTag(arg.Entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		err = mm.validateSeries(arg.Series, machine.Series(), arg.Entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].UnitNames = unitNames
+	}
+
+	return params.UpgradeSeriesUnitsResults{Results: results}, nil
+}
+
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
 	if err := mm.checkCanWrite(); err != nil {
@@ -347,14 +384,14 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.updateSeriesPrepare(args)
+	err := mm.upgradeSeriesPrepare(args)
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
 
-func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) error {
+func (mm *MachineManagerAPI) upgradeSeriesPrepare(arg params.UpdateSeriesArg) error {
 	if arg.Series == "" {
 		return &params.Error{
 			Message: "series missing from args",
@@ -369,18 +406,9 @@ func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = mm.validateSeries(arg.Series, machine.Series(), machineTag)
+	unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	principals := machine.Principals()
-	units, err := machine.VerifyUnitsSeries(principals, arg.Series, arg.Force)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unitNames := make([]string, len(units))
-	for i := range units {
-		unitNames[i] = units[i].UnitTag().Id()
 	}
 
 	if err = machine.CreateUpgradeSeriesLock(unitNames, arg.Series); err != nil {
@@ -415,37 +443,106 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	return params.ErrorResult{}, nil
 }
 
-// UpgradeSeriesComplete returns the set of units affected by the series upgrade
-// of a particular machine.
-func (mm *MachineManagerAPI) UnitsToUpgrade(args params.UpdateSeriesArgs) (params.UpgradeSeriesUnitsResults, error) {
-	err := mm.checkCanRead()
+func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) error {
+	machine, err := mm.machineFromTag(arg.Entity.Tag)
 	if err != nil {
-		return params.UpgradeSeriesUnitsResults{}, err
+		return errors.Trace(err)
 	}
-	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
-	for i, arg := range args.Args {
-		machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := mm.st.Machine(machineTag.Id())
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		units, err := machine.Units()
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		var unitNames []string
-		for _, unit := range units {
-			unitNames = append(unitNames, unit.Name())
-		}
-		results[i].UnitNames = unitNames
+	return machine.CompleteUpgradeSeries()
+}
+
+func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
+	machine, err := mm.machineFromTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return params.UpgradeSeriesUnitsResults{Results: results}, nil
+	return machine.RemoveUpgradeSeriesLock()
+}
+
+func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
+	machineTag, err := names.ParseMachineTag(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machine, nil
+}
+
+func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag string) error {
+	if argumentSeries == "" {
+		return &params.Error{
+			Message: "series missing from args",
+			Code:    params.CodeBadRequest,
+		}
+	}
+
+	opSys, err := series.GetOSFromSeries(argumentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
+			argumentSeries, opSys.String())
+	}
+
+	opSys, err = series.GetOSFromSeries(currentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
+			machineTag, opSys.String())
+	}
+
+	if argumentSeries == currentSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
+	}
+
+	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if isOlderSeries {
+		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
+			machineTag, currentSeries, argumentSeries)
+	}
+
+	return nil
+}
+
+// verifiedUnits verifies that the machine units and their tree of subordinates
+// all support the input series.
+// If they do the unit names are all returned; if not, an error results.
+func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
+	principals := machine.Principals()
+	units, err := machine.VerifyUnitsSeries(principals, series, force)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitNames := make([]string, len(units))
+	for i := range units {
+		unitNames[i] = units[i].UnitTag().Id()
+	}
+	return unitNames, nil
+}
+
+// isSeriesLessThan returns a bool indicating whether the first argument's
+// version is lexicographically less than the second argument's, thus indicating
+// that the series represents an older version of the operating system. The
+// output is only valid for Ubuntu series.
+func isSeriesLessThan(series1, series2 string) (bool, error) {
+	version1, err := series.SeriesVersion(series1)
+	if err != nil {
+		return false, err
+	}
+	version2, err := series.SeriesVersion(series2)
+	if err != nil {
+		return false, err
+	}
+	return version2 > version1, nil
 }
 
 // DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
@@ -474,11 +571,7 @@ func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) 
 			Code:    params.CodeBadRequest,
 		}
 	}
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
+	machine, err := mm.machineFromTag(arg.Entity.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -486,69 +579,4 @@ func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) 
 		return nil // no-op
 	}
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
-}
-
-func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) error {
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.CompleteUpgradeSeries()
-}
-
-func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.RemoveUpgradeSeriesLock()
-}
-
-func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag names.MachineTag) error {
-	opSys, err := series.GetOSFromSeries(currentSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade", machineTag, opSys.String())
-	}
-
-	if argumentSeries == currentSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
-	}
-
-	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, currentSeries, argumentSeries)
-	}
-
-	return nil
-}
-
-// isSeriesLessThan returns a bool indicating whether the first argument's
-// version is lexicographically less than the second argument's, thus indicating
-// that the series represents an older version of the operating system. The
-// output is only valid for Ubuntu series.
-func isSeriesLessThan(series1, series2 string) (bool, error) {
-	version1, err := series.SeriesVersion(series1)
-	if err != nil {
-		return false, err
-	}
-	version2, err := series.SeriesVersion(series2)
-	if err != nil {
-		return false, err
-	}
-	return version2 > version1, nil
 }
