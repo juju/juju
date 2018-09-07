@@ -189,11 +189,14 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 		if lock.MachineStatus != model.UpgradeSeriesCompleteStarted {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
+		timestamp := bson.Now()
+		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(message, timestamp))
 		for unitName, us := range lock.UnitStatuses {
 			us.Status = model.UpgradeSeriesCompleteStarted
+			us.Timestamp = timestamp
 			lock.UnitStatuses[unitName] = us
 		}
-		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock.UnitStatuses), nil
+		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -203,7 +206,7 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 	return nil
 }
 
-func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, units map[string]UpgradeSeriesUnitStatus) []txn.Op {
+func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, lock *upgradeSeriesLockDoc) []txn.Op {
 	statusField := "unit-statuses"
 	return []txn.Op{
 		{
@@ -215,7 +218,7 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, units map[strin
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{statusField, units}}}},
+			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}, {"messages", lock.Messages}}}},
 		},
 	}
 }
