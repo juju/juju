@@ -44,9 +44,9 @@ func NewUpgradeSeriesCommand() cmd.Command {
 type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
+	UpgradeSeriesValidate(string, string) ([]string, error)
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
-	UnitsToUpgrade(string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -248,7 +248,7 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
 		return nil
 	}
 
-	affectedUnits, err := c.upgradeMachineSeriesClient.UnitsToUpgrade(c.machineNumber)
+	affectedUnits, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -270,13 +270,14 @@ func checkPrepCommands(prepCommands []string, argCommand string) (string, error)
 		}
 	}
 
-	return "", errors.Errorf("%q is an invalid upgrade-series command; valid commands are: %s.", argCommand, strings.Join(prepCommands, ", "))
+	return "", errors.Errorf("%q is an invalid upgrade-series command; valid commands are: %s.",
+		argCommand, strings.Join(prepCommands, ", "))
 }
 
 func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {
-	for _, series := range supportedSeries {
-		if series == strings.ToLower(seriesArgument) {
-			return series, nil
+	for _, s := range supportedSeries {
+		if s == strings.ToLower(seriesArgument) {
+			return s, nil
 		}
 	}
 
