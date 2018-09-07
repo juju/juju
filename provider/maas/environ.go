@@ -1723,7 +1723,7 @@ func (environ *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nod
 		}
 		subnetIdFloat, err := fields["id"].GetFloat64()
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get subnet Id: %v")
+			return nil, errors.Annotate(err, "cannot get subnet Id")
 		}
 		subnetId := strconv.Itoa(int(subnetIdFloat))
 		// If we're filtering by subnet id check if this subnet is one
@@ -1738,7 +1738,7 @@ func (environ *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nod
 		}
 		cidr, err := fields["cidr"].GetString()
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get subnet Id")
+			return nil, errors.Annotatef(err, "cannot get subnet %q cidr", subnetId)
 		}
 		spaceId, ok := subnetsMap[cidr]
 		if !ok {
