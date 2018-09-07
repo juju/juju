@@ -469,7 +469,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// Ensure the relation is exported first up.
 	results, err := w.localModelFacade.ExportEntities([]names.Tag{applicationTag, relationTag})
 	if err != nil {
-		return fail(errors.Annotatef(err, "exporting relation %v and application", relationTag, applicationTag))
+		return fail(errors.Annotatef(err, "exporting relation %v and application %v", relationTag, applicationTag))
 	}
 	if results[0].Error != nil && !params.IsCodeAlreadyExists(results[0].Error) {
 		return fail(errors.Annotatef(err, "exporting application %v", applicationTag))

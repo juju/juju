@@ -1259,7 +1259,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			}
 			return nil, common.ZoneIndependentError(errors.Annotatef(err,
 				"cannot assign public address %s to instance %q",
-				publicIP, inst.Id(),
+				*publicIP, inst.Id(),
 			))
 		}
 		inst.floatingIP = publicIP
@@ -1659,7 +1659,7 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 			if err == nil {
 				continue
 			}
-			return errors.Annotatef(err, "destroying volume %q", volIds[i], err)
+			return errors.Annotatef(err, "destroying volume %q", volIds[i])
 		}
 	} else if !errors.IsNotSupported(err) {
 		return errors.Trace(err)

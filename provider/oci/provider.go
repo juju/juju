@@ -284,7 +284,7 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	if _, ipNET, err := net.ParseCIDR(*addressSpace); err == nil {
 		size, _ := ipNET.Mask.Size()
 		if size > 16 {
-			return nil, errors.Errorf("configured subnet (%q) is not large enough. Please use a prefix length in the range /8 to /16. Current prefix length is /%d", addressSpace, size)
+			return nil, errors.Errorf("configured subnet (%q) is not large enough. Please use a prefix length in the range /8 to /16. Current prefix length is /%d", *addressSpace, size)
 		}
 	} else {
 		return nil, errors.Trace(err)

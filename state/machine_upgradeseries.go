@@ -453,7 +453,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 		return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v: %v", m.Id())
+		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", m.Id())
 	}
 	return &lock, nil
 }
