@@ -41,7 +41,7 @@ func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *NewMachineManagerSuite) TestUnitsToUpgrade(c *gc.C) {
+func (s *NewMachineManagerSuite) UpgradeSeriesValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	fFacade := mocks.NewMockClientFacade(ctrl)
@@ -59,13 +59,13 @@ func (s *NewMachineManagerSuite) TestUnitsToUpgrade(c *gc.C) {
 		UnitNames: []string{"ubuntu/0", "ubuntu/1"},
 	}
 
-	results := params.UpgradeSeriesUnitsResults{[]params.UpgradeSeriesUnitsResult{result}}
+	results := params.UpgradeSeriesUnitsResults{Results: []params.UpgradeSeriesUnitsResult{result}}
 
 	fFacade.EXPECT().BestAPIVersion().Return(5)
-	fCaller.EXPECT().FacadeCall("UnitsToUpgrade", args, gomock.Any()).SetArg(2, results)
+	fCaller.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
 	client := machinemanager.ConstructClient(fFacade, fCaller)
 
-	unitNames, err := client.UnitsToUpgrade(arbitraryName)
+	unitNames, err := client.UpgradeSeriesVerify(arbitraryName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(unitNames, gc.DeepEquals, result.UnitNames)
