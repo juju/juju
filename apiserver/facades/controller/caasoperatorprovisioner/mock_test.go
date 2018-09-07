@@ -10,7 +10,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
@@ -54,12 +53,9 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 
 func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	st.MethodCall(st, "APIHostPortsForAgents")
-	return nil, nil
-}
-
-func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
-	st.MethodCall(st, "WatchAPIHostPortsForAgents")
-	return apiservertesting.NewFakeNotifyWatcher()
+	return [][]network.HostPort{
+		network.NewHostPorts(1, "10.0.0.1"),
+	}, nil
 }
 
 type mockStorageProviderRegistry struct {

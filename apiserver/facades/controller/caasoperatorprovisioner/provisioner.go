@@ -105,10 +105,18 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting operator storage parameters")
 	}
+	apiAddresses, err := a.APIAddresses()
+	if err == nil && apiAddresses.Error != nil {
+		err = apiAddresses.Error
+	}
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting api addresses")
+	}
 
 	return params.OperatorProvisioningInfo{
 		ImagePath:    imagePath,
 		Version:      version.Current,
+		APIAddresses: apiAddresses.Result,
 		CharmStorage: charmStorageParams,
 	}, nil
 }
@@ -119,7 +127,7 @@ func charmStorageParams(
 ) (params.KubernetesFilesystemParams, error) {
 
 	// TODO(caas) - make these configurable via model config
-	var pool = "operator-storage"
+	var pool = caas.OperatorStoragePoolName
 	var size uint64 = 1024
 
 	result := params.KubernetesFilesystemParams{
@@ -127,12 +135,8 @@ func charmStorageParams(
 	}
 
 	providerType, cfg, err := storagecommon.StoragePoolConfig(pool, poolManager, registry)
-	if err != nil && !errors.IsNotFound(err) {
-		return params.KubernetesFilesystemParams{}, errors.Trace(err)
-	}
-	// No storage pool so we'll just return the size of storage.
 	if err != nil {
-		return result, nil
+		return params.KubernetesFilesystemParams{}, errors.Trace(err)
 	}
 
 	result.Provider = string(providerType)

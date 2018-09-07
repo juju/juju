@@ -66,6 +66,14 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
+func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = names.NewApplicationTag("germany")
+	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(endPoint, gc.NotNil)
+}
+
 func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results := s.logger.WatchLoggingConfig(params.Entities{})

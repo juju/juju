@@ -109,8 +109,8 @@ var operatorPodspec = core.PodSpec{
 		},
 		VolumeMounts: []core.VolumeMount{{
 			Name:      "juju-operator-test-config-volume",
-			MountPath: "path/to/agent/agents/application-test/agent.conf",
-			SubPath:   "agent.conf",
+			MountPath: "path/to/agent/agents/application-test/template-agent.conf",
+			SubPath:   "template-agent.conf",
 		}, {
 			Name:      "test-operator-volume",
 			MountPath: "path/to/agent/agents",
@@ -124,8 +124,8 @@ var operatorPodspec = core.PodSpec{
 					Name: "juju-operator-test-config",
 				},
 				Items: []core.KeyToPath{{
-					Key:  "agent.conf",
-					Path: "agent.conf",
+					Key:  "test-agent.conf",
+					Path: "template-agent.conf",
 				}},
 			},
 		},
@@ -166,7 +166,7 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
 	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/caas-jujud-operator")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
-	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/agent.conf")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
 }
 
 type K8sBrokerSuite struct {
@@ -235,22 +235,8 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
-	ctrl := s.setupBroker(c)
-	defer ctrl.Finish()
-
-	numUnits := int32(1)
-	configMapArg := &core.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "juju-operator-test-config",
-		},
-		Data: map[string]string{
-			"agent.conf": "agent-conf-data",
-		},
-	}
-
-	scName := "test-juju-operator-storage"
-	statefulSetArg := &appsv1.StatefulSet{
+func statefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
+	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "juju-operator-test",
 			Labels: map[string]string{"juju-operator": "test"}},
@@ -282,6 +268,21 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	configMapArg := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "juju-operator-test-config",
+		},
+		Data: map[string]string{
+			"test-agent.conf": "agent-conf-data",
+		},
+	}
+	statefulSetArg := statefulSetArg(1, "test-juju-operator-storage")
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
@@ -299,10 +300,61 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 		Version:           version.MustParse("2.99.0"),
 		AgentConf:         []byte("agent-conf-data"),
 		CharmStorage: caas.CharmStorageParams{
-			Size: uint64(10),
+			Size:     uint64(10),
+			Provider: "kubernetes",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	statefulSetArg := statefulSetArg(1, "test-juju-operator-storage")
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
+		s.mockConfigMaps.EXPECT().Get("juju-operator-test-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, nil),
+		s.mockStorageClass.EXPECT().Get("test-juju-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-juju-operator-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(nil, nil),
+	)
+
+	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+		OperatorImagePath: "/path/to/image",
+		Version:           version.MustParse("2.99.0"),
+		CharmStorage: caas.CharmStorageParams{
+			Size:     uint64(10),
+			Provider: "kubernetes",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
+		s.mockConfigMaps.EXPECT().Get("juju-operator-test-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+		OperatorImagePath: "/path/to/image",
+		Version:           version.MustParse("2.99.0"),
+		CharmStorage: caas.CharmStorageParams{
+			Size:     uint64(10),
+			Provider: "kubernetes",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `config map for "test" should already exist:  "test" not found`)
 }
 
 func (s *K8sBrokerSuite) TestDeleteService(c *gc.C) {

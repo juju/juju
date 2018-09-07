@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -41,6 +43,10 @@ type ManifoldsConfig struct {
 
 	// LogSource will be read from by the logsender component.
 	LogSource logsender.LogRecordCh
+
+	// UpdateLoggerConfig is a function that will save the specified
+	// config value as the logging config in the agent.conf file.
+	UpdateLoggerConfig func(string) error
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
@@ -124,6 +130,24 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
+		// The logging config updater is a leaf worker that indirectly
+		// controls the messages sent via the log sender according to
+		// changes in environment config. We should only need one of
+		// these in a consolidated agent.
+		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			UpdateAgentFunc: config.UpdateLoggerConfig,
+		})),
+
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the controller addresses change. We should only need one of
+		// these in a consolidated agent.
+		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
 		// executes, and not during upgrades.
@@ -201,4 +225,7 @@ const (
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
+
+	loggingConfigUpdaterName = "logging-config-updater"
+	apiAddressUpdaterName    = "api-address-updater"
 )

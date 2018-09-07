@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
@@ -122,11 +125,26 @@ func (op *CaasOperatorAgent) Done(err error) {
 	close(op.dead)
 }
 
+// maybeCopyAgentConfig copies the read-only agent config template
+// to the writeable agent config file if the file doesn't yet exist.
+func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
+	err := op.ReadConfig(op.Tag().String())
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(errors.Cause(err)) {
+		logger.Errorf("copying agent config file template")
+		return errors.Trace(err)
+	}
+	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), "template-agent.conf")
+	return utils.CopyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile)
+}
+
 // Run implements Command.
 func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
 	defer op.Done(err)
-	if err := op.ReadConfig(op.Tag().String()); err != nil {
-		return err
+	if err := op.maybeCopyAgentConfig(); err != nil {
+		return errors.Annotate(err, "creating agent config from template")
 	}
 	agentConfig := op.CurrentConfig()
 	machineLock, err := machinelock.New(machinelock.Config{
@@ -154,10 +172,18 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
 
 // Workers returns a dependency.Engine running the operator's responsibilities.
 func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
+	updateAgentConfLogging := func(loggingConfig string) error {
+		return op.AgentConf.ChangeConfig(func(setter agent.ConfigSetter) error {
+			setter.SetLoggingConfig(loggingConfig)
+			return nil
+		})
+	}
+
 	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
 		Agent:                op,
 		Clock:                clock.WallClock,
 		LogSource:            op.bufferedLogger.Logs(),
+		UpdateLoggerConfig:   updateAgentConfLogging,
 		PrometheusRegisterer: op.prometheusRegistry,
 		LeadershipGuarantee:  30 * time.Second,
 		UpgradeStepsLock:     op.upgradeComplete,

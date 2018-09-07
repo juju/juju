@@ -34,11 +34,13 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	manifolds := caasoperator.Manifolds(config)
 	expectedKeys := []string{
 		"agent",
+		"api-address-updater",
 		"api-caller",
 		"charm-dir",
 		"clock",
 		"hook-retry-strategy",
 		"operator",
+		"logging-config-updater",
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",

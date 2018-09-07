@@ -164,8 +164,9 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 		c.Assert(a, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfo{})
 		*(result.(*params.OperatorProvisioningInfo)) = params.OperatorProvisioningInfo{
-			ImagePath: "juju-operator-image",
-			Version:   vers,
+			ImagePath:    "juju-operator-image",
+			Version:      vers,
+			APIAddresses: []string{"10.0.0.1:1"},
 			CharmStorage: params.KubernetesFilesystemParams{
 				Size:        10,
 				Provider:    "kubernetes",
@@ -179,8 +180,9 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 	info, err := client.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
-		ImagePath: "juju-operator-image",
-		Version:   vers,
+		ImagePath:    "juju-operator-image",
+		Version:      vers,
+		APIAddresses: []string{"10.0.0.1:1"},
 		CharmStorage: storage.KubernetesFilesystemParams{
 			Size:         10,
 			Provider:     "kubernetes",

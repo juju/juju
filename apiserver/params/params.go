@@ -483,6 +483,7 @@ type ConfigResult struct {
 type OperatorProvisioningInfo struct {
 	ImagePath    string                     `json:"image-path"`
 	Version      version.Number             `json:"version"`
+	APIAddresses []string                   `json:"api-addresses"`
 	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 

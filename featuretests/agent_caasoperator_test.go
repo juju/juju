@@ -123,8 +123,10 @@ func TrackCAASOperator(c *gc.C, tracker *agenttest.EngineTracker, inner CAASOper
 var (
 	alwaysCAASWorkers = []string{
 		"agent",
+		"api-address-updater",
 		"api-caller",
 		"clock",
+		"logging-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",

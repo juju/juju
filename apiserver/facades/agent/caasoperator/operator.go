@@ -24,6 +24,7 @@ type Facade struct {
 	*common.AgentEntityWatcher
 	*common.Remover
 	*common.ToolsSetter
+	*common.APIAddresser
 
 	model Model
 }
@@ -79,6 +80,7 @@ func NewFacade(
 	}
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
+		APIAddresser:       common.NewAPIAddresser(st, resources),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
 		Remover:            common.NewRemover(st, true, accessUnit),
 		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),

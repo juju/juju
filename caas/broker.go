@@ -103,6 +103,10 @@ type Broker interface {
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
+	// OperatorExists returns true if the operator for the specified
+	// application exists.
+	OperatorExists(appName string) (bool, error)
+
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 

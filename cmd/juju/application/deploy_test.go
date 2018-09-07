@@ -19,8 +19,12 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -488,6 +492,12 @@ func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
+	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

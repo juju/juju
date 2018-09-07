@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -212,6 +213,20 @@ func (k *kubernetesClient) deleteSecret(appName, containerName string) error {
 	return errors.Trace(err)
 }
 
+// OperatorExists returns true if the operator for the specified
+// application exists.
+func (k *kubernetesClient) OperatorExists(appName string) (bool, error) {
+	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	_, err := statefulsets.Get(operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
+}
+
 // EnsureOperator creates or updates an operator pod with the given application
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
@@ -224,8 +239,18 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	}
 
 	// TODO(caas) use secrets for storing agent password?
-	if err := k.ensureConfigMap(operatorConfigMap(appName, config)); err != nil {
-		return errors.Annotate(err, "creating or updating ConfigMap")
+	if config.AgentConf == nil {
+		// We expect that the config map already exists,
+		// so make sure it does.
+		configMaps := k.CoreV1().ConfigMaps(k.namespace)
+		_, err := configMaps.Get(operatorConfigMapName(appName), v1.GetOptions{IncludeUninitialized: true})
+		if err != nil {
+			return errors.Annotatef(err, "config map for %q should already exist", appName)
+		}
+	} else {
+		if err := k.ensureConfigMap(operatorConfigMap(appName, config)); err != nil {
+			return errors.Annotate(err, "creating or updating ConfigMap")
+		}
 	}
 
 	// Set up the parameters for creating charm storage.
@@ -237,19 +262,19 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		requestedVolumeSize: fmt.Sprintf("%dMi", config.CharmStorage.Size),
 		labels:              map[string]string{labelOperator: appName},
 	}
-	// If there's been a storage pool created for operator storage, use it.
-	if config.CharmStorage.Provider == K8s_ProviderType {
-		if storageLabel, ok := config.CharmStorage.Attributes[storageLabel]; ok {
-			params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
-		}
-		var err error
-		params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes, defaultOperatorStorageClassName)
-		if err != nil {
-			return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
-		}
-		// We want operator storage to be deleted when the operator goes away.
-		params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
+	if config.CharmStorage.Provider != K8s_ProviderType {
+		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
 	}
+	if storageLabel, ok := config.CharmStorage.Attributes[storageLabel]; ok {
+		params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
+	}
+	var err error
+	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes, defaultOperatorStorageClassName)
+	if err != nil {
+		return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
+	}
+	// We want operator storage to be deleted when the operator goes away.
+	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
 	logger.Debugf("operator storage config %#v", *params.storageConfig)
 
 	// Attempt to get a persistent volume to store charm state etc.
@@ -766,10 +791,8 @@ func (k *kubernetesClient) configureStorage(
 	}
 	logger.Debugf("configuring pod filesystems: %+v", filesystems)
 	for i, fs := range filesystems {
-		// TODO(caas) - support rootfs etc
 		if fs.Provider != K8s_ProviderType {
-			logger.Warningf("ignoring storage with missing k8s provider type")
-			continue
+			return errors.Errorf("invalid storage provider type %q for %v", fs.Provider, fs.StorageName)
 		}
 		var mountPath string
 		if fs.Attachment != nil {
@@ -1445,8 +1468,8 @@ func operatorPod(appName, agentPath, operatorImagePath, version string) *core.Po
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
-					MountPath: agent.Dir(agentPath, appTag) + "/agent.conf",
-					SubPath:   "agent.conf",
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), "template-agent.conf"),
+					SubPath:   "template-agent.conf",
 				}},
 			}},
 			Volumes: []core.Volume{{
@@ -1457,8 +1480,8 @@ func operatorPod(appName, agentPath, operatorImagePath, version string) *core.Po
 							Name: configMapName,
 						},
 						Items: []core.KeyToPath{{
-							Key:  "agent.conf",
-							Path: "agent.conf",
+							Key:  appName + "-agent.conf",
+							Path: "template-agent.conf",
 						}},
 					},
 				},
@@ -1476,7 +1499,7 @@ func operatorConfigMap(appName string, config *caas.OperatorConfig) *core.Config
 			Name: configMapName,
 		},
 		Data: map[string]string{
-			"agent.conf": string(config.AgentConf),
+			appName + "-agent.conf": string(config.AgentConf),
 		},
 	}
 }
