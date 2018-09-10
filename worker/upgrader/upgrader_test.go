@@ -197,7 +197,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	retryc := make(chan time.Time)
-	*upgrader.RetryAfter = func() <-chan time.Time {
+	*upgrader.RetryAfter = func(time.Duration) <-chan time.Time {
 		c.Logf("replacement retry after")
 		return retryc
 	}
@@ -398,8 +398,16 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var stub testing.Stub
-	stub.SetErrors(nil, errors.Errorf("full-up"))
+	var diskSpaceStub testing.Stub
+	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
+
+	var retryStub testing.Stub
+	retryc := make(chan time.Time)
+	*upgrader.RetryAfter = func(d time.Duration) <-chan time.Time {
+		retryStub.AddCall("retryAfter", d)
+		c.Logf("replacement retry after")
+		return retryc
+	}
 
 	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		State:                       s.state.Upgrader(),
@@ -408,18 +416,21 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 		UpgradeStepsWaiter:          s.upgradeStepsComplete,
 		InitialUpgradeCheckComplete: s.initialCheckComplete,
 		CheckDiskSpace: func(dir string, size uint64) error {
-			stub.AddCall("CheckDiskSpace", dir, size)
-			return stub.NextErr()
+			diskSpaceStub.AddCall("CheckDiskSpace", dir, size)
+			return diskSpaceStub.NextErr()
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Stop()
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	c.Assert(err, gc.ErrorMatches, "full-up")
-	c.Assert(stub.Calls(), gc.HasLen, 2)
-	stub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
-	stub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
+	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
+	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
+
+	c.Assert(retryStub.Calls(), gc.HasLen, 1)
+	retryStub.CheckCall(c, 0, "retryAfter", time.Minute)
 
 	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
 	// Would end with "no such file or directory" on *nix - not sure

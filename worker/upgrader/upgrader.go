@@ -27,11 +27,25 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
+const (
+	// shortDelay is the time we normally sleep for in the main loop
+	// when polling for changes to the model's version.
+	shortDelay = 5 * time.Second
+
+	// notEnoughSpaceDelay is how long we sleep when there's a new
+	// version of the agent that we need to download but there isn't
+	// enough available space to download and unpack it. Sleeping
+	// longer in that situation means we don't spam the log with disk
+	// space errors every 3 seconds, but still bring the message up
+	// regularly.
+	notEnoughSpaceDelay = time.Minute
+)
+
 // retryAfter returns a channel that receives a value
 // when a failed download should be retried.
-var retryAfter = func() <-chan time.Time {
+var retryAfter = func(duration time.Duration) <-chan time.Time {
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	return time.After(5 * time.Second)
+	return time.After(duration)
 }
 
 var logger = loggo.GetLogger("juju.worker.upgrader")
@@ -217,9 +231,12 @@ func (u *Upgrader) loop() error {
 		// repeatedly (causing the agent to be stopped), as long
 		// as we have got as far as this, we will still be able to
 		// upgrade the agent.
+		delay := shortDelay
 		for _, wantTools := range wantToolsList {
 			if err := u.checkForSpace(); err != nil {
-				return errors.Trace(err)
+				logger.Errorf("%s", err.Error())
+				delay = notEnoughSpaceDelay
+				break
 			}
 			err = u.ensureTools(wantTools)
 			if err == nil {
@@ -227,7 +244,7 @@ func (u *Upgrader) loop() error {
 			}
 			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
-		retry = retryAfter()
+		retry = retryAfter(delay)
 	}
 }
 
