@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
@@ -133,11 +133,32 @@ func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
 		return nil
 	}
 	if !os.IsNotExist(errors.Cause(err)) {
-		logger.Errorf("copying agent config file template")
+		logger.Errorf("reading initial agent config file: %v", err)
 		return errors.Trace(err)
 	}
 	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), "template-agent.conf")
-	return utils.CopyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile)
+	if err := copyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile); err != nil {
+		logger.Errorf("copying agent config file template: %v", err)
+		return errors.Trace(err)
+	}
+	return op.ReadConfig(op.Tag().String())
+}
+
+func copyFile(dest, source string) error {
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 // Run implements Command.
