@@ -317,7 +317,7 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	}
 	zipr, err := zip.NewReader(f, fi.Size())
 	if err != nil {
-		return errors.Annotatef(err, "cannot open charm archive at %q (%+v)", path, fi)
+		return errors.Annotate(err, "cannot open charm archive")
 	}
 
 	// Find out the root dir prefix from the archive.
