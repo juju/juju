@@ -25,7 +25,7 @@ func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *gc.C) {
 	// Expect an impossibly large amount of free disk.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(humanize.PiByte/humanize.MiByte))
 	err := upgrades.PreUpgradeSteps(nil, &mockAgentConfig{dataDir: "/"}, false, false)
-	c.Assert(err, gc.ErrorMatches, "not enough free disk space for upgrade: .*")
+	c.Assert(err, gc.ErrorMatches, `not enough free disk space on "/" for upgrade: .* available, require 1073741824MiB`)
 }
 
 func (s *preupgradechecksSuite) TestUpdateDistroInfo(c *gc.C) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -30,6 +31,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
@@ -99,13 +101,14 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 }
 
 func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
-	w, err := upgrader.NewAgentUpgrader(
-		s.state.Upgrader(),
-		agentConfig(s.machine.Tag(), s.DataDir()),
-		s.confVersion,
-		s.upgradeStepsComplete,
-		s.initialCheckComplete,
-	)
+	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
+		State:                       s.state.Upgrader(),
+		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
+		OrigAgentVersion:            s.confVersion,
+		UpgradeStepsWaiter:          s.upgradeStepsComplete,
+		InitialUpgradeCheckComplete: s.initialCheckComplete,
+		CheckDiskSpace:              func(string, uint64) error { return nil },
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -194,7 +197,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	retryc := make(chan time.Time)
-	*upgrader.RetryAfter = func() <-chan time.Time {
+	*upgrader.RetryAfter = func(time.Duration) <-chan time.Time {
 		c.Logf("replacement retry after")
 		return retryc
 	}
@@ -384,6 +387,55 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
+	stor := s.DefaultToolsStorage
+	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.patchVersion(oldTools.Version)
+	newTools := envtesting.AssertUploadFakeToolsVersions(
+		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var diskSpaceStub testing.Stub
+	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
+
+	var retryStub testing.Stub
+	retryc := make(chan time.Time)
+	*upgrader.RetryAfter = func(d time.Duration) <-chan time.Time {
+		retryStub.AddCall("retryAfter", d)
+		c.Logf("replacement retry after")
+		return retryc
+	}
+
+	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
+		State:                       s.state.Upgrader(),
+		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
+		OrigAgentVersion:            s.confVersion,
+		UpgradeStepsWaiter:          s.upgradeStepsComplete,
+		InitialUpgradeCheckComplete: s.initialCheckComplete,
+		CheckDiskSpace: func(dir string, size uint64) error {
+			diskSpaceStub.AddCall("CheckDiskSpace", dir, size)
+			return diskSpaceStub.NextErr()
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Stop()
+	s.expectInitialUpgradeCheckNotDone(c)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
+	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
+	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
+
+	c.Assert(retryStub.Calls(), gc.HasLen, 1)
+	retryStub.CheckCall(c, 0, "retryAfter", time.Minute)
+
+	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
+	// Would end with "no such file or directory" on *nix - not sure
+	// about Windows so leaving it off.
+	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory .*`)
 }
 
 type allowedTest struct {

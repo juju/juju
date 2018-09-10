@@ -6,6 +6,7 @@ package upgrader
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,15 +22,30 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
 
+const (
+	// shortDelay is the time we normally sleep for in the main loop
+	// when polling for changes to the model's version.
+	shortDelay = 5 * time.Second
+
+	// notEnoughSpaceDelay is how long we sleep when there's a new
+	// version of the agent that we need to download but there isn't
+	// enough available space to download and unpack it. Sleeping
+	// longer in that situation means we don't spam the log with disk
+	// space errors every 3 seconds, but still bring the message up
+	// regularly.
+	notEnoughSpaceDelay = time.Minute
+)
+
 // retryAfter returns a channel that receives a value
 // when a failed download should be retried.
-var retryAfter = func() <-chan time.Time {
+var retryAfter = func(duration time.Duration) <-chan time.Time {
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	return time.After(5 * time.Second)
+	return time.After(duration)
 }
 
 var logger = loggo.GetLogger("juju.worker.upgrader")
@@ -37,13 +53,21 @@ var logger = loggo.GetLogger("juju.worker.upgrader")
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
-	catacomb                    catacomb.Catacomb
-	st                          *upgrader.State
-	dataDir                     string
-	tag                         names.Tag
-	origAgentVersion            version.Number
-	upgradeStepsWaiter          gate.Waiter
-	initialUpgradeCheckComplete gate.Unlocker
+	catacomb catacomb.Catacomb
+	st       *upgrader.State
+	dataDir  string
+	tag      names.Tag
+	config   Config
+}
+
+// Config contains the items the worker needs to start.
+type Config struct {
+	State                       *upgrader.State
+	AgentConfig                 agent.Config
+	OrigAgentVersion            version.Number
+	UpgradeStepsWaiter          gate.Waiter
+	InitialUpgradeCheckComplete gate.Unlocker
+	CheckDiskSpace              func(string, uint64) error
 }
 
 // NewAgentUpgrader returns a new upgrader worker. It watches changes to the
@@ -52,20 +76,12 @@ type Upgrader struct {
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewAgentUpgrader(
-	st *upgrader.State,
-	agentConfig agent.Config,
-	origAgentVersion version.Number,
-	upgradeStepsWaiter gate.Waiter,
-	initialUpgradeCheckComplete gate.Unlocker,
-) (*Upgrader, error) {
+func NewAgentUpgrader(config Config) (*Upgrader, error) {
 	u := &Upgrader{
-		st:                          st,
-		dataDir:                     agentConfig.DataDir(),
-		tag:                         agentConfig.Tag(),
-		origAgentVersion:            origAgentVersion,
-		upgradeStepsWaiter:          upgradeStepsWaiter,
-		initialUpgradeCheckComplete: initialUpgradeCheckComplete,
+		st:      config.State,
+		dataDir: config.AgentConfig.DataDir(),
+		tag:     config.AgentConfig.Tag(),
+		config:  config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -178,12 +194,12 @@ func (u *Upgrader) loop() error {
 		logger.Infof("desired agent binary version: %v", wantVersion)
 
 		if wantVersion == jujuversion.Current {
-			u.initialUpgradeCheckComplete.Unlock()
+			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !allowedTargetVersion(
-			u.origAgentVersion,
+			u.config.OrigAgentVersion,
 			jujuversion.Current,
-			!u.upgradeStepsWaiter.IsUnlocked(),
+			!u.config.UpgradeStepsWaiter.IsUnlocked(),
 			wantVersion,
 		) {
 			// See also bug #1299802 where when upgrading from
@@ -193,7 +209,7 @@ func (u *Upgrader) loop() error {
 			// finished upgrading.
 			logger.Infof("desired agent binary version: %s is older than current %s, refusing to downgrade",
 				wantVersion, jujuversion.Current)
-			u.initialUpgradeCheckComplete.Unlock()
+			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
 		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
@@ -215,14 +231,20 @@ func (u *Upgrader) loop() error {
 		// repeatedly (causing the agent to be stopped), as long
 		// as we have got as far as this, we will still be able to
 		// upgrade the agent.
+		delay := shortDelay
 		for _, wantTools := range wantToolsList {
+			if err := u.checkForSpace(); err != nil {
+				logger.Errorf("%s", err.Error())
+				delay = notEnoughSpaceDelay
+				break
+			}
 			err = u.ensureTools(wantTools)
 			if err == nil {
 				return u.newUpgradeReadyError(wantTools.Version)
 			}
 			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
-		retry = retryAfter()
+		retry = retryAfter(delay)
 	}
 }
 
@@ -266,5 +288,18 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 		return fmt.Errorf("cannot unpack agent binaries: %v", err)
 	}
 	logger.Infof("unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
+	return nil
+}
+
+func (u *Upgrader) checkForSpace() error {
+	logger.Debugf("checking available space before downloading")
+	err := u.config.CheckDiskSpace(u.dataDir, upgrades.MinDiskSpaceMib)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = u.config.CheckDiskSpace(os.TempDir(), upgrades.MinDiskSpaceMib)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }

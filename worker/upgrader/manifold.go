@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -77,13 +78,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 
-			return NewAgentUpgrader(
-				upgraderFacade,
-				currentConfig,
-				config.PreviousAgentVersion,
-				upgradeStepsWaiter,
-				initialCheckUnlocker,
-			)
+			return NewAgentUpgrader(Config{
+				State:                       upgraderFacade,
+				AgentConfig:                 currentConfig,
+				OrigAgentVersion:            config.PreviousAgentVersion,
+				UpgradeStepsWaiter:          upgradeStepsWaiter,
+				InitialUpgradeCheckComplete: initialCheckUnlocker,
+				CheckDiskSpace:              upgrades.CheckFreeDiskSpace,
+			})
 		},
 	}
 }
