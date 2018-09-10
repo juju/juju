@@ -168,6 +168,8 @@ func SetPublic(c *gc.C, client *csclient.Client, id *charm.URL) {
 	SetPublicWithResources(c, client, id, nil)
 }
 
+// CheckCharmReady ensures that a desired charm archive exists and
+// has some content.
 func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {
 	fileSize := func() int64 {
 		f, err := os.Open(charmArchive.Path)
