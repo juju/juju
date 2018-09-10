@@ -58,6 +58,8 @@ func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
+	testcharms.CheckCharmReady(c, charmArchive)
+
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.ErrorIsNil)

@@ -6,7 +6,9 @@
 package testcharms
 
 import (
+	"os"
 	"strings"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,6 +16,8 @@ import (
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmrepo.v3/testing"
+
+	jtesting "github.com/juju/juju/testing"
 )
 
 const defaultSeries = "quantal"
@@ -162,4 +166,37 @@ func SetPublicWithResources(c *gc.C, client *csclient.Client, id *charm.URL, res
 // published with global read permissions to the stable channel.
 func SetPublic(c *gc.C, client *csclient.Client, id *charm.URL) {
 	SetPublicWithResources(c, client, id, nil)
+}
+
+// CheckCharmReady ensures that a desired charm archive exists and
+// has some content.
+func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {
+	fileSize := func() int64 {
+		f, err := os.Open(charmArchive.Path)
+		c.Assert(err, jc.ErrorIsNil)
+		defer f.Close()
+
+		fi, err := f.Stat()
+		c.Assert(err, jc.ErrorIsNil)
+		return fi.Size()
+	}
+
+	var oldSize, currentSize int64
+	var charmReady bool
+	runs := 1
+	timeout := time.After(jtesting.LongWait)
+	for !charmReady {
+		select {
+		case <-time.After(jtesting.ShortWait):
+			currentSize = fileSize()
+			// Since we do not know when the charm is ready, for as long as the size changes
+			// we'll assume that we'd need to wait.
+			charmReady = oldSize != 0 && currentSize == oldSize
+			c.Logf("%d: new file size %v (old size %v)", runs, currentSize, oldSize)
+			oldSize = currentSize
+			runs++
+		case <-timeout:
+			c.Fatalf("timed out waiting for charm @%v to be ready", charmArchive.Path)
+		}
+	}
 }
