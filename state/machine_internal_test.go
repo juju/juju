@@ -103,7 +103,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 
 func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryUnitStatuses := map[string]UpgradeSeriesUnitStatus{}
+	arbitraryLock := &upgradeSeriesLockDoc{}
 	expectedOps := []txn.Op{
 		{
 			C:      machinesC,
@@ -114,10 +114,12 @@ func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.
 			C:      machineUpgradeSeriesLocksC,
 			Id:     arbitraryMachineID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{"unit-statuses", arbitraryUnitStatuses}}}},
+			Update: bson.D{{"$set", bson.D{
+				{"unit-statuses", map[string]UpgradeSeriesUnitStatus{}},
+				{"messages", []UpgradeSeriesMessage{}}}}},
 		},
 	}
-	actualOps := startUpgradeSeriesUnitCompletionTxnOps(arbitraryMachineID, arbitraryUnitStatuses)
+	actualOps := startUpgradeSeriesUnitCompletionTxnOps(arbitraryMachineID, arbitraryLock)
 	expectedOpsSt := fmt.Sprint(expectedOps)
 	actualOpsSt := fmt.Sprint(actualOps)
 	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)

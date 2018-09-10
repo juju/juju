@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/model"
 	jujutxn "github.com/juju/txn"
-	"github.com/satori/uuid"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -40,7 +39,6 @@ type UpgradeSeriesUnitStatus struct {
 // to logging message. The string is accompanied by a timestamp and a boolean
 // value indicating whether or not the message has been observed by a client.
 type UpgradeSeriesMessage struct {
-	id        uuid.UUID
 	message   string
 	timestamp time.Time
 	seen      bool
@@ -48,7 +46,6 @@ type UpgradeSeriesMessage struct {
 
 func newUpgradeSeriesMessage(message string, timestamp time.Time) UpgradeSeriesMessage {
 	return UpgradeSeriesMessage{
-		id:        uuid.NewV4(),
 		message:   message,
 		timestamp: timestamp,
 		seen:      false,
@@ -308,7 +305,6 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 		err = onAbort(err, ErrDead)
 		return err
 	}
-
 	return nil
 }
 
@@ -484,7 +480,51 @@ func (m *Machine) GetUpgradeSeriesNotification() ([]string, error) {
 	for _, unseenMessage := range unseenMessages {
 		messages = append(messages, unseenMessage.message)
 	}
+	err = m.SetUpgradeSeriesMessagesAsSeen(upgradeSeriesMessages)
+	if err != nil {
+		errors.Trace(err)
+	}
+
 	return messages, nil
+}
+
+func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return setUpgradeSeriesMessageTxnOps(m.doc.Id, messages, true), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
+func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeriesMessage, seen bool) []txn.Op {
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+	}
+	for i := range messages {
+		field := fmt.Sprintf("messages.%d.seen", i)
+		ops = append(ops, txn.Op{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Update: bson.D{{"$set", bson.D{{field, seen}}}},
+		})
+	}
+	return ops
 }
 
 func (m *Machine) getUpgradeSeriesNotification() ([]UpgradeSeriesMessage, error) {
