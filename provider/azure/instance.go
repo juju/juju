@@ -243,7 +243,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 
 		priority, err := nextSecurityRulePriority(nsg, securityRuleInternalMax+1, securityRuleMax)
 		if err != nil {
-			return errors.Annotatef(err, "getting security rule priority for %s", rule)
+			return errors.Annotatef(err, "getting security rule priority for %q", rule)
 		}
 
 		var protocol network.SecurityRuleProtocol
@@ -283,7 +283,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 			nil, // abort channel
 		)
 		if err := <-errCh; err != nil {
-			return errors.Annotatef(err, "creating security rule for %s", securityRule)
+			return errors.Annotatef(err, "creating security rule for %q", ruleName)
 		}
 		securityRules = append(securityRules, securityRule)
 	}

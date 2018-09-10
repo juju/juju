@@ -114,7 +114,7 @@ func (p *provisioner) loop() error {
 			}
 			for app, password := range p.appPasswords {
 				if err := p.ensureOperator(app, password); err != nil {
-					return errors.Annotatef(err, "updating operator for q with new api addresses", app)
+					return errors.Annotatef(err, "updating operator for %q with new api addresses", app)
 				}
 			}
 
