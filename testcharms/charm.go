@@ -181,20 +181,17 @@ func CheckCharmReady(c *gc.C, charmArchive *charm.CharmArchive) {
 		return fi.Size()
 	}
 
-	oldSize := int64(0)
-	var currentSize int64
-	charmReady := func() bool {
-		currentSize = fileSize()
-		// Since we do not know when the charm is ready, for as long as the size changes
-		// we'll assume that we'd need to wait.
-		return oldSize != 0 && currentSize == oldSize
-	}
-
+	var oldSize, currentSize int64
+	var charmReady bool
 	runs := 1
 	timeout := time.After(jtesting.LongWait)
-	for !charmReady() {
+	for !charmReady {
 		select {
 		case <-time.After(jtesting.ShortWait):
+			currentSize = fileSize()
+			// Since we do not know when the charm is ready, for as long as the size changes
+			// we'll assume that we'd need to wait.
+			charmReady = oldSize != 0 && currentSize == oldSize
 			c.Logf("%d: new file size %v (old size %v)", runs, currentSize, oldSize)
 			oldSize = currentSize
 			runs++
