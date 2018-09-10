@@ -1293,7 +1293,7 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 		if err == nil {
 			continue
 		}
-		return errors.Annotatef(err, "destroying volume %q", volIds[i], err)
+		return errors.Annotatef(err, "destroying volume %q", volIds[i])
 	}
 
 	// Delete security groups managed by the controller.

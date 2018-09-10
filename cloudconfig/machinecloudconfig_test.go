@@ -118,7 +118,7 @@ func (s *fromHostSuite) TestMissingVendorDataFile(c *gc.C) {
 	dir := c.MkDir()
 	s.PatchValue(&cloudconfig.MachineCloudInitDir, func(string) (string, error) { return dir, nil })
 	obtained, err := cloudconfig.GetMachineData("xenial", "vendor-data.txt")
-	c.Assert(err, gc.ErrorMatches, "cannot read \"vendor-data.txt\" from machine .*")
+	c.Assert(err, gc.ErrorMatches, "cannot read \"vendor-data.txt\" from machine.*")
 	c.Assert(obtained, gc.IsNil)
 }
 

@@ -116,7 +116,7 @@ func getMachineData(series, file string) (map[string]interface{}, error) {
 	}
 	data, err := ioutil.ReadFile(filepath.Join(dir, file))
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read %q from machine (%s)", file)
+		return nil, errors.Annotatef(err, "cannot read %q from machine", file)
 	}
 
 	if len(data) == 0 {
