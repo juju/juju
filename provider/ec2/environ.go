@@ -1324,7 +1324,7 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 		// (anastasiamac 2018-03-21) This is strange - we do try
 		// to destroy all volumes but afterwards, if we have encountered any errors,
 		// we will return first one...The same logic happens on detach..?...
-		return errors.Annotatef(err, "destroying volume %q", volIds[i], err)
+		return errors.Annotatef(err, "destroying volume %q", volIds[i])
 	}
 
 	// Delete security groups managed by the controller.

@@ -533,7 +533,7 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	)
 	configData, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read agent config %q: %v", configFilePath)
+		return nil, errors.Annotatef(err, "cannot read agent config %q", configFilePath)
 	}
 	format, config, err = parseConfigData(configData)
 	if err != nil {
