@@ -1334,8 +1334,9 @@ type UpgradeSeriesStatusParams struct {
 	Params []UpgradeSeriesStatusParam `json:"params"`
 }
 
-// UpgradeSeriesStatusParam contains the entity and desired status for
-// that entity.
+// UpgradeSeriesStatusParam contains the entity and desired status for that
+// entity along with a context message describing why the change to the status
+// is being requested.
 type UpgradeSeriesStatusParam struct {
 	Entity  Entity                    `json:"entity"`
 	Status  model.UpgradeSeriesStatus `json:"status"`

@@ -5,16 +5,17 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	jujutxn "github.com/juju/txn"
+	"github.com/satori/uuid"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 )
 
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
@@ -32,18 +33,25 @@ type upgradeSeriesLockDoc struct {
 type UpgradeSeriesUnitStatus struct {
 	Status    model.UpgradeSeriesStatus
 	Timestamp time.Time
-	Messages  []UpgradeSeriesMessage
 }
 
+// UpgradeSeriesMessage holds a message detailing why the upgrade series status
+// was updated. This format of this message should be a single sentence similar
+// to logging message. The string is accompanied by a timestamp and a boolean
+// value indicating whether or not the message has been observed by a client.
 type UpgradeSeriesMessage struct {
+	id        uuid.UUID
 	message   string
-	timeStamp time.Time
+	timestamp time.Time
+	seen      bool
 }
 
 func newUpgradeSeriesMessage(message string, timestamp time.Time) UpgradeSeriesMessage {
 	return UpgradeSeriesMessage{
+		id:        uuid.NewV4(),
 		message:   message,
-		timeStamp: timestamp,
+		timestamp: timestamp,
+		seen:      false,
 	}
 }
 
@@ -453,6 +461,38 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error
 		return err
 	}
 	return nil
+}
+
+// GetUpgradeSeriesNotification returns all 'unseen' upgrade series
+// notifications sorted by timestamp.
+func (m *Machine) GetUpgradeSeriesNotification() ([]string, error) {
+	upgradeSeriesMessages, err := m.getUpgradeSeriesNotification()
+	if err != nil {
+		return nil, err
+	}
+	// Filter seen messages
+	unseenMessages := make([]UpgradeSeriesMessage, 0)
+	for _, upgradeSeriesMessage := range upgradeSeriesMessages {
+		if !upgradeSeriesMessage.seen {
+			unseenMessages = append(unseenMessages, upgradeSeriesMessage)
+		}
+	}
+	sort.Slice(unseenMessages, func(i, j int) bool {
+		return unseenMessages[i].timestamp.Before(unseenMessages[j].timestamp)
+	})
+	messages := make([]string, 0)
+	for _, unseenMessage := range unseenMessages {
+		messages = append(messages, unseenMessage.message)
+	}
+	return messages, nil
+}
+
+func (m *Machine) getUpgradeSeriesNotification() ([]UpgradeSeriesMessage, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return lock.Messages, nil
 }
 
 func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStatus) (bool, error) {
