@@ -8,6 +8,7 @@ package testcharms
 import (
 	"os"
 	"strings"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"gopkg.in/juju/charmrepo.v3/testing"
 
 	jtesting "github.com/juju/juju/testing"
-	"time"
 )
 
 const defaultSeries = "quantal"
