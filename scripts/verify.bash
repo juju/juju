@@ -36,6 +36,7 @@ Infof
 Warningf
 Errorf
 Criticalf
+Annotatef
 "
 
 error_prints="\
