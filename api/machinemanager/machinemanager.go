@@ -188,19 +188,20 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	return nil
 }
 
-func (client *Client) UnitsToUpgrade(machineName string) ([]string, error) {
+func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
 	if client.BestAPIVersion() < 5 {
-		return nil, errors.NotSupportedf("UnitsToUpgrade")
+		return nil, errors.NotSupportedf("UpgradeSeriesValidate")
 	}
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{
 			{
 				Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+				Series: series,
 			},
 		},
 	}
 	results := new(params.UpgradeSeriesUnitsResults)
-	err := client.facade.FacadeCall("UnitsToUpgrade", args, results)
+	err := client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
 	if err != nil {
 		return nil, err
 	}

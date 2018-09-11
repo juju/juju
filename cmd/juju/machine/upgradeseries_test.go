@@ -44,7 +44,9 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) er
 	return err
 }
 
-func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, confirmation string, args ...string) (*cmd.Context, error) {
+func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
+	c *gc.C, confirmation string, args ...string,
+) (*cmd.Context, error) {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,10 +57,14 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, co
 
 	mockController := gomock.NewController(c)
 	defer mockController.Finish()
+
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(s.prepareExpectation.machineArg, s.prepareExpectation.seriesArg, s.prepareExpectation.force).AnyTimes()
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
-	mockUpgradeSeriesAPI.EXPECT().UnitsToUpgrade(gomock.Any()).AnyTimes().Return(strings.Split(unitsString, "\n"), nil)
+
+	exp := mockUpgradeSeriesAPI.EXPECT()
+	prep := s.prepareExpectation
+	exp.UpgradeSeriesValidate(prep.machineArg, prep.seriesArg).AnyTimes().Return(strings.Split(unitsString, "\n"), nil)
+	exp.UpgradeSeriesPrepare(prep.machineArg, prep.seriesArg, prep.force).AnyTimes()
+	exp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 
 	err = cmdtesting.InitCommand(com, args)

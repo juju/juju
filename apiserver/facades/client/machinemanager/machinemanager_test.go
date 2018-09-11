@@ -188,6 +188,7 @@ func (s *MachineManagerSuite) setupUpdateMachineSeries(c *gc.C) {
 	s.st.machines = map[string]*mockMachine{
 		"0": {series: "trusty", units: []string{"foo/0", "test/0"}},
 		"1": {series: "trusty", units: []string{"foo/1", "test/1"}},
+		"2": {series: "centos7", units: []string{"foo/1", "test/1"}},
 	}
 }
 
@@ -265,7 +266,10 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesNoParams(c *gc.C) {
 
 func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
-	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
+		SeriesList: []string{"yakkety", "zesty"},
+		Series:     "xenial",
+	})
 	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
@@ -321,6 +325,105 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+			Series: "xenial",
+		}},
+	}
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+
+	var expectedUnitNames []string
+	for _, unit := range s.st.machines["0"].Principals() {
+		expectedUnitNames = append(expectedUnitNames, unit)
+	}
+	c.Assert(result.UnitNames, gc.DeepEquals, expectedUnitNames)
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
+		}},
+	}
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "series missing from args")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("2").String()},
+			Series: "bionic",
+		}},
+	}
+
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"machine-2 is running CentOS and is not valid for Ubuntu series upgrade")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotToUbuntuError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
+			Series: "centos7",
+		}},
+	}
+
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		`series "centos7" is from OS "CentOS" and is not a valid upgrade target`)
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
+			Series: "trusty",
+		}},
+	}
+
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-1 is already running series trusty")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("1").String()},
+			Series: "precise",
+		}},
+	}
+
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"machine machine-1 is running trusty which is a newer series than precise.")
+}
+
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
@@ -334,26 +437,11 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
+
 	mach := s.st.machines["0"]
-	c.Assert(len(mach.Calls()), gc.Equals, 4)
-	mach.CheckCallNames(c, "Series", "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
-	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"foo/0", "test/0"}, "xenial")
-
-}
-
-func (s *MachineManagerSuite) TestUpgradeSeriesPrepareAlreadyRunningSeries(c *gc.C) {
-	s.setupUpdateMachineSeries(c)
-	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
-	machineTag := names.NewMachineTag("1")
-	result, err := apiV5.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
-			Entity: params.Entity{
-				Tag: machineTag.String()},
-			Series: "trusty",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "machine-1 is already running series trusty")
+	c.Assert(len(mach.Calls()), gc.Equals, 3)
+	mach.CheckCallNames(c, "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
+	mach.CheckCall(c, 2, "CreateUpgradeSeriesLock", []string{"foo/0", "test/0"}, "xenial")
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
@@ -435,7 +523,10 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
-	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
+		SeriesList: []string{"yakkety", "zesty"},
+		Series:     "xenial",
+	})
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	result, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
@@ -453,21 +544,6 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	})
 }
 
-func (s *MachineManagerSuite) TestUpgradeSeriesPrepareOlderSeriesShouldError(c *gc.C) {
-	s.setupUpdateMachineSeries(c)
-	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
-	machineTag := names.NewMachineTag("1")
-	result, err := apiV5.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
-			Entity: params.Entity{
-				Tag: machineTag.String()},
-			Series: "precise",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "machine machine-1 is running trusty which is a newer series than precise.")
-}
-
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.C) {
 	// TODO managed upgrade series
 }
@@ -481,31 +557,6 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MachineManagerSuite) TestUnitsToUpgrade(c *gc.C) {
-	s.setupUpdateMachineSeries(c)
-	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{
-			{
-				Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
-			},
-		},
-	}
-	results, err := apiV5.UnitsToUpgrade(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	units, err := s.st.machines["0"].Units()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedUnitNames := []string{}
-	for _, unit := range units {
-		expectedUnitNames = append(expectedUnitNames, unit.Name())
-	}
-	actualUnitNames := results.Results[0].UnitNames
-
-	c.Assert(actualUnitNames, gc.DeepEquals, expectedUnitNames)
 }
 
 // TestIsSeriesLessThan tests a validation method which is not very complicated
