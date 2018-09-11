@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -327,6 +328,8 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
+	s.st.machines["0"].unitAgentState = status.Idle
+
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
@@ -424,8 +427,27 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C)
 		"machine machine-1 is running trusty which is a newer series than precise.")
 }
 
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	s.st.machines["0"].unitAgentState = status.Executing
+
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+			Series: "xenial",
+		}},
+	}
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"unit unit-foo-[0-2] is not ready to start a series upgrade; its current status is: \"executing\" ")
+}
+
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
+	s.st.machines["0"].unitAgentState = status.Idle
+
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	machineTag := names.NewMachineTag("0")
 	result, err := apiV5.UpgradeSeriesPrepare(
@@ -717,9 +739,10 @@ type mockMachine struct {
 	jtesting.Stub
 	machinemanager.Machine
 
-	keep   bool
-	series string
-	units  []string
+	keep           bool
+	series         string
+	units          []string
+	unitAgentState status.Status
 }
 
 func (m *mockMachine) Destroy() error {
@@ -747,9 +770,9 @@ func (m *mockMachine) Series() string {
 
 func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
 	return []machinemanager.Unit{
-		&mockUnit{names.NewUnitTag("foo/0")},
-		&mockUnit{names.NewUnitTag("foo/1")},
-		&mockUnit{names.NewUnitTag("foo/2")},
+		&mockUnit{tag: names.NewUnitTag("foo/0")},
+		&mockUnit{tag: names.NewUnitTag("foo/1")},
+		&mockUnit{tag: names.NewUnitTag("foo/2")},
 	}, nil
 }
 
@@ -762,7 +785,7 @@ func (m *mockMachine) VerifyUnitsSeries(units []string, series string, force boo
 	m.MethodCall(m, "VerifyUnitsSeries", units, series, force)
 	out := make([]machinemanager.Unit, len(m.units))
 	for i, name := range m.units {
-		out[i] = &mockUnit{names.NewUnitTag(name)}
+		out[i] = &mockUnit{tag: names.NewUnitTag(name), sts: m.unitAgentState}
 	}
 	return out, m.NextErr()
 }
@@ -784,6 +807,7 @@ func (m *mockMachine) CompleteUpgradeSeries() error {
 
 type mockUnit struct {
 	tag names.UnitTag
+	sts status.Status
 }
 
 func (u *mockUnit) UnitTag() names.UnitTag {
@@ -792,6 +816,10 @@ func (u *mockUnit) UnitTag() names.UnitTag {
 
 func (u *mockUnit) Name() string {
 	return u.tag.String()
+}
+
+func (u *mockUnit) AgentStatus() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: u.sts}, nil
 }
 
 type mockStorage struct {

@@ -516,8 +516,9 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 }
 
 // verifiedUnits verifies that the machine units and their tree of subordinates
-// all support the input series.
-// If they do the unit names are all returned; if not, an error results.
+// all support the input series. If not, an error is returned.
+// If they do, the agent statuses are checked to ensure that they are all in
+// the idle state i.e. not installing, running hooks, or needing intervention.
 func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
 	principals := machine.Principals()
 	units, err := machine.VerifyUnitsSeries(principals, series, force)
