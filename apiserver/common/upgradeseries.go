@@ -42,7 +42,7 @@ type UpgradeSeriesUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
+	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error
 }
 
 // UpgradeSeriesState implements the UpgradeSeriesBackend indirection
@@ -230,7 +230,7 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		err = unit.SetUpgradeSeriesStatus(status)
+		err = unit.SetUpgradeSeriesStatus(status, p.Message)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue

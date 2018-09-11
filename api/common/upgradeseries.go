@@ -81,12 +81,13 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus() ([]model.UpgradeSeriesStatu
 
 // SetUpgradeSeriesUnitStatus sets the upgrade series status of the
 // unit in the remote state.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeriesStatus) error {
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeriesStatus, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{
-			Entity: params.Entity{Tag: u.tag.String()},
-			Status: status,
+			Entity:  params.Entity{Tag: u.tag.String()},
+			Status:  status,
+			Message: reason,
 		}},
 	}
 	err := u.facade.FacadeCall("SetUpgradeSeriesUnitStatus", args, &results)

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/model"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -45,8 +44,8 @@ type UpgradeSeriesMessage struct {
 	Seen      bool      `bson:"seen"`
 }
 
-func newUpgradeSeriesMessage(tag names.Tag, message string, timestamp time.Time) UpgradeSeriesMessage {
-	taggedMessage := fmt.Sprintf("%s %s", tag, message)
+func newUpgradeSeriesMessage(name string, message string, timestamp time.Time) UpgradeSeriesMessage {
+	taggedMessage := fmt.Sprintf("%s %s", name, message)
 	return UpgradeSeriesMessage{
 		Message:   taggedMessage,
 		Timestamp: timestamp,
@@ -139,7 +138,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	}
 	timestamp := bson.Now()
 	message := fmt.Sprintf("started upgrade series for machine %s from series %s to series %s", m.Id(), m.Series(), toSeries)
-	updateMessage := newUpgradeSeriesMessage(m.Tag(), message, timestamp)
+	updateMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
@@ -197,7 +196,7 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		timestamp := bson.Now()
-		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(m.Tag(), message, timestamp))
+		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(m.Tag().String(), message, timestamp))
 		for unitName, us := range lock.UnitStatuses {
 			us.Status = model.UpgradeSeriesCompleteStarted
 			us.Timestamp = timestamp
@@ -249,7 +248,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !readyForCompletion {
 			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
-		message := newUpgradeSeriesMessage(m.Tag(), "complete phase started", bson.Now())
+		message := newUpgradeSeriesMessage(m.Tag().String(), "complete phase started", bson.Now())
 		return completeUpgradeSeriesTxnOps(m.doc.Id, message), nil
 	}
 	err := m.st.db().Run(buildTxn)
@@ -279,13 +278,9 @@ func completeUpgradeSeriesTxnOps(machineDocID string, message UpgradeSeriesMessa
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
-			Update: bson.D{{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}}},
-		},
-		{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
-			Update: bson.D{{"$push", bson.D{{"messages", message}}}},
+			Update: bson.D{
+				{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}},
+				{"$push", bson.D{{"messages", message}}}},
 		},
 	}
 }
@@ -372,7 +367,7 @@ func (m *Machine) UpgradeSeriesUnitStatuses() (map[string]UpgradeSeriesUnitStatu
 }
 
 // SetUpgradeSeriesUnitStatus sets the status of a series upgrade for a unit.
-func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.UpgradeSeriesStatus) error {
+func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.UpgradeSeriesStatus, message string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -389,7 +384,9 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 		if statusSet {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, status, bson.Now())
+		timestamp := bson.Now()
+		updateMessage := newUpgradeSeriesMessage(unitName, message, timestamp)
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, status, timestamp, updateMessage)
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -413,7 +410,11 @@ func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.Upg
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
 func setUpgradeSeriesTxnOps(
-	machineDocID, unitName string, status model.UpgradeSeriesStatus, timestamp time.Time,
+	machineDocID,
+	unitName string,
+	status model.UpgradeSeriesStatus,
+	timestamp time.Time,
+	message UpgradeSeriesMessage,
 ) ([]txn.Op, error) {
 	statusField := "unit-statuses"
 	unitStatusField := fmt.Sprintf("%s.%s.status", statusField, unitName)
@@ -431,7 +432,9 @@ func setUpgradeSeriesTxnOps(
 				{{statusField, bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
-				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}}},
+				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}},
+				{"$push", bson.D{{"messages", message}}},
+			},
 		},
 	}, nil
 }
