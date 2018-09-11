@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/model"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -44,9 +45,10 @@ type UpgradeSeriesMessage struct {
 	Seen      bool      `bson:"seen"`
 }
 
-func newUpgradeSeriesMessage(message string, timestamp time.Time) UpgradeSeriesMessage {
+func newUpgradeSeriesMessage(tag names.Tag, message string, timestamp time.Time) UpgradeSeriesMessage {
+	taggedMessage := fmt.Sprintf("%s %s", tag, message)
 	return UpgradeSeriesMessage{
-		Message:   message,
+		Message:   taggedMessage,
 		Timestamp: timestamp,
 		Seen:      false,
 	}
@@ -137,7 +139,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	}
 	timestamp := bson.Now()
 	message := fmt.Sprintf("started upgrade series for machine %s from series %s to series %s", m.Id(), m.Series(), toSeries)
-	updateMessage := newUpgradeSeriesMessage(message, timestamp)
+	updateMessage := newUpgradeSeriesMessage(m.Tag(), message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
 		ToSeries:      toSeries,
@@ -195,7 +197,7 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 			return nil, fmt.Errorf("machine %q can not complete its unit, the machine has not yet been marked as completed", m.Id())
 		}
 		timestamp := bson.Now()
-		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(message, timestamp))
+		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(m.Tag(), message, timestamp))
 		for unitName, us := range lock.UnitStatuses {
 			us.Status = model.UpgradeSeriesCompleteStarted
 			us.Timestamp = timestamp
@@ -223,7 +225,7 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, lock *upgradeSe
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}}}},
+			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}, {"messages", lock.Messages}}}},
 		},
 	}
 }

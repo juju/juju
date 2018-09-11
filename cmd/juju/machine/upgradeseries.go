@@ -232,6 +232,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 	// Here we wait for the loop to finish by waiting for the catacomb's
 	// worker to finish.
 	err = c.catacomb.Wait()
+	fmt.Fprintf(ctx.Stdout, "\n\n")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -320,6 +321,7 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade series")
 	}
+	fmt.Fprint(ctx.Stdout, "\n")
 
 	return nil
 }
