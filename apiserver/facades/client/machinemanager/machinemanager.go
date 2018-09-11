@@ -6,8 +6,6 @@ package machinemanager
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/status"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
@@ -18,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
