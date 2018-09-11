@@ -187,7 +187,6 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
 }
 
@@ -273,6 +272,9 @@ func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid s
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if len(notifications) > 0 {
+		fmt.Fprint(ctx.Stdout, "\n")
+	}
 	_, err = fmt.Fprint(ctx.Stdout, strings.Join(notifications, "\n"))
 	if err != nil {
 		errors.Trace(err)
@@ -301,6 +303,21 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = catacomb.Invoke(catacomb.Plan{
+		Site: &c.catacomb,
+		Work: c.displayNotifications(ctx),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Here we wait for the loop to finish by waiting for the catacomb's
+	// worker to finish.
+	err = c.catacomb.Wait()
+	fmt.Fprintf(ctx.Stdout, "\n\n")
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	return nil
 }
@@ -321,8 +338,6 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade series")
 	}
-	fmt.Fprint(ctx.Stdout, "\n")
-
 	return nil
 }
 

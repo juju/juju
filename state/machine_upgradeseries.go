@@ -249,7 +249,8 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !readyForCompletion {
 			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
-		return completeUpgradeSeriesTxnOps(m.doc.Id), nil
+		message := newUpgradeSeriesMessage(m.Tag(), "complete phase started", bson.Now())
+		return completeUpgradeSeriesTxnOps(m.doc.Id, message), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -267,7 +268,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	return lock.MachineStatus == model.UpgradeSeriesPrepareCompleted, nil
 }
 
-func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
+func completeUpgradeSeriesTxnOps(machineDocID string, message UpgradeSeriesMessage) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -279,6 +280,12 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
 			Update: bson.D{{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}}},
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
+			Update: bson.D{{"$push", bson.D{{"messages", message}}}},
 		},
 	}
 }
