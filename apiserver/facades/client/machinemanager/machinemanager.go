@@ -6,6 +6,8 @@ package machinemanager
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/status"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
@@ -522,9 +524,18 @@ func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	unitNames := make([]string, len(units))
-	for i := range units {
-		unitNames[i] = units[i].UnitTag().Id()
+	for i, u := range units {
+		agentStatus, err := u.AgentStatus()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if agentStatus.Status != status.Idle {
+			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its current status is: %q %s",
+				u.Name(), agentStatus.Status, agentStatus.Message)
+		}
+		unitNames[i] = u.UnitTag().Id()
 	}
 	return unitNames, nil
 }
