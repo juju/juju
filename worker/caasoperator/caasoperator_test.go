@@ -59,8 +59,8 @@ type WorkerSuite struct {
 
 var _ = gc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
+func (s *WorkerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
 	// Create a charm archive, and compute its SHA256 hash
 	// for comparison in the tests.
@@ -74,10 +74,6 @@ func (s *WorkerSuite) SetUpSuite(c *gc.C) {
 	charmSHA256, _, err := utils.ReadFileSHA256(s.charmDownloader.path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmSHA256 = charmSHA256
-}
-
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.appWatched = make(chan struct{}, 1)
@@ -118,7 +114,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
-	err := os.MkdirAll(agentBinaryDir, 0755)
+	err = os.MkdirAll(agentBinaryDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(s.config.DataDir, "tools", "jujud"), []byte("jujud"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,13 +224,13 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 		c.Fatal("timed out waiting for application to be watched")
 	}
 
-	c.Assert(len(s.client.Calls()), jc.GreaterThan, 4)
-	s.client.CheckCall(c, 0, "SetVersion", "gitlab", version.Binary{
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm")
+	s.client.CheckCall(c, 0, "Charm", "gitlab")
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
 		Number: jujuversion.Current,
 		Series: series.MustHostSeries(),
 		Arch:   arch.HostArch(),
 	})
-	s.client.CheckCall(c, 1, "Charm", "gitlab")
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 5, "Watch", "gitlab")
 
@@ -261,7 +257,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
 	c.Assert(downloadRequest, jc.DeepEquals, downloader.Request{
 		URL:       &url.URL{Scheme: "cs", Opaque: "gitlab-1"},
-		TargetDir: filepath.Join(agentDir, "charm.dl"),
+		TargetDir: filepath.Join(agentDir, "state", "bundles", "downloads"),
 	})
 
 	// The download directory should have been removed.
@@ -344,7 +340,8 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
-	s.client.CheckCall(c, 2, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch")
+	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {

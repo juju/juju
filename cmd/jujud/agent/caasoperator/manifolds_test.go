@@ -41,6 +41,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"hook-retry-strategy",
 		"operator",
 		"logging-config-updater",
+		"log-sender",
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",

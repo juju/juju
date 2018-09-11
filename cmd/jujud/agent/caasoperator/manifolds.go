@@ -93,6 +93,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		clockName: clockManifold(config.Clock),
 
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			APICallerName: apiCallerName,
+			LogSource:     config.LogSource,
+		}),
+
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
 		// finished running any required upgrade steps. The flag of
@@ -215,6 +223,7 @@ const (
 	apiCallerName = "api-caller"
 	clockName     = "clock"
 	operatorName  = "operator"
+	logSenderName = "log-sender"
 
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"

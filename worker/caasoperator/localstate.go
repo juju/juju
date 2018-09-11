@@ -3,7 +3,13 @@
 
 package caasoperator
 
-import "gopkg.in/juju/charm.v6"
+import (
+	"os"
+
+	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v6"
+)
 
 // LocalState is a cache of the state of the operator
 // It is generally compared to the remote state of the
@@ -16,4 +22,34 @@ type LocalState struct {
 	// CharmURL reports the currently installed charm URL. This is set
 	// by the committing of deploy (install/upgrade) ops.
 	CharmURL *charm.URL
+}
+
+// ErrNoStateFile is used to indicate an operator state file does not exist.
+var ErrNoStateFile = errors.New("operator state file does not exist")
+
+// StateFile holds the disk state for an operator.
+type StateFile struct {
+	path string
+}
+
+// NewStateFile returns a new StateFile using path.
+func NewStateFile(path string) *StateFile {
+	return &StateFile{path}
+}
+
+// Read reads a State from the file. If the file does not exist it returns
+// ErrNoStateFile.
+func (f *StateFile) Read() (*LocalState, error) {
+	var st LocalState
+	if err := utils.ReadYaml(f.path, &st); err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrNoStateFile
+		}
+	}
+	return &st, nil
+}
+
+// Write stores the supplied state to the file.
+func (f *StateFile) Write(st *LocalState) error {
+	return utils.WriteYaml(f.path, st)
 }
