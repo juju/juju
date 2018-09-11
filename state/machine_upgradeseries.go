@@ -39,16 +39,16 @@ type UpgradeSeriesUnitStatus struct {
 // to logging message. The string is accompanied by a timestamp and a boolean
 // value indicating whether or not the message has been observed by a client.
 type UpgradeSeriesMessage struct {
-	message   string
-	timestamp time.Time
-	seen      bool
+	Message   string    `bson:"message"`
+	Timestamp time.Time `bson:"timestamp"`
+	Seen      bool      `bson:"seen"`
 }
 
 func newUpgradeSeriesMessage(message string, timestamp time.Time) UpgradeSeriesMessage {
 	return UpgradeSeriesMessage{
-		message:   message,
-		timestamp: timestamp,
-		seen:      false,
+		Message:   message,
+		Timestamp: timestamp,
+		Seen:      false,
 	}
 }
 
@@ -223,7 +223,7 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, lock *upgradeSe
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}, {"messages", lock.Messages}}}},
+			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}}}},
 		},
 	}
 }
@@ -281,9 +281,6 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 	}
 }
 
-// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
-// RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
-// given machine.
 func (m *Machine) RemoveUpgradeSeriesLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -461,31 +458,41 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error
 
 // GetUpgradeSeriesNotification returns all 'unseen' upgrade series
 // notifications sorted by timestamp.
-func (m *Machine) GetUpgradeSeriesNotification() ([]string, error) {
-	upgradeSeriesMessages, err := m.getUpgradeSeriesNotification()
+func (m *Machine) GetUpgradeSeriesNotification() ([]string, bool, error) {
+	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
-		return nil, err
+		return nil, false, errors.Trace(err)
+	}
+	if err != nil {
+		return nil, false, err
 	}
 	// Filter seen messages
 	unseenMessages := make([]UpgradeSeriesMessage, 0)
-	for _, upgradeSeriesMessage := range upgradeSeriesMessages {
-		if !upgradeSeriesMessage.seen {
+	for _, upgradeSeriesMessage := range lock.Messages {
+		if !upgradeSeriesMessage.Seen {
 			unseenMessages = append(unseenMessages, upgradeSeriesMessage)
 		}
 	}
 	sort.Slice(unseenMessages, func(i, j int) bool {
-		return unseenMessages[i].timestamp.Before(unseenMessages[j].timestamp)
+		return unseenMessages[i].Timestamp.Before(unseenMessages[j].Timestamp)
 	})
 	messages := make([]string, 0)
 	for _, unseenMessage := range unseenMessages {
-		messages = append(messages, unseenMessage.message)
+		messages = append(messages, unseenMessage.Message)
 	}
-	err = m.SetUpgradeSeriesMessagesAsSeen(upgradeSeriesMessages)
+	err = m.SetUpgradeSeriesMessagesAsSeen(lock.Messages)
 	if err != nil {
-		errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	}
+	// finished means that a subsequent call to this method, while the
+	// Machine Lock is of a similar Machine Status, would return no
+	// additional messages (notifications). Since the value of this variable
+	// is returned, callers may choose to close streams or stop watchers
+	// based on this information.
+	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
+		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
 
-	return messages, nil
+	return messages, finished, nil
 }
 
 func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
@@ -525,14 +532,6 @@ func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeries
 		})
 	}
 	return ops
-}
-
-func (m *Machine) getUpgradeSeriesNotification() ([]UpgradeSeriesMessage, error) {
-	lock, err := m.getUpgradeSeriesLock()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return lock.Messages, nil
 }
 
 func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStatus) (bool, error) {

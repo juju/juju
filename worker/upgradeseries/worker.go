@@ -273,7 +273,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 	if err := upgrader.PerformUpgrade(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, ""))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, "got some kind of messages"))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {

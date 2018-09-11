@@ -1349,6 +1349,15 @@ type UpgradeSeriesStartUnitCompletionParam struct {
 	Message  string   `json:"message"`
 }
 
+type UpgradeSeriesNotificationParams struct {
+	Params []UpgradeSeriesNotificationParam `json:"params"`
+}
+
+type UpgradeSeriesNotificationParam struct {
+	Entity    Entity `json:"entity"`
+	WatcherId string `json:"watcher-id"`
+}
+
 // UpgradeSeriesUnitsResults contains the units affected by a series per
 // machine entity.
 type UpgradeSeriesUnitsResults struct {

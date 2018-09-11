@@ -267,5 +267,6 @@ func (client *Client) GetUpgradeSeriesNotification(machineName, watcherId string
 	if result.Error != nil {
 		return nil, result.Error
 	}
+
 	return result.Result, nil
 }

@@ -667,33 +667,3 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 
 	return nil
 }
-
-func (mm *MachineManagerAPI) GetUpgradeSeriesNotification(args params.Entities) (params.StringsResults, error) {
-	if err := mm.checkCanRead(); err != nil {
-		return params.StringsResults{}, err
-	}
-	results := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		machineTag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			err = errors.Trace(err)
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := mm.st.Machine(machineTag.Id())
-		if err != nil {
-			err = errors.Trace(err)
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		messages, err := machine.GetUpgradeSeriesNotification()
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = messages
-	}
-	return results, nil
-}

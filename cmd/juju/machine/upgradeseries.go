@@ -49,8 +49,8 @@ type UpgradeMachineSeriesAPI interface {
 	UpgradeSeriesValidate(string, string) ([]string, error)
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
-	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, error)
-	GetUpgradeSeriesNotification(string) (string, error)
+	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, string, error)
+	GetUpgradeSeriesNotification(string, string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -245,7 +245,7 @@ func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) func() err
 	// We return and anonymous function here to satisfy the catacomb plan's
 	// need for a work function and to close over the commands context.
 	return func() error {
-		uw, err := c.upgradeMachineSeriesClient.WatchUpgradeSeriesNotifications(c.machineNumber)
+		uw, wid, err := c.upgradeMachineSeriesClient.WatchUpgradeSeriesNotifications(c.machineNumber)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -258,7 +258,8 @@ func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) func() err
 			case <-c.catacomb.Dying():
 				return c.catacomb.ErrDying()
 			case <-uw.Changes():
-				if err := c.handleUpgradeSeriesChange(ctx); err != nil {
+				err = c.handleUpgradeSeriesChange(ctx, wid)
+				if err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -266,12 +267,12 @@ func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) func() err
 	}
 }
 
-func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context) error {
-	notifications, err := c.upgradeMachineSeriesClient.GetUpgradeSeriesNotification(c.machineNumber)
+func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid string) error {
+	notifications, err := c.upgradeMachineSeriesClient.GetUpgradeSeriesNotification(c.machineNumber, wid)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = fmt.Fprint(ctx.Stdout, notifications+"\n")
+	_, err = fmt.Fprint(ctx.Stdout, strings.Join(notifications, "\n"))
 	if err != nil {
 		errors.Trace(err)
 	}
