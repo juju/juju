@@ -73,6 +73,17 @@ type StatePaths struct {
 	// CharmDir is the directory to which the charm the operator runs is deployed.
 	CharmDir string
 
+	// OperationsFile holds information about what the operator is doing
+	// and/or has done.
+	OperationsFile string
+
+	// BundlesDir holds downloaded charms.
+	BundlesDir string
+
+	// DeployerDir holds metadata about charms that are installing or have
+	// been installed.
+	DeployerDir string
+
 	// RelationsDir holds relation-specific information about what the
 	// operator is doing and/or has done.
 	RelationsDir string
@@ -107,7 +118,10 @@ func NewPaths(dataDir string, applicationTag names.ApplicationTag) Paths {
 		State: StatePaths{
 			BaseDir:         baseDir,
 			CharmDir:        join(baseDir, "charm"),
+			BundlesDir:      join(stateDir, "bundles"),
+			DeployerDir:     join(stateDir, "deployer"),
 			RelationsDir:    join(stateDir, "relations"),
+			OperationsFile:  join(stateDir, "operator"),
 			MetricsSpoolDir: join(stateDir, "spool", "metrics"),
 		},
 	}

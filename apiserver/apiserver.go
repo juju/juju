@@ -480,14 +480,14 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
-		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind})
+		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind, names.ApplicationTagKind})
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 	)
-	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind}
+	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.

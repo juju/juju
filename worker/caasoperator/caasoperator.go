@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -31,6 +30,7 @@ import (
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/remotestate"
 	"github.com/juju/juju/worker/uniter"
+	jujucharm "github.com/juju/juju/worker/uniter/charm"
 )
 
 var logger = loggo.GetLogger("juju.worker.caasoperator")
@@ -40,10 +40,12 @@ var logger = loggo.GetLogger("juju.worker.caasoperator")
 // delegated to Mode values, which are expected to react to events and direct
 // the caasoperator's responses to them.
 type caasOperator struct {
-	catacomb catacomb.Catacomb
-	config   Config
-	paths    Paths
-	runner   *worker.Runner
+	catacomb  catacomb.Catacomb
+	config    Config
+	paths     Paths
+	runner    *worker.Runner
+	deployer  jujucharm.Deployer
+	stateFile *StateFile
 }
 
 // Config hold the configuration for a caasoperator worker.
@@ -161,9 +163,20 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	paths := NewPaths(config.DataDir, names.NewApplicationTag(config.Application))
+	deployer, err := jujucharm.NewDeployer(
+		paths.State.CharmDir,
+		paths.State.DeployerDir,
+		jujucharm.NewBundlesDir(paths.State.BundlesDir, config.Downloader),
+	)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create deployer")
+	}
+
 	op := &caasOperator{
-		config: config,
-		paths:  NewPaths(config.DataDir, names.NewApplicationTag(config.Application)),
+		config:   config,
+		paths:    paths,
+		deployer: deployer,
 		runner: worker.NewRunner(worker.RunnerParams{
 			Clock: config.Clock,
 
@@ -247,27 +260,40 @@ func toBinaryVersion(vers version.Number) version.Binary {
 	return outVers
 }
 
-func (op *caasOperator) loop() (err error) {
-	// Start by reporting current tools (which includes arch/series).
-	if err := op.config.VersionSetter.SetVersion(
-		op.config.Application, toBinaryVersion(jujuversion.Current)); err != nil {
-		return errors.Annotate(err, "cannot set agent version")
+func (op *caasOperator) init() (*LocalState, error) {
+	if err := jujucharm.ClearDownloads(op.paths.State.BundlesDir); err != nil {
+		logger.Warningf(err.Error())
 	}
 
-	charmURL, charmModifiedVersion, err := op.ensureCharm()
-	if err != nil {
+	op.stateFile = NewStateFile(op.paths.State.OperationsFile)
+	localState, err := op.stateFile.Read()
+	if err == ErrNoStateFile {
+		localState = &LocalState{}
+	}
+
+	if err := op.ensureCharm(localState); err != nil {
 		if err == jworker.ErrTerminateAgent {
-			return err
+			return nil, err
 		}
-		return errors.Annotatef(err,
+		return nil, errors.Annotatef(err,
 			"failed to initialize caasoperator for %q",
 			op.config.Application,
 		)
 	}
-	// Take note of the current charm version attributes.
-	localState := LocalState{
-		CharmURL:             charmURL,
-		CharmModifiedVersion: charmModifiedVersion,
+	return localState, nil
+}
+
+func (op *caasOperator) loop() (err error) {
+	localState, err := op.init()
+	if err != nil {
+		return err
+	}
+	logger.Infof("operator %q started", op.config.Application)
+
+	// Start by reporting current tools (which includes arch/series).
+	if err := op.config.VersionSetter.SetVersion(
+		op.config.Application, toBinaryVersion(jujuversion.Current)); err != nil {
+		return errors.Annotate(err, "cannot set agent version")
 	}
 
 	var (
@@ -335,12 +361,10 @@ func (op *caasOperator) loop() (err error) {
 			snap := watcher.Snapshot()
 			if charmModified(localState, snap) {
 				// Charm changed so download and install the new version.
-				charmURL, charmModifiedVersion, err := op.ensureCharm()
+				err := op.ensureCharm(localState)
 				if err != nil {
-					return errors.Annotatef(err, "error downloading updated charm %v", charmURL.String())
+					return errors.Annotatef(err, "error downloading updated charm %v", localState.CharmURL)
 				}
-				localState.CharmURL = charmURL
-				localState.CharmModifiedVersion = charmModifiedVersion
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitId, changedChan := range aliveUnits {
 					logger.Debugf("trigger upgrade charm for caas unit %v", unitId)
@@ -402,12 +426,12 @@ func (op *caasOperator) loop() (err error) {
 	}
 }
 
-func charmModified(local LocalState, remote remotestate.Snapshot) bool {
+func charmModified(local *LocalState, remote remotestate.Snapshot) bool {
 	// CAAS models may not yet have read the charm url from state.
 	if remote.CharmURL == nil {
 		return false
 	}
-	if local.CharmURL == nil {
+	if local == nil || local.CharmURL == nil {
 		logger.Warningf("unexpected nil local charm URL")
 		return true
 	}
@@ -425,28 +449,6 @@ func charmModified(local LocalState, remote remotestate.Snapshot) bool {
 		return true
 	}
 	return false
-}
-
-func (op *caasOperator) ensureCharm() (*charm.URL, int, error) {
-	charmDir := op.paths.GetCharmDir()
-	if _, err := os.Stat(charmDir); !os.IsNotExist(err) {
-		return nil, 0, errors.Trace(err)
-	}
-	curl, _, sha256, vers, err := op.config.CharmGetter.Charm(op.config.Application)
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-	if op.setStatus(status.Maintenance, "downloading charm (%s)", curl); err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-	if err := downloadCharm(
-		op.config.Downloader,
-		curl, sha256, charmDir,
-		op.catacomb.Dying(),
-	); err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-	return curl, vers, nil
 }
 
 func (op *caasOperator) setStatus(status status.Status, message string, args ...interface{}) error {

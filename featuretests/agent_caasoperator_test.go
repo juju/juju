@@ -127,6 +127,7 @@ var (
 		"api-caller",
 		"clock",
 		"logging-config-updater",
+		"log-sender",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
