@@ -4,12 +4,19 @@
 package upgrades
 
 import (
+	"io"
+	"time"
+
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -17,6 +24,8 @@ import (
 type StateBackend interface {
 	ControllerUUID() string
 	StateServingInfo() (state.StateServingInfo, error)
+	ControllerConfig() (controller.Config, error)
+	LeaseNotifyTarget(io.Writer, raftleasestore.Logger) raftlease.NotifyTarget
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -47,6 +56,7 @@ type StateBackend interface {
 	AddCloudModelCounts() error
 	ReplicaSetMembers() ([]replicaset.Member, error)
 	MigrateStorageMachineIdFields() error
+	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -203,4 +213,16 @@ func (s stateBackend) EnsureContainerImageStreamDefault() error {
 
 func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
 	return state.RemoveContainerImageStreamFromNonModelSettings(s.pool)
+}
+
+func (s stateBackend) ControllerConfig() (controller.Config, error) {
+	return s.pool.SystemState().ControllerConfig()
+}
+
+func (s stateBackend) LeaseNotifyTarget(w io.Writer, logger raftleasestore.Logger) raftlease.NotifyTarget {
+	return s.pool.SystemState().LeaseNotifyTarget(w, logger)
+}
+
+func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
+	return state.LegacyLeases(s.pool, localTime)
 }
