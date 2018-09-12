@@ -155,7 +155,7 @@ func (s *workerSuite) expectMachinePrepareStartedUnitsStoppedProgressPrepareMach
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// All known units have completed preparation - the workflow progresses.
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	s.facade.EXPECT().SetMachineStatus(model.UpgradeSeriesPrepareMachine).Return(nil)
+	s.facade.EXPECT().SetMachineStatus(model.UpgradeSeriesPrepareMachine, gomock.Any()).Return(nil)
 
 	s.expectServiceDiscovery(true)
 
@@ -188,7 +188,7 @@ func (s *workerSuite) expectMachinePrepareMachineUnitFilesWrittenProgressPrepare
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 
-	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
+	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 
 	s.expectServiceDiscovery(false)
 }
@@ -210,7 +210,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	s.facade.EXPECT().StartUnitCompletion().Return(nil)
+	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
 
 	s.expectServiceDiscovery(true)
 
@@ -232,7 +232,7 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	s.service.EXPECT().ListServices().Return(nil, nil).Times(2)
 
 	// Progress directly to completed.
-	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
+	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
 
@@ -268,7 +268,7 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete(
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
-	exp.SetMachineStatus(model.UpgradeSeriesCompleted).Return(nil)
+	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
 
 	// TODO (manadart 2018-08-22): Modify the tested code so that the services
 	// are detected just the one time.

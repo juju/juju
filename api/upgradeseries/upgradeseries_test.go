@@ -20,8 +20,9 @@ import (
 type upgradeSeriesSuite struct {
 	jujutesting.BaseSuite
 
-	tag  names.Tag
-	args params.Entities
+	tag                                  names.Tag
+	args                                 params.Entities
+	upgradeSeriesStartUnitCompletionArgs params.UpgradeSeriesStartUnitCompletionParam
 }
 
 var _ = gc.Suite(&upgradeSeriesSuite{})
@@ -29,7 +30,9 @@ var _ = gc.Suite(&upgradeSeriesSuite{})
 func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
-
+	s.upgradeSeriesStartUnitCompletionArgs = params.UpgradeSeriesStartUnitCompletionParam{
+		Entities: []params.Entity{{Tag: s.tag.String()}},
+	}
 	s.BaseSuite.SetUpTest(c)
 }
 
@@ -90,7 +93,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	fCaller.EXPECT().FacadeCall("SetMachineStatus", args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted)
+	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted, "")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -172,10 +175,10 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("StartUnitCompletion", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall("StartUnitCompletion", s.upgradeSeriesStartUnitCompletionArgs, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.StartUnitCompletion()
+	err := api.StartUnitCompletion("")
 	c.Assert(err, gc.IsNil)
 }
 
