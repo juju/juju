@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -196,6 +197,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 						Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 					},
 				},
+				Constraints: constraints.MustParse("mem=64G"),
 			},
 		}, {
 			Error: &params.Error{

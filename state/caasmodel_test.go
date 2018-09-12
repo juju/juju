@@ -228,9 +228,10 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab"})
-	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
+	f := factory.NewFactory(otherSt, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	args := state.AddApplicationArgs{
 		Name:   application.Name(),
 		Series: "kubernetes",

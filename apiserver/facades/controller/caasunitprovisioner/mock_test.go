@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
@@ -160,6 +161,10 @@ func (m *mockApplication) DeviceConstraints() (map[string]state.DeviceConstraint
 			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 		},
 	}, nil
+}
+
+func (m *mockApplication) Constraints() (constraints.Value, error) {
+	return constraints.MustParse("mem=64G"), nil
 }
 
 func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.Address) error {

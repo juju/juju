@@ -698,6 +698,16 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
+	if mem := params.Constraints.Mem; mem != nil {
+		if err = k.configureConstraint(unitSpec, "memory", fmt.Sprintf("%dMi", *mem)); err != nil {
+			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
+		}
+	}
+	if cpu := params.Constraints.CpuPower; cpu != nil {
+		if err = k.configureConstraint(unitSpec, "cpu", fmt.Sprintf("%dm", *cpu)); err != nil {
+			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
+		}
+	}
 
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
@@ -854,6 +864,18 @@ func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []device
 	}
 	if nodeLabel != "" {
 		unitSpec.Pod.NodeSelector = buildNodeSelector(nodeLabel)
+	}
+	return nil
+}
+
+func (k *kubernetesClient) configureConstraint(unitSpec *unitSpec, constraint, value string) error {
+	for i := range unitSpec.Pod.Containers {
+		resources := unitSpec.Pod.Containers[i].Resources
+		err := mergeConstraint(constraint, value, &resources)
+		if err != nil {
+			return errors.Annotatef(err, "merging constraint %q to %#v", constraint, resources)
+		}
+		unitSpec.Pod.Containers[i].Resources = resources
 	}
 	return nil
 }
@@ -1631,6 +1653,22 @@ func mergeDeviceConstraints(device devices.KubernetesDeviceParams, resources *co
 	// - https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#clusters-containing-different-types-of-nvidia-gpus
 	resources.Limits[resourceName] = *resource.NewQuantity(device.Count, resource.DecimalSI)
 	resources.Requests[resourceName] = *resource.NewQuantity(device.Count, resource.DecimalSI)
+	return nil
+}
+
+func mergeConstraint(constraint string, value string, resources *core.ResourceRequirements) error {
+	if resources.Limits == nil {
+		resources.Limits = core.ResourceList{}
+	}
+	resourceName := core.ResourceName(constraint)
+	if v, ok := resources.Limits[resourceName]; ok {
+		return errors.NotValidf("resource limit for %q has already been set to %v!", resourceName, v)
+	}
+	parsedValue, err := resource.ParseQuantity(value)
+	if err != nil {
+		return errors.Annotatef(err, "invalid constraint value %q for %v", value, constraint)
+	}
+	resources.Limits[resourceName] = parsedValue
 	return nil
 }
 

@@ -344,9 +344,8 @@ type Environ interface {
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
-	// ConstraintsValidator returns a Validator instance which
-	// is used to validate and merge constraints.
-	ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error)
+	// ConstraintsChecker provides a means to check that constraints are valid.
+	ConstraintsChecker
 
 	// SetConfig updates the Environ's configuration.
 	//
@@ -386,6 +385,13 @@ type Environ interface {
 	// InstanceTypesFetcher represents an environment that can return
 	// information about the available instance types.
 	InstanceTypesFetcher
+}
+
+// ConstraintsChecker provides a means to check that constraints are valid.
+type ConstraintsChecker interface {
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error)
 }
 
 // InstancePrechecker provides a means of "prechecking" instance

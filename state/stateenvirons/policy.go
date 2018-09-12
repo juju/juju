@@ -89,16 +89,19 @@ func (p environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// TODO(caas) CAAS providers should also provide
-		// constraints validation.
-		return nil, errors.NotImplementedf("ConstraintsValidator")
+
+	if model.Type() == state.ModelTypeIAAS {
+		env, err := p.getEnviron(p.st)
+		if err != nil {
+			return nil, err
+		}
+		return env.ConstraintsValidator(ctx)
 	}
-	env, err := p.getEnviron(p.st)
+	broker, err := p.getBroker(p.st)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return env.ConstraintsValidator(ctx)
+	return broker.ConstraintsValidator(ctx)
 }
 
 // InstanceDistributor implements state.Policy.
