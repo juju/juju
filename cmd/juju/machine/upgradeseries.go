@@ -43,6 +43,9 @@ When ready run the following to complete the upgrade series process:
 
 juju upgrade-series complete %s`
 
+var upgradeSeriesCompleteFinishedMessage = `
+Upgrade series for machine %q has successfully completed`
+
 // NewUpgradeSeriesCommand returns a command which upgrades the series of
 // an application or machine.
 func NewUpgradeSeriesCommand() cmd.Command {
@@ -227,7 +230,19 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	err = catacomb.Invoke(catacomb.Plan{
+	err = c.handleNotifications(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	upgradeSeriesPrepareFinishedMessage += "\n"
+	fmt.Fprintf(ctx.Stdout, upgradeSeriesPrepareFinishedMessage, c.machineNumber)
+
+	return nil
+}
+
+func (c *upgradeSeriesCommand) handleNotifications(ctx *cmd.Context) error {
+	err := catacomb.Invoke(catacomb.Plan{
 		Site: &c.catacomb,
 		Work: c.displayNotifications(ctx),
 	})
@@ -238,12 +253,14 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 	// Here we wait for the loop to finish by waiting for the catacomb's
 	// worker to finish.
 	err = c.catacomb.Wait()
-	fmt.Fprintf(ctx.Stdout, "\n\n")
 	if err != nil {
-		return errors.Trace(err)
+		if err.Error() == "watcher has been stopped (stopped)" {
+			logger.Debugf("the upgrade series watcher has been stopped")
+		} else {
+			return errors.Trace(err)
+		}
 	}
 
-	fmt.Fprintf(ctx.Stdout, upgradeSeriesPrepareFinishedMessage, c.machineNumber)
 	return nil
 }
 
@@ -280,10 +297,10 @@ func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid s
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(notifications) > 0 {
-		fmt.Fprint(ctx.Stdout, "\n")
+	if len(notifications) == 0 {
+		return nil
 	}
-	_, err = fmt.Fprint(ctx.Stdout, strings.Join(notifications, "\n"))
+	_, err = fmt.Fprintln(ctx.Stdout, strings.Join(notifications, "\n"))
 	if err != nil {
 		errors.Trace(err)
 	}
@@ -311,21 +328,14 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = catacomb.Invoke(catacomb.Plan{
-		Site: &c.catacomb,
-		Work: c.displayNotifications(ctx),
-	})
+
+	err = c.handleNotifications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Here we wait for the loop to finish by waiting for the catacomb's
-	// worker to finish.
-	err = c.catacomb.Wait()
-	fmt.Fprintf(ctx.Stdout, "\n\n")
-	if err != nil {
-		return errors.Trace(err)
-	}
+	upgradeSeriesCompleteFinishedMessage += "\n"
+	fmt.Fprintf(ctx.Stdout, upgradeSeriesCompleteFinishedMessage, c.machineNumber)
 
 	return nil
 }
