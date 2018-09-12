@@ -507,6 +507,12 @@ func (m *Machine) GetUpgradeSeriesNotification() ([]string, bool, error) {
 	return messages, finished, nil
 }
 
+// SetUpgradeSeriesMessagesAsSeen marks a given upgrade series messages as
+// having been seen by a client of the API. This method is exported since only
+// the client of this method can determine when a message has been "seen" and
+// thus the decision must be made ad the APIServer level as whether to call this
+// method or not (as apposed to immediately calling this method when messages
+// are queried for sending).
 func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
