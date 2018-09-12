@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -18,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/storage"
@@ -80,10 +82,11 @@ type charmDoc struct {
 	// will we be writing on the assumption that all stored Metas have set
 	// some field? What fields might lose precision when they go into the
 	// database?
-	Meta    *charm.Meta    `bson:"meta"`
-	Config  *charm.Config  `bson:"config"`
-	Actions *charm.Actions `bson:"actions"`
-	Metrics *charm.Metrics `bson:"metrics"`
+	Meta       *charm.Meta       `bson:"meta"`
+	Config     *charm.Config     `bson:"config"`
+	Actions    *charm.Actions    `bson:"actions"`
+	Metrics    *charm.Metrics    `bson:"metrics"`
+	LXDProfile *charm.LXDProfile `bson:"lxd-profile"`
 }
 
 // CharmInfo contains all the data necessary to store a charm's metadata.
@@ -113,6 +116,13 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		Actions:      info.Charm.Actions(),
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
+	}
+	if featureflag.Enabled(feature.LXDProfile) {
+		lpc, ok := info.Charm.(charm.LXDProfiler)
+		if !ok {
+			return nil, errors.New("charm does no implment LXDProfiler")
+		}
+		doc.LXDProfile = safeLXDProfile(lpc.LXDProfile())
 	}
 	if err := checkCharmDataIsStorable(doc); err != nil {
 		return nil, errors.Trace(err)
@@ -221,6 +231,13 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"pendingupload", false},
 		{"placeholder", false},
 	}
+	if featureflag.Enabled(feature.LXDProfile) {
+		lpc, ok := info.Charm.(charm.LXDProfiler)
+		if !ok {
+			return nil, errors.New("charm doesn't have LXDCharmProfile()")
+		}
+		data = append(data, bson.DocElem{"lxd-profile", safeLXDProfile(lpc.LXDProfile())})
+	}
 	if err := checkCharmDataIsStorable(data); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -314,6 +331,35 @@ func safeConfig(ch charm.Charm) *charm.Config {
 	return escapedConfig
 }
 
+// safeLXDProfile ensures that the LXDProfile that we put into the mongo data
+// store, can in fact store the profile safely by escaping mongo-
+// significant characters in config options.
+func safeLXDProfile(profile *charm.LXDProfile) *charm.LXDProfile {
+	if profile == nil {
+		return nil
+	}
+	escapedProfile := charm.NewLXDProfile()
+	escapedProfile.Description = profile.Description
+	// we know the size and shape of the type, so let's use EscapeKey
+	escapedConfig := make(map[string]string, len(profile.Config))
+	for k, v := range profile.Config {
+		escapedConfig[mongoutils.EscapeKey(k)] = v
+	}
+	escapedProfile.Config = escapedConfig
+	// this is more easy to reason about than using mongoutils.EscapeKeys, which
+	// requires looping from map[string]interface{} -> map[string]map[string]string
+	escapedDevices := make(map[string]map[string]string, len(profile.Devices))
+	for k, v := range profile.Devices {
+		nested := make(map[string]string, len(v))
+		for vk, vv := range v {
+			nested[mongoutils.EscapeKey(vk)] = vv
+		}
+		escapedDevices[mongoutils.EscapeKey(k)] = nested
+	}
+	escapedProfile.Devices = escapedDevices
+	return escapedProfile
+}
+
 // Charm represents the state of a charm in the model.
 type Charm struct {
 	st  *State
@@ -332,8 +378,41 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 		}
 		cdoc.Config = unescapedConfig
 	}
+	if featureflag.Enabled(feature.LXDProfile) {
+		if cdoc != nil {
+			cdoc.LXDProfile = unescapeLXDProfile(cdoc.LXDProfile)
+		}
+	}
 	ch := Charm{st: st, doc: *cdoc}
 	return &ch
+}
+
+// unescapeLXDProfile returns the LXDProfile back to normal after
+// reading from state.
+func unescapeLXDProfile(profile *charm.LXDProfile) *charm.LXDProfile {
+	if profile == nil {
+		return nil
+	}
+	unescapedProfile := charm.NewLXDProfile()
+	unescapedProfile.Description = profile.Description
+	// we know the size and shape of the type, so let's use UnescapeKey
+	unescapedConfig := make(map[string]string, len(profile.Config))
+	for k, v := range profile.Config {
+		unescapedConfig[mongoutils.UnescapeKey(k)] = v
+	}
+	unescapedProfile.Config = unescapedConfig
+	// this is more easy to reason about than using mongoutils.UnescapeKeys, which
+	// requires looping from map[string]interface{} -> map[string]map[string]string
+	unescapedDevices := make(map[string]map[string]string, len(profile.Devices))
+	for k, v := range profile.Devices {
+		nested := make(map[string]string, len(v))
+		for vk, vv := range v {
+			nested[mongoutils.UnescapeKey(vk)] = vv
+		}
+		unescapedDevices[mongoutils.UnescapeKey(k)] = nested
+	}
+	unescapedProfile.Devices = unescapedDevices
+	return unescapedProfile
 }
 
 // Tag returns a tag identifying the charm.
@@ -461,6 +540,11 @@ func (c *Charm) Metrics() *charm.Metrics {
 // Actions returns the actions definition of the charm.
 func (c *Charm) Actions() *charm.Actions {
 	return c.doc.Actions
+}
+
+// LXDProfile returns the lxdprofile definition of the charm.
+func (c *Charm) LXDProfile() *charm.LXDProfile {
+	return c.doc.LXDProfile
 }
 
 // StoragePath returns the storage path of the charm bundle.
