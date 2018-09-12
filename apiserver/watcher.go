@@ -98,12 +98,13 @@ func isAgent(auth facade.Authorizer) bool {
 
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	id := context.ID()
-	//	auth := context.Auth()
+	//auth := context.Auth()
 	resources := context.Resources()
 
-	// if auth.GetAuthTag() != nil && !isAgent(auth) || auth. {
+	// if auth.GetAuthTag() != nil && !isAgent(auth) || !auth.AuthClient() {
 	// 	return nil, common.ErrPerm
 	// }
+
 	watcher, ok := resources.Get(id).(state.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher

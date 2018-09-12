@@ -462,7 +462,6 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 	machine, err := mm.machineFromTag(arg.Entity.Tag)
 	if err != nil {
 		return errors.Trace(err)
-
 	}
 	return machine.RemoveUpgradeSeriesLock()
 }
