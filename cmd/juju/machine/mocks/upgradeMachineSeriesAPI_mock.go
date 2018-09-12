@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	watcher "github.com/juju/juju/core/watcher"
 	reflect "reflect"
 )
 
@@ -56,6 +57,19 @@ func (mr *MockUpgradeMachineSeriesAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).Close))
 }
 
+// GetUpgradeSeriesNotification mocks base method
+func (m *MockUpgradeMachineSeriesAPI) GetUpgradeSeriesNotification(arg0, arg1 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "GetUpgradeSeriesNotification", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUpgradeSeriesNotification indicates an expected call of GetUpgradeSeriesNotification
+func (mr *MockUpgradeMachineSeriesAPIMockRecorder) GetUpgradeSeriesNotification(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpgradeSeriesNotification", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).GetUpgradeSeriesNotification), arg0, arg1)
+}
+
 // UpgradeSeriesComplete mocks base method
 func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesComplete(arg0 string) error {
 	ret := m.ctrl.Call(m, "UpgradeSeriesComplete", arg0)
@@ -91,4 +105,18 @@ func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesValidate(arg0, arg1 string) (
 // UpgradeSeriesValidate indicates an expected call of UpgradeSeriesValidate
 func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesValidate(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesValidate", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UpgradeSeriesValidate), arg0, arg1)
+}
+
+// WatchUpgradeSeriesNotifications mocks base method
+func (m *MockUpgradeMachineSeriesAPI) WatchUpgradeSeriesNotifications(arg0 string) (watcher.NotifyWatcher, string, error) {
+	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications", arg0)
+	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// WatchUpgradeSeriesNotifications indicates an expected call of WatchUpgradeSeriesNotifications
+func (mr *MockUpgradeMachineSeriesAPIMockRecorder) WatchUpgradeSeriesNotifications(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeSeriesNotifications", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).WatchUpgradeSeriesNotifications), arg0)
 }
