@@ -139,6 +139,9 @@ type Broker interface {
 
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
+
+	// ConstraintsChecker provides a means to check that constraints are valid.
+	environs.ConstraintsChecker
 }
 
 // Service represents information about the status of a caas service entity.

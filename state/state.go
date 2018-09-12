@@ -1333,12 +1333,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	return nil, errors.Trace(err)
 }
 
-func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
-	storagePools := make(set.Strings)
-	for _, storageParams := range args.Storage {
-		storagePools.Add(storageParams.Pool)
-	}
-
+func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {
 	if args.Series == "" {
 		// args.Series is not set, so use the series in the URL.
 		args.Series = args.Charm.URL().Series
@@ -1387,9 +1382,26 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	// Ignore constraints that result from this call as
 	// these would be accumulation of model and application constraints
 	// but we only want application constraints to be persisted here.
-	_, err := st.resolveConstraints(args.Constraints)
+	cons, err := st.resolveConstraints(args.Constraints)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	unsupported, err := st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"deploying %q: unsupported constraints: %v", args.Name, strings.Join(unsupported, ","))
+	}
+	return errors.Trace(err)
+}
+
+func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
+	if err := st.processCommonModelApplicationArgs(args); err != nil {
+		return errors.Trace(err)
+	}
+
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
 	}
 
 	for _, placement := range args.Placement {
@@ -1464,18 +1476,10 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 }
 
 func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
-	if args.Series == "" {
-		// args.Series is not set, so use the series in the URL.
-		args.Series = args.Charm.URL().Series
-		if args.Series == "" {
-			// Should not happen, but just in case.
-			return errors.New("series is empty")
-		}
+	if err := st.processCommonModelApplicationArgs(args); err != nil {
+		return errors.Trace(err)
 	}
-
-	// TODO(caas) restrict the series to CAAS series.
-	// TODO(caas) check that AddApplicationArgs doesn't
-	// contain IAAS-specific things.
+	// TODO(caas) check that AddApplicationArgs doesn't contain IAAS-specific things.
 
 	return nil
 }

@@ -294,11 +294,16 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cons, err := app.Constraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return &params.KubernetesProvisioningInfo{
 		PodSpec:     podSpec,
 		Filesystems: filesystemParams,
 		Devices:     devices,
+		Constraints: cons,
 	}, nil
 }
 
