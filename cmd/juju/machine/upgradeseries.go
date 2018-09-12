@@ -36,6 +36,13 @@ of machine %q will also be upgraded. These units include:
 
 Continue [y/N]?`[1:]
 
+var upgradeSeriesPrepareFinishedMessage = `
+Juju is now ready for the series to be updated.
+Perform any manual steps required along with "do-release upgrade".
+When ready run the following to complete the upgrade series process:
+
+juju upgrade-series complete %s`
+
 // NewUpgradeSeriesCommand returns a command which upgrades the series of
 // an application or machine.
 func NewUpgradeSeriesCommand() cmd.Command {
@@ -236,6 +243,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	fmt.Fprintf(ctx.Stdout, upgradeSeriesPrepareFinishedMessage, c.machineNumber)
 	return nil
 }
 
