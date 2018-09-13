@@ -429,8 +429,10 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
-				APICallerName: apiCallerName,
-				BrokerName:    caasBrokerTrackerName,
+				APICallerName:  apiCallerName,
+				BrokerName:     caasBrokerTrackerName,
+				ControllerUUID: agentConfig.Controller().Id(),
+				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
 					return caasfirewallerapi.NewClient(caller)
 				},

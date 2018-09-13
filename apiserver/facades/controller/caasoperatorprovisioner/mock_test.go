@@ -10,8 +10,10 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -22,6 +24,7 @@ import (
 type mockState struct {
 	testing.Stub
 	common.AddressAndCertGetter
+	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
 	operatorImage      string
@@ -30,6 +33,7 @@ type mockState struct {
 func newMockState() *mockState {
 	return &mockState{
 		applicationWatcher: newMockStringsWatcher(),
+		model:              &mockModel{},
 	}
 }
 
@@ -58,6 +62,14 @@ func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	}, nil
 }
 
+func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
+	st.MethodCall(st, "Model")
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return st.model, nil
+}
+
 type mockStorageProviderRegistry struct {
 	testing.Stub
 	storage.ProviderRegistry
@@ -79,6 +91,20 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 		return nil, err
 	}
 	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
+}
+
+type mockModel struct {
+	testing.Stub
+}
+
+func (m *mockModel) UUID() string {
+	m.MethodCall(m, "UUID")
+	return coretesting.ModelTag.Id()
+}
+
+func (m *mockModel) ModelConfig() (*config.Config, error) {
+	m.MethodCall(m, "ModelConfig")
+	return config.New(config.UseDefaults, coretesting.FakeConfig())
 }
 
 type mockApplication struct {

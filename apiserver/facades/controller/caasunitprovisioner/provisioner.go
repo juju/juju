@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -276,9 +277,15 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 			break
 		}
 	}
+
+	controllerCfg, err := f.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var filesystemParams []params.KubernetesFilesystemParams
 	if aliveUnit != nil {
-		filesystemParams, err = f.applicationFilesystemParams(modelConfig, aliveUnit.UnitTag())
+		filesystemParams, err = f.applicationFilesystemParams(controllerCfg, modelConfig, aliveUnit.UnitTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -298,6 +305,11 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	resourceTags := tags.ResourceTags(
+		names.NewModelTag(modelConfig.UUID()),
+		names.NewControllerTag(controllerCfg.ControllerUUID()),
+		modelConfig,
+	)
 
 	return &params.KubernetesProvisioningInfo{
 		PodSpec:     podSpec,
@@ -305,6 +317,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		Devices:     devices,
 		Constraints: cons,
 		Placement:   app.GetPlacement(),
+		Tags:        resourceTags,
 	}, nil
 }
 
@@ -353,6 +366,7 @@ func filesystemParams(
 // applicationFilesystemParams retrieves FilesystemParams for the filesystems
 // that should be provisioned with, and attached to, pods of the application.
 func (f *Facade) applicationFilesystemParams(
+	controllerConfig controller.Config,
 	modelConfig *config.Config,
 	unitTag names.UnitTag,
 ) ([]params.KubernetesFilesystemParams, error) {
@@ -364,10 +378,6 @@ func (f *Facade) applicationFilesystemParams(
 		return nil, nil
 	}
 
-	controllerCfg, err := f.state.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	allFilesystemParams := make([]params.KubernetesFilesystemParams, 0, len(attachments))
 	for _, attachment := range attachments {
 		si, err := f.storage.StorageInstance(attachment.StorageInstance())
@@ -379,7 +389,7 @@ func (f *Facade) applicationFilesystemParams(
 			return nil, errors.Trace(err)
 		}
 		filesystemParams, err := filesystemParams(
-			fs, si, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			fs, si, modelConfig.UUID(), controllerConfig.ControllerUUID(),
 			modelConfig, f.storagePoolManager, f.storageProviderRegistry,
 		)
 		if err != nil {

@@ -128,10 +128,16 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 		ImagePath:    fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
+		Tags: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		CharmStorage: params.KubernetesFilesystemParams{
 			Size:       uint64(1024),
 			Provider:   "kubernetes",
 			Attributes: map[string]interface{}{"foo": "bar"},
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		},
 	})
 }
@@ -144,10 +150,16 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 		ImagePath:    s.st.operatorImage,
 		Version:      version.Current,
 		APIAddresses: []string{"10.0.0.1:1"},
+		Tags: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		CharmStorage: params.KubernetesFilesystemParams{
 			Size:       uint64(1024),
 			Provider:   "kubernetes",
 			Attributes: map[string]interface{}{"foo": "bar"},
+			Tags: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id()},
 		},
 	})
 }

@@ -126,7 +126,7 @@ type Broker interface {
 	DeleteService(appName string) error
 
 	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, config application.ConfigAttributes) error
+	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
 
 	// UnexposeService removes external access to the specified service.
 	UnexposeService(appName string) error
@@ -220,4 +220,7 @@ type OperatorConfig struct {
 
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
+
+	// ResourceTags is a set of tags to set on the operator pod.
+	ResourceTags map[string]string
 }

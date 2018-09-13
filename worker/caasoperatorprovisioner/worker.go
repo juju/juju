@@ -206,6 +206,7 @@ func (p *provisioner) makeOperatorConfig(appName, password string) (*caas.Operat
 	cfg := &caas.OperatorConfig{
 		OperatorImagePath: info.ImagePath,
 		Version:           info.Version,
+		ResourceTags:      info.Tags,
 		CharmStorage:      charmStorageParams(info.CharmStorage),
 	}
 	// If no password required, we leave the agent conf empty.
