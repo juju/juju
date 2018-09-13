@@ -51,7 +51,7 @@ type Machine interface {
 	VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error)
 	Principals() []string
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
-	GetUpgradeSeriesNotification() ([]string, bool, error)
+	GetUpgradeSeriesMessages() ([]string, bool, error)
 }
 
 type stateShim struct {

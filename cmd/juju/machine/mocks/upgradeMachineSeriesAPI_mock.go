@@ -57,17 +57,17 @@ func (mr *MockUpgradeMachineSeriesAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).Close))
 }
 
-// GetUpgradeSeriesNotification mocks base method
-func (m *MockUpgradeMachineSeriesAPI) GetUpgradeSeriesNotification(arg0, arg1 string) ([]string, error) {
-	ret := m.ctrl.Call(m, "GetUpgradeSeriesNotification", arg0, arg1)
+// GetUpgradeSeriesMessages mocks base method
+func (m *MockUpgradeMachineSeriesAPI) GetUpgradeSeriesMessages(arg0, arg1 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "GetUpgradeSeriesMessages", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUpgradeSeriesNotification indicates an expected call of GetUpgradeSeriesNotification
-func (mr *MockUpgradeMachineSeriesAPIMockRecorder) GetUpgradeSeriesNotification(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpgradeSeriesNotification", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).GetUpgradeSeriesNotification), arg0, arg1)
+// GetUpgradeSeriesMessages indicates an expected call of GetUpgradeSeriesMessages
+func (mr *MockUpgradeMachineSeriesAPIMockRecorder) GetUpgradeSeriesMessages(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpgradeSeriesMessages", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).GetUpgradeSeriesMessages), arg0, arg1)
 }
 
 // UpgradeSeriesComplete mocks base method

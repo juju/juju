@@ -497,7 +497,7 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 	return result, nil
 }
 
-func (mm *MachineManagerAPI) GetUpgradeSeriesNotification(args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
+func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
 	if err := mm.checkCanRead(); err != nil {
 		return params.StringsResults{}, err
 	}
@@ -517,7 +517,7 @@ func (mm *MachineManagerAPI) GetUpgradeSeriesNotification(args params.UpgradeSer
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		messages, finished, err := machine.GetUpgradeSeriesNotification()
+		messages, finished, err := machine.GetUpgradeSeriesMessages()
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

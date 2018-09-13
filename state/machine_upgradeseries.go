@@ -468,9 +468,9 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error
 	return nil
 }
 
-// GetUpgradeSeriesNotification returns all 'unseen' upgrade series
+// GetUpgradeSeriesMessages returns all 'unseen' upgrade series
 // notifications sorted by timestamp.
-func (m *Machine) GetUpgradeSeriesNotification() ([]string, bool, error) {
+func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return nil, false, errors.Trace(err)

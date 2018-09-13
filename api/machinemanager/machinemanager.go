@@ -241,11 +241,11 @@ func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watch
 	return w, result.NotifyWatcherId, nil
 }
 
-// GetUpgradeSeriesNotification returns a StringsWatcher for observing the state of
+// GetUpgradeSeriesMessages returns a StringsWatcher for observing the state of
 // a series upgrade.
-func (client *Client) GetUpgradeSeriesNotification(machineName, watcherId string) ([]string, error) {
+func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([]string, error) {
 	if client.BestAPIVersion() < 5 {
-		return nil, errors.NotSupportedf("GetUpgradeSeriesNotification")
+		return nil, errors.NotSupportedf("GetUpgradeSeriesMessages")
 	}
 	var results params.StringsResults
 	args := params.UpgradeSeriesNotificationParams{
@@ -256,7 +256,7 @@ func (client *Client) GetUpgradeSeriesNotification(machineName, watcherId string
 			},
 		},
 	}
-	err := client.facade.FacadeCall("GetUpgradeSeriesNotification", args, &results)
+	err := client.facade.FacadeCall("GetUpgradeSeriesMessages", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
