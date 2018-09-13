@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -707,6 +708,13 @@ func (k *kubernetesClient) EnsureService(
 		if err = k.configureConstraint(unitSpec, "cpu", fmt.Sprintf("%dm", *cpu)); err != nil {
 			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
 		}
+	}
+	if params.Placement != "" {
+		affinityLabels, err := keyvalues.Parse(strings.Split(params.Placement, ","), false)
+		if err != nil {
+			return errors.Annotatef(err, "invalid placement directive %q", params.Placement)
+		}
+		unitSpec.Pod.NodeSelector = affinityLabels
 	}
 
 	for _, c := range params.PodSpec.Containers {

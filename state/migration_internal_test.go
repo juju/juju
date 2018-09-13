@@ -379,6 +379,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"RelationCount",
 		// TODO(caas)
 		"DesiredScale",
+		"Placement",
 	)
 	migrated := set.NewStrings(
 		"Name",

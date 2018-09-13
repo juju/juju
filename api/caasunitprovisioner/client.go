@@ -145,6 +145,7 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 // ProvisioningInfo holds unit provisioning info.
 type ProvisioningInfo struct {
 	PodSpec     string
+	Placement   string
 	Constraints constraints.Value
 	Filesystems []storage.KubernetesFilesystemParams
 	Devices     []devices.KubernetesDeviceParams
@@ -173,6 +174,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	result := results.Results[0].Result
 	info := &ProvisioningInfo{
 		PodSpec:     result.PodSpec,
+		Placement:   result.Placement,
 		Constraints: result.Constraints,
 		Tags:        result.Tags,
 	}

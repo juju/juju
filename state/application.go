@@ -58,11 +58,15 @@ type applicationDoc struct {
 	RelationCount        int          `bson:"relationcount"`
 	Exposed              bool         `bson:"exposed"`
 	MinUnits             int          `bson:"minunits"`
-	DesiredScale         int          `bson:"scale"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
 	MetricCredentials    []byte       `bson:"metric-credentials"`
-	PasswordHash         string       `bson:"passwordhash"`
+
+	// CAAS related attributes.
+	DesiredScale int    `bson:"scale"`
+	PasswordHash string `bson:"passwordhash"`
+	// Placement is the placement directive that should be used allocating units/pods.
+	Placement string `bson:"placement,omitempty"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -1274,12 +1278,20 @@ func (a *Application) Refresh() error {
 	return nil
 }
 
+// GetPlacement returns the application's placement directive.
+// This is used on CAAS models.
+func (a *Application) GetPlacement() string {
+	return a.doc.Placement
+}
+
 // GetScale returns the application's desired scale value.
+// This is used on CAAS models.
 func (a *Application) GetScale() int {
 	return a.doc.DesiredScale
 }
 
 // Scale sets the application's desired scale value.
+// This is used on CAAS models.
 func (a *Application) Scale(scale int) error {
 	if scale < 0 {
 		return errors.NotValidf("application scale %d", scale)

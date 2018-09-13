@@ -1169,6 +1169,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// Perform model specific arg processing.
 	scale := 0
+	placement := ""
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
@@ -1179,6 +1180,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			return nil, errors.Trace(err)
 		}
 		scale = 1
+		if len(args.Placement) == 1 {
+			placement = args.Placement[0].Directive
+		}
 	}
 
 	applicationID := st.docID(args.Name)
@@ -1201,6 +1205,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// CAAS
 		DesiredScale: scale,
+		Placement:    placement,
 	}
 
 	app := newApplication(st, appDoc)
@@ -1479,8 +1484,29 @@ func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error
 	if err := st.processCommonModelApplicationArgs(args); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(caas) check that AddApplicationArgs doesn't contain IAAS-specific things.
-
+	if len(args.Placement) > 1 {
+		return errors.Errorf("only 1 placement directive is supported, got %d", len(args.Placement))
+	}
+	if len(args.Placement) == 0 {
+		return nil
+	}
+	data, err := st.parsePlacement(args.Placement[0])
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch data.placementType() {
+	case machinePlacement:
+		return errors.NotValidf("machine placement directive %q", args.Placement[0].String())
+	case directivePlacement:
+		if err := st.precheckInstance(
+			args.Series,
+			args.Constraints,
+			data.directive,
+			nil,
+		); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 

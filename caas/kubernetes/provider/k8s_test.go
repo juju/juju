@@ -133,6 +133,22 @@ var operatorPodspec = core.PodSpec{
 	}},
 }
 
+var basicServiceArg = &core.Service{
+	ObjectMeta: v1.ObjectMeta{
+		Name:   "juju-test",
+		Labels: map[string]string{"juju-application": "test"}},
+	Spec: core.ServiceSpec{
+		Selector: map[string]string{"juju-application": "test"},
+		Type:     "nodeIP",
+		Ports: []core.ServicePort{
+			{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+			{Port: 8080, Protocol: "TCP", Name: "fred"},
+		},
+		LoadBalancerIP: "10.0.0.1",
+		ExternalName:   "ext-name",
+	},
+}
+
 func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 	spec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,7 +252,7 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func statefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
+func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "juju-operator-test",
@@ -271,6 +287,41 @@ func statefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 	}
 }
 
+func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *appsv1.StatefulSet {
+	return &appsv1.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "juju-test",
+			Labels: map[string]string{"juju-application": "test"}},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-application": "test"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Labels: map[string]string{"juju-application": "test"},
+				},
+				Spec: podSpec,
+			},
+			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
+				ObjectMeta: v1.ObjectMeta{
+					Name:   "juju-database-0",
+					Labels: map[string]string{"juju-application": "test"}},
+				Spec: core.PersistentVolumeClaimSpec{
+					StorageClassName: &scName,
+					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+					Resources: core.ResourceRequirements{
+						Requests: core.ResourceList{
+							core.ResourceStorage: resource.MustParse("100Mi"),
+						},
+					},
+				},
+			}},
+			PodManagementPolicy: apps.ParallelPodManagement,
+		},
+	}
+}
+
 func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
@@ -283,7 +334,7 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 			"test-agent.conf": "agent-conf-data",
 		},
 	}
-	statefulSetArg := statefulSetArg(1, "test-juju-operator-storage")
+	statefulSetArg := operatorStatefulSetArg(1, "test-juju-operator-storage")
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
@@ -312,7 +363,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	statefulSetArg := statefulSetArg(1, "test-juju-operator-storage")
+	statefulSetArg := operatorStatefulSetArg(1, "test-juju-operator-storage")
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Update(&core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}).Times(1),
@@ -683,7 +734,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	numUnits := int32(2)
 	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
@@ -691,55 +741,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		Name:      "juju-database-0",
 		MountPath: "path/to/here",
 	}}
-
-	scName := "juju-unit-storage"
-	statefulSetArg := &appsv1.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: &numUnits,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "test"},
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-application": "test"},
-				},
-				Spec: podSpec,
-			},
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
-				ObjectMeta: v1.ObjectMeta{
-					Name:   "juju-database-0",
-					Labels: map[string]string{"juju-application": "test"}},
-				Spec: core.PersistentVolumeClaimSpec{
-					StorageClassName: &scName,
-					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.ResourceRequirements{
-						Requests: core.ResourceList{
-							core.ResourceStorage: resource.MustParse("100Mi"),
-						},
-					},
-				},
-			}},
-			PodManagementPolicy: apps.ParallelPodManagement,
-		},
-	}
-	serviceArg := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "test"},
-			Type:     "nodeIP",
-			Ports: []core.ServicePort{
-				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP", Name: "fred"},
-			},
-			LoadBalancerIP: "10.0.0.1",
-			ExternalName:   "ext-name",
-		},
-	}
+	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -752,9 +754,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(nil, nil),
 		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -815,21 +817,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			},
 		},
 	}
-	serviceArg := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "test"},
-			Type:     "nodeIP",
-			Ports: []core.ServicePort{
-				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP", Name: "fred"},
-			},
-			LoadBalancerIP: "10.0.0.1",
-			ExternalName:   "ext-name",
-		},
-	}
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -840,9 +827,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			Return(nil, nil),
 		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -868,7 +855,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	numUnits := int32(2)
 	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
@@ -887,55 +873,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			},
 		}
 	}
-
-	scName := "juju-unit-storage"
-	statefulSetArg := &appsv1.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: &numUnits,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "test"},
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-application": "test"},
-				},
-				Spec: podSpec,
-			},
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
-				ObjectMeta: v1.ObjectMeta{
-					Name:   "juju-database-0",
-					Labels: map[string]string{"juju-application": "test"}},
-				Spec: core.PersistentVolumeClaimSpec{
-					StorageClassName: &scName,
-					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.ResourceRequirements{
-						Requests: core.ResourceList{
-							core.ResourceStorage: resource.MustParse("100Mi"),
-						},
-					},
-				},
-			}},
-			PodManagementPolicy: apps.ParallelPodManagement,
-		},
-	}
-	serviceArg := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "test"},
-			Type:     "nodeIP",
-			Ports: []core.ServicePort{
-				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP", Name: "fred"},
-			},
-			LoadBalancerIP: "10.0.0.1",
-			ExternalName:   "ext-name",
-		},
-	}
+	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -948,9 +886,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(nil, nil),
 		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -984,7 +922,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	numUnits := int32(2)
 	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
@@ -1000,55 +937,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			},
 		}
 	}
-
-	scName := "juju-unit-storage"
-	statefulSetArg := &appsv1.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: &numUnits,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "test"},
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-application": "test"},
-				},
-				Spec: podSpec,
-			},
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
-				ObjectMeta: v1.ObjectMeta{
-					Name:   "juju-database-0",
-					Labels: map[string]string{"juju-application": "test"}},
-				Spec: core.PersistentVolumeClaimSpec{
-					StorageClassName: &scName,
-					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.ResourceRequirements{
-						Requests: core.ResourceList{
-							core.ResourceStorage: resource.MustParse("100Mi"),
-						},
-					},
-				},
-			}},
-			PodManagementPolicy: apps.ParallelPodManagement,
-		},
-	}
-	serviceArg := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "test"},
-			Type:     "nodeIP",
-			Ports: []core.ServicePort{
-				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP", Name: "fred"},
-			},
-			LoadBalancerIP: "10.0.0.1",
-			ExternalName:   "ext-name",
-		},
-	}
+	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1061,9 +950,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Return(nil, nil),
 		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1078,6 +967,57 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			},
 		}},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
+	}
+	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(unitSpec)
+	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
+		Name:      "juju-database-0",
+		MountPath: "path/to/here",
+	}}
+	podSpec.NodeSelector = map[string]string{"a": "b"}
+	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
+
+	gomock.InOrder(
+		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodspec,
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+		}},
+		Placement: "a=b",
 	}
 	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",

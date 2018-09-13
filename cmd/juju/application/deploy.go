@@ -650,11 +650,11 @@ func (c *DeployCommand) Init(args []string) error {
 	if c.Force && c.Series == "" && c.PlacementSpec == "" {
 		return errors.New("--force is only used with --series")
 	}
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
 	if len(c.AttachStorage) > 0 {
-		modelType, err := c.ModelType()
-		if err != nil {
-			return err
-		}
 		if modelType == model.CAAS && len(c.AttachStorage) > 0 {
 			return errors.New("--attach-storage cannot be used on kubernetes models")
 		}
@@ -685,7 +685,22 @@ func (c *DeployCommand) Init(args []string) error {
 	c.UseExisting = useExisting
 	c.BundleMachines = mapping
 
-	return c.UnitCommandBase.Init(args)
+	if err := c.UnitCommandBase.Init(args); err != nil {
+		return err
+	}
+	if modelType == model.IAAS {
+		return nil
+	}
+	if len(c.Placement) > 1 {
+		return errors.Errorf("only 1 placement directive is supported, got %d", len(c.Placement))
+	}
+	if len(c.Placement) == 0 {
+		return nil
+	}
+	if c.Placement[0].Scope == instance.MachineScope || c.Placement[0].Directive == "" {
+		return errors.NotSupportedf("placement directive %q", c.PlacementSpec)
+	}
+	return nil
 }
 
 func parseMachineMap(value string) (bool, map[string]string, error) {
