@@ -140,6 +140,11 @@ func (a *mockApplication) GetScale() int {
 	return 5
 }
 
+func (a *mockApplication) GetPlacement() string {
+	a.MethodCall(a, "GetPlacement")
+	return "placement"
+}
+
 func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
 	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()

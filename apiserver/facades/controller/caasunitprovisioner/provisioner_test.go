@@ -197,6 +197,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 						Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 					},
 				},
+				Placement:   "placement",
 				Constraints: constraints.MustParse("mem=64G"),
 			},
 		}, {

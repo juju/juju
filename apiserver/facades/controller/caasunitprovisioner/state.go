@@ -77,6 +77,7 @@ type Application interface {
 	Life() state.Life
 	Name() string
 	Constraints() (constraints.Value, error)
+	GetPlacement() string
 }
 
 type stateShim struct {

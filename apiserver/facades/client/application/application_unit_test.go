@@ -490,7 +490,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-0",
 			NumUnits:        1,
-			Placement:       []*instance.Placement{{}},
+			Placement:       []*instance.Placement{{}, {}},
 		}},
 	}
 	results, err := s.api.Deploy(args)
@@ -498,7 +498,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "Placement may not be specified for caas models")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "only 1 placement directive is supported for caas models, got 2")
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {

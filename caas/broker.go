@@ -77,6 +77,9 @@ type ServiceParams struct {
 	// ResourceTags is a set of tags to set on the created service.
 	ResourceTags map[string]string
 
+	// Placement defines node affinity rules.
+	Placement string
+
 	// Constraints is a set of constraints on
 	// the pod to create.
 	Constraints constraints.Value
@@ -142,6 +145,10 @@ type Broker interface {
 
 	// ConstraintsChecker provides a means to check that constraints are valid.
 	environs.ConstraintsChecker
+
+	// InstancePrechecker provides a means of "prechecking" placement
+	// arguments before recording them in state.
+	environs.InstancePrechecker
 }
 
 // Service represents information about the status of a caas service entity.

@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"sync"
@@ -1552,11 +1553,13 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	placement := []*instance.Placement{instance.MustParsePlacement(st.ModelUUID() + ":a=b")}
 	gitlab, err := st.AddApplication(
-		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 1)
+	c.Assert(gitlab.GetPlacement(), gc.Equals, "a=b")
 	outsettings, err := gitlab.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
@@ -1579,6 +1582,31 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	ch, _, err = gitlab.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddCAASApplicationBadPlacement(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+
+	placement := []*instance.Placement{instance.MustParsePlacement("#:2")}
+	_, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, Placement: placement})
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`machine placement directive "#:2" not valid`))
+}
+
+func (s *StateSuite) TestAddCAASApplicationTooManyPlacement(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+
+	placement := []*instance.Placement{
+		instance.MustParsePlacement("model-uuid:a=b"), instance.MustParsePlacement("model-uuid:c=d")}
+	_, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "gitlab", Charm: ch, Placement: placement})
+	c.Assert(err, gc.ErrorMatches, ".*only 1 placement directive is supported, got 2")
 }
 
 func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {

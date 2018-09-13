@@ -416,10 +416,11 @@ func deployApplication(
 				modelType,
 			)
 		}
-		if len(args.Placement) > 0 {
+		if len(args.Placement) > 1 {
 			return errors.Errorf(
-				"Placement may not be specified for %s models",
+				"only 1 placement directive is supported for %s models, got %d",
 				modelType,
+				len(args.Placement),
 			)
 		}
 		for storageName, cons := range args.Storage {
@@ -1038,10 +1039,11 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 				modelType,
 			)
 		}
-		if len(args.Placement) > 0 {
+		if len(args.Placement) > 1 {
 			return nil, errors.Errorf(
-				"Placement may not be specified for %s models",
+				"only 1 placement directive is supported for %s models, got %d",
 				modelType,
+				len(args.Placement),
 			)
 		}
 	}

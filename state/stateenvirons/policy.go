@@ -40,12 +40,10 @@ func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// Only IAAS models support machines, hence prechecking.
-		return nil, errors.NotImplementedf("Prechecker")
+	if model.Type() == state.ModelTypeIAAS {
+		return p.getEnviron(p.st)
 	}
-	// Environ implements environs.InstancePrechecker.
-	return p.getEnviron(p.st)
+	return p.getBroker(p.st)
 }
 
 // ConfigValidator implements state.Policy.

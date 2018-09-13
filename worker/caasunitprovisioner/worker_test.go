@@ -85,6 +85,7 @@ containers:
 	expectedServiceParams = &caas.ServiceParams{
 		PodSpec:      &parsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
+		Placement:    "placement",
 		Constraints:  constraints.MustParse("mem=4G"),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
@@ -118,6 +119,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
 		PodSpec:     containerSpec,
 		Tags:        map[string]string{"foo": "bar"},
+		Placement:   "placement",
 		Constraints: constraints.MustParse("mem=4G"),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
