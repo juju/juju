@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/watcher"
@@ -253,18 +254,14 @@ func (c *upgradeSeriesCommand) handleNotifications(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// Here we wait for the loop to finish by waiting for the catacomb's
-	// worker to finish.
 	err = c.catacomb.Wait()
 	if err != nil {
-		if err.Error() == "watcher has been stopped (stopped)" {
+		if params.IsCodeStopped(err) {
 			logger.Debugf("the upgrade series watcher has been stopped")
 		} else {
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
 }
 
