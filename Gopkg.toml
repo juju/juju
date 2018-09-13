@@ -145,8 +145,9 @@
   name = "gopkg.in/juju/blobstore.v2"
 
 [[constraint]]
-  revision = "c254caf8b8704ff71a10c552fa9e6f5df981ad06"
   name = "gopkg.in/juju/charm.v6"
+  revision = "d5f7e3e69949d068c3c444830393aeafcec75511"
+  source = "github.com/juju/charm"
 
 [[constraint]]
   revision = "7778a447283bd71109671c20818544514e16e9d9"
