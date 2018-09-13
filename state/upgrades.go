@@ -1755,14 +1755,15 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 		globalExpiry := startTime.Add(doc.Duration)
 		remaining := globalExpiry.Sub(globalTime)
 		localExpiry := localTime.Add(remaining)
-		results[corelease.Key{
+		key := corelease.Key{
 			Namespace: doc.Namespace,
 			ModelUUID: doc.ModelUUID,
 			Lease:     doc.Name,
-		}] = corelease.Info{
+		}
+		results[key] = corelease.Info{
 			Holder:   doc.Holder,
 			Expiry:   localExpiry,
-			Trapdoor: corelease.LockedTrapdoor,
+			Trapdoor: nil,
 		}
 	}
 	if err := iter.Close(); err != nil {
