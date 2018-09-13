@@ -241,7 +241,7 @@ func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watch
 	return w, result.NotifyWatcherId, nil
 }
 
-// WatchActionNotifications returns a StringsWatcher for observing the state of
+// GetUpgradeSeriesNotification returns a StringsWatcher for observing the state of
 // a series upgrade.
 func (client *Client) GetUpgradeSeriesNotification(machineName, watcherId string) ([]string, error) {
 	if client.BestAPIVersion() < 5 {
