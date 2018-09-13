@@ -36,14 +36,14 @@ of machine %q will also be upgraded. These units include:
 
 Continue [y/N]?`[1:]
 
-var upgradeSeriesPrepareFinishedMessage = `
+const UpgradeSeriesPrepareFinishedMessage = `
 Juju is now ready for the series to be updated.
 Perform any manual steps required along with "do-release upgrade".
 When ready run the following to complete the upgrade series process:
 
 juju upgrade-series complete %s`
 
-var upgradeSeriesCompleteFinishedMessage = `
+const UpgradeSeriesCompleteFinishedMessage = `
 Upgrade series for machine %q has successfully completed`
 
 // NewUpgradeSeriesCommand returns a command which upgrades the series of
@@ -77,6 +77,7 @@ type upgradeSeriesCommand struct {
 	agree         bool
 
 	catacomb catacomb.Catacomb
+	plan     catacomb.Plan
 }
 
 var upgradeSeriesDoc = `
@@ -235,17 +236,20 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	upgradeSeriesPrepareFinishedMessage += "\n"
-	fmt.Fprintf(ctx.Stdout, upgradeSeriesPrepareFinishedMessage, c.machineNumber)
+	m := UpgradeSeriesPrepareFinishedMessage + "\n"
+	fmt.Fprintf(ctx.Stdout, m, c.machineNumber)
 
 	return nil
 }
 
 func (c *upgradeSeriesCommand) handleNotifications(ctx *cmd.Context) error {
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &c.catacomb,
-		Work: c.displayNotifications(ctx),
-	})
+	if c.plan.Work == nil {
+		c.plan = catacomb.Plan{
+			Site: &c.catacomb,
+			Work: c.displayNotifications(ctx),
+		}
+	}
+	err := catacomb.Invoke(c.plan)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -334,8 +338,8 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	upgradeSeriesCompleteFinishedMessage += "\n"
-	fmt.Fprintf(ctx.Stdout, upgradeSeriesCompleteFinishedMessage, c.machineNumber)
+	m := UpgradeSeriesCompleteFinishedMessage + "\n"
+	fmt.Fprintf(ctx.Stdout, m, c.machineNumber)
 
 	return nil
 }

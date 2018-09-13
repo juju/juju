@@ -142,13 +142,19 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 	confirmationMsg := fmt.Sprintf(machine.UpgradeSeriesConfirmationMsg, machineArg, seriesArg, machineArg, unitsString)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, confirmationMsg)
+	finishedMessage := fmt.Sprintf(machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
+	displayedMessage := strings.Join([]string{confirmationMsg, finishedMessage}, "") + "\n"
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *gc.C) {
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg, "--agree")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, ``)
+	confirmationMessage := "" //There is no confirmation message since the `--agree` flag is being used to avoid the prompt
+	finishedMessage := fmt.Sprintf(machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
+	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
 }
 
 type upgradeSeriesPrepareExpectation struct {
