@@ -1275,7 +1275,7 @@
   ]
   pruneopts = ""
   revision = "d5f7e3e69949d068c3c444830393aeafcec75511"
-  source = "github.com/juju/charm/lxdprofile"
+  source = "github.com/juju/charm"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"

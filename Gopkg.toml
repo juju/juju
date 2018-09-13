@@ -147,7 +147,7 @@
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
   revision = "d5f7e3e69949d068c3c444830393aeafcec75511"
-  source = "github.com/juju/charm/lxdprofile"
+  source = "github.com/juju/charm"
 
 [[constraint]]
   revision = "7778a447283bd71109671c20818544514e16e9d9"
