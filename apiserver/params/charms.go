@@ -126,12 +126,13 @@ type CharmMeta struct {
 // CharmInfo holds all the charm data that the client needs.
 // To be honest, it probably returns way more than what is actually needed.
 type CharmInfo struct {
-	Revision int                    `json:"revision"`
-	URL      string                 `json:"url"`
-	Config   map[string]CharmOption `json:"config"`
-	Meta     *CharmMeta             `json:"meta,omitempty"`
-	Actions  *CharmActions          `json:"actions,omitempty"`
-	Metrics  *CharmMetrics          `json:"metrics,omitempty"`
+	Revision   int                    `json:"revision"`
+	URL        string                 `json:"url"`
+	Config     map[string]CharmOption `json:"config"`
+	Meta       *CharmMeta             `json:"meta,omitempty"`
+	Actions    *CharmActions          `json:"actions,omitempty"`
+	Metrics    *CharmMetrics          `json:"metrics,omitempty"`
+	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
 }
 
 // CharmActions mirrors charm.Actions.
@@ -160,4 +161,11 @@ type CharmPlan struct {
 type CharmMetrics struct {
 	Metrics map[string]CharmMetric `json:"metrics"`
 	Plan    CharmPlan              `json:"plan"`
+}
+
+// CharmLXDProfile mirrors charm.LXDProfile
+type CharmLXDProfile struct {
+	Config      map[string]string            `json:"config"`
+	Description string                       `json:"description"`
+	Devices     map[string]map[string]string `json:"devices"`
 }

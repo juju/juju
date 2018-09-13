@@ -858,6 +858,13 @@ func (c *DeployCommand) deployCharm(
 		applicationName = charmInfo.Meta.Name
 	}
 
+	// LXDProfile validation
+	if profile := charmInfo.LXDProfile; profile != nil {
+		if err := profile.ValidateConfigDevices(); err != nil {
+			return err
+		}
+	}
+
 	// Process the --config args.
 	// We may have a single file arg specified, in which case
 	// it points to a YAML file keyed on the charm name and
