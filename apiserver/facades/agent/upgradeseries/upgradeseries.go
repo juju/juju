@@ -107,7 +107,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.SetUpgradeSeriesStatus(param.Status)
+		err = machine.SetUpgradeSeriesStatus(param.Status, param.Message)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 		}

@@ -441,7 +441,7 @@ func setUpgradeSeriesTxnOps(
 
 // SetUpgradeSeriesStatus sets the status of the machine in
 // the upgrade-series lock.
-func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -458,7 +458,9 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error
 		if statusSet {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return setMachineUpgradeSeriesTxnOps(m.doc.Id, status), nil
+		timestamp := bson.Now()
+		upgradeSeriesMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
+		return setMachineUpgradeSeriesTxnOps(m.doc.Id, status, upgradeSeriesMessage, timestamp), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -576,7 +578,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	return &lock, nil
 }
 
-func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus) []txn.Op {
+func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus, message UpgradeSeriesMessage, timestamp time.Time) []txn.Op {
 	field := "machine-status"
 
 	return []txn.Op{
@@ -586,9 +588,12 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeri
 			Assert: isAliveDoc,
 		},
 		{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{field, status}}}},
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocID,
+			Update: bson.D{
+				{"$set", bson.D{{field, status}, {"timestamp", timestamp}}},
+				{"$push", bson.D{{"messages", message}}},
+			},
 		},
 	}
 }
