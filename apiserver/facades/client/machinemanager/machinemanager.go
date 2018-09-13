@@ -466,6 +466,7 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 	return machine.RemoveUpgradeSeriesLock()
 }
 
+// WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	err := mm.checkCanRead()
 	if err != nil {
@@ -497,6 +498,9 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 	return result, nil
 }
 
+// GetUpgradeSeriesMessages returns all new messages associated with upgrade
+// series events. Messages that have already been retrieved once are not
+// returned by this method.
 func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
 	if err := mm.checkCanRead(); err != nil {
 		return params.StringsResults{}, err
