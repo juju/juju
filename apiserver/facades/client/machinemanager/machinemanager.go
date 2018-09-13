@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
@@ -514,17 +515,27 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 }
 
 // verifiedUnits verifies that the machine units and their tree of subordinates
-// all support the input series.
-// If they do the unit names are all returned; if not, an error results.
+// all support the input series. If not, an error is returned.
+// If they do, the agent statuses are checked to ensure that they are all in
+// the idle state i.e. not installing, running hooks, or needing intervention.
 func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
 	principals := machine.Principals()
 	units, err := machine.VerifyUnitsSeries(principals, series, force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	unitNames := make([]string, len(units))
-	for i := range units {
-		unitNames[i] = units[i].UnitTag().Id()
+	for i, u := range units {
+		agentStatus, err := u.AgentStatus()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if agentStatus.Status != status.Idle {
+			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its current status is: %q %s",
+				u.Name(), agentStatus.Status, agentStatus.Message)
+		}
+		unitNames[i] = u.UnitTag().Id()
 	}
 	return unitNames, nil
 }

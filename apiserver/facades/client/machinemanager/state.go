@@ -4,10 +4,11 @@
 package machinemanager
 
 import (
-	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -98,6 +99,7 @@ func (m machineShim) Units() ([]Unit, error) {
 type Unit interface {
 	UnitTag() names.UnitTag
 	Name() string
+	AgentStatus() (status.StatusInfo, error)
 }
 
 func (m machineShim) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error) {
