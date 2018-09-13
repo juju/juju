@@ -227,7 +227,7 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]s
 			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
 		}
 	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "stopping all units for series upgrade"))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "all units stopped for series upgrade"))
 }
 
 // handlePrepareMachine handles workflow for the machine with an upgrade-series
