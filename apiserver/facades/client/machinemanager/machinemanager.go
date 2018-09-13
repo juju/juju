@@ -505,13 +505,7 @@ func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesN
 		Results: make([]params.StringsResult, len(args.Params)),
 	}
 	for i, param := range args.Params {
-		machineTag, err := names.ParseMachineTag(param.Entity.Tag)
-		if err != nil {
-			err = errors.Trace(err)
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := mm.st.Machine(machineTag.Id())
+		machine, err := mm.machineFromTag(param.Entity.Tag)
 		if err != nil {
 			err = errors.Trace(err)
 			results.Results[i].Error = common.ServerError(err)
