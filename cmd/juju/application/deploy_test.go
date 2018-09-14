@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/poolmanager"
@@ -30,6 +31,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
@@ -54,6 +56,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -407,16 +410,26 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 }
 
 func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile")
-	err := runDeploy(c, path)
+	err = runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:bionic/lxd-profile-0")
 	s.AssertApplication(c, "lxd-profile", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile-fail")
-	err := runDeploy(c, path)
+	err = runDeploy(c, path)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 

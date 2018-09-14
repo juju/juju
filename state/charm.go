@@ -126,7 +126,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	if featureflag.Enabled(feature.LXDProfile) {
 		lpc, ok := info.Charm.(charm.LXDProfiler)
 		if !ok {
-			return nil, errors.New("charm does no implment LXDProfiler")
+			return nil, errors.New("charm does no implement LXDProfiler")
 		}
 		doc.LXDProfile = safeLXDProfile(lpc.LXDProfile())
 	}
@@ -226,18 +226,12 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	}
 	op.Assert = append(lifeAssert, assert...)
 
-	var lxdProfile *charm.LXDProfile
-	if profiler, ok := info.Charm.(charm.LXDProfiler); ok {
-		lxdProfile = profiler.LXDProfile()
-	}
-
 	data := bson.D{
 		{"charm-version", info.Version},
 		{"meta", info.Charm.Meta()},
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
 		{"metrics", info.Charm.Metrics()},
-		{"lxd-profile", safeLXDProfile(lxdProfile)},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
 		{"pendingupload", false},

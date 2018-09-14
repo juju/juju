@@ -1127,9 +1127,11 @@ func (c *DeployCommand) validateCharmLXDProfile(ch charm.Charm) error {
 }
 
 func (c *DeployCommand) validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if profile := info.LXDProfile; profile != nil {
-		err := profile.ValidateConfigDevices()
-		return errors.Trace(err)
+	if featureflag.Enabled(feature.LXDProfile) {
+		if profile := info.LXDProfile; profile != nil {
+			err := profile.ValidateConfigDevices()
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
