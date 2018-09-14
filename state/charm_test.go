@@ -6,6 +6,7 @@ package state_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -18,11 +19,16 @@ import (
 	"gopkg.in/mgo.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
 )
+
+// TODO (hml) lxd-profile
+// Go back and add additional tests here
 
 type CharmSuite struct {
 	ConnSuite
@@ -695,7 +701,15 @@ type CharmTestHelperSuite struct {
 
 var _ = gc.Suite(&CharmTestHelperSuite{})
 
-func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta, config *charm.Config, metrics *charm.Metrics, revision int) {
+func assertCustomCharm(
+	c *gc.C,
+	ch *state.Charm,
+	series string,
+	meta *charm.Meta,
+	config *charm.Config,
+	metrics *charm.Metrics,
+	revision int,
+) {
 	// Check Charm interface method results.
 	c.Assert(ch.Meta(), gc.DeepEquals, meta)
 	c.Assert(ch.Config(), gc.DeepEquals, config)
@@ -751,7 +765,6 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		metrics := chd.Metrics()
-
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
 	})
@@ -814,6 +827,41 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
+	})
+}
+
+func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+
+	chd := testcharms.Repo.CharmDir("lxd-profile")
+	c.Assert(chd.LXDProfile(), jc.DeepEquals, &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting":       "true",
+			"security.privileged":    "true",
+			"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+			"environment.http_proxy": "",
+		},
+		Description: "lxd profile for testing, black list items grouped commented out",
+		Devices: map[string]map[string]string{
+			"tun": {
+				"path": "/dev/net/tun",
+				"type": "unix-char",
+			},
+			"sony": {
+				"type":      "usb",
+				"vendorid":  "0fce",
+				"productid": "51da",
+			},
+			"bdisk": {
+				"source": "/dev/loop0",
+				"type":   "unix-block",
+			},
+			"gpu": {
+				"type": "gpu",
+			},
+		},
 	})
 }
 
