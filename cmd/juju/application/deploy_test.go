@@ -414,6 +414,12 @@ func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 	s.AssertApplication(c, "lxd-profile", curl, 1, 0)
 }
 
+func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile-fail")
+	err := runDeploy(c, path)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
+}
+
 // TODO(ericsnow) Add tests for charmstore-based resources once the
 // endpoints are implemented.
 
