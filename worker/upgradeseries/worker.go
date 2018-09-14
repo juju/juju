@@ -227,8 +227,7 @@ func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]s
 			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
 		}
 	}
-
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "all units stopped for series upgrade"))
 }
 
 // handlePrepareMachine handles workflow for the machine with an upgrade-series
@@ -263,7 +262,6 @@ func (w *upgradeSeriesWorker) handlePrepareMachine() error {
 // series upgrade target.
 func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
 	w.logger.Infof("preparing service units for series upgrade")
-
 	toSeries, err := w.TargetSeries()
 	if err != nil {
 		return errors.Trace(err)
@@ -275,8 +273,7 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 	if err := upgrader.PerformUpgrade(); err != nil {
 		return errors.Trace(err)
 	}
-
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, "all necessary binaries and service files written"))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
@@ -315,7 +312,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 
 	if allConfirmed {
 		w.logger.Infof("series upgrade complete")
-		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted))
+		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted, "series upgrade complete"))
 	}
 
 	return nil
@@ -343,7 +340,7 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 		}
 	}
 
-	return errors.Trace(w.StartUnitCompletion())
+	return errors.Trace(w.StartUnitCompletion("starting all unit agents after series upgrade"))
 }
 
 // handleCompleted notifies the server that it has completed the upgrade

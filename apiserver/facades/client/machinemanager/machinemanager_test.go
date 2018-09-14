@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/params"
@@ -40,7 +41,7 @@ type MachineManagerSuite struct {
 
 func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	mm, err := machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext)
+	mm, err := machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext, common.NewResources())
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -52,7 +53,7 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext)
+	s.api, err = machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext, common.NewResources())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -109,7 +110,7 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext)
+	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext, common.NewResources())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

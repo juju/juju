@@ -33,6 +33,7 @@ type MachineManagerAPI struct {
 	pool          Pool
 	authorizer    facade.Authorizer
 	check         *common.BlockChecker
+	resources     facade.Resources
 
 	modelTag    names.ModelTag
 	callContext context.ProviderCallContext
@@ -52,7 +53,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st))
+	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st), ctx.Resources())
 }
 
 // Version 4 of MachineManagerAPI
@@ -91,6 +92,7 @@ func NewMachineManagerAPI(
 	auth facade.Authorizer,
 	modelTag names.ModelTag,
 	callCtx context.ProviderCallContext,
+	resources facade.Resources,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
@@ -103,6 +105,7 @@ func NewMachineManagerAPI(
 		check:         common.NewBlockChecker(backend),
 		modelTag:      modelTag,
 		callContext:   callCtx,
+		resources:     resources,
 	}, nil
 }
 
@@ -436,6 +439,9 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
+	if err := mm.check.ChangeAllowed(); err != nil {
+		return params.ErrorResult{}, err
+	}
 	err := mm.completeUpgradeSeries(args)
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
@@ -460,6 +466,73 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 	return machine.RemoveUpgradeSeriesLock()
 }
 
+// WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
+func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+	err := mm.checkCanRead()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		watcherId := ""
+		machine, err := mm.st.Machine(tag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		w, err := machine.WatchUpgradeSeriesNotifications()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		watcherId = mm.resources.Register(w)
+		result.Results[i].NotifyWatcherId = watcherId
+	}
+	return result, nil
+}
+
+// GetUpgradeSeriesMessages returns all new messages associated with upgrade
+// series events. Messages that have already been retrieved once are not
+// returned by this method.
+func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
+	if err := mm.checkCanRead(); err != nil {
+		return params.StringsResults{}, err
+	}
+	results := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Params)),
+	}
+	for i, param := range args.Params {
+		machine, err := mm.machineFromTag(param.Entity.Tag)
+		if err != nil {
+			err = errors.Trace(err)
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		messages, finished, err := machine.GetUpgradeSeriesMessages()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if finished {
+			// If there are no more messages we stop the watcher resource.
+			err = mm.resources.Stop(param.WatcherId)
+			if err != nil {
+				results.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
+		results.Results[i].Result = messages
+	}
+	return results, nil
+}
+
 func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 	machineTag, err := names.ParseMachineTag(tag)
 	if err != nil {
@@ -470,48 +543,6 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 		return nil, errors.Trace(err)
 	}
 	return machine, nil
-}
-
-func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag string) error {
-	if argumentSeries == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-
-	opSys, err := series.GetOSFromSeries(argumentSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
-			argumentSeries, opSys.String())
-	}
-
-	opSys, err = series.GetOSFromSeries(currentSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
-			machineTag, opSys.String())
-	}
-
-	if argumentSeries == currentSeries {
-		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
-	}
-
-	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if isOlderSeries {
-		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
-			machineTag, currentSeries, argumentSeries)
-	}
-
-	return nil
 }
 
 // verifiedUnits verifies that the machine units and their tree of subordinates
@@ -590,4 +621,46 @@ func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) 
 		return nil // no-op
 	}
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
+}
+
+func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag string) error {
+	if argumentSeries == "" {
+		return &params.Error{
+			Message: "series missing from args",
+			Code:    params.CodeBadRequest,
+		}
+	}
+
+	opSys, err := series.GetOSFromSeries(argumentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
+			argumentSeries, opSys.String())
+	}
+
+	opSys, err = series.GetOSFromSeries(currentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if opSys != os.Ubuntu {
+		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
+			machineTag, opSys.String())
+	}
+
+	if argumentSeries == currentSeries {
+		return errors.Errorf("%s is already running series %s", machineTag, argumentSeries)
+	}
+
+	isOlderSeries, err := isSeriesLessThan(argumentSeries, currentSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if isOlderSeries {
+		return errors.Errorf("machine %s is running %s which is a newer series than %s.",
+			machineTag, currentSeries, argumentSeries)
+	}
+
+	return nil
 }

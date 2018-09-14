@@ -62,27 +62,27 @@ func (mr *MockFacadeMockRecorder) MachineStatus() *gomock.Call {
 }
 
 // SetMachineStatus mocks base method
-func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus) error {
-	ret := m.ctrl.Call(m, "SetMachineStatus", arg0)
+func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
+	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetMachineStatus indicates an expected call of SetMachineStatus
-func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0)
+func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0, arg1)
 }
 
 // StartUnitCompletion mocks base method
-func (m *MockFacade) StartUnitCompletion() error {
-	ret := m.ctrl.Call(m, "StartUnitCompletion")
+func (m *MockFacade) StartUnitCompletion(arg0 string) error {
+	ret := m.ctrl.Call(m, "StartUnitCompletion", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StartUnitCompletion indicates an expected call of StartUnitCompletion
-func (mr *MockFacadeMockRecorder) StartUnitCompletion() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion))
+func (mr *MockFacadeMockRecorder) StartUnitCompletion(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion), arg0)
 }
 
 // TargetSeries mocks base method

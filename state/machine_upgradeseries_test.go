@@ -143,7 +143,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted)
+	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
@@ -154,7 +154,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatusOfMachine
 	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted)
+	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
@@ -171,7 +171,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteSta
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted)
+	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()

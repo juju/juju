@@ -156,6 +156,10 @@ func (rh *runHook) beforeHook(state State) error {
 		})
 	case hooks.PreSeriesUpgrade:
 		logger.Debugf("starting pre upgrade series hook. updating state of series upgrade.")
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareRunning, "pre-series-upgrade hook running")
+	case hooks.PostSeriesUpgrade:
+		logger.Debugf("starting post upgrade series hook. updating state of series upgrade.")
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleteRunning, "post-series-upgrade hook running")
 	}
 	if err != nil {
 		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
@@ -204,10 +208,10 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		}
 	case hooks.PreSeriesUpgrade:
 		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "pre-series-upgrade hook completed")
 	case hooks.PostSeriesUpgrade:
 		logger.Debugf("completing post upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "post-series-upgrade hook completed")
 	}
 	return hasRunStatusSet && err == nil, err
 }

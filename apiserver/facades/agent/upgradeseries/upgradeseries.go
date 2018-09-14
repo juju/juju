@@ -107,7 +107,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.SetUpgradeSeriesStatus(param.Status)
+		err = machine.SetUpgradeSeriesStatus(param.Status, param.Message)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 		}
@@ -147,7 +147,7 @@ func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
 
 // StartUnitCompletion starts the upgrade series completion phase for all subordinate
 // units of a given machine.
-func (a *API) StartUnitCompletion(args params.Entities) (params.ErrorResults, error) {
+func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionParam) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -161,7 +161,7 @@ func (a *API) StartUnitCompletion(args params.Entities) (params.ErrorResults, er
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = machine.StartUpgradeSeriesUnitCompletion()
+		err = machine.StartUpgradeSeriesUnitCompletion(args.Message)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

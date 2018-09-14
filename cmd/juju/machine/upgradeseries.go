@@ -12,11 +12,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Actions
@@ -34,6 +37,16 @@ of machine %q will also be upgraded. These units include:
 
 Continue [y/N]?`[1:]
 
+const UpgradeSeriesPrepareFinishedMessage = `
+Juju is now ready for the series to be updated.
+Perform any manual steps required along with "do-release-upgrade".
+When ready run the following to complete the upgrade series process:
+
+juju upgrade-series complete %s`
+
+const UpgradeSeriesCompleteFinishedMessage = `
+Upgrade series for machine %q has successfully completed`
+
 // NewUpgradeSeriesCommand returns a command which upgrades the series of
 // an application or machine.
 func NewUpgradeSeriesCommand() cmd.Command {
@@ -47,6 +60,8 @@ type UpgradeMachineSeriesAPI interface {
 	UpgradeSeriesValidate(string, string) ([]string, error)
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
+	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, string, error)
+	GetUpgradeSeriesMessages(string, string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -61,6 +76,9 @@ type upgradeSeriesCommand struct {
 	machineNumber string
 	series        string
 	agree         bool
+
+	catacomb catacomb.Catacomb
+	plan     catacomb.Plan
 }
 
 var upgradeSeriesDoc = `
@@ -181,7 +199,6 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
 }
 
@@ -215,6 +232,79 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	err = c.handleNotifications(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	m := UpgradeSeriesPrepareFinishedMessage + "\n"
+	fmt.Fprintf(ctx.Stdout, m, c.machineNumber)
+
+	return nil
+}
+
+func (c *upgradeSeriesCommand) handleNotifications(ctx *cmd.Context) error {
+	if c.plan.Work == nil {
+		c.plan = catacomb.Plan{
+			Site: &c.catacomb,
+			Work: c.displayNotifications(ctx),
+		}
+	}
+	err := catacomb.Invoke(c.plan)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.catacomb.Wait()
+	if err != nil {
+		if params.IsCodeStopped(err) {
+			logger.Debugf("the upgrade series watcher has been stopped")
+		} else {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// displayNotifications handles the writing of upgrade series notifications to
+// standard out.
+func (c *upgradeSeriesCommand) displayNotifications(ctx *cmd.Context) func() error {
+	// We return and anonymous function here to satisfy the catacomb plan's
+	// need for a work function and to close over the commands context.
+	return func() error {
+		uw, wid, err := c.upgradeMachineSeriesClient.WatchUpgradeSeriesNotifications(c.machineNumber)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = c.catacomb.Add(uw)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for {
+			select {
+			case <-c.catacomb.Dying():
+				return c.catacomb.ErrDying()
+			case <-uw.Changes():
+				err = c.handleUpgradeSeriesChange(ctx, wid)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+}
+
+func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid string) error {
+	messages, err := c.upgradeMachineSeriesClient.GetUpgradeSeriesMessages(c.machineNumber, wid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(messages) == 0 {
+		return nil
+	}
+	_, err = fmt.Fprintln(ctx.Stdout, strings.Join(messages, "\n"))
+	if err != nil {
+		errors.Trace(err)
+	}
 	return nil
 }
 
@@ -240,6 +330,14 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	err = c.handleNotifications(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	m := UpgradeSeriesCompleteFinishedMessage + "\n"
+	fmt.Fprintf(ctx.Stdout, m, c.machineNumber)
+
 	return nil
 }
 
@@ -259,7 +357,6 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade series")
 	}
-
 	return nil
 }
 

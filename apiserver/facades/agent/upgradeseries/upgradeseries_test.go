@@ -25,7 +25,9 @@ type upgradeSeriesSuite struct {
 	backend *mocks.MockUpgradeSeriesBackend
 	machine *mocks.MockUpgradeSeriesMachine
 
-	entityArgs params.Entities
+	entityArgs                           params.Entities
+	upgradeSeriesStatusArgs              params.UpgradeSeriesStatusParams
+	upgradeSeriesStartUnitCompletionArgs params.UpgradeSeriesStartUnitCompletionParam
 
 	api *upgradeseries.API
 
@@ -42,6 +44,16 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.unitTag = names.NewUnitTag("redis/0")
 
 	s.entityArgs = params.Entities{Entities: []params.Entity{{Tag: s.machineTag.String()}}}
+	s.upgradeSeriesStatusArgs = params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatusParam{
+			{
+				Entity: params.Entity{Tag: s.machineTag.String()},
+			},
+		},
+	}
+	s.upgradeSeriesStartUnitCompletionArgs = params.UpgradeSeriesStartUnitCompletionParam{
+		Entities: []params.Entity{{Tag: s.machineTag.String()}},
+	}
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
@@ -59,7 +71,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
-	s.machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
+	s.machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpgradeSeriesStatusParams{
@@ -88,9 +100,9 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
 func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
-	s.machine.EXPECT().StartUpgradeSeriesUnitCompletion().Return(nil)
+	s.machine.EXPECT().StartUpgradeSeriesUnitCompletion(gomock.Any()).Return(nil)
 
-	results, err := s.api.StartUnitCompletion(s.entityArgs)
+	results, err := s.api.StartUnitCompletion(s.upgradeSeriesStartUnitCompletionArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},

@@ -172,9 +172,10 @@ type Callbacks interface {
 	SetCurrentCharm(charmURL *corecharm.URL) error
 
 	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
-	// upgrade the status of a running series upgrade after upgrade series
-	// hook code completes.
-	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus) error
+	// upgrade the status of a running series upgrade before or after
+	// upgrade series hook code completes and, for display purposes, to
+	// supply a reason as to why it is making the change.
+	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

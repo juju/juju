@@ -1334,11 +1334,28 @@ type UpgradeSeriesStatusParams struct {
 	Params []UpgradeSeriesStatusParam `json:"params"`
 }
 
-// UpgradeSeriesStatusParam contains the entity and desired status for
-// that entity.
+// UpgradeSeriesStatusParam contains the entity and desired status for that
+// entity along with a context message describing why the change to the status
+// is being requested.
 type UpgradeSeriesStatusParam struct {
-	Entity Entity                    `json:"entity"`
-	Status model.UpgradeSeriesStatus `json:"status"`
+	Entity  Entity                    `json:"entity"`
+	Status  model.UpgradeSeriesStatus `json:"status"`
+	Message string                    `json:"message"`
+}
+
+// UpgradeSeriesStartUnitCompletionParam contains entities and a context message.
+type UpgradeSeriesStartUnitCompletionParam struct {
+	Entities []Entity `json:"entities"`
+	Message  string   `json:"message"`
+}
+
+type UpgradeSeriesNotificationParams struct {
+	Params []UpgradeSeriesNotificationParam `json:"params"`
+}
+
+type UpgradeSeriesNotificationParam struct {
+	Entity    Entity `json:"entity"`
+	WatcherId string `json:"watcher-id"`
 }
 
 // UpgradeSeriesUnitsResults contains the units affected by a series per

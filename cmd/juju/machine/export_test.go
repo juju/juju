@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/storage"
+	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 var (
@@ -62,6 +63,10 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 // NewUpgradeSeriesCommand returns an upgrade series command for test
 func NewUpgradeSeriesCommandForTest(api UpgradeMachineSeriesAPI) cmd.Command {
 	cmd := &upgradeSeriesCommand{upgradeMachineSeriesClient: api}
+	cmd.plan = catacomb.Plan{
+		Site: &cmd.catacomb,
+		Work: func() error { return nil },
+	}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }

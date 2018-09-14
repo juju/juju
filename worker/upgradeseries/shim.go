@@ -14,14 +14,17 @@ import (
 
 // Facade exposes the API surface required by the upgrade-series worker.
 type Facade interface {
+	// getters
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	MachineStatus() (model.UpgradeSeriesStatus, error)
 	UnitsPrepared() ([]names.UnitTag, error)
 	UnitsCompleted() ([]names.UnitTag, error)
-	StartUnitCompletion() error
-	SetMachineStatus(status model.UpgradeSeriesStatus) error
-	FinishUpgradeSeries(string) error
 	TargetSeries() (string, error)
+
+	//setters
+	StartUnitCompletion(reason string) error
+	SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error
+	FinishUpgradeSeries(string) error
 }
 
 // NewFacade creates a *upgradeseries.Client and returns it as a Facade.

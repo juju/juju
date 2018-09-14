@@ -67,6 +67,8 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 	arbitraryUnitName := "application/0"
 	arbitraryStatus := model.UpgradeSeriesPrepareStarted
 	arbitraryUpdateTime := bson.Now()
+	arbitraryMessage := "some message"
+	arbitraryUpgradeSeriesMessage := newUpgradeSeriesMessage(arbitraryUnitName, arbitraryMessage, arbitraryUpdateTime)
 	expectedOp := txn.Op{
 		C:  machineUpgradeSeriesLocksC,
 		Id: arbitraryMachineID,
@@ -74,9 +76,13 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 			{{"unit-statuses", bson.D{{"$exists", true}}}},
 			{{"unit-statuses.application/0.status", bson.D{{"$ne", arbitraryStatus}}}}}}},
 		Update: bson.D{
-			{"$set", bson.D{{"unit-statuses.application/0.status", arbitraryStatus}, {"unit-statuses.application/0.timestamp", arbitraryUpdateTime}}}},
+			{"$set", bson.D{
+				{"unit-statuses.application/0.status", arbitraryStatus},
+				{"unit-statuses.application/0.timestamp", arbitraryUpdateTime}}},
+			{"$push", bson.D{{"messages", arbitraryUpgradeSeriesMessage}}},
+		},
 	}
-	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime)
+	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime, arbitraryUpgradeSeriesMessage)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp.Update)
 	actualOpSt := fmt.Sprint(actualOps[1].Update)
@@ -88,13 +94,14 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 	arbitraryStatus := model.UpgradeSeriesPrepareStarted
 	arbitraryUnitName := "application/0"
 	arbitraryUpdateTime := bson.Now()
+	arbitraryMessage := "message"
+	arbitraryUpgradeSeriesMessage := newUpgradeSeriesMessage(arbitraryUnitName, arbitraryMessage, arbitraryUpdateTime)
 	expectedOp := txn.Op{
 		C:      machinesC,
 		Id:     arbitraryMachineID,
 		Assert: isAliveDoc,
 	}
-
-	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime)
+	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime, arbitraryUpgradeSeriesMessage)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp)
 	actualOpSt := fmt.Sprint(actualOps[0])
@@ -103,7 +110,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 
 func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryUnitStatuses := map[string]UpgradeSeriesUnitStatus{}
+	arbitraryLock := &upgradeSeriesLockDoc{}
 	expectedOps := []txn.Op{
 		{
 			C:      machinesC,
@@ -114,10 +121,12 @@ func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.
 			C:      machineUpgradeSeriesLocksC,
 			Id:     arbitraryMachineID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{"unit-statuses", arbitraryUnitStatuses}}}},
+			Update: bson.D{{"$set", bson.D{
+				{"unit-statuses", map[string]UpgradeSeriesUnitStatus{}},
+				{"messages", []UpgradeSeriesMessage{}}}}},
 		},
 	}
-	actualOps := startUpgradeSeriesUnitCompletionTxnOps(arbitraryMachineID, arbitraryUnitStatuses)
+	actualOps := startUpgradeSeriesUnitCompletionTxnOps(arbitraryMachineID, arbitraryLock)
 	expectedOpsSt := fmt.Sprint(expectedOps)
 	actualOpsSt := fmt.Sprint(actualOps)
 	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)

@@ -137,12 +137,13 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 }
 
 // SetMachineStatus sets the machine status in remote state.
-func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
+func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{
-			Entity: params.Entity{Tag: s.authTag.String()},
-			Status: status,
+			Entity:  params.Entity{Tag: s.authTag.String()},
+			Status:  status,
+			Message: reason,
 		}},
 	}
 
@@ -162,10 +163,11 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus) error {
 }
 
 // StartUnitCompletion starts the complete phase for all subordinate units.
-func (s *Client) StartUnitCompletion() error {
+func (s *Client) StartUnitCompletion(reason string) error {
 	var results params.ErrorResults
-	args := params.Entities{
+	args := params.UpgradeSeriesStartUnitCompletionParam{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
+		Message:  reason,
 	}
 
 	err := s.facade.FacadeCall("StartUnitCompletion", args, &results)

@@ -13,9 +13,11 @@ type UpgradeSeriesStatus string
 const (
 	UpgradeSeriesNotStarted       UpgradeSeriesStatus = "not started"
 	UpgradeSeriesPrepareStarted   UpgradeSeriesStatus = "prepare started"
+	UpgradeSeriesPrepareRunning   UpgradeSeriesStatus = "prepare running"
 	UpgradeSeriesPrepareMachine   UpgradeSeriesStatus = "prepare machine"
 	UpgradeSeriesPrepareCompleted UpgradeSeriesStatus = "prepare completed"
 	UpgradeSeriesCompleteStarted  UpgradeSeriesStatus = "complete started"
+	UpgradeSeriesCompleteRunning  UpgradeSeriesStatus = "complete running"
 	UpgradeSeriesCompleted        UpgradeSeriesStatus = "completed"
 	UpgradeSeriesError            UpgradeSeriesStatus = "error"
 )
@@ -25,7 +27,8 @@ const (
 func ValidateUnitSeriesUpgradeStatus(status UpgradeSeriesStatus) (UpgradeSeriesStatus, error) {
 	switch status {
 	case UpgradeSeriesNotStarted, UpgradeSeriesPrepareStarted, UpgradeSeriesPrepareCompleted,
-		UpgradeSeriesCompleteStarted, UpgradeSeriesCompleted, UpgradeSeriesError:
+		UpgradeSeriesCompleteStarted, UpgradeSeriesCompleted, UpgradeSeriesError,
+		UpgradeSeriesPrepareRunning, UpgradeSeriesCompleteRunning:
 		return status, nil
 	}
 	return UpgradeSeriesNotStarted, errors.NotValidf("unit upgrade series status of %q", status)

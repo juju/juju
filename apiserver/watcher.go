@@ -96,14 +96,19 @@ func isAgent(auth facade.Authorizer) bool {
 	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent()
 }
 
+func isAgentOrUser(auth facade.Authorizer) bool {
+	return isAgent(auth) || auth.AuthClient()
+}
+
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	id := context.ID()
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if auth.GetAuthTag() != nil && !isAgent(auth) {
+	if !isAgentOrUser(auth) {
 		return nil, common.ErrPerm
 	}
+
 	watcher, ok := resources.Get(id).(state.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher

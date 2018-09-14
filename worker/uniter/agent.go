@@ -36,6 +36,6 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 }
 
 // setUpgradeSeriesStatus sets the upgrade series status.
-func setUpgradeSeriesStatus(u *Uniter, status model.UpgradeSeriesStatus) error {
-	return u.unit.SetUpgradeSeriesStatus(status)
+func setUpgradeSeriesStatus(u *Uniter, status model.UpgradeSeriesStatus, reason string) error {
+	return u.unit.SetUpgradeSeriesStatus(status, reason)
 }
