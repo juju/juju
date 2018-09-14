@@ -406,6 +406,14 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	})
 }
 
+func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile")
+	err := runDeploy(c, path)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:bionic/lxd-profile-0")
+	s.AssertApplication(c, "lxd-profile", curl, 1, 0)
+}
+
 // TODO(ericsnow) Add tests for charmstore-based resources once the
 // endpoints are implemented.
 
