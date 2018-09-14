@@ -860,6 +860,12 @@ func (c *DeployCommand) deployCharm(
 		applicationName = charmInfo.Meta.Name
 	}
 
+	// Validate the charmInfo before launching, interesting if this fails
+	// I'm not entirely sure what you can do here with a stored charm
+	if err := c.validateCharmInfoLXDProfile(charmInfo); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Process the --config args.
 	// We may have a single file arg specified, in which case
 	// it points to a YAML file keyed on the charm name and
@@ -1109,13 +1115,21 @@ func (c *DeployCommand) validateCharmLXDProfile(ch charm.Charm) error {
 		// Check if the charm conforms to the LXDProfiler, as it's optional and in
 		// theory the charm.Charm doesn't have to provider a LXDProfile method we
 		// can ignore it if it's missing and assume it is therefore valid.
-		if lxdProfiler, ok := ch.(charm.LXDProfiler); ok {
+		if profiler, ok := ch.(charm.LXDProfiler); ok {
 			// Profile from the api could be nil, so check that it isn't
-			if profile := lxdProfiler.LXDProfile(); profile != nil {
+			if profile := profiler.LXDProfile(); profile != nil {
 				err := profile.ValidateConfigDevices()
 				return errors.Trace(err)
 			}
 		}
+	}
+	return nil
+}
+
+func (c *DeployCommand) validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
+	if profile := info.LXDProfile; profile != nil {
+		err := profile.ValidateConfigDevices()
+		return errors.Trace(err)
 	}
 	return nil
 }
