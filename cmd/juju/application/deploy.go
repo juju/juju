@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/romulus"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -1103,14 +1105,16 @@ func (c *DeployCommand) validateCharmSeries(series string) error {
 }
 
 func (c *DeployCommand) validateCharmLXDProfile(ch charm.Charm) error {
-	// Check if the charm conforms to the LXDProfiler, as it's optional and in
-	// theory the charm.Charm doesn't have to provider a LXDProfile method we
-	// can ignore it if it's missing and assume it is therefore valid.
-	if lxdProfiler, ok := ch.(charm.LXDProfiler); ok {
-		// Profile from the api could be nil, so check that it isn't
-		if profile := lxdProfiler.LXDProfile(); profile != nil {
-			err := profile.ValidateConfigDevices()
-			return errors.Trace(err)
+	if featureflag.Enabled(feature.LXDProfile) {
+		// Check if the charm conforms to the LXDProfiler, as it's optional and in
+		// theory the charm.Charm doesn't have to provider a LXDProfile method we
+		// can ignore it if it's missing and assume it is therefore valid.
+		if lxdProfiler, ok := ch.(charm.LXDProfiler); ok {
+			// Profile from the api could be nil, so check that it isn't
+			if profile := lxdProfiler.LXDProfile(); profile != nil {
+				err := profile.ValidateConfigDevices()
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil

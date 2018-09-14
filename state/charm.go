@@ -106,6 +106,11 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.New("*charm.URL was nil")
 	}
 
+	var lxdProfile *charm.LXDProfile
+	if profiler, ok := info.Charm.(charm.LXDProfiler); ok {
+		lxdProfile = profiler.LXDProfile()
+	}
+
 	doc := charmDoc{
 		DocID:        info.ID.String(),
 		URL:          info.ID,
@@ -114,6 +119,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		Config:       safeConfig(info.Charm),
 		Metrics:      info.Charm.Metrics(),
 		Actions:      info.Charm.Actions(),
+		LXDProfile:   safeLXDProfile(lxdProfile),
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
 	}
@@ -220,12 +226,18 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	}
 	op.Assert = append(lifeAssert, assert...)
 
+	var lxdProfile *charm.LXDProfile
+	if profiler, ok := info.Charm.(charm.LXDProfiler); ok {
+		lxdProfile = profiler.LXDProfile()
+	}
+
 	data := bson.D{
 		{"charm-version", info.Version},
 		{"meta", info.Charm.Meta()},
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
 		{"metrics", info.Charm.Metrics()},
+		{"lxd-profile", safeLXDProfile(lxdProfile)},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
 		{"pendingupload", false},
@@ -542,7 +554,7 @@ func (c *Charm) Actions() *charm.Actions {
 	return c.doc.Actions
 }
 
-// LXDProfile returns the lxdprofile definition of the charm.
+// LXDProfile returns the lxd profile definition of the charm.
 func (c *Charm) LXDProfile() *charm.LXDProfile {
 	return c.doc.LXDProfile
 }
