@@ -71,7 +71,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
-	s.machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted).Return(nil)
+	s.machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpgradeSeriesStatusParams{
