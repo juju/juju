@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
@@ -48,7 +49,7 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, ctx.State(), registry, pm)
+	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, registry, pm)
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -113,11 +114,28 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting api addresses")
 	}
 
+	model, err := a.state.Model()
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Trace(err)
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Trace(err)
+	}
+
+	resourceTags := tags.ResourceTags(
+		names.NewModelTag(model.UUID()),
+		names.NewControllerTag(cfg.ControllerUUID()),
+		modelConfig,
+	)
+	charmStorageParams.Tags = resourceTags
+
 	return params.OperatorProvisioningInfo{
 		ImagePath:    imagePath,
 		Version:      version.Current,
 		APIAddresses: apiAddresses.Result,
 		CharmStorage: charmStorageParams,
+		Tags:         resourceTags,
 	}, nil
 }
 

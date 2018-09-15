@@ -484,6 +484,7 @@ type OperatorProvisioningInfo struct {
 	ImagePath    string                     `json:"image-path"`
 	Version      version.Number             `json:"version"`
 	APIAddresses []string                   `json:"api-addresses"`
+	Tags         map[string]string          `json:"tags,omitempty"`
 	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 

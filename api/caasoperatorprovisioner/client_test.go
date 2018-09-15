@@ -167,11 +167,12 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 			ImagePath:    "juju-operator-image",
 			Version:      vers,
 			APIAddresses: []string{"10.0.0.1:1"},
+			Tags:         map[string]string{"foo": "bar"},
 			CharmStorage: params.KubernetesFilesystemParams{
 				Size:        10,
 				Provider:    "kubernetes",
 				StorageName: "stor",
-				Tags:        map[string]string{"model": "mode-tag"},
+				Tags:        map[string]string{"model": "model-tag"},
 				Attributes:  map[string]interface{}{"key": "value"},
 			},
 		}
@@ -183,11 +184,12 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 		ImagePath:    "juju-operator-image",
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
+		Tags:         map[string]string{"foo": "bar"},
 		CharmStorage: storage.KubernetesFilesystemParams{
 			Size:         10,
 			Provider:     "kubernetes",
 			StorageName:  "stor",
-			ResourceTags: map[string]string{"model": "mode-tag"},
+			ResourceTags: map[string]string{"model": "model-tag"},
 			Attributes:   map[string]interface{}{"key": "value"},
 		},
 	})

@@ -7,12 +7,17 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+
+	"github.com/juju/juju/environs/tags"
 )
 
 type applicationWorker struct {
 	catacomb          catacomb.Catacomb
+	controllerUUID    string
+	modelUUID         string
 	application       string
 	applicationGetter ApplicationGetter
 	serviceExposer    ServiceExposer
@@ -24,12 +29,16 @@ type applicationWorker struct {
 }
 
 func newApplicationWorker(
+	controllerUUID string,
+	modelUUID string,
 	application string,
 	applicationGetter ApplicationGetter,
 	applicationExposer ServiceExposer,
 	lifeGetter LifeGetter,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
+		controllerUUID:    controllerUUID,
+		modelUUID:         modelUUID,
 		application:       application,
 		applicationGetter: applicationGetter,
 		serviceExposer:    applicationExposer,
@@ -102,7 +111,11 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := w.serviceExposer.ExposeService(w.application, appConfig); err != nil {
+		resourceTags := tags.ResourceTags(
+			names.NewModelTag(w.modelUUID),
+			names.NewControllerTag(w.controllerUUID),
+		)
+		if err := w.serviceExposer.ExposeService(w.application, resourceTags, appConfig); err != nil {
 			return errors.Trace(err)
 		}
 		return nil

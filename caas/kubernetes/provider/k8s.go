@@ -174,7 +174,7 @@ func (k *kubernetesClient) deleteNamespace() error {
 }
 
 // EnsureSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) EnsureSecret(imageSecretName, appName string, imageDetails *caas.ImageDetails) error {
+func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDetails *caas.ImageDetails, resourceTags map[string]string) error {
 	if imageDetails.Password == "" {
 		return errors.New("attempting to create a secret with no password")
 	}
@@ -188,7 +188,7 @@ func (k *kubernetesClient) EnsureSecret(imageSecretName, appName string, imageDe
 		ObjectMeta: v1.ObjectMeta{
 			Name:      imageSecretName,
 			Namespace: k.namespace,
-			Labels:    map[string]string{labelApplication: appName}},
+			Labels:    resourceTags},
 		Type: core.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			core.DockerConfigJsonKey: secretData,
@@ -254,6 +254,18 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		}
 	}
 
+	storageTags := make(map[string]string)
+	for k, v := range config.CharmStorage.ResourceTags {
+		storageTags[k] = v
+	}
+	storageTags[labelOperator] = appName
+
+	tags := make(map[string]string)
+	for k, v := range config.ResourceTags {
+		tags[k] = v
+	}
+	tags[labelOperator] = appName
+
 	// Set up the parameters for creating charm storage.
 	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
 	params := volumeParams{
@@ -261,7 +273,6 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		storageLabels:       []string{volStorageLabel, k.namespace, "default"},
 		pvcName:             operatorVolumeClaim(appName),
 		requestedVolumeSize: fmt.Sprintf("%dMi", config.CharmStorage.Size),
-		labels:              map[string]string{labelOperator: appName},
 	}
 	if config.CharmStorage.Provider != K8s_ProviderType {
 		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
@@ -279,63 +290,48 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	logger.Debugf("operator storage config %#v", *params.storageConfig)
 
 	// Attempt to get a persistent volume to store charm state etc.
-	// If there are none, that's ok, we'll just use ephemeral storage.
-	var pvc *core.PersistentVolumeClaim
 	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		return errors.Annotate(err, "finding operator volume claim")
-	} else if err == nil {
-		pvc = &core.PersistentVolumeClaim{
-			ObjectMeta: v1.ObjectMeta{
-				Name:   params.pvcName,
-				Labels: params.labels},
-			Spec: *pvcSpec,
-		}
 	}
-	pod := operatorPod(appName, agentPath, config.OperatorImagePath, config.Version.String())
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   params.pvcName,
+			Labels: storageTags},
+		Spec: *pvcSpec,
+	}
+	pod := operatorPod(appName, agentPath, config.OperatorImagePath, config.Version.String(), tags)
 	// Take a copy for use with statefulset.
 	podWithoutStorage := pod
 
 	numPods := int32(1)
-	labels := map[string]string{labelOperator: appName}
-	if pvc != nil {
-		// Storage has been set up for this operator so use a statefulset.
-		logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
-		statefulset := &apps.StatefulSet{
-			ObjectMeta: v1.ObjectMeta{
-				Name:   operatorName(appName),
-				Labels: labels},
-			Spec: apps.StatefulSetSpec{
-				Replicas: &numPods,
-				Selector: &v1.LabelSelector{
-					MatchLabels: labels,
-				},
-				Template: core.PodTemplateSpec{
-					ObjectMeta: v1.ObjectMeta{
-						Labels: labels,
-					},
-				},
-				PodManagementPolicy:  apps.ParallelPodManagement,
-				VolumeClaimTemplates: []core.PersistentVolumeClaim{*pvc},
+	logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
+	statefulset := &apps.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   operatorName(appName),
+			Labels: pod.Labels},
+		Spec: apps.StatefulSetSpec{
+			Replicas: &numPods,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{labelOperator: appName},
 			},
-		}
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
-			Name:      pvc.Name,
-			MountPath: agent.BaseDir(agentPath),
-		})
-
-		statefulset.Spec.Template.Spec = pod.Spec
-		if err := k.ensureStatefulSet(statefulset, podWithoutStorage.Spec); err != nil {
-			return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
-		}
-	} else {
-		// No storage has been set up for this operator so use a deployment.
-		operatorSpec := &unitSpec{Pod: pod.Spec}
-		if err := k.configureDeployment(appName, operatorName(appName), labels, operatorSpec, nil, &numPods); err != nil {
-			return errors.Annotatef(err, "creating or updating %v operator DeploymentController", appName)
-		}
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Labels: pod.Labels,
+				},
+			},
+			PodManagementPolicy:  apps.ParallelPodManagement,
+			VolumeClaimTemplates: []core.PersistentVolumeClaim{*pvc},
+		},
 	}
-	return nil
+	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
+		Name:      pvc.Name,
+		MountPath: agent.BaseDir(agentPath),
+	})
+
+	statefulset.Spec.Template.Spec = pod.Spec
+	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
+	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
 }
 
 // maybeGetStorageClass looks for a storage class to use when creating
@@ -394,7 +390,6 @@ type volumeParams struct {
 	storageConfig       *storageConfig
 	pvcName             string
 	requestedVolumeSize string
-	labels              map[string]string
 	accessMode          core.PersistentVolumeAccessMode
 }
 
@@ -722,7 +717,7 @@ func (k *kubernetesClient) EnsureService(
 			continue
 		}
 		imageSecretName := appSecretName(appName, c.Name)
-		if err := k.EnsureSecret(imageSecretName, appName, &c.ImageDetails); err != nil {
+		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, params.ResourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
@@ -744,14 +739,18 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	numPods := int32(numUnits)
-	labels := map[string]string{labelApplication: appName}
+	resourceTags := make(map[string]string)
+	for k, v := range params.ResourceTags {
+		resourceTags[k] = v
+	}
+	resourceTags[labelApplication] = appName
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, labels, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	} else {
-		if err := k.configureDeployment(appName, deploymentName(appName), labels, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
+		if err := k.configureDeployment(appName, deploymentName(appName), resourceTags, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -767,7 +766,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	if !params.PodSpec.OmitServiceFrontend {
-		if err := k.configureService(appName, ports, config); err != nil {
+		if err := k.configureService(appName, ports, resourceTags, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
 	}
@@ -825,7 +824,6 @@ func (k *kubernetesClient) configureStorage(
 			storageLabels:       []string{volStorageLabel, k.namespace, "default"},
 			pvcName:             pvcNamePrefix,
 			requestedVolumeSize: fmt.Sprintf("%dMi", fs.Size),
-			labels:              map[string]string{labelApplication: appName},
 		}
 		if storageLabel, ok := fs.Attributes[storageLabel]; ok {
 			params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
@@ -839,13 +837,18 @@ func (k *kubernetesClient) configureStorage(
 		if err != nil {
 			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 		}
+		tags := make(map[string]string)
+		for k, v := range fs.ResourceTags {
+			tags[k] = v
+		}
+		tags[labelApplication] = appName
 		pvc := core.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
 				Name:   params.pvcName,
-				Labels: params.labels},
+				Labels: tags},
 			Spec: *pvcSpec,
 		}
-		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvcSpec)
+		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
 		statefulSet.VolumeClaimTemplates = append(statefulSet.VolumeClaimTemplates, pvc)
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
 			Name:      pvc.Name,
@@ -934,7 +937,7 @@ func (k *kubernetesClient) configureDeployment(
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: map[string]string{labelApplication: appName},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
@@ -969,7 +972,8 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName string, labels map[string]string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
+	appName string, labels map[string]string, unitSpec *unitSpec,
+	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
@@ -984,7 +988,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: map[string]string{labelApplication: appName},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
@@ -1077,7 +1081,10 @@ func (k *kubernetesClient) deleteVolumeClaims(p *core.Pod) error {
 	return nil
 }
 
-func (k *kubernetesClient) configureService(appName string, containerPorts []core.ContainerPort, config application.ConfigAttributes) error {
+func (k *kubernetesClient) configureService(
+	appName string, containerPorts []core.ContainerPort,
+	tags map[string]string, config application.ConfigAttributes,
+) error {
 	logger.Debugf("creating/updating service for %s", appName)
 
 	var ports []core.ServicePort
@@ -1102,7 +1109,7 @@ func (k *kubernetesClient) configureService(appName string, containerPorts []cor
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName(appName),
-			Labels: map[string]string{labelApplication: appName}},
+			Labels: tags},
 		Spec: core.ServiceSpec{
 			Selector:                 map[string]string{labelApplication: appName},
 			Type:                     serviceType,
@@ -1143,7 +1150,7 @@ func (k *kubernetesClient) deleteService(appName string) error {
 }
 
 // ExposeService sets up external access to the specified application.
-func (k *kubernetesClient) ExposeService(appName string, config application.ConfigAttributes) error {
+func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error {
 	logger.Debugf("creating/updating ingress resource for %s", appName)
 
 	host := config.GetString(caas.JujuExternalHostNameKey, "")
@@ -1172,7 +1179,7 @@ func (k *kubernetesClient) ExposeService(appName string, config application.Conf
 	spec := &v1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName(appName),
-			Labels: map[string]string{labelApplication: appName},
+			Labels: resourceTags,
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/rewrite-target":  "",
 				"ingress.kubernetes.io/ssl-redirect":    strconv.FormatBool(ingressSSLRedirect),
@@ -1477,16 +1484,21 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(appName, agentPath, operatorImagePath, version string) *core.Pod {
+func operatorPod(appName, agentPath, operatorImagePath, version string, tags map[string]string) *core.Pod {
 	podName := operatorName(appName)
 	configMapName := operatorConfigMapName(appName)
 	configVolName := configMapName + "-volume"
 
 	appTag := names.NewApplicationTag(appName)
+	podLabels := make(map[string]string)
+	for k, v := range tags {
+		podLabels[k] = v
+	}
+	podLabels[labelVersion] = version
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
-			Labels: map[string]string{labelOperator: appName, labelVersion: version},
+			Labels: podLabels,
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{{

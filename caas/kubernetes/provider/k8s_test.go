@@ -174,7 +174,10 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 }
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
-	pod := provider.OperatorPod("gitlab", "/var/lib/juju", "jujusolutions/caas-jujud-operator", "2.99.0")
+	tags := map[string]string{
+		"juju-operator": "gitlab",
+	}
+	pod := provider.OperatorPod("gitlab", "/var/lib/juju", "jujusolutions/caas-jujud-operator", "2.99.0", tags)
 	c.Assert(pod.Name, gc.Equals, "juju-operator-gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
 		"juju-operator": "gitlab",
@@ -255,8 +258,12 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-operator-test",
-			Labels: map[string]string{"juju-operator": "test"}},
+			Name: "juju-operator-test",
+			Labels: map[string]string{
+				"juju-operator": "test",
+				"juju-version":  "2.99.0",
+				"fred":          "mary",
+			}},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
@@ -264,14 +271,21 @@ func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-operator": "test"},
+					Labels: map[string]string{
+						"juju-operator": "test",
+						"fred":          "mary",
+						"juju-version":  "2.99.0",
+					},
 				},
 				Spec: operatorPodspec,
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   "test-operator-volume",
-					Labels: map[string]string{"juju-operator": "test"}},
+					Name: "test-operator-volume",
+					Labels: map[string]string{
+						"juju-operator": "test",
+						"foo":           "bar",
+					}},
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
 					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
@@ -305,8 +319,11 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   "juju-database-0",
-					Labels: map[string]string{"juju-application": "test"}},
+					Name: "juju-database-0",
+					Labels: map[string]string{
+						"juju-application": "test",
+						"foo":              "bar",
+					}},
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
 					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
@@ -351,9 +368,11 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 		OperatorImagePath: "/path/to/image",
 		Version:           version.MustParse("2.99.0"),
 		AgentConf:         []byte("agent-conf-data"),
+		ResourceTags:      map[string]string{"fred": "mary"},
 		CharmStorage: caas.CharmStorageParams{
-			Size:     uint64(10),
-			Provider: "kubernetes",
+			Size:         uint64(10),
+			Provider:     "kubernetes",
+			ResourceTags: map[string]string{"foo": "bar"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,9 +399,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
 		OperatorImagePath: "/path/to/image",
 		Version:           version.MustParse("2.99.0"),
+		ResourceTags:      map[string]string{"fred": "mary"},
 		CharmStorage: caas.CharmStorageParams{
-			Size:     uint64(10),
-			Provider: "kubernetes",
+			Size:         uint64(10),
+			Provider:     "kubernetes",
+			ResourceTags: map[string]string{"foo": "bar"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -463,8 +484,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
+			Name: "juju-test",
+			Labels: map[string]string{
+				"juju-application": "test",
+				"fred":             "mary",
+			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
@@ -473,7 +497,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "juju-test-",
-					Labels:       map[string]string{"juju-application": "test"},
+					Labels: map[string]string{
+						"juju-application": "test",
+						"fred":             "mary",
+					},
 				},
 				Spec: podSpec,
 			},
@@ -481,8 +508,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	}
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
+			Name: "juju-test",
+			Labels: map[string]string{
+				"juju-application": "test",
+				"fred":             "mary",
+			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-application": "test"},
 			Type:     "nodeIP",
@@ -511,7 +541,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec:      basicPodspec,
+		ResourceTags: map[string]string{"fred": "mary"},
 	}
 	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -769,6 +800,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 	}
 	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
@@ -901,6 +933,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Devices: []devices.KubernetesDeviceParams{
 			{
@@ -965,6 +998,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
 	}
@@ -1016,6 +1050,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
+			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 		Placement: "a=b",
 	}

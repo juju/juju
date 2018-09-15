@@ -199,6 +199,9 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 				},
 				Placement:   "placement",
 				Constraints: constraints.MustParse("mem=64G"),
+				Tags: map[string]string{
+					"juju-model-uuid":      coretesting.ModelTag.Id(),
+					"juju-controller-uuid": coretesting.ControllerTag.Id()},
 			},
 		}, {
 			Error: &params.Error{

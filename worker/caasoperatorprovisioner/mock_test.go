@@ -60,6 +60,7 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.O
 		ImagePath:    "juju-operator-image",
 		Version:      version.MustParse("2.99.0"),
 		APIAddresses: []string{"10.0.0.1:17070", "192.18.1.1:17070"},
+		Tags:         map[string]string{"fred": "mary"},
 		CharmStorage: storage.KubernetesFilesystemParams{
 			Provider:     "kubernetes",
 			Size:         uint64(1024),

@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasfirewaller"
 )
 
@@ -40,10 +41,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 	return caasfirewaller.ManifoldConfig{
-		APICallerName: "api-caller",
-		BrokerName:    "broker",
-		NewClient:     s.newClient,
-		NewWorker:     s.newWorker,
+		APICallerName:  "api-caller",
+		BrokerName:     "broker",
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		NewClient:      s.newClient,
+		NewWorker:      s.newWorker,
 	}
 }
 
@@ -71,6 +74,18 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
+}
+
+func (s *ManifoldSuite) TestMissingControllerUUID(c *gc.C) {
+	config := s.validConfig()
+	config.ControllerUUID = ""
+	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
+}
+
+func (s *ManifoldSuite) TestMissingModelUUID(c *gc.C) {
+	config := s.validConfig()
+	config.ModelUUID = ""
+	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
 func (s *ManifoldSuite) TestMissingAPICallerName(c *gc.C) {
@@ -127,6 +142,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(caasfirewaller.Config)
 
 	c.Assert(config, jc.DeepEquals, caasfirewaller.Config{
+		ControllerUUID:    coretesting.ControllerTag.Id(),
+		ModelUUID:         coretesting.ModelTag.Id(),
 		ApplicationGetter: &s.client,
 		ServiceExposer:    &s.broker,
 		LifeGetter:        &s.client,

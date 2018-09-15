@@ -105,6 +105,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
 	config := args[2].(*caas.OperatorConfig)
 	c.Assert(config.OperatorImagePath, gc.Equals, "juju-operator-image")
 	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
+	c.Assert(config.ResourceTags, jc.DeepEquals, map[string]string{"fred": "mary"})
 	c.Assert(config.CharmStorage, jc.DeepEquals, caas.CharmStorageParams{
 		Provider:     "kubernetes",
 		Size:         uint64(1024),

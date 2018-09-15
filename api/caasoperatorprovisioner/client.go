@@ -106,6 +106,7 @@ type OperatorProvisioningInfo struct {
 	ImagePath    string
 	Version      version.Number
 	APIAddresses []string
+	Tags         map[string]string
 	CharmStorage storage.KubernetesFilesystemParams
 }
 
@@ -119,6 +120,7 @@ func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
 		ImagePath:    result.ImagePath,
 		Version:      result.Version,
 		APIAddresses: result.APIAddresses,
+		Tags:         result.Tags,
 		CharmStorage: filesystemFromParams(result.CharmStorage),
 	}
 	return info, nil
