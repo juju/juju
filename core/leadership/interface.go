@@ -43,7 +43,7 @@ type Claimer interface {
 type Pinner interface {
 
 	// PinLeadership ensures that until "unpinned", the leadership of the input
-	// application will not change.
+	// application will not expire.
 	PinLeadership(applicationId string) error
 
 	// UnpinLeadership reverses the PinLeadership operation, restoring the

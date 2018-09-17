@@ -49,7 +49,7 @@ type Claimer interface {
 // Pinner describes methods used to manage suspension of lease expiry.
 type Pinner interface {
 
-	// Pin ensures that the current holder of input lease name will not loose
+	// Pin ensures that the current holder of input lease name will not lose
 	// the lease to expiry until Unpin is called for the same lease name.
 	// If there is no current holder of the lease, the next claimant will be
 	// the recipient of the pin behaviour.
