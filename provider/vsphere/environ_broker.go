@@ -226,7 +226,7 @@ func (env *sessionEnviron) newRawInstance(
 		Datastore:              env.ecfg.datastore(),
 		UpdateProgress:         updateProgress,
 		UpdateProgressInterval: updateProgressInterval,
-		Clock: clock.WallClock,
+		Clock:                  clock.WallClock,
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.

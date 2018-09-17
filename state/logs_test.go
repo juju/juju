@@ -849,8 +849,8 @@ func (s *LogTailerSuite) writeLogsT(c *gc.C, modelUUID string, startTime, endTim
 func (s *LogTailerSuite) writeLogToOplog(modelUUID string, doc interface{}) error {
 	return s.oplogColl.Insert(bson.D{
 		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
-		{"h", rand.Int63()},                                              // again, a suitable fake
-		{"op", "i"},                                                      // this will always be an insert
+		{"h", rand.Int63()}, // again, a suitable fake
+		{"op", "i"},         // this will always be an insert
 		{"ns", "logs.logs." + modelUUID},
 		{"o", doc},
 	})
@@ -861,7 +861,7 @@ func (s *LogTailerSuite) writeLogToOplog(modelUUID string, doc interface{}) erro
 func (s *LogTailerSuite) deleteLogOplogEntry(modelUUID string, doc interface{}) error {
 	return s.oplogColl.Insert(bson.D{
 		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
-		{"h", rand.Int63()},                                              // again, a suitable fake
+		{"h", rand.Int63()}, // again, a suitable fake
 		{"op", "d"},
 		{"ns", "logs.logs." + modelUUID},
 		{"o", doc},

@@ -374,11 +374,11 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 
 func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 	s.Stub.SetErrors(
-		nil, // HostChangesForContainer
-		nil, // CreateBridger
-		nil, // AcquireLock
-		nil, // BridgeBridgeFailure
-		nil, // ObserveNetwork
+		nil,                             // HostChangesForContainer
+		nil,                             // CreateBridger
+		nil,                             // AcquireLock
+		nil,                             // BridgeBridgeFailure
+		nil,                             // ObserveNetwork
 		errors.Unauthorizedf("failure"), // SetHostMachineNetworkConfig
 	)
 	devices := []network.DeviceToBridge{{

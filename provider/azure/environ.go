@@ -715,7 +715,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Primary:                   to.BoolPtr(true),
 			PrivateIPAddress:          to.StringPtr(privateIP.String()),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet: &network.Subnet{ID: to.StringPtr(subnetId)},
+			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
 			PublicIPAddress: &network.PublicIPAddress{
 				ID: to.StringPtr(publicIPAddressId),
 			},
@@ -1078,7 +1078,7 @@ func newOSProfile(
 		osProfile.AdminUsername = to.StringPtr("ubuntu")
 		osProfile.LinuxConfiguration = &compute.LinuxConfiguration{
 			DisablePasswordAuthentication: to.BoolPtr(true),
-			SSH: &compute.SSHConfiguration{PublicKeys: &publicKeys},
+			SSH:                           &compute.SSHConfiguration{PublicKeys: &publicKeys},
 		}
 	case os.Windows:
 		osProfile.AdminUsername = to.StringPtr("JujuAdministrator")

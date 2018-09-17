@@ -273,9 +273,9 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 				DestinationPortRange:     to.StringPtr(portRange),
 				SourceAddressPrefix:      to.StringPtr(from),
 				DestinationAddressPrefix: to.StringPtr(primaryNetworkAddress.Value),
-				Access:    network.SecurityRuleAccessAllow,
-				Priority:  to.Int32Ptr(priority),
-				Direction: network.SecurityRuleDirectionInbound,
+				Access:                   network.SecurityRuleAccessAllow,
+				Priority:                 to.Int32Ptr(priority),
+				Direction:                network.SecurityRuleDirectionInbound,
 			},
 		}
 		_, errCh := securityRuleClient.CreateOrUpdate(

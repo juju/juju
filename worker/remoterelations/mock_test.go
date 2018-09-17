@@ -261,7 +261,7 @@ type mockRemoteRelationsFacade struct {
 
 func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
 	return &mockRemoteRelationsFacade{
-		stub: stub,
+		stub:                    stub,
 		relationsUnitsWatchers:  make(map[string]*mockRelationUnitsWatcher),
 		relationsStatusWatchers: make(map[string]*mockRelationStatusWatcher),
 		offersStatusWatchers:    make(map[string]*mockOfferStatusWatcher),

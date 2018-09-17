@@ -82,11 +82,11 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	})
 	var err error
 	_, s.st, err = s.State.NewModel(state.ModelArgs{
-		Type:        state.ModelTypeIAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       names.NewLocalUserTag("test-admin"),
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   names.NewLocalUserTag("test-admin"),
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

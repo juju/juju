@@ -146,8 +146,8 @@ func originForJuju(oType OriginType, name, controller, model string, ver version
 		Name:           name,
 		Software: Software{
 			PrivateEnterpriseNumber: canonicalPEN,
-			Name:    "juju",
-			Version: ver,
+			Name:                    "juju",
+			Version:                 ver,
 		},
 	}
 }

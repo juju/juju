@@ -57,8 +57,8 @@ func NewAuthContext(
 	localOfferBakeryService authentication.ExpirableStorageBakeryService,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
-		pool:  pool,
-		clock: clock.WallClock,
+		pool:                              pool,
+		clock:                             clock.WallClock,
 		localOfferBakeryService:           localOfferBakeryService,
 		localOfferThirdPartyBakeryService: localOfferThirdPartyBakeryService,
 	}

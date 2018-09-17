@@ -371,10 +371,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     applicationscaler.New,
 		})),
 		instancePollerName: ifNotMigrating(ifCredentialValid(instancepoller.Manifold(instancepoller.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
-			ClockName:     clockName,
-			Delay:         config.InstPollerAggregationDelay,
+			APICallerName:                apiCallerName,
+			EnvironName:                  environTrackerName,
+			ClockName:                    clockName,
+			Delay:                        config.InstPollerAggregationDelay,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{

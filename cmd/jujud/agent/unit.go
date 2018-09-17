@@ -68,10 +68,10 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter)
 		return nil, errors.Trace(err)
 	}
 	return &UnitAgent{
-		AgentConf:        NewAgentConf(""),
-		configChangedVal: voyeur.NewValue(true),
-		ctx:              ctx,
-		dead:             make(chan struct{}),
+		AgentConf:                   NewAgentConf(""),
+		configChangedVal:            voyeur.NewValue(true),
+		ctx:                         ctx,
+		dead:                        make(chan struct{}),
 		initialUpgradeCheckComplete: gate.NewLock(),
 		bufferedLogger:              bufferedLogger,
 		prometheusRegistry:          prometheusRegistry,

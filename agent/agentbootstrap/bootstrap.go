@@ -314,7 +314,7 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 		Constraints:             args.BootstrapMachineConstraints,
 		InstanceId:              args.BootstrapMachineInstanceId,
 		HardwareCharacteristics: hardware,
-		Jobs: jobs,
+		Jobs:                    jobs,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
