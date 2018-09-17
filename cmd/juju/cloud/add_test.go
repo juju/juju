@@ -803,7 +803,7 @@ func (*addSuite) TestInteractiveOpenstackCloudCertReadFailRetry(c *gc.C) {
 		fakeCertFilename,
 		input,
 		fmt.Sprintf("Successfully read CA Certificate from %s\n", fakeCertFilename),
-		fmt.Sprintf("Can't validate CA Certificate file: open %s: no such file or directory", invalidCertFilename),
+		fmt.Sprintf("Can't validate CA Certificate file: open %s:", invalidCertFilename),
 	)
 }
 
