@@ -237,9 +237,8 @@ func (manager *Manager) retryingClaim(claim claim) {
 	select {
 	case <-manager.catacomb.Dying():
 		return
-	default:
+	case manager.errors <- err:
 	}
-	manager.errors <- err
 }
 
 // handleClaim processes the supplied claim. It will only return
@@ -357,7 +356,12 @@ func (manager *Manager) retryingTick(now time.Time) {
 		manager.config.Logger.Warningf("[%s] retrying timed out in tick", manager.logContext)
 		return
 	}
-	manager.errors <- err
+	select {
+	case <-manager.catacomb.Dying():
+		return
+	case manager.errors <- err:
+		// We're done.
+	}
 }
 
 // tick snapshots recent leases and expires any that it can. There
