@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
@@ -1716,4 +1717,57 @@ func migrateStorageMachineIds(st *State) error {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}
 	return nil
+}
+
+// LegacyLeases returns information about all of the leases in the
+// state-based lease store.
+func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corelease.Info, error) {
+	st := pool.SystemState()
+	reader, err := globalclock.NewReader(globalclock.ReaderConfig{
+		Config: globalclock.Config{
+			Collection: globalClockC,
+			Mongo:      &environMongo{state: st},
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	globalTime, err := reader.Now()
+
+	// This needs to be the raw collection so we see all leases across
+	// models.
+	leaseCollection, closer := st.db().GetRawCollection(leasesC)
+	defer closer()
+	iter := leaseCollection.Find(nil).Iter()
+	results := make(map[corelease.Key]corelease.Info)
+
+	var doc struct {
+		Namespace string        `bson:"namespace"`
+		ModelUUID string        `bson:"model-uuid"`
+		Name      string        `bson:"name"`
+		Holder    string        `bson:"holder"`
+		Start     int64         `bson:"start"`
+		Duration  time.Duration `bson:"duration"`
+	}
+
+	for iter.Next(&doc) {
+		startTime := time.Unix(0, doc.Start)
+		globalExpiry := startTime.Add(doc.Duration)
+		remaining := globalExpiry.Sub(globalTime)
+		localExpiry := localTime.Add(remaining)
+		key := corelease.Key{
+			Namespace: doc.Namespace,
+			ModelUUID: doc.ModelUUID,
+			Lease:     doc.Name,
+		}
+		results[key] = corelease.Info{
+			Holder:   doc.Holder,
+			Expiry:   localExpiry,
+			Trapdoor: nil,
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }

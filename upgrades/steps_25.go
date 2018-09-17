@@ -13,5 +13,10 @@ func stateStepsFor25() []Step {
 				return context.State().MigrateStorageMachineIdFields()
 			},
 		},
+		&upgradeStep{
+			description: "migrate legacy leases into raft",
+			targets:     []Target{Controller},
+			run:         MigrateLegacyLeases,
+		},
 	}
 }

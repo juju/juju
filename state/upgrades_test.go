@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
@@ -2714,4 +2715,49 @@ func (s *upgradesSuite) TestMigrateStorageMachineIdFields(c *gc.C) {
 		expectUpgradedData{volumeAttachmentsColl, expectedVolumeAttachments},
 		expectUpgradedData{filesystemAttachmentsColl, expectedFilesystemAttachments},
 	)
+}
+
+func (s *upgradesSuite) TestLegacyLeases(c *gc.C) {
+	clockColl, clockCloser := s.state.db().GetCollection(globalClockC)
+	defer clockCloser()
+	c.Assert(clockColl.Writeable().Insert(bson.M{
+		"_id":  "g",
+		"time": int64(5000000000),
+	}), jc.ErrorIsNil)
+
+	coll, closer := s.state.db().GetRawCollection(leasesC)
+	defer closer()
+	err := coll.Insert(bson.M{
+		"namespace":  "buke",
+		"model-uuid": "m1",
+		"name":       "seam-esteem",
+		"holder":     "gase",
+		"start":      int64(4000000000),
+		"duration":   5 * time.Second,
+	}, bson.M{
+		"namespace":  "reyne",
+		"model-uuid": "m2",
+		"name":       "scorned",
+		"holder":     "jordan",
+		"start":      int64(4500000000),
+		"duration":   10 * time.Second,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	now, err := time.Parse(time.RFC3339Nano, "2018-09-13T10:51:00.300000000Z")
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := LegacyLeases(s.pool, now)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, map[lease.Key]lease.Info{
+		{"buke", "m1", "seam-esteem"}: {
+			Holder:   "gase",
+			Expiry:   now.Add(4 * time.Second),
+			Trapdoor: nil,
+		},
+		{"reyne", "m2", "scorned"}: {
+			Holder:   "jordan",
+			Expiry:   now.Add(9500 * time.Millisecond),
+			Trapdoor: nil,
+		},
+	})
 }

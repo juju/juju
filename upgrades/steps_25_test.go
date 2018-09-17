@@ -25,3 +25,9 @@ func (s *steps25Suite) TestMigrateMachineIdField(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps25Suite) TestMigrateLegacyLeases(c *gc.C) {
+	step := findStateStep(c, v25, `migrate legacy leases into raft`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.Controller})
+}
