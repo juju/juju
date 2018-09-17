@@ -1126,9 +1126,9 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:          coretesting.FakeControllerConfig(),
 			ControllerInheritedConfig: map[string]interface{}{"ftp-proxy": "http://proxy"},
-			Cloud:        dummyCloud,
-			AdminSecret:  password,
-			CAPrivateKey: coretesting.CAKey,
+			Cloud:                     dummyCloud,
+			AdminSecret:               password,
+			CAPrivateKey:              coretesting.CAKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	icfg := env.instanceConfig

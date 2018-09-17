@@ -47,8 +47,8 @@ func (s *LogForwarderSuite) SetUpTest(c *gc.C) {
 			Name:           "99",
 			Software: logfwd.Software{
 				PrivateEnterpriseNumber: 28978,
-				Name:    "jujud-machine-agent",
-				Version: version.Current,
+				Name:                    "jujud-machine-agent",
+				Version:                 version.Current,
 			},
 		},
 		ID:        10,

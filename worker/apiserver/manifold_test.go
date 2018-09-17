@@ -81,9 +81,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LeaseManagerName:                  "lease-manager",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
-		Hub:       &s.hub,
-		Presence:  presence.New(s.clock),
-		NewWorker: s.newWorker,
+		Hub:                               &s.hub,
+		Presence:                          presence.New(s.clock),
+		NewWorker:                         s.newWorker,
 	})
 }
 

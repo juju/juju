@@ -178,10 +178,10 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.SetErrors(
-		nil, // for GetBackend, 1st model
-		nil, // for GetBlockForType, 1st model
-		nil, // for GetBlockForType, 1st model
-		nil, // for GetBlockForType, 1st model
+		nil,                            // for GetBackend, 1st model
+		nil,                            // for GetBlockForType, 1st model
+		nil,                            // for GetBlockForType, 1st model
+		nil,                            // for GetBlockForType, 1st model
 		errors.New("I have a problem"), // for GetBackend, 2nd model
 	)
 	err = common.DestroyController(s.modelManager, true, nil)

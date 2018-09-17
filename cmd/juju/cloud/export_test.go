@@ -43,7 +43,7 @@ func NewDetectCredentialsCommandForTest(
 	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
 ) *detectCredentialsCommand {
 	return &detectCredentialsCommand{
-		store: testStore,
+		store:                   testStore,
 		registeredProvidersFunc: registeredProvidersFunc,
 		allCloudsFunc:           allCloudsFunc,
 		cloudByNameFunc:         cloudsByNameFunc,

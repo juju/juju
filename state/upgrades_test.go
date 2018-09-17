@@ -1020,11 +1020,11 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) 
 	m, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	_, st, err := s.controller.NewModel(ModelArgs{
-		Type:        ModelTypeIAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       m.Owner(),
+		Type:                    ModelTypeIAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   m.Owner(),
 		StorageProviderRegistry: provider.CommonStorageProviders(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2368,7 +2368,7 @@ func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
 func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
-		"other-setting":                            "val",
+		"other-setting": "val",
 		unescapeReplacer.Replace("dotted.setting"): "value",
 		unescapeReplacer.Replace("dollar$setting"): "value",
 	})
