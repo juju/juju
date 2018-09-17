@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -2489,32 +2490,58 @@ func (st *State) WatchControllerStatusChanges() StringsWatcher {
 func makeControllerIdFilter(st *State) func(interface{}) bool {
 	initialInfo, err := st.ControllerInfo()
 	if err != nil {
+		logger.Debugf("unable to get controller info: %v", err)
 		return nil
 	}
-	machines := initialInfo.MachineIds
-	return func(key interface{}) bool {
-		switch key.(type) {
-		case string:
-			info, err := st.ControllerInfo()
-			if err != nil {
-				// Most likely, things will be killed and
-				// restarted if we hit this error.  Just use
-				// the machine list we knew about last time.
-				logger.Debugf("unable to get controller info: %v", err)
-			} else {
-				machines = info.MachineIds
-			}
-			for _, machine := range machines {
-				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
-					return true
-				}
-			}
-		default:
-			watchLogger.Errorf("key is not type string, got %T", key)
-		}
-		return false
-	}
 
+	filter := controllerIdFilter{
+		st:           st,
+		lastMachines: initialInfo.MachineIds,
+	}
+	return filter.match
+}
+
+// controllerIdFilter is a stateful watcher filter function - if it
+// can't get the current machines from controller info it uses the
+// last machines retrieved. Since this is called from multiple
+// goroutines getting/updating lastMachines is protected by a mutex.
+type controllerIdFilter struct {
+	mu           sync.Mutex
+	st           *State
+	lastMachines []string
+}
+
+func (f *controllerIdFilter) machines() []string {
+	var result []string
+	info, err := f.st.ControllerInfo()
+	f.mu.Lock()
+	if err != nil {
+		// Most likely, things will be killed and
+		// restarted if we hit this error.  Just use
+		// the machine list we knew about last time.
+		logger.Debugf("unable to get controller info: %v", err)
+		result = f.lastMachines
+	} else {
+		f.lastMachines = info.MachineIds
+		result = info.MachineIds
+	}
+	f.mu.Unlock()
+	return result
+}
+
+func (f *controllerIdFilter) match(key interface{}) bool {
+	switch key.(type) {
+	case string:
+		machines := f.machines()
+		for _, machine := range machines {
+			if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
+				return true
+			}
+		}
+	default:
+		watchLogger.Errorf("key is not type string, got %T", key)
+	}
+	return false
 }
 
 // WatchActionResults starts and returns a StringsWatcher that
