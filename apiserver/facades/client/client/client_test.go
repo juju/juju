@@ -1181,11 +1181,11 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
-			Nonce:      "foo",
+			Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			InstanceId:              instance.Id(fmt.Sprintf("1234-%d", i)),
+			Nonce:                   "foo",
 			HardwareCharacteristics: hc,
-			Addrs: params.FromNetworkAddresses(addrs...),
+			Addrs:                   params.FromNetworkAddresses(addrs...),
 		}
 	}
 	// This will cause the last add-machine to fail.
@@ -1243,9 +1243,9 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// converting it to a cloudinit.MachineConfig, and disabling
 	// apt_upgrade.
 	apiParams := params.AddMachineParams{
-		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
+		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		InstanceId:              instance.Id("1234"),
+		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
@@ -1281,9 +1281,9 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 
 func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
+		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		InstanceId:              instance.Id("1234"),
+		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})

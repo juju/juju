@@ -171,9 +171,9 @@ func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 
 func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.ModelConfig()
-		nil, // Backing.CloudSpec()
-		nil, // Provider.Open()
+		nil,                            // Backing.ModelConfig()
+		nil,                            // Backing.CloudSpec()
+		nil,                            // Provider.Open()
 		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
 	)
 

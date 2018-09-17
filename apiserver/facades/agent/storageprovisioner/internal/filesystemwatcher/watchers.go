@@ -222,10 +222,10 @@ func (fw Watchers) WatchModelManagedFilesystemAttachments() state.StringsWatcher
 // specified machine.
 func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) state.StringsWatcher {
 	w := &machineFilesystemAttachmentsWatcher{
-		stringsWatcherBase: stringsWatcherBase{out: make(chan []string)},
-		backend:            fw.Backend,
-		machine:            m,
-		changes:            set.NewStrings(),
+		stringsWatcherBase:               stringsWatcherBase{out: make(chan []string)},
+		backend:                          fw.Backend,
+		machine:                          m,
+		changes:                          set.NewStrings(),
 		machineFilesystemAttachments:     fw.Backend.WatchMachineFilesystemAttachments(m),
 		modelFilesystemAttachments:       fw.Backend.WatchModelFilesystemAttachments(),
 		modelVolumeAttachments:           fw.Backend.WatchModelVolumeAttachments(),

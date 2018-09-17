@@ -79,7 +79,7 @@ See also:
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.
 func NewDetectCredentialsCommand() cmd.Command {
 	c := &detectCredentialsCommand{
-		store: jujuclient.NewFileCredentialStore(),
+		store:                   jujuclient.NewFileCredentialStore(),
 		registeredProvidersFunc: environs.RegisteredProviders,
 		cloudByNameFunc:         jujucloud.CloudByName,
 	}

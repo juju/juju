@@ -273,7 +273,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// for the creation of the hub.
 		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
 			StateConfigWatcherName: stateConfigWatcherName,
-			Hub: config.CentralHub,
+			Hub:                    config.CentralHub,
 		}),
 
 		// The pubsub manifold gets the APIInfo from the agent config,

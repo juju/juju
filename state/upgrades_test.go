@@ -987,11 +987,11 @@ func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) 
 	m, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	_, st, err := s.state.NewModel(ModelArgs{
-		Type:        ModelTypeIAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       m.Owner(),
+		Type:                    ModelTypeIAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   m.Owner(),
 		StorageProviderRegistry: provider.CommonStorageProviders(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -140,7 +140,7 @@ func newWorker(st stateInterface, clock clock.Clock, pub publisherInterface, sup
 		machineTrackers:        make(map[string]*machineTracker),
 		publisher:              pub,
 		providerSupportsSpaces: supportsSpaces,
-		hub: hub,
+		hub:                    hub,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,

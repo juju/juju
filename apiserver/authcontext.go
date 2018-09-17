@@ -61,7 +61,7 @@ func newAuthContext(st *state.State) (*authContext, error) {
 	ctxt := &authContext{
 		st: st,
 		// TODO(fwereade) 2016-07-21 there should be a clock parameter
-		clock: clock.WallClock,
+		clock:                 clock.WallClock,
 		localUserInteractions: authentication.NewInteractions(),
 	}
 
@@ -187,8 +187,8 @@ func (a authenticator) localUserAuth() *authentication.UserAuthenticator {
 		Path:   localUserIdentityLocationPath,
 	}
 	return &authentication.UserAuthenticator{
-		Service: a.ctxt.localUserBakeryService,
-		Clock:   a.ctxt.clock,
+		Service:                   a.ctxt.localUserBakeryService,
+		Clock:                     a.ctxt.clock,
 		LocalUserIdentityLocation: localUserIdentityLocation.String(),
 	}
 }

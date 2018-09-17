@@ -33,8 +33,8 @@ func (s *OriginSuite) TestOriginForMachineAgent(c *gc.C) {
 		Name:           "99",
 		Software: logfwd.Software{
 			PrivateEnterpriseNumber: 28978,
-			Name:    "jujud-machine-agent",
-			Version: version.MustParse("2.0.1"),
+			Name:                    "jujud-machine-agent",
+			Version:                 version.MustParse("2.0.1"),
 		},
 	})
 }
@@ -52,8 +52,8 @@ func (s *OriginSuite) TestOriginForUnitAgent(c *gc.C) {
 		Name:           "svc-a/0",
 		Software: logfwd.Software{
 			PrivateEnterpriseNumber: 28978,
-			Name:    "jujud-unit-agent",
-			Version: version.MustParse("2.0.1"),
+			Name:                    "jujud-unit-agent",
+			Version:                 version.MustParse("2.0.1"),
 		},
 	})
 }
@@ -72,8 +72,8 @@ func (s *OriginSuite) TestOriginForJuju(c *gc.C) {
 		Name:           "bob",
 		Software: logfwd.Software{
 			PrivateEnterpriseNumber: 28978,
-			Name:    "juju",
-			Version: version.MustParse("2.0.1"),
+			Name:                    "juju",
+			Version:                 version.MustParse("2.0.1"),
 		},
 	})
 }
@@ -200,7 +200,7 @@ var validOrigin = logfwd.Origin{
 	Name:           "a-user",
 	Software: logfwd.Software{
 		PrivateEnterpriseNumber: 28978,
-		Name:    "juju",
-		Version: version.MustParse("2.0.1"),
+		Name:                    "juju",
+		Version:                 version.MustParse("2.0.1"),
 	},
 }
