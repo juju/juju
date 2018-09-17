@@ -223,11 +223,6 @@ class JujuData:
             shutil.rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path)
-        # For extention: Add all files carried over to the list.
-        for file_name in ['public-clouds.yaml']:
-            src_path = os.path.join(juju_home, file_name)
-            with skip_on_missing_file():
-                shutil.copy(src_path, home_path)
         yield home_path
 
     def update_config(self, new_config):
