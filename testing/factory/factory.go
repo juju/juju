@@ -745,12 +745,12 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
-		Type:            params.Type,
-		CloudName:       params.CloudName,
-		CloudRegion:     params.CloudRegion,
-		CloudCredential: params.CloudCredential,
-		Config:          cfg,
-		Owner:           params.Owner.(names.UserTag),
+		Type:                    params.Type,
+		CloudName:               params.CloudName,
+		CloudRegion:             params.CloudRegion,
+		CloudCredential:         params.CloudCredential,
+		Config:                  cfg,
+		Owner:                   params.Owner.(names.UserTag),
 		StorageProviderRegistry: params.StorageProviderRegistry,
 		EnvironVersion:          params.EnvironVersion,
 	})

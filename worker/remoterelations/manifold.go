@@ -69,7 +69,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ModelUUID:                agent.CurrentConfig().Model().Id(),
 		RelationsFacade:          facade,
 		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(config.NewControllerConnection),
-		Clock: clock.WallClock,
+		Clock:                    clock.WallClock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

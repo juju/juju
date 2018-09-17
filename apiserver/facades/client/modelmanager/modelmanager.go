@@ -508,12 +508,12 @@ func (m *ModelManagerAPI) newIAASModel(
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeIAAS,
-		CloudName:       cloudTag.Id(),
-		CloudRegion:     cloudRegionName,
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               cloudTag.Id(),
+		CloudRegion:             cloudRegionName,
+		CloudCredential:         cloudCredentialTag,
+		Config:                  newConfig,
+		Owner:                   ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
 		EnvironVersion:          env.Provider().Version(),
 	})

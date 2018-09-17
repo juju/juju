@@ -428,11 +428,11 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		return nil, err
 	}
 	template := state.MachineTemplate{
-		Series:      p.Series,
-		Constraints: p.Constraints,
-		InstanceId:  p.InstanceId,
-		Jobs:        jobs,
-		Nonce:       p.Nonce,
+		Series:                  p.Series,
+		Constraints:             p.Constraints,
+		InstanceId:              p.InstanceId,
+		Jobs:                    jobs,
+		Nonce:                   p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               params.NetworkAddresses(p.Addrs...),
 		Placement:               placementDirective,

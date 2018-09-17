@@ -307,7 +307,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// for the creation of the hub.
 		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
 			StateConfigWatcherName: stateConfigWatcherName,
-			Hub: config.CentralHub,
+			Hub:                    config.CentralHub,
 		}),
 
 		// The pubsub manifold gets the APIInfo from the agent config,
@@ -699,9 +699,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			Hub:       config.CentralHub,
-			Presence:  config.PresenceRecorder,
-			NewWorker: apiserver.NewWorker,
+			Hub:                               config.CentralHub,
+			Presence:                          config.PresenceRecorder,
+			NewWorker:                         apiserver.NewWorker,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{

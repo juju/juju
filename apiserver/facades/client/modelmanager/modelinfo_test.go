@@ -295,8 +295,8 @@ func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 	s.st.model.SetErrors(
-		nil, //Config
-		nil, //Status
+		nil,                               //Config
+		nil,                               //Status
 		errors.Errorf("no users for you"), // Users
 	)
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `no users for you`)
@@ -485,15 +485,15 @@ func (s *modelInfoSuite) setModelConfigError() {
 
 func (s *modelInfoSuite) setModelStatusError() {
 	s.st.model.SetErrors(
-		nil, //Config
+		nil,                        //Config
 		errors.NotFoundf("status"), //Status
 	)
 }
 
 func (s *modelInfoSuite) setModelUsersError() {
 	s.st.model.SetErrors(
-		nil, //Config
-		nil, //Status
+		nil,                       //Config
+		nil,                       //Status
 		errors.NotFoundf("users"), //Users
 	)
 }

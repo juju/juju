@@ -121,10 +121,10 @@ func (s *CAASModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		Config:                  cfg,
+		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, gc.ErrorMatches, "CAAS model with StorageProviderRegistry not valid")

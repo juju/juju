@@ -350,7 +350,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
-			Clock: db.clock,
+			Clock:                  db.clock,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

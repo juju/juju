@@ -191,7 +191,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 			Name: "filesystem-0",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
-					"foo": "bar",
+					"foo":                  "bar",
 					"user.juju-model-uuid": "baz",
 				},
 			},

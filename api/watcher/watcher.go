@@ -254,7 +254,7 @@ func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsW
 	w := &relationUnitsWatcher{
 		caller:                 caller,
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
-		out: make(chan watcher.RelationUnitsChange),
+		out:                    make(chan watcher.RelationUnitsChange),
 	}
 	w.tomb.Go(func() error {
 		return w.loop(result.Changes)
@@ -326,7 +326,7 @@ func NewRelationStatusWatcher(
 	w := &relationStatusWatcher{
 		caller:                  caller,
 		relationStatusWatcherId: result.RelationStatusWatcherId,
-		out: make(chan []watcher.RelationStatusChange),
+		out:                     make(chan []watcher.RelationStatusChange),
 	}
 	w.tomb.Go(func() error {
 		return w.loop(result.Changes)
@@ -517,9 +517,9 @@ func NewFilesystemAttachmentsWatcher(caller base.APICaller, result params.Machin
 
 func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
 	w := &machineAttachmentsWatcher{
-		caller: caller,
+		caller:                      caller,
 		machineAttachmentsWatcherId: result.MachineStorageIdsWatcherId,
-		out: make(chan []watcher.MachineStorageId),
+		out:                         make(chan []watcher.MachineStorageId),
 	}
 	w.tomb.Go(func() error {
 		return w.loop(facade, result.Changes)

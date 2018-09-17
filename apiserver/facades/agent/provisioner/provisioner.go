@@ -347,9 +347,9 @@ func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
 	}
 
 	return params.ContainerConfigV5{
-		ProviderType:            cfg.ProviderType,
-		AuthorizedKeys:          cfg.AuthorizedKeys,
-		SSLHostnameVerification: cfg.SSLHostnameVerification,
+		ProviderType:               cfg.ProviderType,
+		AuthorizedKeys:             cfg.AuthorizedKeys,
+		SSLHostnameVerification:    cfg.SSLHostnameVerification,
 		Proxy:                      cfg.LegacyProxy,
 		AptProxy:                   cfg.AptProxy,
 		AptMirror:                  cfg.AptMirror,

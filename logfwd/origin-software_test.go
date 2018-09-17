@@ -22,8 +22,8 @@ var _ = gc.Suite(&SoftwareSuite{})
 func (s *SoftwareSuite) TestValidateFull(c *gc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: 28978,
-		Name:    "juju",
-		Version: version.MustParse("2.0.1"),
+		Name:                    "juju",
+		Version:                 version.MustParse("2.0.1"),
 	}
 
 	err := sw.Validate()
@@ -54,8 +54,8 @@ func (s *SoftwareSuite) TestValidateEmptyPEN(c *gc.C) {
 func (s *SoftwareSuite) TestValidateNegativePEN(c *gc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: -1,
-		Name:    "juju",
-		Version: version.MustParse("2.0.1"),
+		Name:                    "juju",
+		Version:                 version.MustParse("2.0.1"),
 	}
 
 	err := sw.Validate()
@@ -79,7 +79,7 @@ func (s *SoftwareSuite) TestValidateEmptyName(c *gc.C) {
 func (s *SoftwareSuite) TestValidateEmptyVersion(c *gc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: 28978,
-		Name: "juju",
+		Name:                    "juju",
 	}
 
 	err := sw.Validate()
