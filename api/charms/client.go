@@ -38,19 +38,20 @@ func (c *Client) IsMetered(charmURL string) (bool, error) {
 
 // CharmInfo holds information about a charm.
 type CharmInfo struct {
-	Revision int
-	URL      string
-	Config   *charm.Config
-	Meta     *charm.Meta
-	Actions  *charm.Actions
-	Metrics  *charm.Metrics
+	Revision   int
+	URL        string
+	Config     *charm.Config
+	Meta       *charm.Meta
+	Actions    *charm.Actions
+	Metrics    *charm.Metrics
+	LXDProfile *charm.LXDProfile
 }
 
 // CharmInfo returns information about the requested charm.
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmURL{URL: charmURL}
-	info := new(params.CharmInfo)
-	if err := c.facade.FacadeCall("CharmInfo", args, info); err != nil {
+	var info params.CharmInfo
+	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
 		return nil, errors.Trace(err)
 	}
 	meta, err := convertCharmMeta(info.Meta)
@@ -58,12 +59,13 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	result := &CharmInfo{
-		Revision: info.Revision,
-		URL:      info.URL,
-		Config:   convertCharmConfig(info.Config),
-		Meta:     meta,
-		Actions:  convertCharmActions(info.Actions),
-		Metrics:  convertCharmMetrics(info.Metrics),
+		Revision:   info.Revision,
+		URL:        info.URL,
+		Config:     convertCharmConfig(info.Config),
+		Meta:       meta,
+		Actions:    convertCharmActions(info.Actions),
+		Metrics:    convertCharmMetrics(info.Metrics),
+		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
 	}
 	return result, nil
 }
@@ -282,6 +284,37 @@ func convertCharmExtraBindingMap(bindings map[string]string) map[string]charm.Ex
 	result := make(map[string]charm.ExtraBinding)
 	for key, value := range bindings {
 		result[key] = charm.ExtraBinding{value}
+	}
+	return result
+}
+
+func convertCharmLXDProfile(lxdProfile *params.CharmLXDProfile) *charm.LXDProfile {
+	if lxdProfile == nil {
+		return nil
+	}
+	return &charm.LXDProfile{
+		Description: lxdProfile.Description,
+		Config:      convertCharmLXDProfileConfigMap(lxdProfile.Config),
+		Devices:     convertCharmLXDProfileDevicesMap(lxdProfile.Devices),
+	}
+}
+
+func convertCharmLXDProfileConfigMap(config map[string]string) map[string]string {
+	result := make(map[string]string, len(config))
+	for k, v := range config {
+		result[k] = v
+	}
+	return result
+}
+
+func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[string]map[string]string {
+	result := make(map[string]map[string]string, len(devices))
+	for k, v := range devices {
+		nested := make(map[string]string, len(v))
+		for nk, nv := range v {
+			nested[nk] = nv
+		}
+		result[k] = nested
 	}
 	return result
 }

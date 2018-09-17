@@ -120,7 +120,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	if featureflag.Enabled(feature.LXDProfile) {
 		lpc, ok := info.Charm.(charm.LXDProfiler)
 		if !ok {
-			return nil, errors.New("charm does no implment LXDProfiler")
+			return nil, errors.New("charm does no implement LXDProfiler")
 		}
 		doc.LXDProfile = safeLXDProfile(lpc.LXDProfile())
 	}
@@ -542,7 +542,7 @@ func (c *Charm) Actions() *charm.Actions {
 	return c.doc.Actions
 }
 
-// LXDProfile returns the lxdprofile definition of the charm.
+// LXDProfile returns the lxd profile definition of the charm.
 func (c *Charm) LXDProfile() *charm.LXDProfile {
 	return c.doc.LXDProfile
 }
