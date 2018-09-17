@@ -556,11 +556,6 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange()
 
-	// Update config a couple of times, check a single event.
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
-		"blog-title": "superhero paparazzi",
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
@@ -816,9 +811,7 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange()
 
-	// Update config a couple of times, check a single event.
-	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	// Update config get an event.
 	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -950,6 +943,10 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
+	// This test is really testing the apiserver code, and the
+	// state code, not really the API client.
+	// The watcher gets notified when either the unit meter status
+	// changes, or the metrics manager changes.
 	w, err := s.apiUnit.WatchMeterStatus()
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
@@ -957,8 +954,6 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange()
 
-	err = s.wordpressUnit.SetMeterStatus("GREEN", "ok")
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -972,12 +967,10 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 3; i++ {
-		err := mm.IncrementConsecutiveErrors()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	status := mm.MeterStatus()
-	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	wc.AssertOneChange()
+
+	err = mm.IncrementConsecutiveErrors()
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
