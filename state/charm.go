@@ -107,8 +107,10 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	}
 
 	var lxdProfile *charm.LXDProfile
-	if profiler, ok := info.Charm.(charm.LXDProfiler); ok {
-		lxdProfile = profiler.LXDProfile()
+	if featureflag.Enabled(feature.LXDProfile) {
+		if profiler, ok := info.Charm.(charm.LXDProfiler); ok {
+			lxdProfile = profiler.LXDProfile()
+		}
 	}
 
 	doc := charmDoc{
