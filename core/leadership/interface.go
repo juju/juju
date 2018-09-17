@@ -38,6 +38,19 @@ type Claimer interface {
 	BlockUntilLeadershipReleased(applicationId string, cancel <-chan struct{}) (err error)
 }
 
+// Pinner describes methods used to manage suspension of application leadership
+// expiry.
+type Pinner interface {
+
+	// PinLeadership ensures that until "unpinned", the leadership of the input
+	// application will not change.
+	PinLeadership(applicationId string) error
+
+	// UnpinLeadership reverses the PinLeadership operation, restoring the
+	// usual leadership expiry behaviour for input the application.
+	UnpinLeadership(applicationId string) error
+}
+
 // Token represents a unit's leadership of its application.
 type Token interface {
 
