@@ -28,6 +28,8 @@ type runHook struct {
 	name   string
 	runner runner.Runner
 
+	hookFound bool
+
 	RequiresMachineLock
 }
 
@@ -96,14 +98,14 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	// to count so reset it here before running the hook.
 	rh.runner.Context().ResetExecutionSetUnitStatus()
 
-	ranHook := true
+	rh.hookFound = true
 	step := Done
 
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):
-		ranHook = false
+		rh.hookFound = false
 		err = nil
 	case cause == context.ErrRequeueAndReboot:
 		step = Queued
@@ -117,7 +119,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		return nil, ErrHookFailed
 	}
 
-	if ranHook {
+	if rh.hookFound {
 		logger.Infof("ran %q hook", rh.name)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
 	} else {
@@ -155,10 +157,8 @@ func (rh *runHook) beforeHook(state State) error {
 			Info:   "cleaning up prior to charm deletion",
 		})
 	case hooks.PreSeriesUpgrade:
-		logger.Debugf("starting pre upgrade series hook. updating state of series upgrade.")
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareRunning, "pre-series-upgrade hook running")
 	case hooks.PostSeriesUpgrade:
-		logger.Debugf("starting post upgrade series hook. updating state of series upgrade.")
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleteRunning, "post-series-upgrade hook running")
 	}
 	if err != nil {
@@ -207,13 +207,20 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 			err = rel.SetStatus(relation.Suspended)
 		}
 	case hooks.PreSeriesUpgrade:
-		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "pre-series-upgrade hook completed")
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
 	case hooks.PostSeriesUpgrade:
-		logger.Debugf("completing post upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "post-series-upgrade hook completed")
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	}
 	return hasRunStatusSet && err == nil, err
+}
+
+func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
+	if !hookFound {
+		return fmt.Sprintf("skipped %s since it is not implemented", name)
+	}
+	return fmt.Sprintf("%s completed", name)
 }
 
 // Commit updates relation state to include the fact of the hook's execution,
