@@ -106,13 +106,6 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.New("*charm.URL was nil")
 	}
 
-	var lxdProfile *charm.LXDProfile
-	if featureflag.Enabled(feature.LXDProfile) {
-		if profiler, ok := info.Charm.(charm.LXDProfiler); ok {
-			lxdProfile = profiler.LXDProfile()
-		}
-	}
-
 	doc := charmDoc{
 		DocID:        info.ID.String(),
 		URL:          info.ID,
@@ -121,7 +114,6 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		Config:       safeConfig(info.Charm),
 		Metrics:      info.Charm.Metrics(),
 		Actions:      info.Charm.Actions(),
-		LXDProfile:   safeLXDProfile(lxdProfile),
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
 	}
