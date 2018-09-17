@@ -43,8 +43,8 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 	testInstanceTags(c, cfg, nil, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": testing.ControllerTag.Id(),
-		"a": "b",
-		"c": "",
+		"a":                    "b",
+		"c":                    "",
 	})
 }
 

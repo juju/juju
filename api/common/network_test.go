@@ -901,8 +901,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C) {
 	s.stubConfigSource.SetErrors(
-		nil, // Interfaces
-		nil, // DefaultRoute
+		nil,                        // Interfaces
+		nil,                        // DefaultRoute
 		errors.New("no addresses"), // InterfaceAddressses
 	)
 

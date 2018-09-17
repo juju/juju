@@ -272,9 +272,9 @@ func (inst *azureInstance) OpenPorts(machineId string, rules []jujunetwork.Ingre
 				DestinationPortRange:     to.StringPtr(portRange),
 				SourceAddressPrefix:      to.StringPtr(from),
 				DestinationAddressPrefix: to.StringPtr(primaryNetworkAddress.Value),
-				Access:    network.SecurityRuleAccessAllow,
-				Priority:  to.Int32Ptr(priority),
-				Direction: network.SecurityRuleDirectionInbound,
+				Access:                   network.SecurityRuleAccessAllow,
+				Priority:                 to.Int32Ptr(priority),
+				Direction:                network.SecurityRuleDirectionInbound,
 			},
 		}
 		_, errCh := securityRuleClient.CreateOrUpdate(

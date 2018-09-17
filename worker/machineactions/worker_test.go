@@ -74,7 +74,7 @@ func (*WorkerSuite) TestRunningActionsError(c *gc.C) {
 func (*WorkerSuite) TestInvalidActionId(c *gc.C) {
 	stub := &testing.Stub{}
 	facade := &mockFacade{
-		stub: stub,
+		stub:                     stub,
 		watcherSendInvalidValues: true,
 	}
 	config := machineactions.WorkerConfig{

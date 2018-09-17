@@ -163,10 +163,10 @@ func (s *SpacesSuite) TestAddSpacesManySubnets(c *gc.C) {
 
 func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.ModelConfig()
-		nil, // Backing.CloudSpec()
-		nil, // Provider.Open()
-		nil, // ZonedNetworkingEnviron.SupportsSpaces()
+		nil,                                // Backing.ModelConfig()
+		nil,                                // Backing.CloudSpec()
+		nil,                                // Provider.Open()
+		nil,                                // ZonedNetworkingEnviron.SupportsSpaces()
 		errors.AlreadyExistsf("space-foo"), // Backing.AddSpace()
 	)
 	p := checkAddSpacesParams{
@@ -270,11 +270,11 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.ModelConfig()
-		nil, // Backing.CloudSpec()
-		nil, // Provider.Open()
-		nil, // ZonedNetworkingEnviron.SupportsSpaces()
-		nil, // Backing.AllSpaces()
+		nil,                                 // Backing.ModelConfig()
+		nil,                                 // Backing.CloudSpec()
+		nil,                                 // Provider.Open()
+		nil,                                 // ZonedNetworkingEnviron.SupportsSpaces()
+		nil,                                 // Backing.AllSpaces()
 		errors.New("space0 subnets failed"), // Space.Subnets()
 		errors.New("space1 subnets failed"), // Space.Subnets()
 		errors.New("space2 subnets failed"), // Space.Subnets()
@@ -335,9 +335,9 @@ func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 
 func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.ModelConfig()
-		nil, // Backing.CloudSpec()
-		nil, // Provider.Open()
+		nil,                            // Backing.ModelConfig()
+		nil,                            // Backing.CloudSpec()
+		nil,                            // Provider.Open()
 		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
 	)
 
@@ -348,9 +348,9 @@ func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 
 func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.ModelConfig()
-		nil, // Backing.CloudSpec()
-		nil, // Provider.Open
+		nil,                            // Backing.ModelConfig()
+		nil,                            // Backing.CloudSpec()
+		nil,                            // Provider.Open
 		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
 	)
 
@@ -360,9 +360,9 @@ func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
 
 func (s *SpacesSuite) TestReloadSpacesNotSupportedError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.ModelConfig()
-		nil, // Backing.CloudSpec()
-		nil, // Provider.Open()
+		nil,                            // Backing.ModelConfig()
+		nil,                            // Backing.CloudSpec()
+		nil,                            // Provider.Open()
 		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
 	)
 	err := s.facade.ReloadSpaces()

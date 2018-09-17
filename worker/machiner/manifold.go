@@ -87,8 +87,8 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	}
 	accessor := APIMachineAccessor{apimachiner.NewState(apiCaller)}
 	w, err := NewMachiner(Config{
-		MachineAccessor: accessor,
-		Tag:             tag.(names.MachineTag),
+		MachineAccessor:              accessor,
+		Tag:                          tag.(names.MachineTag),
 		ClearMachineAddressesOnStart: ignoreMachineAddresses,
 		NotifyMachineDead: func() error {
 			return agent.SetCanUninstall(a)

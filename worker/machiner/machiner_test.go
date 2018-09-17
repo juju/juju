@@ -103,9 +103,9 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 	// Accessing the machine initially yields "not found or unauthorized".
 	// We don't know which, so we don't report that the machine is dead.
 	s.accessor.machine.SetErrors(
-		nil, // SetMachineAddresses
-		nil, // SetStatus
-		nil, // Watch
+		nil,                       // SetMachineAddresses
+		nil,                       // SetStatus
+		nil,                       // Watch
 		&params.Error{Code: code}, // Refresh
 	)
 	var machineDead machineDeathTracker
@@ -129,10 +129,10 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
-		nil, // SetMachineAddresses
-		nil, // SetStatus (started)
-		nil, // Watch
-		nil, // Refresh
+		nil,                             // SetMachineAddresses
+		nil,                             // SetStatus (started)
+		nil,                             // Watch
+		nil,                             // Refresh
 		errors.New("cannot set status"), // SetStatus (stopped)
 	)
 	w, err := machiner.NewMachiner(machiner.Config{
@@ -456,8 +456,8 @@ func (s *MachinerSuite) makeMachiner(
 		machineDead = func() error { return nil }
 	}
 	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
+		MachineAccessor:              s.accessor,
+		Tag:                          s.machineTag,
 		ClearMachineAddressesOnStart: ignoreAddresses,
 		NotifyMachineDead:            machineDead,
 	})

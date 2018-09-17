@@ -830,7 +830,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Primary:                   to.BoolPtr(true),
 			PrivateIPAddress:          to.StringPtr(privateIPAddress),
 			PrivateIPAllocationMethod: network.Static,
-			Subnet: &network.Subnet{ID: to.StringPtr(subnetId)},
+			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
 			PublicIPAddress: &network.PublicIPAddress{
 				ID: to.StringPtr(publicIPAddressId),
 			},
@@ -1219,8 +1219,8 @@ func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
 		s.publicIPAddressesSender(),                       // GET: no public IPs
 		s.makeSender(".*/virtualMachines/machine-0", nil), // DELETE
 		s.makeSender(".*/disks/machine-0", nil),           // DELETE
-		nsgSender, // GET with failure
-		s.makeSender(".*/deployments/machine-0", nil), // DELETE
+		nsgSender,                                         // GET with failure
+		s.makeSender(".*/deployments/machine-0", nil),     // DELETE
 	}
 	err := env.StopInstances("machine-0")
 	c.Assert(err, jc.ErrorIsNil)

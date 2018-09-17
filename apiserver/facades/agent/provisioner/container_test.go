@@ -74,8 +74,8 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		errors = append(errors, configResult.Error)
 	}
 	c.Check(errors, gc.DeepEquals, []*params.Error{
-		nil, // can touch 1/lxd/0
-		nil, // can touch 1/lxd/1
+		nil,                              // can touch 1/lxd/0
+		nil,                              // can touch 1/lxd/1
 		apiservertesting.ErrUnauthorized, // not 2/lxd/0
 		apiservertesting.ErrUnauthorized, // nor 2
 	})
@@ -122,8 +122,8 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		errors = append(errors, configResult.Error)
 	}
 	c.Check(errors, gc.DeepEquals, []*params.Error{
-		nil, // can touch 1/lxd/0
-		nil, // can touch 1/lxd/1
+		nil,                              // can touch 1/lxd/0
+		nil,                              // can touch 1/lxd/1
 		apiservertesting.ErrUnauthorized, // not 2/lxd/0
 		apiservertesting.ErrUnauthorized, // nor 2
 	})

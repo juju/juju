@@ -924,7 +924,7 @@ func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
 func (test configValidateCloudInitUserDataTest) checkNew(c *gc.C) {
 	final := testing.Attrs{
 		"type": "my-type", "name": "my-name",
-		"uuid": testing.ModelTag.Id(),
+		"uuid":                      testing.ModelTag.Id(),
 		config.CloudInitUserDataKey: test.value,
 	}
 

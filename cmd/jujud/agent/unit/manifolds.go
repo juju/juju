@@ -300,10 +300,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			MachineLock:   config.MachineLock,
-			Clock:         clock.WallClock,
+			AgentName:             agentName,
+			APICallerName:         apiCallerName,
+			MachineLock:           config.MachineLock,
+			Clock:                 clock.WallClock,
 			LeadershipTrackerName: leadershipTrackerName,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,

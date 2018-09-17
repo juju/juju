@@ -149,7 +149,7 @@ func (w *updaterWorker) loop() error {
 				watchers.Add(tag)
 				if err := w.runner.StartWorker(tag.Id(), func() (worker.Worker, error) {
 					cw := controllerWatcher{
-						tag: tag,
+						tag:                                tag,
 						setExternalControllerInfo:          w.setExternalControllerInfo,
 						externalControllerInfo:             w.externalControllerInfo,
 						newExternalControllerWatcherClient: w.newExternalControllerWatcherClient,
