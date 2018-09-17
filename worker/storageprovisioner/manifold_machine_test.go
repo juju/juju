@@ -44,9 +44,9 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 	)
 	config := enginetest.AgentAPIManifoldTestConfig()
 	s.config = storageprovisioner.MachineManifoldConfig{
-		AgentName:     config.AgentName,
-		APICallerName: config.APICallerName,
-		Clock:         testclock.NewClock(defaultClockStart),
+		AgentName:                    config.AgentName,
+		APICallerName:                config.APICallerName,
+		Clock:                        testclock.NewClock(defaultClockStart),
 		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 	}
 }

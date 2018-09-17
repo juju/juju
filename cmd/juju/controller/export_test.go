@@ -107,9 +107,9 @@ func NewDestroyCommandForTest(
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:       api,
-			clientapi: clientapi,
-			apierr:    apierr,
+			api:                         api,
+			clientapi:                   clientapi,
+			apierr:                      apierr,
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
 		},
@@ -137,9 +137,9 @@ func NewKillCommandForTest(
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:       api,
-			clientapi: clientapi,
-			apierr:    apierr,
+			api:                         api,
+			clientapi:                   clientapi,
+			apierr:                      apierr,
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
 		},

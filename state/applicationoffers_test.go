@@ -403,7 +403,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 		OfferName:              "hosted-mysql",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a better database",
-		Owner: owner.Name(),
+		Owner:                  owner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offer, jc.DeepEquals, &crossmodel.ApplicationOffer{

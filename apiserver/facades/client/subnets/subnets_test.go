@@ -168,11 +168,11 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.AvailabilityZones
-		nil, // Backing.ModelConfig
-		nil, // Backing.CloudSpec
-		nil, // Provider.Open
-		nil, // ZonedEnviron.AvailabilityZones
+		nil,                             // Backing.AvailabilityZones
+		nil,                             // Backing.ModelConfig
+		nil,                             // Backing.CloudSpec
+		nil,                             // Provider.Open
+		nil,                             // ZonedEnviron.AvailabilityZones
 		errors.NotSupportedf("setting"), // Backing.SetAvailabilityZones
 	)
 
@@ -197,10 +197,10 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.AvailabilityZones
-		nil, // Backing.ModelConfig
-		nil, // Backing.CloudSpec
-		nil, // Provider.Open
+		nil,                     // Backing.AvailabilityZones
+		nil,                     // Backing.ModelConfig
+		nil,                     // Backing.CloudSpec
+		nil,                     // Provider.Open
 		errors.NotValidf("foo"), // ZonedEnviron.AvailabilityZones
 	)
 
@@ -224,7 +224,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.AvailabilityZones
+		nil,                        // Backing.AvailabilityZones
 		errors.NotFoundf("config"), // Backing.ModelConfig
 	)
 
@@ -245,9 +245,9 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.AvailabilityZones
-		nil, // Backing.ModelConfig
-		nil, // Backing.CloudSpec
+		nil,                        // Backing.AvailabilityZones
+		nil,                        // Backing.ModelConfig
+		nil,                        // Backing.CloudSpec
 		errors.NotValidf("config"), // Provider.Open
 	)
 
@@ -470,14 +470,14 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		errors.NotFoundf("config"), // BackingInstance.ModelConfig (1st call)
 
 		// caching subnets (2nd attepmt): fails
-		nil, // BackingInstance.ModelConfig (2nd call)
-		nil, // BackingInstance.CloudSpec (1st call)
+		nil,                          // BackingInstance.ModelConfig (2nd call)
+		nil,                          // BackingInstance.CloudSpec (1st call)
 		errors.NotFoundf("provider"), // ProviderInstance.Open (1st call)
 
 		// caching subnets (3rd attempt): fails
-		nil, // BackingInstance.ModelConfig (3rd call)
-		nil, // BackingInstance.CloudSpec (2nd call)
-		nil, // ProviderInstance.Open (2nd call)
+		nil,                         // BackingInstance.ModelConfig (3rd call)
+		nil,                         // BackingInstance.CloudSpec (2nd call)
+		nil,                         // ProviderInstance.Open (2nd call)
 		errors.NotFoundf("subnets"), // NetworkingEnvironInstance.Subnets (1st call)
 
 		// caching subnets (4th attempt): succeeds
@@ -488,11 +488,11 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 
 		// caching spaces (1st and 2nd attempts)
 		errors.NotFoundf("spaces"), // BackingInstance.AllSpaces (1st call)
-		nil, // BackingInstance.AllSpaces (2nd call)
+		nil,                        // BackingInstance.AllSpaces (2nd call)
 
 		// cacing zones (1st and 2nd attempts)
 		errors.NotFoundf("zones"), // BackingInstance.AvailabilityZones (1st call)
-		nil, // BackingInstance.AvailabilityZones (2nd call)
+		nil,                       // BackingInstance.AvailabilityZones (2nd call)
 
 		// validation done; adding subnets to backing store
 		errors.NotFoundf("state"), // BackingInstance.AddSubnet (1st call)

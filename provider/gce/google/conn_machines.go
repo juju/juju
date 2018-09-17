@@ -19,13 +19,13 @@ func (gce *Connection) ListMachineTypes(zone string) ([]MachineType, error) {
 			deprecated = machine.Deprecated.State != ""
 		}
 		res[i] = MachineType{
-			CreationTimestamp: machine.CreationTimestamp,
-			Deprecated:        deprecated,
-			Description:       machine.Description,
-			GuestCpus:         machine.GuestCpus,
-			Id:                machine.Id,
-			ImageSpaceGb:      machine.ImageSpaceGb,
-			Kind:              machine.Kind,
+			CreationTimestamp:            machine.CreationTimestamp,
+			Deprecated:                   deprecated,
+			Description:                  machine.Description,
+			GuestCpus:                    machine.GuestCpus,
+			Id:                           machine.Id,
+			ImageSpaceGb:                 machine.ImageSpaceGb,
+			Kind:                         machine.Kind,
 			MaximumPersistentDisks:       machine.MaximumPersistentDisks,
 			MaximumPersistentDisksSizeGb: machine.MaximumPersistentDisksSizeGb,
 			MemoryMb:                     machine.MemoryMb,

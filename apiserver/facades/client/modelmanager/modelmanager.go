@@ -461,11 +461,11 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
 
 	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeCAAS,
-		CloudName:       cloudTag.Id(),
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               cloudTag.Id(),
+		CloudCredential:         cloudCredentialTag,
+		Config:                  newConfig,
+		Owner:                   ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
 	})
 	if err != nil {
@@ -519,12 +519,12 @@ func (m *ModelManagerAPI) newModel(
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeIAAS,
-		CloudName:       cloudTag.Id(),
-		CloudRegion:     cloudRegionName,
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               cloudTag.Id(),
+		CloudRegion:             cloudRegionName,
+		CloudCredential:         cloudCredentialTag,
+		Config:                  newConfig,
+		Owner:                   ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
 		EnvironVersion:          env.Provider().Version(),
 	})

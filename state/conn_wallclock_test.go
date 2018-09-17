@@ -118,11 +118,11 @@ func (s *ConnWithWallClockSuite) NewStateForModelNamed(c *gc.C, modelName string
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
 	_, otherState, err := s.Controller.NewModel(state.ModelArgs{
-		Type:        state.ModelTypeIAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       otherOwner,
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   otherOwner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 

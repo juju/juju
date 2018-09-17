@@ -61,8 +61,8 @@ func newAuthContext(
 	clock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
-		st:    st,
-		clock: clock,
+		st:                    st,
+		clock:                 clock,
 		localUserInteractions: authentication.NewInteractions(),
 	}
 
@@ -179,8 +179,8 @@ func (a authenticator) localUserAuth() *authentication.UserAuthenticator {
 		Path:   localUserIdentityLocationPath,
 	}
 	return &authentication.UserAuthenticator{
-		Service: a.ctxt.localUserBakeryService,
-		Clock:   a.ctxt.clock,
+		Service:                   a.ctxt.localUserBakeryService,
+		Clock:                     a.ctxt.clock,
 		LocalUserIdentityLocation: localUserIdentityLocation.String(),
 	}
 }

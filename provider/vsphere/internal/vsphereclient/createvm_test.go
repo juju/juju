@@ -60,7 +60,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusUpdates, jc.DeepEquals, []string{
-		"uploading juju-vmdks/ctrl/xenial/04d3415158bcc24a91334eda408cf102fcf45c56a805135493e00156cd7b6391.vmdk.tmp: 100.00% (0B/s)",
+		"uploading juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk.tmp: 100.00% (0B/s)",
 		"creating import spec",
 		`creating VM "vm-0"`,
 		"VM cloned",
@@ -86,7 +86,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		{"SearchDatastore", []interface{}{
 			"[datastore2] juju-vmdks/ctrl/xenial",
 			&types.HostDatastoreBrowserSearchSpec{
-				MatchPattern: []string{"04d3415158bcc24a91334eda408cf102fcf45c56a805135493e00156cd7b6391.vmdk"},
+				MatchPattern: []string{"4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk"},
 				Details: &types.FileQueryFlags{
 					FileType:     true,
 					FileSize:     true,
@@ -111,8 +111,8 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		}},
 
 		{"MoveDatastoreFile", []interface{}{
-			"[datastore2] juju-vmdks/ctrl/xenial/04d3415158bcc24a91334eda408cf102fcf45c56a805135493e00156cd7b6391.vmdk.tmp",
-			"[datastore2] juju-vmdks/ctrl/xenial/04d3415158bcc24a91334eda408cf102fcf45c56a805135493e00156cd7b6391.vmdk",
+			"[datastore2] juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk.tmp",
+			"[datastore2] juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk",
 			newBool(true),
 		}},
 		{"CreatePropertyCollector", nil},
@@ -451,7 +451,7 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		Constraints:            constraints.Value{},
 		UpdateProgress:         func(status string) {},
 		UpdateProgressInterval: time.Second,
-		Clock: testclock.NewClock(time.Time{}),
+		Clock:                  testclock.NewClock(time.Time{}),
 	}
 }
 

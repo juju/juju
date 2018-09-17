@@ -49,8 +49,8 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	}
 
 	provisioningScript, err := args.Client.ProvisioningScript(params.ProvisioningScriptParams{
-		MachineId: machineId,
-		Nonce:     machineParams.Nonce,
+		MachineId:              machineId,
+		Nonce:                  machineParams.Nonce,
 		DisablePackageCommands: !args.EnableOSRefreshUpdate && !args.EnableOSUpgrade,
 	})
 

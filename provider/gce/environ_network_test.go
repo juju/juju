@@ -36,8 +36,8 @@ func (s *environNetSuite) cannedData() {
 		google.NewZone("b-zone", google.StatusUp, "", ""),
 	}
 	s.FakeConn.Networks_ = []*compute.Network{{
-		Id:   9876,
-		Name: "go-team1",
+		Id:                    9876,
+		Name:                  "go-team1",
 		AutoCreateSubnetworks: true,
 		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
 		Subnetworks: []string{
@@ -45,8 +45,8 @@ func (s *environNetSuite) cannedData() {
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/go-team",
 		},
 	}, {
-		Id:   8765,
-		Name: "albini",
+		Id:                    8765,
+		Name:                  "albini",
 		AutoCreateSubnetworks: false,
 		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/albini",
 		Subnetworks: []string{
@@ -54,8 +54,8 @@ func (s *environNetSuite) cannedData() {
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/flour",
 		},
 	}, {
-		Id:   4567,
-		Name: "legacy",
+		Id:                    4567,
+		Name:                  "legacy",
 		AutoCreateSubnetworks: false,
 		IPv4Range:             "10.240.0.0/16",
 		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",

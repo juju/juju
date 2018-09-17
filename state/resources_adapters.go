@@ -30,7 +30,7 @@ func NewResourceState(persist Persistence, base *State) Resources {
 		},
 		storage:               persist.NewStorage(),
 		dockerMetadataStorage: NewDockerMetadataStorage(base),
-		clock: base.clock(),
+		clock:                 base.clock(),
 	}
 }
 

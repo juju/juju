@@ -53,7 +53,7 @@ func (op *caasOperator) ensureCharm(localState *LocalState) error {
 
 	if err := op.deployer.Deploy(); err != nil {
 		if err == jujucharm.ErrConflict {
-			err = op.setStatus(status.Error, "upgrade failed", nil)
+			err = op.setStatus(status.Error, "upgrade failed")
 		}
 		return errors.Trace(err)
 	}

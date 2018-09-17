@@ -109,8 +109,8 @@ func makeIPConfiguration(privateIPAddress string) network.InterfaceIPConfigurati
 func makePublicIPAddress(pipName, vmName, ipAddress string) network.PublicIPAddress {
 	tags := map[string]*string{"juju-machine-name": &vmName}
 	pip := network.PublicIPAddress{
-		Name: to.StringPtr(pipName),
-		Tags: &tags,
+		Name:                            to.StringPtr(pipName),
+		Tags:                            &tags,
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{},
 	}
 	if ipAddress != "" {
@@ -463,9 +463,9 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:    network.SecurityRuleAccessAllow,
-			Priority:  to.Int32Ptr(200),
-			Direction: network.SecurityRuleDirectionInbound,
+			Access:                   network.SecurityRuleAccessAllow,
+			Priority:                 to.Int32Ptr(200),
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	})
 	c.Assert(s.requests[2].Method, gc.Equals, "PUT")
@@ -478,9 +478,9 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:    network.SecurityRuleAccessAllow,
-			Priority:  to.Int32Ptr(201),
-			Direction: network.SecurityRuleDirectionInbound,
+			Access:                   network.SecurityRuleAccessAllow,
+			Priority:                 to.Int32Ptr(201),
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	})
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
@@ -493,9 +493,9 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			SourceAddressPrefix:      to.StringPtr("192.168.1.0/24"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:    network.SecurityRuleAccessAllow,
-			Priority:  to.Int32Ptr(202),
-			Direction: network.SecurityRuleDirectionInbound,
+			Access:                   network.SecurityRuleAccessAllow,
+			Priority:                 to.Int32Ptr(202),
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	})
 	c.Assert(s.requests[4].Method, gc.Equals, "PUT")
@@ -508,9 +508,9 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			SourceAddressPrefix:      to.StringPtr("10.0.0.0/24"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:    network.SecurityRuleAccessAllow,
-			Priority:  to.Int32Ptr(203),
-			Direction: network.SecurityRuleDirectionInbound,
+			Access:                   network.SecurityRuleAccessAllow,
+			Priority:                 to.Int32Ptr(203),
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	})
 }
@@ -571,9 +571,9 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
-			Access:    network.SecurityRuleAccessAllow,
-			Priority:  to.Int32Ptr(200),
-			Direction: network.SecurityRuleDirectionInbound,
+			Access:                   network.SecurityRuleAccessAllow,
+			Priority:                 to.Int32Ptr(200),
+			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	})
 }

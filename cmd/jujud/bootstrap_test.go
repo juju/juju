@@ -560,7 +560,7 @@ var bootstrapArgTests = []struct {
 		err:   "bootstrap-params file must be specified",
 		input: []string{"--data-dir", "/tmp/juju/data/dir"},
 	}, {
-		input: []string{"/some/where"},
+		input:                       []string{"/some/where"},
 		expectedBootstrapParamsFile: "/some/where",
 	},
 }
