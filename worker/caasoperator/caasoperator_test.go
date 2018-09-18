@@ -224,7 +224,14 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 		c.Fatal("timed out waiting for application to be watched")
 	}
 
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm")
+	// Sometimes loop is fast enough to call Life before we get to
+	// here - just check the first 7 calls match the ones we expect.
+	names := make([]string, 7)
+	calls := s.client.Calls()[:7]
+	for i, call := range calls {
+		names[i] = call.FuncName
+	}
+	c.Assert(names, gc.DeepEquals, []string{"Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm"})
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
 		Number: jujuversion.Current,
