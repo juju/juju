@@ -197,10 +197,10 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
-	var uniterStarted int32
+	uniterStarted := make(chan struct{})
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-		atomic.AddInt32(&uniterStarted, 1)
+		close(uniterStarted)
 		return nil
 	}
 
@@ -223,8 +223,13 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for application to be watched")
 	}
+	select {
+	case <-uniterStarted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for uniter to start")
+	}
 
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm")
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
 		Number: jujuversion.Current,
@@ -269,12 +274,6 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	_, err = os.Stat(filepath.Join(charmDir, "metadata.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if atomic.LoadInt32(&uniterStarted) > 0 {
-			return
-		}
-	}
-	c.Fatalf("timeout while waiting for uniter to start")
 }
 
 func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.NotifyChannel) {
