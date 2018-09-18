@@ -45,7 +45,7 @@ var (
 	//
 	// It must not be changed when any watchers are active.
 	PollStrategy retry.Strategy = retry.Exponential{
-		Initial:  10 * time.Millisecond,
+		Initial:  txnWatcherShortWait,
 		Factor:   1.5,
 		MaxDelay: 5 * time.Second,
 	}
@@ -185,25 +185,25 @@ func (w *TxnWatcher) Err() error {
 func (w *TxnWatcher) loop() error {
 	w.logger.Tracef("loop started")
 	defer w.logger.Tracef("loop finished")
+	// Make sure we have read the last ID before telling people
+	// we have started.
 	if err := w.initLastId(); err != nil {
 		return errors.Trace(err)
 	}
-	// Make sure we have read the last ID before telling people
-	// we have started.
+	// Also make sure we have prepared the timer before
+	// we tell people we've started.
+	now := w.clock.Now()
+	backoff := PollStrategy.NewTimer(now)
+	d, _ := backoff.NextSleep(now)
+	next := w.clock.After(d)
 	w.hub.Publish(txnWatcherStarting, nil)
-	backoff := PollStrategy.NewTimer(w.clock.Now())
-	next := w.clock.After(txnWatcherShortWait)
 	for {
+		var d time.Duration
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-next:
-			d, ok := backoff.NextSleep(w.clock.Now())
-			if !ok {
-				// This shouldn't happen, but be defensive.
-				backoff = PollStrategy.NewTimer(w.clock.Now())
-			}
-			next = w.clock.After(d)
+			d, _ = backoff.NextSleep(w.clock.Now())
 		}
 
 		added, err := w.sync()
@@ -215,11 +215,13 @@ func (w *TxnWatcher) loop() error {
 		if added {
 			// Something's happened, so reset the exponential backoff
 			// so we'll retry again quickly.
-			backoff = PollStrategy.NewTimer(w.clock.Now())
-			next = w.clock.After(txnWatcherShortWait)
+			now = w.clock.Now()
+			backoff = PollStrategy.NewTimer(now)
+			d, _ = backoff.NextSleep(now)
 		} else if w.notifySync != nil {
 			w.notifySync()
 		}
+		next = w.clock.After(d)
 	}
 }
 

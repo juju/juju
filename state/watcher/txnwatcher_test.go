@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -74,10 +75,13 @@ func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration) {
 
 func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.TRACE)
 	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
 		ChangeLog: s.log,
 		Hub:       hub,
 		Clock:     s.clock,
+		Logger:    logger,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Wait for the main loop to have started.
