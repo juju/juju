@@ -6,6 +6,7 @@ package watcher_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
@@ -36,7 +37,7 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	s.hub = pubsub.NewSimpleHub(nil)
 	s.ch = make(chan watcher.Change)
 	var started <-chan struct{}
-	s.w, started = watcher.NewTestHubWatcher(s.hub, logger)
+	s.w, started = watcher.NewTestHubWatcher(s.hub, clock.WallClock, "model-uuid", logger)
 	s.AddCleanup(func(c *gc.C) {
 		worker.Stop(s.w)
 	})

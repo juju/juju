@@ -56,7 +56,12 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 		})
 	} else {
 		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-			return watcher.NewHubWatcher(hub, loggo.GetLogger("juju.state.watcher")), nil
+			return watcher.NewHubWatcher(watcher.HubWatcherConfig{
+				Hub:       hub,
+				Clock:     st.clock(),
+				ModelUUID: st.modelUUID(),
+				Logger:    loggo.GetLogger("juju.state.watcher"),
+			})
 		})
 	}
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
