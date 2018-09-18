@@ -4,6 +4,9 @@
 package provisioner_test
 
 import (
+	"fmt"
+	"os"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -13,6 +16,8 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -276,6 +281,58 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
 		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},
 	}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
+	// TODO (hml) lxd-profile
+	// enable this test once charmrepo test accepts charms with an lxdprofile
+	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+
+	profileMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profileCharm := s.AddTestingCharm(c, "lxd-profile")
+	profileService := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = profileUnit.AssignToMachine(profileMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: profileMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.APIPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
+
+	pName := fmt.Sprintf("juju-%s-lxd-profile-0", coretesting.ModelConfig(c).Name())
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				ControllerConfig: controllerCfg,
+				Series:           "quantal",
+				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuController:    coretesting.ControllerTag.Id(),
+					tags.JujuModel:         coretesting.ModelTag.Id(),
+					tags.JujuMachine:       "controller-machine-5",
+					tags.JujuUnitsDeployed: profileUnit.Name(),
+				},
+				EndpointBindings: map[string]string{},
+				CharmLXDProfiles: []string{pName},
+			},
+		}}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
 

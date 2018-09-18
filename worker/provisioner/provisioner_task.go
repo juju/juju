@@ -710,6 +710,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 		ImageMetadata:     possibleImageMetadata,
 		StatusCallback:    machine.SetInstanceStatus,
 		Abort:             task.catacomb.Dying(),
+		CharmLXDProfiles:  provisioningInfo.CharmLXDProfiles,
 	}
 
 	return startInstanceParams, nil

@@ -92,6 +92,11 @@ type StartInstanceParams struct {
 	// Abort is a channel that will be closed to indicate that the command
 	// should be aborted.
 	Abort <-chan struct{}
+
+	// CharmLXDProfiles is a slice of names of lxd profiles to be used creating
+	// the LXD container, if specified and an LXD container.  The profiles
+	// come from charms deployed on the machine.
+	CharmLXDProfiles []string
 }
 
 // StartInstanceResult holds the result of an

@@ -319,6 +319,43 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	// Check that the lxd profile name was passed through to spec.Config.
+	check := func(spec containerlxd.ContainerSpec) bool {
+		profiles := spec.Profiles
+		if len(profiles) != 3 {
+			return false
+		}
+		if profiles[0] != "default" {
+			return false
+		}
+		if profiles[1] != "juju-" {
+			return false
+		}
+		return profiles[2] == "juju-model-test-0"
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	args := s.GetStartInstanceArgs(c, "bionic")
+	args.CharmLXDProfiles = []string{"juju-model-test-0"}
+
+	env := s.NewEnviron(c, svr, nil)
+	_, err := env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
