@@ -63,6 +63,7 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleOverlayFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
@@ -115,7 +116,7 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage, bundleDevices)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleURL, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -184,6 +185,9 @@ type bundleHandler struct {
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
+	// The bundle URL from the charmstore.
+	bundleURL *charm.URL
+
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
 	// handlers (addCharm, addApplication etc.) and by updateUnitStatus.
@@ -214,6 +218,7 @@ func makeBundleHandler(
 	api DeployAPI,
 	ctx *cmd.Context,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
 ) *bundleHandler {
@@ -232,6 +237,7 @@ func makeBundleHandler(
 		bundleDevices: bundleDevices,
 		ctx:           ctx,
 		data:          data,
+		bundleURL:     bundleURL,
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
@@ -610,6 +616,16 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
 	h.writeAddedResources(resNames2IDs)
+
+	if h.bundleURL != nil {
+		tag := names.NewApplicationTag(p.Application).String()
+		result, err := h.api.SetAnnotation(map[string]map[string]string{tag: {"bundleURL": h.bundleURL.String()}})
+		if err == nil && len(result) > 0 {
+			err = result[0].Error
+			logger.Debugf("error setting bundleURL annotation for %q: %s", p.Application, err)
+		}
+	}
+
 	return nil
 }
 
