@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -104,9 +105,34 @@ func (env *environ) profileName() string {
 	return "juju-" + env.Name()
 }
 
+type LXDProfiler interface {
+	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
+	Name() string
+}
+
 // Name returns the name of the environ.
 func (env *environ) Name() string {
 	return env.name
+}
+
+// MaybeWriteLXDProfile, write given LXDProfiler to if not already there.
+func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	hasProfile, err := env.server.HasProfile(pName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		return nil
+	}
+	post := api.ProfilesPost{
+		Name: pName,
+		ProfilePut: api.ProfilePut{
+			Config:      put.Config,
+			Description: put.Description,
+			Devices:     put.Devices,
+		},
+	}
+	return env.server.CreateProfile(post)
 }
 
 // Provider returns the provider that created this environ.

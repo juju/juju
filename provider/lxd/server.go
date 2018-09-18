@@ -52,6 +52,7 @@ type Server interface {
 	CreateProfileWithConfig(string, map[string]string) error
 	GetProfile(string) (*lxdapi.Profile, string, error)
 	HasProfile(string) (bool, error)
+	CreateProfile(post lxdapi.ProfilesPost) (err error)
 	VerifyNetworkDevice(*lxdapi.Profile, string) error
 	EnsureDefaultStorage(*lxdapi.Profile, string) error
 	StorageSupported() bool

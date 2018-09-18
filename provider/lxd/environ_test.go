@@ -4,11 +4,13 @@
 package lxd_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -195,4 +197,45 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
+}
+
+type environProfileSuite struct {
+	lxd.EnvironSuite
+
+	callCtx context.ProviderCallContext
+}
+
+var _ = gc.Suite(&environProfileSuite{})
+
+func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HasProfile("testname").Return(true, nil),
+		exp.HasProfile("testname").Return(false, nil),
+		exp.CreateProfile(api.ProfilesPost{
+			Name: "testname",
+			ProfilePut: api.ProfilePut{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "test profile",
+			},
+		}).Return(nil),
+	)
+
+	env := s.NewEnviron(c, svr, nil)
+	lxdEnv, ok := env.(lxd.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	err := lxdEnv.MaybeWriteLXDProfile("testname", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = lxdEnv.MaybeWriteLXDProfile("testname", &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
