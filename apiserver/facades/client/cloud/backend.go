@@ -6,6 +6,7 @@ package cloud
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -25,6 +26,7 @@ type Backend interface {
 	RemoveCloud(string) error
 	AllCloudCredentials(user names.UserTag) ([]state.Credential, error)
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error)
+	CredentialModels(tag names.CloudCredentialTag) (map[string]string, error)
 }
 
 type stateShim struct {
@@ -61,4 +63,50 @@ type Model interface {
 	Cloud() string
 	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
+}
+
+// ModelPoolBackend defines a pool of models.
+type ModelPoolBackend interface {
+	// Get allows to retrieve a particular mode given a model UUID.
+	Get(modelUUID string) (PooledModelBackend, error)
+
+	// SystemState allows access to an underlying controller state.
+	SystemState() *state.State
+}
+
+type statePoolShim struct {
+	*state.StatePool
+}
+
+// NewModelPoolBackend creates a model pool backend based on state.StatePool.
+func NewModelPoolBackend(st *state.StatePool) ModelPoolBackend {
+	return statePoolShim{st}
+}
+
+// Get implements ModelPoolBackend.Get.
+func (s statePoolShim) Get(modelUUID string) (PooledModelBackend, error) {
+	m, err := s.StatePool.Get(modelUUID)
+	return NewPooledModelBackend(m), err
+}
+
+// PooledModelBackend defines a model retrieved from the model pool.
+type PooledModelBackend interface {
+	// Model represents the model itself.
+	Model() credentialcommon.ModelBackend
+	// Release returns a connection to the model back to the pool.
+	Release() bool
+}
+
+type modelShim struct {
+	*state.PooledState
+}
+
+// NewPooledModelBackend creates a pooled model backend based on state.PooledState.
+func NewPooledModelBackend(st *state.PooledState) PooledModelBackend {
+	return modelShim{st}
+}
+
+// Model implements PooledModelBackend.Model.
+func (s modelShim) Model() credentialcommon.ModelBackend {
+	return credentialcommon.NewModelBackend(s.PooledState.State)
 }

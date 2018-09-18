@@ -189,3 +189,17 @@ type ValidateCredentialArg struct {
 type ValidateCredentialArgs struct {
 	All []ValidateCredentialArg `json:"credentials,omitempty"`
 }
+
+// UpdateCredentialResult stores the result of updating one cloud credential.
+type UpdateCredentialResult struct {
+	// CredentialTag holds credential tag.
+	CredentialTag string `json:"tag"`
+
+	// Errors contains the errors accumulated while trying to update a credential.
+	Errors *ErrorResults `json:"errors,omitempty"`
+}
+
+// UpdateCredentialResult contains a set of UpdateCredentialResult.
+type UpdateCredentialResults struct {
+	Results []UpdateCredentialResult `json:"results,omitempty"`
+}

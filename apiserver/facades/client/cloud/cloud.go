@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
@@ -21,6 +22,36 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// CloudV3 defines the methods on the cloud API facade, version 3.
+type CloudV3 interface {
+	Clouds() (params.CloudsResult, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	DefaultCloud() (params.StringResult, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+}
+
+// CloudV2 defines the methods on the cloud API facade, version 2.
+type CloudV2 interface {
+	Clouds() (params.CloudsResult, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	DefaultCloud() (params.StringResult, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	RemoveClouds(args params.Entities) (params.ErrorResults, error)
+}
+
+// CloudV1 defines the methods on the cloud API facade, version 1.
 type CloudV1 interface {
 	Clouds() (params.CloudsResult, error)
 	Cloud(args params.Entities) (params.CloudResults, error)
@@ -31,12 +62,8 @@ type CloudV1 interface {
 	Credential(args params.Entities) (params.CloudCredentialResults, error)
 }
 
-type CloudV2 interface {
-	AddCloud(cloudArgs params.AddCloudArgs) error
-	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
-	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
-}
-
+// CloudAPI implements the cloud interface and is the concrete implementation
+// of the api end point.
 type CloudAPI struct {
 	backend                Backend
 	ctlrBackend            Backend
@@ -44,33 +71,56 @@ type CloudAPI struct {
 	apiUser                names.UserTag
 	getCredentialsAuthFunc common.GetAuthFunc
 	callContext            environscontext.ProviderCallContext
+	pool                   ModelPoolBackend
 }
 
+// CloudAPIV2 provides a way to wrap the different calls
+// between version 2 and version 3 of the cloud API.
 type CloudAPIV2 struct {
-	CloudAPI
+	*CloudAPI
+}
+
+// CloudAPIV1 provides a way to wrap the different calls
+// between version 1 and version 2 of the cloud API.
+type CloudAPIV1 struct {
+	*CloudAPIV2
 }
 
 var (
-	_ CloudV1 = (*CloudAPI)(nil)
+	_ CloudV3 = (*CloudAPI)(nil)
 	_ CloudV2 = (*CloudAPIV2)(nil)
+	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacade provides the required signature for facade registration.
-func NewFacade(context facade.Context) (*CloudAPI, error) {
+// NewFacadeV3 is used for API registration.
+func NewFacadeV3(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
-	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPI(st, ctlrSt, context.Auth(), state.CallContext(context.State()))
+	pool := NewModelPoolBackend(context.StatePool())
+	ctlrSt := NewStateBackend(pool.SystemState())
+	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
 }
 
+// NewFacadeV2 is used for API registration.
 func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
-	st := NewStateBackend(context.State())
-	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPIV2(st, ctlrSt, context.Auth(), state.CallContext(context.State()))
+	v3, err := NewFacadeV3(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV2{v3}, nil
+}
+
+// NewFacadeV1 is used for API registration.
+func NewFacadeV1(context facade.Context) (*CloudAPIV1, error) {
+	v2, err := NewFacadeV2(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV1{v2}, nil
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer, callCtx environscontext.ProviderCallContext) (*CloudAPI, error) {
+func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer, callCtx environscontext.ProviderCallContext) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -96,16 +146,7 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer, cal
 		getCredentialsAuthFunc: getUserAuthFunc,
 		apiUser:                authUser,
 		callContext:            callCtx,
-	}, nil
-}
-
-func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer, callCtx environscontext.ProviderCallContext) (*CloudAPIV2, error) {
-	cloudAPI, err := NewCloudAPI(backend, ctlrBackend, authorizer, callCtx)
-	if err != nil {
-		return nil, err
-	}
-	return &CloudAPIV2{
-		CloudAPI: *cloudAPI,
+		pool:                   pool,
 	}, nil
 }
 
@@ -206,7 +247,7 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 // In contrast to UpdateCredentials() below, the new credentials can be
 // for a cloud that the controller does not manage (this is required
 // for CAAS models)
-func (api *CloudAPIV2) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
+func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -240,40 +281,132 @@ func (api *CloudAPIV2) AddCredentials(args params.TaggedCredentials) (params.Err
 	return results, nil
 }
 
-// UpdateCredentials updates a set of cloud credentials.
-func (api *CloudAPI) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Credentials)),
-	}
+// UpdateCredentials updates a set of cloud credentials' content.
+// If there are any models that are using a credential and these models
+// are not going to be visible with updated credential content,
+// there will be detailed validation errors per model.
+func (api *CloudAPI) UpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+	return api.commonUpdateCredentials(args)
+}
+
+func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	authFunc, err := api.getCredentialsAuthFunc()
 	if err != nil {
-		return results, err
+		return params.UpdateCredentialResults{}, err
 	}
+
+	credentialError := func(oneError error) *params.ErrorResults {
+		return &params.ErrorResults{
+			Results: []params.ErrorResult{
+				{common.ServerError(oneError)},
+			},
+		}
+	}
+
+	results := make([]params.UpdateCredentialResult, len(args.Credentials))
 	for i, arg := range args.Credentials {
+		results[i].CredentialTag = arg.Tag
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results[i].Errors = credentialError(err)
 			continue
 		}
 		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
 		// to change this auth check.
 		if !authFunc(tag.Owner()) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results[i].Errors = credentialError(common.ErrPerm)
 			continue
 		}
 		in := cloud.NewCredential(
 			cloud.AuthType(arg.Credential.AuthType),
 			arg.Credential.Attributes,
 		)
+
+		credentialModels, err := api.backend.CredentialModels(tag)
+		if err != nil && !errors.IsNotFound(err) {
+			// Could not determine if credential has models - do not continue updating this credential...
+			results[i].Errors = credentialError(err)
+			continue
+		}
+
+		var modelsErrors []params.ErrorResult
+		for modelUUID := range credentialModels {
+			modelErrors := api.validateCredentialForModel(modelUUID, tag, &in)
+			if len(modelErrors) > 0 {
+				modelsErrors = append(modelsErrors, modelErrors...)
+			}
+		}
+		if len(modelsErrors) > 0 {
+			// Some models that use this credential do not like the new content, do not update the credential...
+			results[i].Errors = &params.ErrorResults{Results: modelsErrors}
+			continue
+		}
+
 		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
 			if errors.IsNotFound(err) {
 				err = errors.Errorf(
 					"cannot update credential %q: controller does not manage cloud %q",
 					tag.Name(), tag.Cloud().Id())
 			}
-			results.Results[i].Error = common.ServerError(err)
+			results[i].Errors = credentialError(err)
 			continue
 		}
+	}
+	return params.UpdateCredentialResults{results}, nil
+}
+
+func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
+	var result []params.ErrorResult
+
+	modelState, err := api.pool.Get(modelUUID)
+	if err != nil {
+		return append(result, params.ErrorResult{common.ServerError(err)})
+	}
+	defer modelState.Release()
+
+	modelErrors, err := validateNewCredentialForModelFunc(
+		modelState.Model(),
+		environs.New,
+		api.callContext,
+		tag,
+		credential,
+	)
+	if err != nil {
+		return append(result, params.ErrorResult{common.ServerError(err)})
+	}
+	if len(modelErrors.Results) > 0 {
+		return append(result, modelErrors.Results...)
+	}
+	return result
+}
+
+var validateNewCredentialForModelFunc = credentialcommon.ValidateNewModelCredential
+
+// UpdateCredentials updates a set of cloud credentials' content.
+// This method is provided here for back-compatibility.
+// If there are any models that are using a credential and these models
+// are not going to be visible with updated credential content,
+// there will be detailed validation errors per model.
+// However, old return parameter structure could not hold this much detail and,
+// thus, per-model-per-credential errors are squashed into per-credential errors.
+func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Credentials)),
+	}
+	errors, err := api.commonUpdateCredentials(args)
+	if err != nil {
+		return results, err
+	}
+
+	for i, credErrs := range errors.Results {
+		if credErrs.Errors == nil {
+			continue
+		}
+		if len(credErrs.Errors.Results) == 1 {
+			results.Results[i].Error = common.ServerError(credErrs.Errors.OneError())
+			continue
+		}
+		results.Results[i].Error = common.ServerError(credErrs.Errors.Combine())
 	}
 	return results, nil
 }
@@ -385,7 +518,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 }
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
-func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
+func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
 	if err != nil {
 		return err
@@ -395,7 +528,7 @@ func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
 
 // RemoveClouds removes the specified clouds from the controller.
 // If a cloud is in use (has models deployed to it), the removal will fail.
-func (api *CloudAPIV2) RemoveClouds(args params.Entities) (params.ErrorResults, error) {
+func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -417,7 +550,7 @@ func (api *CloudAPIV2) RemoveClouds(args params.Entities) (params.ErrorResults, 
 // are returned.
 // Only credential owner can see its contents as well as what models use it.
 // Controller admin has no special superpowers here and is treated the same as all other users.
-func (api *CloudAPIV2) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
+func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
 	// Helper to look up and cache credential schemas for clouds.
 	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
 	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
