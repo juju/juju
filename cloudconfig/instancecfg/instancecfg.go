@@ -771,7 +771,7 @@ func NewBootstrapInstanceConfig(
 	}
 	icfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
-		multiwatcher.JobHostUnits,
+		// multiwatcher.JobHostUnits,
 	}
 	return icfg, nil
 }

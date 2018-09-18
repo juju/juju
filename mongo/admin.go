@@ -23,12 +23,14 @@ var (
 // be authorized; otherwise no authorization is required.
 func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
 	admin := session.DB("admin")
+	fmt.Printf("SetAdminMongoPassword.session -> %#v, %q, %q\n", session, user, password)
 	if password != "" {
 		if err := admin.UpsertUser(&mgo.User{
 			Username: user,
 			Password: password,
 			Roles:    []mgo.Role{mgo.RoleDBAdminAny, mgo.RoleUserAdminAny, mgo.RoleClusterAdmin, mgo.RoleReadWriteAny},
 		}); err != nil {
+			fmt.Printf("SetAdminMongoPassword ----> cannot set admin password: %v\n", err)
 			return fmt.Errorf("cannot set admin password: %v", err)
 		}
 	} else {

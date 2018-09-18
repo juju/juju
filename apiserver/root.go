@@ -342,6 +342,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 
 func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	noMethod := rpcreflect.ObjMethod{}
+	fmt.Printf("lookupMethod: rootName %#v, version %#v, methodName %#v\n", rootName, version, methodName)
 	goType, err := r.facades.GetType(rootName, version)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -499,6 +500,7 @@ func newAdminRoot(h *apiHandler, adminAPIs map[int]interface{}) *adminRoot {
 }
 
 func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	logger.Criticalf("(r *adminRoot) FindMethod: rootName -> %q, version -> %d, methodName -> %q", rootName, version, methodName)
 	if rootName != "Admin" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootName,

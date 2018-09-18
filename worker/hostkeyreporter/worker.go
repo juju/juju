@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -42,12 +43,13 @@ func (config Config) Validate() error {
 
 // New returns a Worker backed by config, or an error.
 func New(config Config) (worker.Worker, error) {
-	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	w := &hostkeyreporter{config: config}
-	w.tomb.Go(w.run)
-	return w, nil
+	// if err := config.Validate(); err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
+	// w := &hostkeyreporter{config: config}
+	// w.tomb.Go(w.run)
+	// return w, nil
+	return jujuworker.NewNoOpWorker(), nil
 }
 
 // Worker waits for a model migration to be active, then locks down the

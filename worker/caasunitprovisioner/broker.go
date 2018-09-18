@@ -7,10 +7,11 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs"
 )
 
 type ContainerBroker interface {
-	Provider() caas.ContainerEnvironProvider
+	Provider() environs.EnvironProvider
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 	Units(appName string) ([]caas.Unit, error)
 	DeleteService(appName string) error
@@ -18,7 +19,7 @@ type ContainerBroker interface {
 }
 
 type ServiceBroker interface {
-	Provider() caas.ContainerEnvironProvider
+	Provider() environs.EnvironProvider
 	EnsureService(appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
 	EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error
 	Service(appName string) (*caas.Service, error)

@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -80,6 +82,7 @@ func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifo
 					info.Cert = existing.Cert
 					info.PrivateKey = existing.PrivateKey
 				}
+				fmt.Printf("ServingInfoSetterManifold changing agent.conf from -> \n%#v\n to -> \n%#v\n", config, info)
 				config.SetStateServingInfo(info)
 				return nil
 			})

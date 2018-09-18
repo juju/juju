@@ -46,7 +46,7 @@ $(GOPATH)/bin/dep:
 
 # populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
-	$(GOPATH)/bin/dep ensure -vendor-only
+	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
 endif
 
 build: dep go-build

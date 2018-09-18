@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/upgrader"
+	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -48,13 +48,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
-			currentConfig := agent.CurrentConfig()
+			// currentConfig := agent.CurrentConfig()
 
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			upgraderFacade := upgrader.NewState(apiCaller)
+			// upgraderFacade := upgrader.NewState(apiCaller)
 
 			var upgradeStepsWaiter gate.Waiter
 			if config.UpgradeStepsGateName == "" {
@@ -76,14 +76,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					return nil, err
 				}
 			}
-
-			return NewAgentUpgrader(
-				upgraderFacade,
-				currentConfig,
-				config.PreviousAgentVersion,
-				upgradeStepsWaiter,
-				initialCheckUnlocker,
-			)
+			initialCheckUnlocker.Unlock()
+			return jujuworker.NewNoOpWorker(), nil
+			// return NewAgentUpgrader(
+			// 	upgraderFacade,
+			// 	currentConfig,
+			// 	config.PreviousAgentVersion,
+			// 	upgradeStepsWaiter,
+			// 	initialCheckUnlocker,
+			// )
 		},
 	}
 }

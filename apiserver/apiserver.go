@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -291,19 +290,19 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
-	if err != nil {
-		return nil, errors.Annotate(err, "creating logsink writer")
-	}
-	srv.logSinkWriter = logSinkWriter
+	// logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
+	// if err != nil {
+	// 	return nil, errors.Annotate(err, "creating logsink writer")
+	// }
+	// srv.logSinkWriter = logSinkWriter
 
-	if cfg.PrometheusRegisterer != nil {
-		apiserverCollector := NewMetricsCollector(&metricAdaptor{srv})
-		cfg.PrometheusRegisterer.Unregister(apiserverCollector)
-		if err := cfg.PrometheusRegisterer.Register(apiserverCollector); err != nil {
-			return nil, errors.Annotate(err, "registering apiserver metrics collector")
-		}
-	}
+	// if cfg.PrometheusRegisterer != nil {
+	// 	apiserverCollector := NewMetricsCollector(&metricAdaptor{srv})
+	// 	cfg.PrometheusRegisterer.Unregister(apiserverCollector)
+	// 	if err := cfg.PrometheusRegisterer.Register(apiserverCollector); err != nil {
+	// 		return nil, errors.Annotate(err, "registering apiserver metrics collector")
+	// 	}
+	// }
 
 	unsubscribe, err := cfg.Hub.Subscribe(apiserver.RestartTopic, func(string, map[string]interface{}) {
 		srv.tomb.Kill(dependency.ErrBounce)
@@ -315,7 +314,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
 		defer srv.dbloggers.dispose()
-		defer srv.logSinkWriter.Close()
+		// defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribe()
 		return srv.loop(ready)
@@ -327,7 +326,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	case <-srv.clock.After(readyTimeout):
 		return nil, errors.New("loop never signalled ready")
 	}
-
+	logger.Criticalf("srv  -----> %#v", srv)
 	return srv, nil
 }
 
@@ -803,6 +802,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := httpcontext.RequestModelUUID(req)
 		logger.Tracef("got a request for model %q", modelUUID)
+		logger.Criticalf("apiHandler: modelUUID -> %q, req -> %#v", modelUUID, req)
 		if err := srv.serveConn(
 			req.Context(),
 			conn,
@@ -833,10 +833,15 @@ func (srv *Server) serveConn(
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
 	resolvedModelUUID := modelUUID
+
+	logger.Criticalf("serveConn: modelUUID -> %q", modelUUID)
+
 	statePool := srv.shared.statePool
 	if modelUUID == "" {
 		resolvedModelUUID = statePool.SystemState().ModelUUID()
 	}
+
+	logger.Criticalf("serveConn: resolvedModelUUID -> %q", resolvedModelUUID)
 	var (
 		st *state.PooledState
 		h  *apiHandler
@@ -844,14 +849,17 @@ func (srv *Server) serveConn(
 
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
+		logger.Criticalf("serveConn: GET st -> %#v", st)
 		defer st.Release()
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.IsNotFound(err) {
+		logger.Criticalf("serveConn: State is NOT found! -> %q", resolvedModelUUID)
 		err = errors.Wrap(err, common.UnknownModelError(resolvedModelUUID))
 	}
 
 	if err != nil {
+		logger.Criticalf("serveConn: ERROR --------------------> %#v", err)
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
 		// Set up the admin apis used to accept logins and direct
@@ -861,7 +869,9 @@ func (srv *Server) serveConn(
 		adminAPIs := make(map[int]interface{})
 		for apiVersion, factory := range adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
+			logger.Criticalf("serveConn: apiVersion -> %q, adminAPI -> %#v", apiVersion, adminAPIs[apiVersion])
 		}
+		logger.Criticalf("serveConn: adminAPIs -> %q", adminAPIs)
 		conn.ServeRoot(newAdminRoot(h, adminAPIs), recorderFactory, serverError)
 	}
 	conn.Start(ctx)

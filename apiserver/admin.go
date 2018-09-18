@@ -88,6 +88,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	authResult, err := a.authenticate(req)
+	logger.Criticalf("authResult ---> %#v, err -> %#v", authResult, err)
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 		loginResult := params.LoginResult{
 			DischargeRequired:       err.Macaroon,
@@ -341,6 +342,7 @@ func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) 
 			logger.Debugf("model login: %s for %s", a.root.entity.Tag(), a.root.model.ModelTag().Id())
 		}
 	}
+	logger.Criticalf("fillLoginDetails.result --> %#v", result)
 	return nil
 }
 

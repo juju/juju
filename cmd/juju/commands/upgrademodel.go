@@ -63,8 +63,8 @@ Examples:
     juju upgrade-model --dry-run
     juju upgrade-model --agent-version 2.0.1
     juju upgrade-model --agent-stream proposed
-    
-See also: 
+
+See also:
     sync-agent-binaries`
 
 func newUpgradeJujuCommand(store jujuclient.ClientStore, minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
@@ -316,6 +316,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		// 2 - The environment is running a valid version to upgrade from, and
 		// 3 - The upgrade is to a minor version of 0.
 		minVer, ok := c.minMajorUpgradeVersion[c.Version.Major]
+		logger.Criticalf("c.Version.Major -> %#v, agentVersion.Major -> %#v", c.Version.Major, agentVersion.Major)
 		if !ok {
 			return errors.Errorf("unknown version %q", c.Version)
 		}

@@ -170,6 +170,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
 	verStr := req.URL.Query().Get("version")
+	logger.Criticalf("logSinkHandler req.URL -> %#v", req.URL)
 	switch verStr {
 	case "":
 		return 0, nil

@@ -417,6 +417,16 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 		return err
 	}
 
+	logger.Criticalf("result -> %#v", result)
+
+	// result := environs.BootstrapResult{
+	// 	Arch:   "amd64",
+	// 	Series: "bionic",
+	// 	Finalize: func(c environs.BootstrapContext, i *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+	// 		logger.Criticalf("environs.BootstrapResult.Finalize(): c -> %#v, i -> %#v, opts -> %#v", c, i, opts)
+	// 		return nil
+	// 	},
+	// }
 	matchingTools, err := availableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
 		Series: result.Series,

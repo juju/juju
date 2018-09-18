@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -38,7 +37,7 @@ type ContainerEnvironProvider interface {
 
 // RegisterContainerProvider is used for providers that we want to use for managing 'instances',
 // but are not possible sources for 'juju bootstrap'.
-func RegisterContainerProvider(name string, p ContainerEnvironProvider, alias ...string) (unregister func()) {
+func RegisterContainerProvider(name string, p environs.EnvironProvider, alias ...string) (unregister func()) {
 	if err := environs.GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
 		panic(fmt.Errorf("juju: %v", err))
 	}
@@ -94,10 +93,10 @@ type ServiceParams struct {
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
-	Provider() ContainerEnvironProvider
+	// Provider() ContainerEnvironProvider
 
-	// Destroy terminates all containers and other resources in this broker's namespace.
-	Destroy(context.ProviderCallContext) error
+	// // Destroy terminates all containers and other resources in this broker's namespace.
+	// Destroy(context.ProviderCallContext) error
 
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
@@ -140,15 +139,10 @@ type Broker interface {
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
 
-	// ProviderRegistry is an interface for obtaining storage providers.
-	storage.ProviderRegistry
+	// // ProviderRegistry is an interface for obtaining storage providers.
+	// storage.ProviderRegistry
 
-	// ConstraintsChecker provides a means to check that constraints are valid.
-	environs.ConstraintsChecker
-
-	// InstancePrechecker provides a means of "prechecking" placement
-	// arguments before recording them in state.
-	environs.InstancePrechecker
+	environs.GenericEnviron
 }
 
 // Service represents information about the status of a caas service entity.

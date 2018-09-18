@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
+	// jujuworker "github.com/juju/juju/worker"
 )
 
 // ManifoldConfig holds the information needed to run an
@@ -93,6 +94,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	// return jujuworker.NewNoOpWorker(), nil
 }
 
 type withCurrentConfig interface {

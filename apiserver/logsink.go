@@ -6,7 +6,6 @@ package apiserver
 import (
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -192,14 +191,15 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 
 // logToFile writes a single log message to the logsink log file.
 func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
-	_, err := writer.Write([]byte(strings.Join([]string{
-		prefix,
-		m.Entity,
-		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-		m.Level,
-		m.Module,
-		m.Location,
-		m.Message,
-	}, " ") + "\n"))
-	return err
+	// _, err := writer.Write([]byte(strings.Join([]string{
+	// 	prefix,
+	// 	m.Entity,
+	// 	m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
+	// 	m.Level,
+	// 	m.Module,
+	// 	m.Location,
+	// 	m.Message,
+	// }, " ") + "\n"))
+	// return err
+	return nil
 }

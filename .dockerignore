@@ -1,0 +1,5 @@
+acceptancetests/*
+.vscode/
+vendor/
+*.md
+*.snap

@@ -270,6 +270,7 @@ func SelectPeerAddress(addrs []network.Address) string {
 	// The second bool result is ignored intentionally (we return an empty
 	// string if no suitable address is available.)
 	addr, _ := network.SelectControllerAddress(addrs, allowMachineLocal)
+	logger.Criticalf("SelectPeerAddress.addr -> %#v", addr)
 	return addr.Value
 }
 

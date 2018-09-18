@@ -4,6 +4,7 @@
 package scriptrunner
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -42,9 +43,11 @@ func RunCommand(command string, environ []string, clock clock.Clock, timeout tim
 	result, err := cmd.WaitWithCancel(cancel)
 
 	if err != nil {
-		err = errors.Trace(err)
+		fmt.Printf("RunCommand: command -> %q, err -> %#v", command, err)
+		return &ScriptResult{}, errors.Trace(err)
 	}
-
+	// fmt.Printf("RunCommand: command -> %q, result -> %#v", command, result)
+	// panic here, coz result is nil if error is timeout!!!!!
 	return &ScriptResult{
 		Stdout: result.Stdout,
 		Stderr: result.Stderr,

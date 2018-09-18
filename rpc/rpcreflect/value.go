@@ -20,6 +20,7 @@ type CallNotImplementedError struct {
 func (e *CallNotImplementedError) Error() string {
 	if e.Method == "" {
 		if e.Version != 0 {
+			fmt.Printf("CallNotImplementedError -> %#v\n", e)
 			return fmt.Sprintf("unknown version (%d) of interface %q", e.Version, e.RootMethod)
 		}
 		return fmt.Sprintf("unknown object type %q", e.RootMethod)
@@ -90,12 +91,14 @@ func (v Value) FindMethod(rootMethodName string, version int, objMethodName stri
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)
 	if err != nil {
+		fmt.Printf("FindMethod value 1 -> %#v, err -> %#v\n", v, err)
 		return nil, &CallNotImplementedError{
 			RootMethod: rootMethodName,
 		}
 	}
 	caller.objMethod, err = caller.rootMethod.ObjType.Method(objMethodName)
 	if err != nil {
+		fmt.Printf("FindMethod value 2 -> %#v, err -> %#v\n", v, err)
 		return nil, &CallNotImplementedError{
 			RootMethod: rootMethodName,
 			Method:     objMethodName,

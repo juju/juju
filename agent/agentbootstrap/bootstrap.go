@@ -20,9 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -165,83 +163,83 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
-	// Create the initial hosted model, with the model config passed to
-	// bootstrap, which contains the UUID, name for the hosted model,
-	// and any user supplied config. We also copy the authorized-keys
-	// from the controller model.
-	attrs := make(map[string]interface{})
-	for k, v := range args.HostedModelConfig {
-		attrs[k] = v
-	}
-	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
+	// // Create the initial hosted model, with the model config passed to
+	// // bootstrap, which contains the UUID, name for the hosted model,
+	// // and any user supplied config. We also copy the authorized-keys
+	// // from the controller model.
+	// attrs := make(map[string]interface{})
+	// for k, v := range args.HostedModelConfig {
+	// 	attrs[k] = v
+	// }
+	// attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
 
-	// Construct a CloudSpec to pass on to NewModelConfig below.
-	cloudSpec, err := environs.MakeCloudSpec(
-		args.ControllerCloud,
-		args.ControllerCloudRegion,
-		args.ControllerCloudCredential,
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	// // Construct a CloudSpec to pass on to NewModelConfig below.
+	// cloudSpec, err := environs.MakeCloudSpec(
+	// 	args.ControllerCloud,
+	// 	args.ControllerCloudRegion,
+	// 	args.ControllerCloudCredential,
+	// )
+	// if err != nil {
+	// 	return nil, nil, errors.Trace(err)
+	// }
 
-	controllerUUID := args.ControllerConfig.ControllerUUID()
-	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
-	hostedModelConfig, err := creator.NewModelConfig(
-		cloudSpec, args.ControllerModelConfig, attrs,
-	)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "creating hosted model config")
-	}
-	provider, err := args.Provider(cloudSpec.Type)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting environ provider")
-	}
-	hostedModelEnv, err := environs.Open(provider, environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: hostedModelConfig,
-	})
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening hosted model environment")
-	}
+	// controllerUUID := args.ControllerConfig.ControllerUUID()
+	// creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
+	// hostedModelConfig, err := creator.NewModelConfig(
+	// 	cloudSpec, args.ControllerModelConfig, attrs,
+	// )
+	// if err != nil {
+	// 	return nil, nil, errors.Annotate(err, "creating hosted model config")
+	// }
+	// provider, err := args.Provider(cloudSpec.Type)
+	// if err != nil {
+	// 	return nil, nil, errors.Annotate(err, "getting environ provider")
+	// }
+	// hostedModelEnv, err := environs.Open(provider, environs.OpenParams{
+	// 	Cloud:  cloudSpec,
+	// 	Config: hostedModelConfig,
+	// })
+	// if err != nil {
+	// 	return nil, nil, errors.Annotate(err, "opening hosted model environment")
+	// }
 
-	if err := hostedModelEnv.Create(
-		state.CallContext(st),
-		environs.CreateParams{
-			ControllerUUID: controllerUUID,
-		}); err != nil {
-		return nil, nil, errors.Annotate(err, "creating hosted model environment")
-	}
+	// if err := hostedModelEnv.Create(
+	// 	state.CallContext(st),
+	// 	environs.CreateParams{
+	// 		ControllerUUID: controllerUUID,
+	// 	}); err != nil {
+	// 	return nil, nil, errors.Annotate(err, "creating hosted model environment")
+	// }
 
-	model, hostedModelState, err := ctlr.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		Owner:                   adminUser,
-		Config:                  hostedModelConfig,
-		Constraints:             args.ModelConstraints,
-		CloudName:               args.ControllerCloud.Name,
-		CloudRegion:             args.ControllerCloudRegion,
-		CloudCredential:         cloudCredentialTag,
-		StorageProviderRegistry: args.StorageProviderRegistry,
-		EnvironVersion:          hostedModelEnv.Provider().Version(),
-	})
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "creating hosted model")
-	}
+	// model, hostedModelState, err := ctlr.NewModel(state.ModelArgs{
+	// 	Type:                    state.ModelTypeIAAS,
+	// 	Owner:                   adminUser,
+	// 	Config:                  hostedModelConfig,
+	// 	Constraints:             args.ModelConstraints,
+	// 	CloudName:               args.ControllerCloud.Name,
+	// 	CloudRegion:             args.ControllerCloudRegion,
+	// 	CloudCredential:         cloudCredentialTag,
+	// 	StorageProviderRegistry: args.StorageProviderRegistry,
+	// 	EnvironVersion:          hostedModelEnv.Provider().Version(),
+	// })
+	// if err != nil {
+	// 	return nil, nil, errors.Annotate(err, "creating hosted model")
+	// }
 
-	defer hostedModelState.Close()
+	// defer hostedModelState.Close()
 
-	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
-		return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
-	}
+	// if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
+	// 	return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
+	// }
 
-	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	if err = hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
-		if errors.IsNotSupported(err) {
-			logger.Debugf("Not performing spaces load on a non-networking environment")
-		} else {
-			return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
-		}
-	}
+	// // TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
+	// if err = hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
+	// 	if errors.IsNotSupported(err) {
+	// 		logger.Debugf("Not performing spaces load on a non-networking environment")
+	// 	} else {
+	// 		return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
+	// 	}
+	// }
 
 	return ctlr, m, nil
 }
@@ -276,10 +274,12 @@ func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.
 		return nil, errors.Trace(err)
 	}
 	if err := mongo.SetAdminMongoPassword(session, mongo.AdminUser, password); err != nil {
+		logger.Criticalf("initMongo.SetAdminMongoPassword failed! %#v", err)
 		session.Close()
 		return nil, errors.Trace(err)
 	}
 	if err := mongo.Login(session, mongo.AdminUser, password); err != nil {
+		logger.Criticalf("initMongo.Login failed! u -> %q, p -> %q", mongo.AdminUser, password)
 		session.Close()
 		return nil, errors.Trace(err)
 	}

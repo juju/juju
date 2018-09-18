@@ -110,6 +110,7 @@ var ProductionMongoWriteConcern = true
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
+		logger.Criticalf("cmd/jujud/agent/machine.go  init -> %#v", session)
 		safe := mgo.Safe{}
 		if ProductionMongoWriteConcern {
 			safe.J = true
@@ -405,28 +406,33 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	} else {
 		dnsNames = set.NewStrings(serverCert.DNSNames...)
 	}
-
+	logger.Criticalf("upgradeCertificateDNSNames.dnsNames 1 -> %#v", dnsNames)
 	update := false
 	requiredDNSNames := []string{"localhost", "juju-apiserver", "juju-mongodb"}
 	for _, dnsName := range requiredDNSNames {
+		logger.Criticalf("upgradeCertificateDNSNames.dnsNames 2 -> %#v, dnsName -> %q", dnsNames, dnsName)
 		if dnsNames.Contains(dnsName) {
 			continue
 		}
 		dnsNames.Add(dnsName)
 		update = true
 	}
+	logger.Criticalf("upgradeCertificateDNSNames.update -> %t", update)
 	if !update {
 		return nil
 	}
 
 	// Write a new certificate to the mongo pem and agent config files.
 	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(config.CACert(), si.CAPrivateKey, dnsNames.Values())
+	logger.Criticalf("upgradeCertificateDNSNames update cert to mongo 1 !!!!")
 	if err != nil {
 		return err
 	}
+	logger.Criticalf("upgradeCertificateDNSNames update cert to mongo 2 !!!!")
 	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
 		return err
 	}
+	logger.Criticalf("upgradeCertificateDNSNames update cert to agent.conf file !!!!")
 	config.SetStateServingInfo(si)
 	return nil
 }
@@ -441,10 +447,10 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 
 	setupAgentLogging(a.CurrentConfig())
 
-	if err := introspection.WriteProfileFunctions(); err != nil {
-		// This isn't fatal, just annoying.
-		logger.Errorf("failed to write profile funcs: %v", err)
-	}
+	// if err := introspection.WriteProfileFunctions(); err != nil {
+	// 	// This isn't fatal, just annoying.
+	// 	logger.Errorf("failed to write profile funcs: %v", err)
+	// }
 
 	// When the API server and peergrouper have manifolds, they can
 	// have dependencies on a central hub worker.
@@ -1054,15 +1060,17 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	// EnsureMongoServer installs/upgrades the init config as necessary.
-	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
-	if err != nil {
-		return err
-	}
+	// TODO: No need for k8s coz it's ensured in mongo container in same pod
+
+	// // EnsureMongoServer installs/upgrades the init config as necessary.
+	// ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+	// if err != nil {
+	// 	return err
+	// }
 	var mongodVersion mongo.Version
-	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
-		return err
-	}
+	// if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	// 	return err
+	// }
 	logger.Debugf("mongodb service is installed")
 
 	// Mongo is installed, record the version.

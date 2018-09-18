@@ -159,6 +159,7 @@ func (w *apiserverCertWatcher) update() error {
 		// No change.
 		return nil
 	}
+	logger.Criticalf("apiserverCertWatcher.update: w.currentRaw 11111 ---> \n%#v\n info.Cert ---> \n%#v\n", w.currentRaw, info.Cert)
 
 	tlsCert, err := tls.X509KeyPair([]byte(info.Cert), []byte(info.PrivateKey))
 	if err != nil {
@@ -175,10 +176,13 @@ func (w *apiserverCertWatcher) update() error {
 	w.current = &tlsCert
 	w.mu.Unlock()
 
+	logger.Criticalf("apiserverCertWatcher.update: w.currentRaw 22222 ---> \n%#v\n info.Cert ---> \n%#v\n", w.currentRaw, info.Cert)
+
 	var addr []string
 	for _, ip := range x509Cert.IPAddresses {
 		addr = append(addr, ip.String())
 	}
+	// logger.Criticalf("x509Cert --> %#v", x509Cert)
 	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
 	return nil
 }
