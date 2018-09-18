@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	"strings"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -106,7 +107,6 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 
 // UpdateCredential updates a cloud credentials.
 func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
-	var results params.ErrorResults
 	args := params.TaggedCredentials{
 		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
@@ -116,10 +116,28 @@ func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujuc
 			},
 		}},
 	}
+	if c.facade.BestAPIVersion() < 3 {
+		var results params.ErrorResults
+		if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		return results.OneError()
+	}
+	var results params.UpdateCredentialResults
 	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	// TODO (anastasiamac 2018-09-18) this needs to be adjusted in the follow-ups to return more than one error when needed
+	var msg []string
+	for _, result := range results.Results {
+		if result.Errors != nil {
+			msg = append(msg, result.Errors.Combine().Error())
+		}
+	}
+	if len(msg) != 0 {
+		return errors.New(strings.Join(msg, ";"))
+	}
+	return nil
 }
 
 // RevokeCredential revokes/deletes a cloud credential.
