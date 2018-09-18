@@ -204,9 +204,9 @@ func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenC
 	c.Assert(op.String(), gc.Equals, "complete upgrade series")
 }
 
-func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
+func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesCompleted(c *gc.C) {
 	localState := resolver.LocalState{
-		UpgradeSeriesStatus: model.UpgradeSeriesPrepareCompleted,
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 		CharmURL:            s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
@@ -215,13 +215,6 @@ func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCo
 	}
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-
-	// changing the series would normally fire a config-changed hook but
-	// since the uniter does not respond to state changes after reaching a
-	// UpgradeSeriesStatus of "UpgradeSeriesCompleted" no operation should take place.
-	s.remoteState.Series = "NewSeries"
-	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
