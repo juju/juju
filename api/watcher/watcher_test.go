@@ -364,11 +364,14 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
-	// We only want the most recent change.
 	err = rel.SetSuspended(true, "reason")
 	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Alive, true, "reason")
+
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Alive, false, "")
+
 	err = rel.SetSuspended(true, "another reason")
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(life.Alive, true, "another reason")
