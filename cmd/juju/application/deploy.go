@@ -1448,7 +1448,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// We check this first before possibly suggesting --force.
 		if err == nil {
 			if err2 := c.validateCharmSeries(series); err2 != nil {
-				return errors.Trace(err)
+				return errors.Trace(err2)
 			}
 		}
 
