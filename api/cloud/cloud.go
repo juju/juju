@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -11,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
-	"strings"
 )
 
 // Client provides methods that the Juju client command uses to interact
