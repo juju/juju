@@ -3405,6 +3405,8 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	f := factory.NewFactory(s.caasSt, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	// Consume the initial construction events from the watchers.
+	s.State.StartSync()
 }
 
 func strPtr(s string) *string {
@@ -3612,12 +3614,10 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err := s.app.Scale(5)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// Set to same value, no change.
 	err = s.app.Scale(5)
@@ -3627,7 +3627,6 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	err = s.app.Scale(6)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// An unrelated update, no change.
 	err = s.app.SetMinUnits(2)

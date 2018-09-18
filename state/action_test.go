@@ -597,6 +597,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fa2, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	// Calls StartSync to advance the test clock to consume the
+	// initial created events of the actions.
+	s.State.StartSync()
 
 	// set up watcher on first unit
 	w := unit1.WatchActionNotifications()
@@ -604,33 +607,23 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
 	expect := expectActionIds(fa1, fa2)
-	// Fixes lp#1589641: some time, under race & stress testing,
-	// reads of changes from watcher chan seem to get out of order.
-	// This additional Sync, ensures that the changes are processed correctly.
-	wc.State.StartSync()
 	wc.AssertChange(expect...)
-	wc.State.StartSync()
 	wc.AssertNoChange()
 
 	// add watcher on unit2
 	w2 := unit2.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w2)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
-	wc2.State.StartSync()
 	wc2.AssertChange()
-	wc2.State.StartSync()
 	wc2.AssertNoChange()
 
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
 	fa3, err := unit2.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.State.StartSync()
 	wc.AssertNoChange()
 	expect2 := expectActionIds(fa3)
-	wc2.State.StartSync()
 	wc2.AssertChange(expect2...)
-	wc2.State.StartSync()
 	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
@@ -640,9 +633,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect = expectActionIds(fa4, fa5)
-	wc.State.StartSync()
 	wc.AssertChange(expect...)
-	wc.State.StartSync()
 	wc.AssertNoChange()
 }
 
