@@ -1050,6 +1050,19 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	err := runDeploy(c, "bundle/wordpress-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	ann, err := s.Model.Annotations(application)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-1", "upgrade1")
