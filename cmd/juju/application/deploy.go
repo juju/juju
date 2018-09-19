@@ -102,7 +102,7 @@ type DeployAPI interface {
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
-	Resolve(*config.Config, *charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
 
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
@@ -231,7 +231,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			csURL, err := deployCmd.getCharmStoreAPIURL(controllerAPIRoot)
+			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -280,7 +280,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		csURL, err := deployCmd.getCharmStoreAPIURL(controllerAPIRoot)
+		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1164,6 +1164,9 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}, nil
 }
 
+// readLocalBundle returns the bundle data and bundle dir (for
+// resolving includes) for the bundleFile passed in. If the bundle
+// file doesn't exist we return nil.
 func readLocalBundle(ctx *cmd.Context, bundleFile string) (*charm.BundleData, string, error) {
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
 	if err == nil {
@@ -1329,20 +1332,30 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}, nil
 }
 
-func resolveBundleURL(apiRoot DeployAPI, maybeBundle string) (*charm.URL, params.Channel, error) {
+// URLResolver is the part of charmrepo.Charmstore that we need to
+// resolve a charm url.
+type URLResolver interface {
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+}
+
+// resolveBundleURL tries to interpret maybeBundle as a charmstore
+// bundle. If it turns out to be a bundle, the resolved URL and
+// channel are returned. If it isn't but there wasn't a problem
+// checking it, it returns a nil charm URL.
+func resolveBundleURL(getter ModelConfigGetter, store URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
 	userRequestedURL, err := charm.ParseURL(maybeBundle)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
-	modelCfg, err := getModelConfig(apiRoot)
+	modelCfg, err := getModelConfig(getter)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := apiRoot.Resolve(modelCfg, userRequestedURL)
+	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithChannel, modelCfg, userRequestedURL)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -1358,7 +1371,7 @@ func resolveBundleURL(apiRoot DeployAPI, maybeBundle string) (*charm.URL, params
 
 func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
+		bundleURL, channel, err := resolveBundleURL(apiRoot, apiRoot, c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		} else if err != nil {
@@ -1384,7 +1397,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				ctx,
 				"", // filepath
 				data,
-				storeCharmOrBundleURL,
+				bundleURL,
 				channel,
 				apiRoot,
 				c.BundleStorage,
@@ -1392,15 +1405,6 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 			))
 		}, nil
 	}
-}
-
-func (c *DeployCommand) getCharmStoreAPIURL(controllerAPIRoot api.Connection) (string, error) {
-	controllerAPI := controller.NewClient(controllerAPIRoot)
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return controllerCfg.CharmStoreURL(), nil
 }
 
 func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (string, error) {
@@ -1429,7 +1433,9 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		storeCharmOrBundleURL, channel, supportedSeries, err := apiRoot.Resolve(modelCfg, userRequestedURL)
+		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
+			apiRoot.ResolveWithChannel, modelCfg, userRequestedURL,
+		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		} else if err != nil {
