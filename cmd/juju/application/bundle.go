@@ -626,9 +626,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	result, err := h.api.SetAnnotation(map[string]map[string]string{tag: {"bundleURL": h.bundleURL.String()}})
 	if err == nil && len(result) > 0 {
 		err = result[0].Error
-		if err != nil {
-			logger.Debugf("error setting bundleURL annotation for %q: %s", p.Application, err)
-		}
+	}
+	if err != nil {
+		logger.Debugf("error setting bundleURL annotation for %q: %s", p.Application, err)
 	}
 	return nil
 }
