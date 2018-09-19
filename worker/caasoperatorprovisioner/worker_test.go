@@ -87,11 +87,12 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.caasClient.Calls()) > 0 {
+		if len(s.caasClient.Calls()) == 2 {
 			break
 		}
 	}
 	s.caasClient.CheckCallNames(c, "OperatorExists", "EnsureOperator")
+	c.Assert(s.caasClient.Calls(), gc.HasLen, 2)
 
 	args := s.caasClient.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
