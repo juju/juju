@@ -312,9 +312,9 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	stop := func() {
 		workertest.CleanKill(c, w)
 	}
-
+	modelUUID := s.BackingState.ModelUUID()
 	assertNoChange := func() {
-		s.BackingState.StartSync()
+		s.WaitForModelWatchersIdle(c, modelUUID)
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -323,7 +323,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	}
 
 	assertChange := func(life life.Value, suspended bool, reason string) {
-		s.BackingState.StartSync()
+		s.WaitForModelWatchersIdle(c, modelUUID)
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
@@ -364,11 +364,6 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
-	// We only want the most recent change.
-	err = rel.SetSuspended(true, "reason")
-	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetSuspended(false, "")
-	c.Assert(err, jc.ErrorIsNil)
 	err = rel.SetSuspended(true, "another reason")
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(life.Alive, true, "another reason")
