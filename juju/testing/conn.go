@@ -119,7 +119,7 @@ type JujuConnSuite struct {
 
 	txnSyncNotify     chan struct{}
 	modelWatcherIdle  chan string
-	modelWatcherMutex sync.Mutex
+	modelWatcherMutex *sync.Mutex
 }
 
 const AdminSecret = "dummy-secret"
@@ -144,6 +144,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 
 	s.txnSyncNotify = make(chan struct{})
 	s.modelWatcherIdle = nil
+	s.modelWatcherMutex = &sync.Mutex{}
 	s.PatchValue(&statewatcher.TxnPollNotifyFunc, s.txnNotifyFunc)
 	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
 	s.setUpConn(c)
