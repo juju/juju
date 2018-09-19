@@ -114,8 +114,8 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 		Username: credentialAttrs[CredAttrUsername],
 		Password: credentialAttrs[CredAttrPassword],
 		TLSClientConfig: rest.TLSClientConfig{
-			CertData: []byte(credentialAttrs["ClientCertificateData"]),
-			KeyData:  []byte(credentialAttrs["ClientKeyData"]),
+			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
+			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),
 			CAData:   CAData,
 		},
 	}, nil
