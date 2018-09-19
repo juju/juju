@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -41,6 +42,9 @@ type StateSuite struct {
 	ControllerInheritedConfig map[string]interface{}
 	RegionConfig              cloud.RegionConfig
 	Clock                     *testclock.Clock
+	txnSyncNotify             chan struct{}
+	modelWatcherIdle          chan string
+	modelWatcherMutex         *sync.Mutex
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -56,6 +60,12 @@ func (s *StateSuite) TearDownSuite(c *gc.C) {
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
+
+	s.txnSyncNotify = make(chan struct{})
+	s.modelWatcherIdle = nil
+	s.modelWatcherMutex = &sync.Mutex{}
+	s.PatchValue(&statewatcher.TxnPollNotifyFunc, s.txnNotifyFunc)
+	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
 	initialTime := s.InitialTime
@@ -85,6 +95,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(*gc.C) {
 		s.Controller.Close()
+		close(s.txnSyncNotify)
 	})
 	s.StatePool = s.Controller.StatePool()
 	s.State = s.StatePool.SystemState()
@@ -98,4 +109,89 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *StateSuite) txnNotifyFunc() {
+	select {
+	case s.txnSyncNotify <- struct{}{}:
+		// Try to send something down the channel.
+	default:
+		// However don't get stressed if noone is listening.
+	}
+}
+
+func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
+	s.modelWatcherMutex.Lock()
+	idleChan := s.modelWatcherIdle
+	s.modelWatcherMutex.Unlock()
+	if idleChan == nil {
+		return
+	}
+	idleChan <- modelUUID
+}
+
+// WaitForNextSync repeatedly advances the testing clock
+// with short waits between until the txn poller doesn't find
+// any more changes.
+func (s *StateSuite) WaitForNextSync(c *gc.C) {
+	done := make(chan struct{})
+	go func() {
+		<-s.txnSyncNotify
+		close(done)
+	}()
+	timeout := time.After(jujutesting.LongWait)
+	for {
+		s.Clock.Advance(time.Second)
+		loop := time.After(10 * time.Millisecond)
+		select {
+		case <-done:
+			return
+		case <-loop:
+		case <-timeout:
+			c.Fatal("no sync event sent, is the watcher dead?")
+		}
+	}
+}
+
+// WaitForModelWatchersIdle firstly waits for the txn poller to process
+// all pending changes, then waits for the hub watcher on the state object
+// to have finished processing all those events.
+func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
+	c.Logf("waiting for model %s to be idle", modelUUID)
+	s.modelWatcherMutex.Lock()
+	idleChan := make(chan string)
+	s.modelWatcherIdle = idleChan
+	s.modelWatcherMutex.Unlock()
+	s.WaitForNextSync(c)
+
+	defer func() {
+		s.modelWatcherMutex.Lock()
+		s.modelWatcherIdle = nil
+		s.modelWatcherMutex.Unlock()
+		// Clear out any pending events.
+		for {
+			select {
+			case <-idleChan:
+			default:
+				return
+			}
+		}
+	}()
+
+	timeout := time.After(jujutesting.LongWait)
+	for {
+		s.Clock.Advance(10 * time.Millisecond)
+		loop := time.After(10 * time.Millisecond)
+		select {
+		case <-loop:
+		case uuid := <-idleChan:
+			if uuid == modelUUID {
+				return
+			} else {
+				c.Logf("model %s is idle", uuid)
+			}
+		case <-timeout:
+			c.Fatal("no sync event sent, is the watcher dead?")
+		}
+	}
 }

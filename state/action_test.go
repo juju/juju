@@ -597,9 +597,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fa2, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	// Calls StartSync to advance the test clock to consume the
-	// initial created events of the actions.
-	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// set up watcher on first unit
 	w := unit1.WatchActionNotifications()
