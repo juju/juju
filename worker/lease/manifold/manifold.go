@@ -12,7 +12,6 @@ package manifold
 import (
 	"fmt"
 	"math/rand"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/clock"
@@ -119,7 +118,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	source := rand.NewSource(clock.Now().UnixNano())
 	runID := rand.New(source).Int31()
 
-	logPath := filepath.Join(agent.CurrentConfig().LogDir(), "lease.log")
+	// logPath := filepath.Join(agent.CurrentConfig().LogDir(), "lease.log")
 	// if err := primeLogFile(logPath); err != nil {
 	// 	// This isn't a fatal error, so log and continue if priming
 	// 	// fails.
@@ -130,7 +129,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	// 	)
 	// }
 
-	notifyTarget := s.config.NewTarget(st, makeLogger(logPath), s.config.Logger)
+	// notifyTarget := s.config.NewTarget(st, makeLogger(logPath), s.config.Logger)
 	s.store = s.config.NewStore(raftlease.StoreConfig{
 		FSM:          s.config.FSM,
 		Hub:          hub,
