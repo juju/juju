@@ -73,6 +73,11 @@ func NewCloudEntitiesBackend(p *state.State) CloudEntitiesBackend {
 	return stateShim{p}
 }
 
+// NewModelBackend creates a model backend to use based on state.State.
+func NewModelBackend(p *state.State) ModelBackend {
+	return stateShim{p}
+}
+
 // AllMachines implements PersistedBackend.AllMachines.
 func (st stateShim) AllMachines() ([]Machine, error) {
 	machines, err := st.State.AllMachines()
