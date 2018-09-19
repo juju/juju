@@ -185,7 +185,8 @@ type bundleHandler struct {
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
-	// The bundle URL from the charmstore.
+	// bundleURL is the URL of the bundle when deploying a bundle from the
+	// charmstore, nil otherwise.
 	bundleURL *charm.URL
 
 	// unitStatus reflects the environment status and maps unit names to their
@@ -617,15 +618,18 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 	h.writeAddedResources(resNames2IDs)
 
-	if h.bundleURL != nil {
-		tag := names.NewApplicationTag(p.Application).String()
-		result, err := h.api.SetAnnotation(map[string]map[string]string{tag: {"bundleURL": h.bundleURL.String()}})
-		if err == nil && len(result) > 0 {
-			err = result[0].Error
+	if h.bundleURL == nil {
+		return nil
+	}
+
+	tag := names.NewApplicationTag(p.Application).String()
+	result, err := h.api.SetAnnotation(map[string]map[string]string{tag: {"bundleURL": h.bundleURL.String()}})
+	if err == nil && len(result) > 0 {
+		err = result[0].Error
+		if err != nil {
 			logger.Debugf("error setting bundleURL annotation for %q: %s", p.Application, err)
 		}
 	}
-
 	return nil
 }
 

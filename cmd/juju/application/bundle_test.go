@@ -1061,6 +1061,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
 	ann, err := s.Model.Annotations(application)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	application2, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	ann2, err := s.Model.Annotations(application2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
