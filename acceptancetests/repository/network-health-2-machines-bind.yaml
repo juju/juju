@@ -1,0 +1,84 @@
+# network-health-2-machines:
+machines:
+  '0':
+    series: xenial
+  '1':
+    series: xenial
+series: xenial
+services:
+  dummy-source-a:
+    charm: ~juju-qa/dummy-source
+    num_units: 1
+    expose: false
+    options:
+      token: 'true'
+    to:
+    - '0'
+  dummy-source-b:
+    charm: ~juju-qa/dummy-source
+    num_units: 1
+    expose: false
+    options:
+      token: 'true'
+    to:
+    - lxd:0
+    bindings:
+      "": space-0
+  dummy-source-c:
+    charm: ~juju-qa/dummy-source
+    num_units: 1
+    expose: false
+    options:
+      token: 'true'
+    to:
+    - lxd:1
+    bindings:
+      "": space-0
+  dummy-sink-a:
+    charm: ~juju-qa/dummy-sink
+    num_units: 1
+    expose: false
+    options:
+      token: 'true'
+    to:
+    - lxd:0
+    bindings:
+      "": space-0
+  dummy-sink-b:
+    charm: ~juju-qa/dummy-sink
+    num_units: 1
+    expose: false
+    options:
+      token: 'true'
+    to:
+    - '1'
+    bindings:
+      "": space-0
+  dummy-sink-c:
+    charm: ~juju-qa/dummy-sink
+    num_units: 1
+    expose: false
+    options:
+      token: 'true'
+    to:
+    - lxd:1
+    bindings:
+      "": space-0
+  dummy-subordinate:
+    charm: ~juju-qa/dummy-subordinate
+    expose: false
+    options:
+      token: 'true'
+relations:
+- - dummy-source-a
+  - dummy-sink-b
+- - dummy-source-b
+  - dummy-sink-a
+- - dummy-source-b
+  - dummy-sink-c
+- - dummy-source-c
+  - dummy-sink-a
+- - dummy-subordinate
+  - dummy-sink-b
+- - dummy-subordinate
+  - dummy-sink-c
