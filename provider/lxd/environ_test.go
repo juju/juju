@@ -227,7 +227,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil)
-	lxdEnv, ok := env.(lxd.LXDProfiler)
+	lxdEnv, ok := env.(environs.LXDProfiler)
 	c.Assert(ok, jc.IsTrue)
 	err := lxdEnv.MaybeWriteLXDProfile("testname", nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -316,7 +315,7 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 }
 
 func (p *ProvisionerAPI) machineLXDProfiles(m *state.Machine, env environs.Environ) ([]string, error) {
-	profileEnv, ok := env.(lxd.LXDProfiler)
+	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
 		return nil, nil
 	}
@@ -324,7 +323,7 @@ func (p *ProvisionerAPI) machineLXDProfiles(m *state.Machine, env environs.Envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	names := make([]string, 0)
+	var names []string
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
@@ -338,11 +337,11 @@ func (p *ProvisionerAPI) machineLXDProfiles(m *state.Machine, env environs.Envir
 		if profile == nil || (profile != nil && profile.Empty()) {
 			continue
 		}
-		pName := fmt.Sprintf("juju-%s-%s-%d-%d", profileEnv.Name(), app.Name(), ch.Revision(), unit.UnitTag().Number())
+		// juju-<model>-<application>-<charm-revision>
+		pName := fmt.Sprintf("juju-%s-%s-%d", p.m.Name(), app.Name(), ch.Revision())
 		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Debugf("wrote lxd profile %q for machine %s", pName, m.Id())
 		names = append(names, pName)
 	}
 	return names, nil

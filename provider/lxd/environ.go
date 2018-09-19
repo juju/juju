@@ -105,34 +105,9 @@ func (env *environ) profileName() string {
 	return "juju-" + env.Name()
 }
 
-type LXDProfiler interface {
-	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
-	Name() string
-}
-
 // Name returns the name of the environ.
 func (env *environ) Name() string {
 	return env.name
-}
-
-// MaybeWriteLXDProfile, write given LXDProfiler to if not already there.
-func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
-	hasProfile, err := env.server.HasProfile(pName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if hasProfile {
-		return nil
-	}
-	post := api.ProfilesPost{
-		Name: pName,
-		ProfilePut: api.ProfilePut{
-			Config:      put.Config,
-			Description: put.Description,
-			Devices:     put.Devices,
-		},
-	}
-	return env.server.CreateProfile(post)
 }
 
 // Provider returns the provider that created this environ.
@@ -317,4 +292,25 @@ func (env *environ) DeriveAvailabilityZones(
 		return nil, nil
 	}
 	return []string{p.nodeName}, nil
+}
+
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	hasProfile, err := env.server.HasProfile(pName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		return nil
+	}
+	post := api.ProfilesPost{
+		Name:       pName,
+		ProfilePut: api.ProfilePut(*put),
+	}
+	if err = env.server.CreateProfile(post); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("wrote lxd profile %q", pName)
+	return nil
 }
