@@ -4,7 +4,10 @@
 package charms_test
 
 import (
+	"os"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -59,6 +64,11 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	var clientCharmInfoTests = []struct {
 		about    string
 		charm    string
@@ -112,6 +122,66 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+		{
+			about: "dummy charm which contains lxd profile spec",
+			charm: "lxd-profile",
+			url:   "local:quantal/lxd-profile-0",
+			expected: params.CharmInfo{
+				Revision: 0,
+				URL:      "local:quantal/lxd-profile-0",
+				Config:   map[string]params.CharmOption{},
+				Meta: &params.CharmMeta{
+					Name:           "lxd-profile",
+					Summary:        "start a juju machine with a lxd profile",
+					Description:    "Run an Ubuntu system, with the given lxd-profile\n",
+					Subordinate:    false,
+					MinJujuVersion: "0.0.0",
+					Provides: map[string]params.CharmRelation{
+						"ubuntu": {
+							Name:      "ubuntu",
+							Interface: "ubuntu",
+							Role:      "provider",
+							Scope:     "global",
+						},
+					},
+					ExtraBindings: map[string]string{
+						"another": "another",
+					},
+					Tags: []string{
+						"misc",
+						"application_development",
+					},
+				},
+				Actions: &params.CharmActions{},
+				LXDProfile: &params.CharmLXDProfile{
+					Description: "lxd profile for testing, black list items grouped commented out",
+					Config: map[string]string{
+						"security.nesting":       "true",
+						"security.privileged":    "true",
+						"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+						"environment.http_proxy": "",
+					},
+					Devices: map[string]map[string]string{
+						"tun": {
+							"path": "/dev/net/tun",
+							"type": "unix-char",
+						},
+						"sony": {
+							"type":      "usb",
+							"vendorid":  "0fce",
+							"productid": "51da",
+						},
+						"bdisk": {
+							"type":   "unix-block",
+							"source": "/dev/loop0",
+						},
+						"gpu": {
+							"type": "gpu",
 						},
 					},
 				},
@@ -213,7 +283,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
 		s.AddTestingCharm(c, t.charm)
-		info, err := s.api.CharmInfo(params.CharmURL{t.url})
+		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

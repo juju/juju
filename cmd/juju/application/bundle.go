@@ -364,6 +364,8 @@ func (h *bundleHandler) handleChanges() error {
 		fmt.Fprintf(h.ctx.Stdout, "Executing changes:\n")
 	}
 
+	logger.Criticalf("handle changes")
+
 	// Deploy the bundle.
 	for i, change := range h.changes {
 		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
@@ -555,8 +557,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 	charmInfo, err := h.api.CharmInfo(ch)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
+	if err := validateCharmInfoLXDProfile(charmInfo); err != nil {
+		return errors.Trace(err)
+	}
+
 	resNames2IDs, err := resourceadapters.DeployResources(
 		p.Application,
 		chID,

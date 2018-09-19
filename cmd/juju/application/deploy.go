@@ -798,6 +798,8 @@ func (c *DeployCommand) deployBundle(
 		}
 	}
 
+	logger.Criticalf("DeployBundle")
+
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	if _, err := deployBundle(
 		filePath,
@@ -860,9 +862,11 @@ func (c *DeployCommand) deployCharm(
 		applicationName = charmInfo.Meta.Name
 	}
 
+	logger.Criticalf("Located %+v", charmInfo.LXDProfile)
+
 	// Validate the charmInfo before launching, interesting if this fails
 	// I'm not entirely sure what you can do here with a stored charm
-	if err := c.validateCharmInfoLXDProfile(charmInfo); err != nil {
+	if err := validateCharmInfoLXDProfile(charmInfo); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1110,32 +1114,6 @@ func (c *DeployCommand) validateCharmSeries(series string) error {
 	return model.ValidateSeries(modelType, series)
 }
 
-func (c *DeployCommand) validateCharmLXDProfile(ch charm.Charm) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// Check if the charm conforms to the LXDProfiler, as it's optional and in
-		// theory the charm.Charm doesn't have to provider a LXDProfile method we
-		// can ignore it if it's missing and assume it is therefore valid.
-		if profiler, ok := ch.(charm.LXDProfiler); ok {
-			// Profile from the api could be nil, so check that it isn't
-			if profile := profiler.LXDProfile(); profile != nil {
-				err := profile.ValidateConfigDevices()
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (c *DeployCommand) validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		if profile := info.LXDProfile; profile != nil {
-			err := profile.ValidateConfigDevices()
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
@@ -1305,7 +1283,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	if err := c.validateCharmSeries(series); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := c.validateCharmLXDProfile(ch); err != nil {
+	if err := validateCharmLXDProfile(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1501,4 +1479,32 @@ func flagWithMinus(name string) string {
 		return "--" + name
 	}
 	return "-" + name
+}
+
+func validateCharmLXDProfile(ch charm.Charm) error {
+	if featureflag.Enabled(feature.LXDProfile) {
+		logger.Criticalf("Charm test")
+		// Check if the charm conforms to the LXDProfiler, as it's optional and in
+		// theory the charm.Charm doesn't have to provider a LXDProfile method we
+		// can ignore it if it's missing and assume it is therefore valid.
+		if profiler, ok := ch.(charm.LXDProfiler); ok {
+			// Profile from the api could be nil, so check that it isn't
+			if profile := profiler.LXDProfile(); profile != nil {
+				err := profile.ValidateConfigDevices()
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
+	if featureflag.Enabled(feature.LXDProfile) {
+		logger.Criticalf("CharmInfo test")
+		if profile := info.LXDProfile; profile != nil {
+			err := profile.ValidateConfigDevices()
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
