@@ -1788,6 +1788,16 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		error(nil),
 	)
 
+	fakeAPI.Call("SetAnnotation", map[string]map[string]string{"application-wordpress": {"bundleURL": "cs:bundle/wordpress-simple"}}).Returns(
+		[]params.ErrorResult{},
+		error(nil),
+	)
+
+	fakeAPI.Call("SetAnnotation", map[string]map[string]string{"application-mysql": {"bundleURL": "cs:bundle/wordpress-simple"}}).Returns(
+		[]params.ErrorResult{},
+		error(nil),
+	)
+
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
