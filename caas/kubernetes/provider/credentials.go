@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	CredAttrUsername      = "username"
-	CredAttrPassword      = "password"
+	CredAttrUsername              = "username"
+	CredAttrPassword              = "password"
 	CredAttrClientCertificateData = "ClientCertificateData"
 	CredAttrClientKeyData         = "ClientKeyData"
 )
