@@ -669,33 +669,6 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgradeRelations(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			// This test does an add-relation as quickly as possible
-			// after an upgrade-charm, in the hope that the scheduler will
-			// deliver the events in the wrong order. The observed
-			// behaviour should be the same in either case.
-			"ignore unknown relations until upgrade is done",
-			quickStart{},
-			createCharm{
-				revision: 2,
-				customize: func(c *gc.C, ctx *context, path string) {
-					renameRelation(c, path, "db", "db2")
-					hpath := filepath.Join(path, "hooks", "db2-relation-joined")
-					ctx.writeHook(c, hpath, true)
-				},
-			},
-			serveCharm{},
-			upgradeCharm{revision: 2},
-			addRelation{},
-			addRelationUnit{},
-			waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
-			verifyCharm{revision: 2},
-		),
-	})
-}
-
 func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
 	// appendStorageMetadata customises the wordpress charm's metadata,
 	// adding a "wp-content" filesystem store. We do it here rather
