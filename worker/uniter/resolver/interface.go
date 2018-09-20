@@ -101,6 +101,6 @@ type LocalState struct {
 	Series string
 
 	// UpgradeSeriesStatus is the current state of any currently running
-	// upgrade series or the empty string if no upgrade series has been started.
+	// upgrade series.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
 }

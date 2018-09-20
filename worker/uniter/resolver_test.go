@@ -58,6 +58,7 @@ func (s *caasResolverSuite) SetUpTest(c *gc.C) {
 func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
 	s.modelType = model.IAAS
 	s.resolverSuite.SetUpTest(c)
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
 }
 
 func (s *resolverSuite) SetUpTest(c *gc.C) {
@@ -91,6 +92,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
 		Storage:             storage.NewResolver(attachments, s.modelType),
 		Commands:            nopResolver{},
+		ModelType:           s.modelType,
 	}
 
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
@@ -145,6 +147,26 @@ func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		Series:               s.charmURL.Series,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.Series = "trusty"
+	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
+	// Change relation state (to simulate simultaneous change remote state update)
+	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
 }
 
 func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
