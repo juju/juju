@@ -671,9 +671,9 @@ func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag)
 	return c.credentials, c.NextErr()
 }
 
-func (c *fakeCloudAPI) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential cloud.Credential) (params.UpdateCredentialResult, error) {
+func (c *fakeCloudAPI) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential cloud.Credential) ([]params.UpdateCredentialModelResult, error) {
 	c.MethodCall(c, "UpdateCredentialsCheckModels", tag, credential)
-	return params.UpdateCredentialResult{}, c.NextErr()
+	return nil, c.NextErr()
 }
 
 type fakeProviderRegistry struct {

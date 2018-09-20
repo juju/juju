@@ -107,7 +107,7 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 // UpdateCredentialsCheckModels updates a cloud credential content
 // stored on the controller. This call validates that the new content works
 // for all models that are using this credential.
-func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
+func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
 	in := params.TaggedCredentials{
 		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
@@ -117,27 +117,32 @@ func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, cred
 			},
 		}},
 	}
-	empty := params.UpdateCredentialResult{}
 	if c.facade.BestAPIVersion() < 3 {
-		result := params.UpdateCredentialResult{CredentialTag: tag.String()}
 		var out params.ErrorResults
 		if err := c.facade.FacadeCall("UpdateCredentials", in, &out); err != nil {
-			return empty, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if len(out.Results) != 1 {
-			return empty, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+			return nil, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
 		}
-		result.Error = out.Results[0].Error
-		return result, nil
+		if out.Results[0].Error != nil {
+			return nil, errors.Trace(out.Results[0].Error)
+		}
+		return nil, nil
 	}
 	var out params.UpdateCredentialResults
 	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
-		return empty, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if len(out.Results) != 1 {
-		return empty, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+		return nil, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
 	}
-	return out.Results[0], nil
+	if out.Results[0].Error != nil {
+		// Unlike many other places, we want to return something valid here to provide more details.
+		return out.Results[0].Models, errors.Trace(out.Results[0].Error)
+	}
+
+	return out.Results[0].Models, nil
 }
 
 // RevokeCredential revokes/deletes a cloud credential.
