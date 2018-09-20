@@ -571,7 +571,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine %q is not locked for upgrade", m)
+		return nil, errors.NotFoundf("upgrade lock for machine %q", m)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", m.Id())
