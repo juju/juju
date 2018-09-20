@@ -106,7 +106,7 @@ func (m *Machine) IsLocked() (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if errors.IsBadRequest(err) {
+	if errors.IsNotFound(err) {
 		return false, nil
 	}
 	return false, errors.Trace(err)

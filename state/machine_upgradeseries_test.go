@@ -217,6 +217,12 @@ func (s *MachineSuite) TestGetUpgradeSeriesMessagesMissingLockMeansFinished(c *g
 	c.Assert(finished, jc.IsTrue)
 }
 
+func (s *MachineSuite) TestIsLockedIndicatesUnlockedWhenNoLockDocIsFound(c *gc.C) {
+	locked, err := s.machine.IsLocked()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(locked, jc.IsFalse)
+}
+
 func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
