@@ -388,7 +388,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	// Now that status is stored as Active, but displayed (and in history)
 	// as waiting for container, once we set cloud container status as active
 	// it must show active from the unit (incl. history)
-	setCloudContainerStatus(c, unit, status.Active, "Container Active")
+	setCloudContainerStatus(c, unit, status.Running, "Container Active")
 	workloadStatus = unitWorkloadStatus(c, m, unit.Name())
 	c.Assert(workloadStatus.Message, gc.Equals, "Unit Active")
 	c.Assert(workloadStatus.Status, gc.Equals, status.Active)

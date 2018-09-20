@@ -2545,6 +2545,17 @@ func (op *AddUnitOperation) Done(err error) error {
 		}
 	}
 	if op.props.CloudContainerStatus != nil {
+		doc := statusDoc{
+			Status:     op.props.CloudContainerStatus.Status,
+			StatusInfo: op.props.CloudContainerStatus.Message,
+			StatusData: mgoutils.EscapeKeys(op.props.CloudContainerStatus.Data),
+			Updated:    timeOrNow(op.props.CloudContainerStatus.Since, u.st.clock()).UnixNano(),
+		}
+		_, err := probablyUpdateStatusHistory(op.application.st.db(), globalCloudContainerKey(op.unitName), doc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// Ensure unit history is updated correctly
 		unitStatus, err := getStatus(op.application.st.db(), unitGlobalKey(op.unitName), "unit")
 		if err != nil {

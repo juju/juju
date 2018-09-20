@@ -3606,6 +3606,13 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
 	c.Assert(unitHistory[0].Message, gc.Equals, "new container running")
 
+	// check cloud container status history is stored.
+	containerStatusHistory, err := state.GetCloudContainerStatusHistory(s.caasSt, u.Name(), status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerStatusHistory, gc.HasLen, 1)
+	c.Assert(containerStatusHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(containerStatusHistory[0].Message, gc.Equals, "new container running")
+
 	err = removedUnit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

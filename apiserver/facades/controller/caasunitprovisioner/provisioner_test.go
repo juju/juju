@@ -311,7 +311,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 	s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("really-new-uuid"),
 		Address:    strPtr("really-new-address"), Ports: &[]string{"really-new-port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Active, Message: "really new message"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "really new message"},
 		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
@@ -339,7 +339,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 	s.st.application.units[3].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("new-uuid"),
 		Address:    strPtr("new-address"), Ports: &[]string{"new-port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Active, Message: "new message"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "new message"},
 		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 }
@@ -433,14 +433,14 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
 		Address:    strPtr("address"), Ports: &[]string{"port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Active, Message: "message"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
 		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("another-uuid"),
 		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		CloudContainerStatus: &status.StatusInfo{Status: status.Active, Message: "another message"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
 		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 	s.storage.CheckCallNames(c,

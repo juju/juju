@@ -180,6 +180,9 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 	if unitStatus.Status == status.Terminated {
 		return unitStatus
 	}
+	if containerStatus.Status == status.Terminated {
+		return containerStatus
+	}
 	if containerStatus.Status == "" {
 		// No container update received from k8s yet,
 		// so we have to assume it's still allocating.
