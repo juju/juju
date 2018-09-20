@@ -318,6 +318,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
+			Error:         &params.Error{Message: "some models are no longer visible"},
 			Models: []params.UpdateCredentialModelResult{
 				{
 					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -349,6 +350,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
+			Error:         &params.Error{Message: "some models are no longer visible"},
 			Models: []params.UpdateCredentialModelResult{
 				{
 					ModelUUID: coretesting.ModelTag.Id(),
@@ -387,6 +389,7 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 		Results: []params.UpdateCredentialResult{
 			{
 				CredentialTag: "cloudcred-meep_julia_three",
+				Error:         &params.Error{Message: "some models are no longer visible"},
 				Models: []params.UpdateCredentialModelResult{
 					{
 						ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -424,6 +427,7 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
+			Error:         &params.Error{Message: "some models are no longer visible"},
 			Models: []params.UpdateCredentialModelResult{
 				{
 					ModelUUID: coretesting.ModelTag.Id(),
