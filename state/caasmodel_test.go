@@ -52,25 +52,25 @@ type CAASModelSuite struct {
 var _ = gc.Suite(&CAASModelSuite{})
 
 func (s *CAASModelSuite) TestNewModel(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil)
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "caas-cloud",
 		Type:      "kubernetes",
 		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
-	})
+	}, owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, uuid := s.createTestModelConfig(c)
 	modelTag := names.NewModelTag(uuid)
-	owner := names.NewUserTag("test@remote")
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	credTag := names.NewCloudCredentialTag(
-		fmt.Sprintf("caas-cloud/%s/dummy-credential", owner.Id()))
+		fmt.Sprintf("caas-cloud/%s/dummy-credential", owner.Name()))
 	err = s.State.UpdateCloudCredential(credTag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "caas-cloud",
 		Config:                  cfg,
-		Owner:                   owner,
+		Owner:                   owner.UserTag(),
 		CloudCredential:         credTag,
 		StorageProviderRegistry: provider.CommonStorageProviders(),
 	})
@@ -81,7 +81,7 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(model.UUID(), gc.Equals, modelTag.Id())
 	c.Assert(model.Tag(), gc.Equals, modelTag)
 	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
-	c.Assert(model.Owner(), gc.Equals, owner)
+	c.Assert(model.Owner().Name(), gc.Equals, owner.Name())
 	c.Assert(model.Name(), gc.Equals, "testing")
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 	c.Assert(model.CloudRegion(), gc.Equals, "")

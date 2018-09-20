@@ -50,10 +50,10 @@ func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 
-	s.State.SetUserAccess(userTag, ctag, permission.AddModelAccess)
+	s.State.SetUserAccess(userTag, ctag, permission.SuperuserAccess)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), ctag)
-	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUser(c *gc.C) {

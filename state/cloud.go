@@ -16,7 +16,13 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/permission"
 )
+
+// cloudGlobalKey will return the key for a given cloud.
+func cloudGlobalKey(cloudName string) string {
+	return fmt.Sprintf("cloud#%s", cloudName)
+}
 
 // cloudDoc records information about the cloud that the controller operates in.
 type cloudDoc struct {
@@ -176,7 +182,7 @@ func (st *State) Cloud(name string) (cloud.Cloud, error) {
 // AddCloud creates a cloud with the given name and details.
 // Note that the Config is deliberately ignored - it's only
 // relevant when bootstrapping.
-func (st *State) AddCloud(c cloud.Cloud) error {
+func (st *State) AddCloud(c cloud.Cloud, owner string) error {
 	if err := validateCloud(c); err != nil {
 		return errors.Annotate(err, "invalid cloud")
 	}
@@ -187,6 +193,13 @@ func (st *State) AddCloud(c cloud.Cloud) error {
 		}
 		return err
 	}
+	// Ensure the owner has access to the cloud.
+	ownerTag := names.NewUserTag(owner)
+	err := st.CreateCloudAccess(c.Name, ownerTag, permission.AdminAccess)
+	if err != nil {
+		return errors.Annotatef(err, "granting %s permission to the cloud owner", permission.AdminAccess)
+	}
+
 	return nil
 }
 
@@ -246,14 +259,24 @@ func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
 		Id:     name,
 		Remove: true,
 	}, countOp}
+
 	credPattern := bson.M{
 		"_id": bson.M{"$regex": "^" + name + "#"},
 	}
-
 	credOps, err := st.removeInCollectionOps(cloudCredentialsC, credPattern)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, credOps...)
+
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + cloudGlobalKey(name) + "#"},
+	}
+	permOps, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops = append(ops, permOps...)
 	return ops, nil
 }

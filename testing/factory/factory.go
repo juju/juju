@@ -769,12 +769,17 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 	}
 	params.Type = state.ModelTypeCAAS
 	params.CloudRegion = "<none>"
+	if params.Owner == nil {
+		origEnv, err := factory.st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		params.Owner = origEnv.Owner()
+	}
 	if params.CloudName == "" {
 		err := factory.st.AddCloud(cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
 			AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
-		})
+		}, params.Owner.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		params.CloudName = "caascloud"
 	}

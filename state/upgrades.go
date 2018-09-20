@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/permission"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/charm.v6"
@@ -1770,4 +1771,51 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 		return nil, errors.Trace(err)
 	}
 	return results, nil
+}
+
+// MigrateAddModelPermissions converts add-model permissions on the controller
+// to add-model permissions on the controller cloud.
+func MigrateAddModelPermissions(pool *StatePool) error {
+	st := pool.SystemState()
+	controllerInfo, err := st.ControllerInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	coll, closer := st.db().GetRawCollection(permissionsC)
+	defer closer()
+
+	query := bson.M{
+		"_id":    bson.M{"$regex": "^" + controllerKey(st.ControllerUUID()) + "#us#.*"},
+		"access": "add-model",
+	}
+	iter := coll.Find(query).Iter()
+
+	var doc struct {
+		DocId            string `bson:"_id"`
+		ObjectGlobalKey  string `bson:"object-global-key"`
+		SubjectGlobalKey string `bson:"subject-global-key"`
+		Access           string `bson:"access"`
+	}
+	var ops []txn.Op
+
+	// Set all the existng controller add-model permissions back to login.
+	// Create a new cloud permission for add-model.
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      permissionsC,
+			Id:     doc.DocId,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"access": "login"}},
+		})
+		ops = append(ops,
+			createPermissionOp(cloudGlobalKey(controllerInfo.CloudName), doc.SubjectGlobalKey, permission.AddModelAccess))
+	}
+
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
 }
