@@ -45,6 +45,28 @@ type CloudsResult struct {
 	Clouds map[string]Cloud `json:"clouds,omitempty"`
 }
 
+// ModifyCloudAccessRequest holds the parameters for making grant and revoke cloud calls.
+type ModifyCloudAccessRequest struct {
+	Changes []ModifyCloudAccess `json:"changes"`
+}
+
+// ModifyCloudAccess defines an operation to modify cloud access.
+type ModifyCloudAccess struct {
+	UserTag  string      `json:"user-tag"`
+	CloudTag string      `json:"cloud-tag"`
+	Action   CloudAction `json:"action"`
+	Access   string      `json:"access"`
+}
+
+// CloudAction is an action that can be performed on a cloud.
+type CloudAction string
+
+// Actions that can be preformed on a cloud.
+const (
+	GrantCloudAccess  CloudAction = "grant"
+	RevokeCloudAccess CloudAction = "revoke"
+)
+
 // CloudCredential contains a cloud credential
 // possibly with secrets redacted.
 type CloudCredential struct {

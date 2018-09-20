@@ -472,6 +472,7 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 
 type mockBackend struct {
 	gitjujutesting.Stub
+	cloudfacade.Backend
 	cloud cloud.Cloud
 	creds map[string]state.Credential
 
@@ -517,8 +518,8 @@ func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error
 	return st.NextErr()
 }
 
-func (st *mockBackend) AddCloud(cloud cloud.Cloud) error {
-	st.MethodCall(st, "AddCloud", cloud)
+func (st *mockBackend) AddCloud(cloud cloud.Cloud, user string) error {
+	st.MethodCall(st, "AddCloud", cloud, user)
 	return errors.NewNotImplemented(nil, "This mock is used for v1, so AddCloud")
 }
 

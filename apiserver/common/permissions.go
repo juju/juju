@@ -31,6 +31,8 @@ func HasPermission(
 		validate = permission.ValidateModelAccess
 	case names.ApplicationOfferTagKind:
 		validate = permission.ValidateOfferAccess
+	case names.CloudTagKind:
+		validate = permission.ValidateCloudAccess
 	default:
 		return false, nil
 	}
@@ -56,7 +58,8 @@ func HasPermission(
 	modelPermission := userAccess.EqualOrGreaterModelAccessThan(requestedPermission) && target.Kind() == names.ModelTagKind
 	controllerPermission := userAccess.EqualOrGreaterControllerAccessThan(requestedPermission) && target.Kind() == names.ControllerTagKind
 	offerPermission := userAccess.EqualOrGreaterOfferAccessThan(requestedPermission) && target.Kind() == names.ApplicationOfferTagKind
-	if !controllerPermission && !modelPermission && !offerPermission {
+	cloudPermission := userAccess.EqualOrGreaterCloudAccessThan(requestedPermission) && target.Kind() == names.CloudTagKind
+	if !controllerPermission && !modelPermission && !offerPermission && !cloudPermission {
 		return false, nil
 	}
 	return true, nil

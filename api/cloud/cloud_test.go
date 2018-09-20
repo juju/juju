@@ -619,3 +619,111 @@ func (s *cloudSuite) TestRemoveCloudNotInV1API(c *gc.C) {
 
 	c.Assert(err, gc.ErrorMatches, "RemoveCloud\\(\\).* not implemented")
 }
+
+func (s *cloudSuite) TestGrantCloud(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "ModifyCloudAccess")
+				c.Check(a, jc.DeepEquals, params.ModifyCloudAccessRequest{
+					Changes: []params.ModifyCloudAccess{
+						{UserTag: "user-fred", CloudTag: "cloud-fluffy", Action: "grant", Access: "admin"},
+					},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				results := result.(*params.ErrorResults)
+				results.Results = append(results.Results, params.ErrorResult{
+					Error: &params.Error{Message: "FAIL"},
+				})
+				return nil
+			},
+		),
+		BestVersion: 3,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.GrantCloud("fred", "admin", "fluffy")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestGrantCloudAccessNotInV2API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Fail()
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	err := client.GrantCloud("foo", "admin", "fluffy")
+	c.Assert(err, gc.ErrorMatches, "GrantCloud\\(\\).* not implemented")
+}
+
+func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "ModifyCloudAccess")
+				c.Check(a, jc.DeepEquals, params.ModifyCloudAccessRequest{
+					Changes: []params.ModifyCloudAccess{
+						{UserTag: "user-fred", CloudTag: "cloud-fluffy", Action: "revoke", Access: "admin"},
+					},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				results := result.(*params.ErrorResults)
+				results.Results = append(results.Results, params.ErrorResult{
+					Error: &params.Error{Message: "FAIL"},
+				})
+				return nil
+			},
+		),
+		BestVersion: 3,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.RevokeCloud("fred", "admin", "fluffy")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestRevokeCloudAccessNotInV2API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Fail()
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	err := client.RevokeCloud("foo", "admin", "fluffy")
+	c.Assert(err, gc.ErrorMatches, "RevokeCloud\\(\\).* not implemented")
+}

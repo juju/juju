@@ -75,6 +75,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dummyCloud := cloud.Cloud{
+		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		Regions: []cloud.Region{
@@ -177,6 +178,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
+		cloudUsers: map[string]permission.Access{},
 	}
 
 	caasCred := state.Credential{}
@@ -783,40 +785,18 @@ func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
 
 func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
-	userAccess := permission.UserAccess{
-		UserID:      addModelUser.Id(),
-		UserTag:     addModelUser,
-		Object:      s.st.ControllerTag(),
-		Access:      permission.AddModelAccess,
-		CreatedBy:   names.NewUserTag("admin"),
-		DisplayName: addModelUser.Name(),
-		UserName:    addModelUser.Name(),
-	}
-	s.st.users = []permission.UserAccess{userAccess}
-	_, err := s.st.UserAccess(addModelUser, s.st.ControllerTag())
-	c.Assert(err, jc.ErrorIsNil)
+	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
 	s.setAPIUser(c, addModelUser)
-	_, err = s.api.CreateModel(createArgs(addModelUser))
+	_, err := s.api.CreateModel(createArgs(addModelUser))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
-	userAccess := permission.UserAccess{
-		UserID:      addModelUser.Id(),
-		UserTag:     addModelUser,
-		Object:      s.st.ControllerTag(),
-		Access:      permission.AddModelAccess,
-		CreatedBy:   names.NewUserTag("admin"),
-		DisplayName: addModelUser.Name(),
-		UserName:    addModelUser.Name(),
-	}
-	s.st.users = []permission.UserAccess{userAccess}
-	_, err := s.st.UserAccess(addModelUser, s.st.ControllerTag())
-	c.Assert(err, jc.ErrorIsNil)
+	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
-	_, err = s.api.CreateModel(createArgs(nonAdminUser))
+	_, err := s.api.CreateModel(createArgs(nonAdminUser))
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
 }
 
