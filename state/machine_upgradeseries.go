@@ -474,11 +474,12 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, messa
 // notifications sorted by timestamp.
 func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
-	if err != nil {
-		return nil, false, errors.Trace(err)
+	if errors.IsNotFound(err) {
+		// If the lock is not found here then there are no more messages
+		return nil, true, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, errors.Trace(err)
 	}
 	// Filter seen messages
 	unseenMessages := make([]UpgradeSeriesMessage, 0)
@@ -570,7 +571,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
-		return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
+		return nil, errors.NotFoundf("machine %q is not locked for upgrade", m)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", m.Id())

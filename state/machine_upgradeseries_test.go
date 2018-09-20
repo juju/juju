@@ -211,6 +211,12 @@ func (s *MachineSuite) TestUnitsHaveChangedFalseNoUnits(c *gc.C) {
 	c.Assert(changed, jc.IsFalse)
 }
 
+func (s *MachineSuite) TestGetUpgradeSeriesMessagesMissingLockMeansFinished(c *gc.C) {
+	_, finished, err := s.machine.GetUpgradeSeriesMessages()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(finished, jc.IsTrue)
+}
+
 func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
