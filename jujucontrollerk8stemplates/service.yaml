@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: juju-controller
+  labels:
+    name: juju-controller
+spec:
+  ports:
+  - port: 37017
+    protocol: TCP
+    targetPort: 37017
+    name: mongodb
+  - port: 17070
+    targetPort: 17070
+    name: api
+  clusterIP: None
+  selector:
+    # role: mongo
+    app: juju-controller
+  type: ClusterIP
