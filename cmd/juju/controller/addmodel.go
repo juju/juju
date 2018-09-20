@@ -153,7 +153,7 @@ type CloudAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
 	UserCredentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
-	UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error)
+	UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error)
 }
 
 func (c *addModelCommand) newAPIRoot() (api.Connection, error) {

@@ -82,10 +82,10 @@ func (s *updateCredentialSuite) TestBadCloudName(c *gc.C) {
 
 func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
 	fake := &fakeUpdateCredentialAPI{
-		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
+		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
 			c.Assert(tag, gc.DeepEquals, names.NewCloudCredentialTag("aws/admin@local/my-credential"))
 			c.Assert(credential, jc.DeepEquals, jujucloud.NewCredential(jujucloud.AccessKeyAuthType, map[string]string{"access-key": "key", "secret-key": "secret"}))
-			return params.UpdateCredentialResult{}, nil
+			return nil, nil
 		},
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(s.store(c), fake)
@@ -132,10 +132,10 @@ func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	fake := &fakeUpdateCredentialAPI{
-		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
+		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
 			c.Assert(tag, gc.DeepEquals, names.NewCloudCredentialTag("google/admin@local/gce"))
 			c.Assert(credential.Attributes()["file"], gc.Equals, string(contents))
-			return params.UpdateCredentialResult{}, nil
+			return nil, nil
 		},
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(store, fake)
@@ -167,64 +167,60 @@ func (s *updateCredentialSuite) store(c *gc.C) jujuclient.ClientStore {
 
 func (s *updateCredentialSuite) TestUpdateResultError(c *gc.C) {
 	fake := &fakeUpdateCredentialAPI{
-		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
-			return params.UpdateCredentialResult{
-				Error: common.ServerError(errors.New("kaboom")),
-			}, nil
+		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
+			return nil, errors.New("kaboom")
 		},
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(s.store(c), fake)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
-	c.Assert(err, gc.ErrorMatches, "kaboom")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(err, gc.NotNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Could not update credential \"my-credential\" for user \"admin@local\" on cloud \"aws\": kaboom\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *updateCredentialSuite) TestUpdateWithModels(c *gc.C) {
 	fake := &fakeUpdateCredentialAPI{
-		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
-			return params.UpdateCredentialResult{
-				Models: []params.UpdateCredentialModelResult{
-					{
-						ModelName: "model-a",
-						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("kaboom"))},
-							{common.ServerError(errors.New("kaboom 2"))},
-						},
-					},
-					{
-						ModelName: "model-b",
-						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("one failure"))},
-						},
-					},
-					{
-						ModelName: "model-c",
+		updateCredentialsCheckModelsF: func(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
+			return []params.UpdateCredentialModelResult{
+				{
+					ModelName: "model-a",
+					Errors: []params.ErrorResult{
+						{common.ServerError(errors.New("kaboom"))},
+						{common.ServerError(errors.New("kaboom 2"))},
 					},
 				},
-			}, nil
+				{
+					ModelName: "model-b",
+					Errors: []params.ErrorResult{
+						{common.ServerError(errors.New("one failure"))},
+					},
+				},
+				{
+					ModelName: "model-c",
+				},
+			}, errors.New("models issues")
 		},
 	}
 	cmd := cloud.NewUpdateCredentialCommandForTest(s.store(c), fake)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Could not update credential "my-credential" for user "admin@local" on cloud "aws": models issues
 Model "model-a" is not visible:
   kaboom
   kaboom 2
 Model "model-b" is not visible:
   one failure
 Model "model-c" is visible.
-Could not update credential "my-credential" for user "admin@local" on cloud "aws".
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 type fakeUpdateCredentialAPI struct {
-	updateCredentialsCheckModelsF func(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error)
+	updateCredentialsCheckModelsF func(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error)
 }
 
-func (f *fakeUpdateCredentialAPI) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
+func (f *fakeUpdateCredentialAPI) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
 	return f.updateCredentialsCheckModelsF(tag, credential)
 }
 

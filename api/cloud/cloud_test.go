@@ -201,7 +201,7 @@ func (s *cloudSuite) TestUpdateCredentialV2(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UpdateCredentialResult{CredentialTag: "cloudcred-foo_bob_bar"})
+	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -242,7 +242,7 @@ func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UpdateCredentialResult{})
+	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -268,11 +268,8 @@ func (s *cloudSuite) TestUpdateCredentialErrorV2(c *gc.C) {
 
 	client := cloudapi.NewClient(apiCaller)
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, params.UpdateCredentialResult{
-		CredentialTag: "cloudcred-foo_bob_bar",
-		Error:         &params.Error{Message: "validation failure"},
-	})
+	c.Assert(err, gc.ErrorMatches, "validation failure")
+	c.Assert(errs, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -302,11 +299,8 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 
 	client := cloudapi.NewClient(apiCaller)
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, params.UpdateCredentialResult{
-		CredentialTag: "cloudcred-foo_bob_bar",
-		Error:         &params.Error{Message: "validation failure"},
-	})
+	c.Assert(err, gc.ErrorMatches, "validation failure")
+	c.Assert(errs, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -330,7 +324,7 @@ func (s *cloudSuite) TestUpdateCredentialCallErrorV2(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "scary but true")
-	c.Assert(result, gc.DeepEquals, params.UpdateCredentialResult{})
+	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -354,7 +348,7 @@ func (s *cloudSuite) TestUpdateCredentialCallError(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "scary but true")
-	c.Assert(result, gc.DeepEquals, params.UpdateCredentialResult{})
+	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -384,7 +378,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResultsV2(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
-	c.Assert(result, gc.DeepEquals, params.UpdateCredentialResult{})
+	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -413,7 +407,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
-	c.Assert(result, gc.DeepEquals, params.UpdateCredentialResult{})
+	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -454,16 +448,13 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, params.UpdateCredentialResult{
-		CredentialTag: "cloudcred-foo_bob_bar",
-		Models: []params.UpdateCredentialModelResult{
-			{
-				ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				ModelName: "test-model",
-				Errors: []params.ErrorResult{
-					{Error: &params.Error{Message: "validation failure one", Code: ""}},
-					{Error: &params.Error{Message: "validation failure two", Code: ""}},
-				},
+	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialModelResult{
+		{
+			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			ModelName: "test-model",
+			Errors: []params.ErrorResult{
+				{Error: &params.Error{Message: "validation failure one", Code: ""}},
+				{Error: &params.Error{Message: "validation failure two", Code: ""}},
 			},
 		},
 	})
