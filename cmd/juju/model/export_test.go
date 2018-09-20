@@ -127,6 +127,32 @@ func NewRevokeCommandForTest(modelsApi RevokeModelAPI, offersAPI RevokeOfferAPI,
 	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
 }
 
+type GrantCloudCommand struct {
+	*grantCloudCommand
+}
+
+type RevokeCloudCommand struct {
+	*revokeCloudCommand
+}
+
+// NewGrantCloudCommandForTest returns a grantCloudCommand with the api provided as specified.
+func NewGrantCloudCommandForTest(cloudsApi GrantCloudAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCloudCommand) {
+	cmd := &grantCloudCommand{
+		cloudsApi: cloudsApi,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &GrantCloudCommand{cmd}
+}
+
+// NewRevokeCloudCommandForTest returns a revokeCloudCommand with the api provided as specified.
+func NewRevokeCloudCommandForTest(cloudsApi RevokeCloudAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCloudCommand) {
+	cmd := &revokeCloudCommand{
+		cloudsApi: cloudsApi,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &RevokeCloudCommand{cmd}
+}
+
 func NewModelSetConstraintsCommandForTest() cmd.Command {
 	cmd := &modelSetConstraintsCommand{}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())

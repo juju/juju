@@ -464,6 +464,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewRemoveCredentialCommand())
 	r.Register(cloud.NewUpdateCredentialCommand())
 	r.Register(cloud.NewShowCredentialCommand())
+	r.Register(model.NewGrantCloudCommand())
+	r.Register(model.NewRevokeCloudCommand())
 
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))

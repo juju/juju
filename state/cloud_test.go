@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -53,7 +54,7 @@ func (s *CloudSuite) TestCloudNotFound(c *gc.C) {
 func (s *CloudSuite) TestClouds(c *gc.C) {
 	dummyCloud, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AddCloud(lowCloud)
+	err = s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	clouds, err := s.State.Clouds()
@@ -65,11 +66,14 @@ func (s *CloudSuite) TestClouds(c *gc.C) {
 }
 
 func (s *CloudSuite) TestAddCloud(c *gc.C) {
-	err := s.State.AddCloud(lowCloud)
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, err := s.State.Cloud("stratus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, lowCloud)
+	access, err := s.State.GetCloudAccess(lowCloud.Name, s.Owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
 }
 
 func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
@@ -77,13 +81,13 @@ func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AddCloud(cloud.Cloud{
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, gc.ErrorMatches, `cloud "stratus" already exists`)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
@@ -91,7 +95,7 @@ func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
 func (s *CloudSuite) TestAddCloudNoName(c *gc.C) {
 	err := s.State.AddCloud(cloud.Cloud{
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty Name not valid`)
 }
 
@@ -99,7 +103,7 @@ func (s *CloudSuite) TestAddCloudNoType(c *gc.C) {
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "stratus",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty Type not valid`)
 }
 
@@ -107,7 +111,7 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 	err := s.State.AddCloud(cloud.Cloud{
 		Name: "stratus",
 		Type: "foo",
-	})
+	}, s.Owner.Name())
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
 }
 
@@ -117,7 +121,7 @@ func (s *CloudSuite) TestRemoveNonExistentCloud(c *gc.C) {
 }
 
 func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
-	err := s.State.AddCloud(lowCloud)
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveCloud(lowCloud.Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +130,7 @@ func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
 }
 
 func (s *CloudSuite) TestRemoveCloudAlsoRemovesCredentials(c *gc.C) {
-	err := s.State.AddCloud(lowCloud)
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/admin/cred")
@@ -160,6 +164,36 @@ func (s *CloudSuite) TestRemoveCloudAlsoRemovesCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *CloudSuite) TestRemoveCloudAlsoRemovesPermissions(c *gc.C) {
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateCloudAccess(lowCloud.Name, s.Owner, permission.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add permission for a different cloud, shouldn't be touched.
+	err = s.State.CreateCloudAccess("othercloud", s.Owner, permission.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll, closer := state.GetCollection(s.State, "permissions")
+	defer closer()
+
+	// Permissions for removed cloud are gone.
+	n, err := coll.Find(bson.D{{"_id", bson.D{{"$regex", "^cloud#" + lowCloud.Name + "#"}}}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	// Permissions for other clouds are not affected.
+	n, err = coll.Find(bson.D{{"_id", bson.D{{"$regex", "^cloud#othercloud#"}}}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+	_, err = s.State.GetCloudAccess("othercloud", s.Owner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *CloudSuite) TestRemoveControllerModelCloudNotAllowed(c *gc.C) {
 	err := s.State.RemoveCloud("dummy")
 	c.Assert(err, gc.ErrorMatches, "cloud is used by 1 model")
@@ -168,7 +202,7 @@ func (s *CloudSuite) TestRemoveControllerModelCloudNotAllowed(c *gc.C) {
 }
 
 func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
-	err := s.State.AddCloud(lowCloud)
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/" + otherModelOwner.UserName + "/cred")
@@ -193,7 +227,7 @@ func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
 }
 
 func (s *CloudSuite) TestRemoveCloudNewModelRace(c *gc.C) {
-	err := s.State.AddCloud(lowCloud)
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/" + otherModelOwner.UserName + "/cred")
@@ -217,7 +251,7 @@ func (s *CloudSuite) TestRemoveCloudNewModelRace(c *gc.C) {
 }
 
 func (s *CloudSuite) TestRemoveCloudRace(c *gc.C) {
-	err := s.State.AddCloud(lowCloud)
+	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {

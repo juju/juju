@@ -602,12 +602,12 @@ func (s *controllerSuite) controllerRevoke(c *gc.C, user names.UserTag, access s
 
 func (s *controllerSuite) TestGrantMissingUserFails(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
-	err := s.controllerGrant(c, user, string(permission.AddModelAccess))
+	err := s.controllerGrant(c, user, string(permission.SuperuserAccess))
 	expectedErr := `could not grant controller access: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
-func (s *controllerSuite) TestRevokeSuperuserLeavesAddModelAccess(c *gc.C) {
+func (s *controllerSuite) TestRevokeSuperuserLeavesLoginAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
@@ -618,24 +618,6 @@ func (s *controllerSuite) TestRevokeSuperuserLeavesAddModelAccess(c *gc.C) {
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 
 	err = s.controllerRevoke(c, user.UserTag(), string(permission.SuperuserAccess))
-	c.Assert(err, gc.IsNil)
-
-	controllerUser, err = s.State.UserAccess(user.UserTag(), controllerUser.Object)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
-}
-
-func (s *controllerSuite) TestRevokeAddModelLeavesLoginAccess(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-
-	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
-	c.Assert(err, gc.IsNil)
-	ctag := names.NewControllerTag(s.State.ControllerUUID())
-	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
-
-	err = s.controllerRevoke(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), controllerUser.Object)
@@ -654,9 +636,24 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *controllerSuite) TestRevokeAddModelBackwardCompatibility(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+
+	controllerInfo, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.CreateCloudAccess(controllerInfo.CloudName, user.UserTag(), permission.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.controllerRevoke(c, user.UserTag(), string(permission.AddModelAccess))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetCloudAccess(controllerInfo.CloudName, user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
-	err := s.controllerRevoke(c, user, string(permission.AddModelAccess))
+	err := s.controllerRevoke(c, user, string(permission.SuperuserAccess))
 	expectedErr := `could not look up controller access for user: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -664,29 +661,42 @@ func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
-	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
+	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 
-	err = s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
-	expectedErr := `could not grant controller access: user already has "add-model" access or greater`
+	err = s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
+	expectedErr := `could not grant controller access: user already has "superuser" access or greater`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
 	userTag := names.NewUserTag("foobar@ubuntuone")
 
-	err := s.controllerGrant(c, userTag, string(permission.AddModelAccess))
+	err := s.controllerGrant(c, userTag, string(permission.SuperuserAccess))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
+}
+
+func (s *controllerSuite) TestGrantAddModelBackwardCompatibility(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+
+	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerInfo, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	perm, err := s.State.GetCloudAccess(controllerInfo.CloudName, user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(perm, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
@@ -785,8 +795,6 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 
 	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
-	err = s.controllerGrant(c, user2.UserTag(), string(permission.AddModelAccess))
-	c.Assert(err, gc.IsNil)
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: user2.Tag().String()}},
 	}
@@ -798,7 +806,7 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 			UserTag: user.Tag().String(),
 		}}, {
 		Result: &params.UserAccess{
-			Access:  "add-model",
+			Access:  "login",
 			UserTag: user2.Tag().String(),
 		}}})
 }

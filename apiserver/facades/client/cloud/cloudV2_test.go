@@ -211,7 +211,7 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Endpoint:  "fake-endpoint",
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
-	})
+	}, "admin")
 }
 
 func (s *cloudSuiteV2) TestRemoveCloudInV2(c *gc.C) {
@@ -310,6 +310,7 @@ var cloudTypes = map[string]string{
 
 type mockBackendV2 struct {
 	gitjujutesting.Stub
+	cloudfacade.Backend
 	credentials []state.Credential
 	models      map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess
 }
@@ -379,8 +380,8 @@ func (st *mockBackendV2) UpdateCloudCredential(tag names.CloudCredentialTag, cre
 	return st.NextErr()
 }
 
-func (st *mockBackendV2) AddCloud(cloud cloud.Cloud) error {
-	st.MethodCall(st, "AddCloud", cloud)
+func (st *mockBackendV2) AddCloud(cloud cloud.Cloud, user string) error {
+	st.MethodCall(st, "AddCloud", cloud, user)
 	return st.NextErr()
 }
 

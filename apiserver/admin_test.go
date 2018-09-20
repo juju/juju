@@ -952,7 +952,7 @@ func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C)
 	defer assertStop(c, srv)
 	info.ModelTag = s.Model.ModelTag()
 
-	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
+	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.SuperuserAccess)
 
 	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
@@ -1332,8 +1332,8 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C)
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
 }
 
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerAddModelAccess(c *gc.C) {
-	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {
+	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.SuperuserAccess)
 	const remoteUser = "test@somewhere"
 	var remoteUserTag = names.NewUserTag(remoteUser)
 
@@ -1348,7 +1348,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerAddModelAccess(c *gc
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "add-model")
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
 }
 
@@ -1410,7 +1410,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 		User:   remoteUser,
 		Access: permission.WriteAccess,
 	})
-	s.AddControllerUser(c, remoteUser, permission.AddModelAccess)
+	s.AddControllerUser(c, remoteUser, permission.SuperuserAccess)
 
 	s.DischargerLogin = func() string {
 		return remoteUser
@@ -1421,7 +1421,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "add-model")
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -22,11 +23,17 @@ type Backend interface {
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]state.Credential, error)
 	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
 	RemoveCloudCredential(names.CloudCredentialTag) error
-	AddCloud(cloud.Cloud) error
+	AddCloud(cloud.Cloud, string) error
 	RemoveCloud(string) error
 	AllCloudCredentials(user names.UserTag) ([]state.Credential, error)
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error)
 	CredentialModels(tag names.CloudCredentialTag) (map[string]string, error)
+
+	ControllerInfo() (*state.ControllerInfo, error)
+	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
+	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
+	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
+	RemoveCloudAccess(cloud string, user names.UserTag) error
 }
 
 type stateShim struct {

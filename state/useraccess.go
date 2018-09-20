@@ -133,7 +133,7 @@ func NewModelUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess
 // NewControllerUserAccess returns a new permission.UserAccess for the given userDoc and
 // current Controller.
 func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess, error) {
-	perm, err := st.controllerUserPermission(controllerKey(st.ControllerUUID()), userGlobalKey(strings.ToLower(userDoc.UserName)))
+	perm, err := st.userPermission(controllerKey(st.ControllerUUID()), userGlobalKey(strings.ToLower(userDoc.UserName)))
 	if err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}
@@ -159,6 +159,8 @@ func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permis
 			return "", errors.Trace(err)
 		}
 		return st.GetOfferAccess(offerUUID, subject)
+	case names.CloudTagKind:
+		return st.GetCloudAccess(target.Id(), subject)
 	default:
 		return "", errors.NotValidf("%q as a target", target.Kind())
 	}

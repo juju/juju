@@ -299,28 +299,21 @@ func (m *ModelManagerAPI) newCAASModelConfig(
 	return cfg, nil
 }
 
+func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.UserTag) (bool, error) {
+	perm, err := m.ctlrState.GetCloudAccess(cloud, userTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+	if !perm.EqualOrGreaterCloudAccessThan(permission.AddModelAccess) {
+		return false, nil
+	}
+	return true, nil
+}
+
 // CreateModel creates a new model using the account and
 // model config specified in the args.
 func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
-	canAddModel, err := m.authorizer.HasPermission(permission.AddModelAccess, m.state.ControllerTag())
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !canAddModel {
-		return result, common.ErrPerm
-	}
-
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
-	// create a model for another person, which is not yet supported.
-	if !m.isAdmin && ownerTag != m.apiUser {
-		return result, errors.Annotatef(common.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
-	}
 
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
@@ -342,6 +335,31 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	}
 	if cloudRegionName == "" && cloudTag.Id() == controllerModel.Cloud() {
 		cloudRegionName = controllerModel.CloudRegion()
+	}
+
+	isAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isAdmin {
+		canAddModel, err := m.checkAddModelPermission(cloudTag.Id(), m.apiUser)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if !canAddModel {
+			return result, common.ErrPerm
+		}
+	}
+
+	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
+	// create a model for another person, which is not yet supported.
+	if !m.isAdmin && ownerTag != m.apiUser {
+		return result, errors.Annotatef(common.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
 	cloud, err := m.state.Cloud(cloudTag.Id())

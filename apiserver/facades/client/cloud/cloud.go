@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -34,6 +35,7 @@ type CloudV3 interface {
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
 	UpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
 }
 
 // CloudV2 defines the methods on the cloud API facade, version 2.
@@ -519,7 +521,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
-	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
+	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
 	if err != nil {
 		return err
 	}
@@ -648,4 +650,125 @@ func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params
 		}
 	}
 	return params.CredentialContentResults{result}, nil
+}
+
+// ModifyCloudAccess changes the model access granted to users.
+func (c *CloudAPI) ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	for i, arg := range args.Changes {
+		cloudTag, err := names.ParseCloudTag(arg.CloudTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		_, err = c.backend.Cloud(cloudTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if c.apiUser.String() == arg.UserTag {
+			result.Results[i].Error = common.ServerError(errors.New("cannot change your own cloud access"))
+			continue
+		}
+
+		isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !isAdmin {
+			callerAccess, err := c.backend.GetCloudAccess(cloudTag.Id(), c.apiUser)
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			if callerAccess != permission.AdminAccess {
+				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				continue
+			}
+		}
+
+		cloudAccess := permission.Access(arg.Access)
+		if err := permission.ValidateCloudAccess(cloudAccess); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify cloud access"))
+			continue
+		}
+
+		result.Results[i].Error = common.ServerError(
+			ChangeCloudAccess(c.backend, cloudTag.Id(), targetUserTag, arg.Action, cloudAccess))
+	}
+	return result, nil
+}
+
+// ChangeCloudAccess performs the requested access grant or revoke action for the
+// specified user on the cloud.
+func ChangeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, action params.CloudAction, access permission.Access) error {
+	switch action {
+	case params.GrantCloudAccess:
+		err := grantCloudAccess(backend, cloud, targetUserTag, access)
+		if err != nil {
+			return errors.Annotate(err, "could not grant cloud access")
+		}
+		return nil
+	case params.RevokeCloudAccess:
+		return revokeCloudAccess(backend, cloud, targetUserTag, access)
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
+}
+
+func grantCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, access permission.Access) error {
+	err := backend.CreateCloudAccess(cloud, targetUserTag, access)
+	if errors.IsAlreadyExists(err) {
+		cloudAccess, err := backend.GetCloudAccess(cloud, targetUserTag)
+		if errors.IsNotFound(err) {
+			// Conflicts with prior check, must be inconsistent state.
+			err = txn.ErrExcessiveContention
+		}
+		if err != nil {
+			return errors.Annotate(err, "could not look up cloud access for user")
+		}
+
+		// Only set access if greater access is being granted.
+		if cloudAccess.EqualOrGreaterCloudAccessThan(access) {
+			return errors.Errorf("user already has %q access or greater", access)
+		}
+		if err = backend.UpdateCloudAccess(cloud, targetUserTag, access); err != nil {
+			return errors.Annotate(err, "could not set cloud access for user")
+		}
+		return nil
+
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func revokeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, access permission.Access) error {
+	switch access {
+	case permission.AddModelAccess:
+		// Revoking add-model access removes all access.
+		err := backend.RemoveCloudAccess(cloud, targetUserTag)
+		return errors.Annotate(err, "could not revoke cloud access")
+	case permission.AdminAccess:
+		// Revoking admin sets add-model.
+		err := backend.UpdateCloudAccess(cloud, targetUserTag, permission.AddModelAccess)
+		return errors.Annotate(err, "could not set cloud access to add-model")
+
+	default:
+		return errors.Errorf("don't know how to revoke %q access", access)
+	}
 }

@@ -308,23 +308,6 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, false)
-	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
-}
-
-func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
-	u, ctag := s.bootstrapHasPermissionTest(c)
-	user := u.UserTag()
-
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool, s.State, u)
-	defer handler.Kill()
-
-	ua, err := s.State.SetUserAccess(user, ctag, permission.AddModelAccess)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ua.Access, gc.Equals, permission.AddModelAccess)
-
-	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
@@ -340,7 +323,6 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	c.Assert(ua.Access, gc.Equals, permission.SuperuserAccess)
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
-	apiserver.AssertHasPermission(c, handler, permission.AddModelAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)
 }
 

@@ -2761,3 +2761,72 @@ func (s *upgradesSuite) TestLegacyLeases(c *gc.C) {
 		},
 	})
 }
+
+func (s *upgradesSuite) TestMigrateAddModelPermissions(c *gc.C) {
+	permissionsColl, closer := s.state.db().GetRawCollection(permissionsC)
+	defer closer()
+
+	controllerKey := controllerKey(s.state.ControllerUUID())
+	modelKey := modelKey(s.state.ModelUUID())
+	err := permissionsColl.Insert(
+		permissionDoc{
+			ID:               permissionID(controllerKey, "us#bob"),
+			SubjectGlobalKey: "us#bob",
+			ObjectGlobalKey:  controllerKey,
+			Access:           "add-model",
+		},
+		permissionDoc{
+			ID:               permissionID("somemodel", "us#bob"),
+			SubjectGlobalKey: "us#bob",
+			ObjectGlobalKey:  "somemodel",
+			Access:           "read",
+		},
+		permissionDoc{
+			ID:               permissionID(controllerKey, "us#mary"),
+			SubjectGlobalKey: "us#mary",
+			ObjectGlobalKey:  controllerKey,
+			Access:           "login",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := docById{{
+		"_id":                permissionID(controllerKey, "us#test-admin"),
+		"object-global-key":  controllerKey,
+		"subject-global-key": "us#test-admin",
+		"access":             "superuser",
+	}, {
+		"_id":                permissionID(modelKey, "us#test-admin"),
+		"object-global-key":  modelKey,
+		"subject-global-key": "us#test-admin",
+		"access":             "admin",
+	}, {
+		"_id":                permissionID(controllerKey, "us#bob"),
+		"subject-global-key": "us#bob",
+		"object-global-key":  controllerKey,
+		"access":             "login",
+	}, {
+		"_id":                permissionID("somemodel", "us#bob"),
+		"subject-global-key": "us#bob",
+		"object-global-key":  "somemodel",
+		"access":             "read",
+	}, {
+		"_id":                permissionID("cloud#dummy", "us#bob"),
+		"subject-global-key": "us#bob",
+		"object-global-key":  "cloud#dummy",
+		"access":             "add-model",
+	}, {
+		"_id":                permissionID(controllerKey, "us#mary"),
+		"subject-global-key": "us#mary",
+		"object-global-key":  controllerKey,
+		"access":             "login",
+	}}
+	sort.Sort(expected)
+	s.assertUpgradedData(c, MigrateAddModelPermissions, expectUpgradedData{permissionsColl, expected})
+}
+
+type docById []bson.M
+
+func (d docById) Len() int           { return len(d) }
+func (d docById) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
+func (d docById) Less(i, j int) bool { return d[i]["_id"].(string) < d[j]["_id"].(string) }

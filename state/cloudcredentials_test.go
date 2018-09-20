@@ -28,7 +28,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
@@ -57,7 +57,7 @@ func (s *CloudCredentialsSuite) TestCreateInvalidCredential(c *gc.C) {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
@@ -77,7 +77,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
@@ -117,7 +117,7 @@ func (s *CloudCredentialsSuite) assertCredentialInvalidated(c *gc.C, tag names.C
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
@@ -196,7 +196,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
-	})
+	}, s.Owner.Name())
 	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	err = s.State.UpdateCloudCredential(tag, cred)
@@ -214,7 +214,7 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	otherUser := s.Factory.MakeUser(c, nil).UserTag()
 
@@ -274,7 +274,7 @@ func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	tag := names.NewCloudCredentialTag("stratus/bob/bobcred1")
@@ -356,7 +356,7 @@ func (s *CloudCredentialsSuite) createCloudCredential(c *gc.C, cloudName, userNa
 		Name:      cloudName,
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{authType, cloud.UserPassAuthType},
-	})
+	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(authType, attributes)

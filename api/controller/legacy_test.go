@@ -268,9 +268,9 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	controller := s.OpenAPI(c)
 	defer controller.Close()
-	err := controller.GrantController("fred@external", "add-model")
+	err := controller.GrantController("fred@external", "superuser")
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := controller.GetControllerAccess("fred@external")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.Access("add-model"))
+	c.Assert(access, gc.Equals, permission.Access("superuser"))
 }
