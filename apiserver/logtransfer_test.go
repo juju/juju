@@ -128,7 +128,7 @@ func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
 }
 
 func (s *logtransferSuite) TestRequiresSuperUser(c *gc.C) {
-	s.setUserAccess(c, permission.AddModelAccess)
+	s.setUserAccess(c, permission.LoginAccess)
 	s.checkAuthFails(c, s.makeAuthHeader(), http.StatusForbidden, "authorization failed: user .* is not a controller admin")
 }
 
