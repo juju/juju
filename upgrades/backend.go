@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
@@ -56,6 +55,7 @@ type StateBackend interface {
 	AddCloudModelCounts() error
 	ReplicaSetMembers() ([]replicaset.Member, error)
 	MigrateStorageMachineIdFields() error
+	MigrateAddModelPermissions() error
 	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
 }
 
@@ -187,20 +187,8 @@ func (s stateBackend) MigrateStorageMachineIdFields() error {
 	return state.MigrateStorageMachineIdFields(s.pool)
 }
 
-type modelShim struct {
-	st *state.State
-	m  *state.Model
-}
-
-func (m *modelShim) Config() (*config.Config, error) {
-	return m.m.Config()
-}
-
-func (m *modelShim) CloudSpec() (environs.CloudSpec, error) {
-	cloudName := m.m.Cloud()
-	regionName := m.m.CloudRegion()
-	credentialTag, _ := m.m.CloudCredential()
-	return stateenvirons.CloudSpec(m.st, cloudName, regionName, credentialTag)
+func (s stateBackend) MigrateAddModelPermissions() error {
+	return state.MigrateAddModelPermissions(s.pool)
 }
 
 func (s stateBackend) DeleteCloudImageMetadata() error {

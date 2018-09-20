@@ -31,3 +31,9 @@ func (s *steps25Suite) TestMigrateLegacyLeases(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.Controller})
 }
+
+func (s *steps25Suite) TestMigrateAddModelPermissions(c *gc.C) {
+	step := findStateStep(c, v25, `migrate add-model permissions`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}

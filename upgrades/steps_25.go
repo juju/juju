@@ -18,5 +18,12 @@ func stateStepsFor25() []Step {
 			targets:     []Target{Controller},
 			run:         MigrateLegacyLeases,
 		},
+		&upgradeStep{
+			description: "migrate add-model permissions",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().MigrateAddModelPermissions()
+			},
+		},
 	}
 }
