@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/naturalsort"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -33,7 +34,7 @@ type CloudV3 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
-	UpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	UpdateCredentialsCheckModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
 }
 
 // CloudV2 defines the methods on the cloud API facade, version 2.
@@ -281,11 +282,11 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 	return results, nil
 }
 
-// UpdateCredentials updates a set of cloud credentials' content.
+// UpdateCredentialsCheckModels updates a set of cloud credentials' content.
 // If there are any models that are using a credential and these models
 // are not going to be visible with updated credential content,
 // there will be detailed validation errors per model.
-func (api *CloudAPI) UpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+func (api *CloudAPI) UpdateCredentialsCheckModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	return api.commonUpdateCredentials(args)
 }
 
@@ -295,26 +296,18 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 		return params.UpdateCredentialResults{}, err
 	}
 
-	credentialError := func(oneError error) *params.ErrorResults {
-		return &params.ErrorResults{
-			Results: []params.ErrorResult{
-				{common.ServerError(oneError)},
-			},
-		}
-	}
-
 	results := make([]params.UpdateCredentialResult, len(args.Credentials))
 	for i, arg := range args.Credentials {
 		results[i].CredentialTag = arg.Tag
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results[i].Errors = credentialError(err)
+			results[i].Error = common.ServerError(err)
 			continue
 		}
 		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
 		// to change this auth check.
 		if !authFunc(tag.Owner()) {
-			results[i].Errors = credentialError(common.ErrPerm)
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		in := cloud.NewCredential(
@@ -325,20 +318,33 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 		credentialModels, err := api.backend.CredentialModels(tag)
 		if err != nil && !errors.IsNotFound(err) {
 			// Could not determine if credential has models - do not continue updating this credential...
-			results[i].Errors = credentialError(err)
+			results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		var modelsErrors []params.ErrorResult
-		for modelUUID := range credentialModels {
-			modelErrors := api.validateCredentialForModel(modelUUID, tag, &in)
-			if len(modelErrors) > 0 {
-				modelsErrors = append(modelsErrors, modelErrors...)
+		modelsVisible := true
+		if len(credentialModels) > 0 {
+			// since we get a map here, for consistency ensure that models are added
+			// sorted by model uuid.
+			var uuids []string
+			for uuid := range credentialModels {
+				uuids = append(uuids, uuid)
 			}
+			naturalsort.Sort(uuids)
+
+			var models []params.UpdateCredentialModelResult
+			for _, uuid := range uuids {
+				model := params.UpdateCredentialModelResult{ModelUUID: uuid, ModelName: credentialModels[uuid]}
+				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
+				models = append(models, model)
+				if len(model.Errors) > 0 {
+					modelsVisible = false
+				}
+			}
+			results[i].Models = models
 		}
-		if len(modelsErrors) > 0 {
+		if !modelsVisible {
 			// Some models that use this credential do not like the new content, do not update the credential...
-			results[i].Errors = &params.ErrorResults{Results: modelsErrors}
 			continue
 		}
 
@@ -348,7 +354,7 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 					"cannot update credential %q: controller does not manage cloud %q",
 					tag.Name(), tag.Cloud().Id())
 			}
-			results[i].Errors = credentialError(err)
+			results[i].Error = common.ServerError(err)
 			continue
 		}
 	}
@@ -382,31 +388,48 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 
 var validateNewCredentialForModelFunc = credentialcommon.ValidateNewModelCredential
 
+// Mask out old methods from the new API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+
+// UpdateCredentials was dropped in V3, replaced with UpdateCredentialsCheckModels.
+func (*CloudAPI) UpdateCredentials(_, _ struct{}) {}
+
 // UpdateCredentials updates a set of cloud credentials' content.
-// This method is provided here for back-compatibility.
-// If there are any models that are using a credential and these models
-// are not going to be visible with updated credential content,
-// there will be detailed validation errors per model.
-// However, old return parameter structure could not hold this much detail and,
-// thus, per-model-per-credential errors are squashed into per-credential errors.
 func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
-	errors, err := api.commonUpdateCredentials(args)
+	updateResults, err := api.commonUpdateCredentials(args)
 	if err != nil {
 		return results, err
 	}
 
-	for i, credErrs := range errors.Results {
-		if credErrs.Errors == nil {
+	// If there are any models that are using a credential and these models
+	// are not going to be visible with updated credential content,
+	// there will be detailed validation errors per model.
+	// However, old return parameter structure could not hold this much detail and,
+	// thus, per-model-per-credential errors are squashed into per-credential errors.
+	for i, result := range updateResults.Results {
+		var resultErrors []params.ErrorResult
+		if result.Error != nil {
+			resultErrors = append(resultErrors, params.ErrorResult{result.Error})
+		}
+		for _, m := range result.Models {
+			if len(m.Errors) > 0 {
+				modelErors := params.ErrorResults{m.Errors}
+				combined := errors.Annotatef(modelErors.Combine(), "model %q (uuid %v)", m.ModelName, m.ModelUUID)
+				resultErrors = append(resultErrors, params.ErrorResult{common.ServerError(combined)})
+			}
+		}
+		if len(resultErrors) == 1 {
+			results.Results[i].Error = resultErrors[0].Error
 			continue
 		}
-		if len(credErrs.Errors.Results) == 1 {
-			results.Results[i].Error = common.ServerError(credErrs.Errors.OneError())
-			continue
+		if len(resultErrors) > 1 {
+			credentialError := params.ErrorResults{resultErrors}
+			results.Results[i].Error = common.ServerError(credentialError.Combine())
 		}
-		results.Results[i].Error = common.ServerError(credErrs.Errors.Combine())
 	}
 	return results, nil
 }

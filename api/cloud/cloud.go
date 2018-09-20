@@ -4,8 +4,6 @@
 package cloud
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -106,9 +104,11 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 	return tags, nil
 }
 
-// UpdateCredential updates a cloud credentials.
-func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
-	args := params.TaggedCredentials{
+// UpdateCredentialsCheckModels updates a cloud credential content
+// stored on the controller. This call validates that the new content works
+// for all models that are using this credential.
+func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error) {
+	in := params.TaggedCredentials{
 		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
 			Credential: params.CloudCredential{
@@ -117,28 +117,27 @@ func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujuc
 			},
 		}},
 	}
+	empty := params.UpdateCredentialResult{}
 	if c.facade.BestAPIVersion() < 3 {
-		var results params.ErrorResults
-		if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
-			return errors.Trace(err)
+		result := params.UpdateCredentialResult{CredentialTag: tag.String()}
+		var out params.ErrorResults
+		if err := c.facade.FacadeCall("UpdateCredentials", in, &out); err != nil {
+			return empty, errors.Trace(err)
 		}
-		return results.OneError()
-	}
-	var results params.UpdateCredentialResults
-	if err := c.facade.FacadeCall("UpdateCredentials", args, &results); err != nil {
-		return errors.Trace(err)
-	}
-	// TODO (anastasiamac 2018-09-18) this needs to be adjusted in the follow-ups to return more than one error when needed
-	var msg []string
-	for _, result := range results.Results {
-		if result.Errors != nil {
-			msg = append(msg, result.Errors.Combine().Error())
+		if len(out.Results) != 1 {
+			return empty, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
 		}
+		result.Error = out.Results[0].Error
+		return result, nil
 	}
-	if len(msg) != 0 {
-		return errors.New(strings.Join(msg, ";"))
+	var out params.UpdateCredentialResults
+	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
+		return empty, errors.Trace(err)
 	}
-	return nil
+	if len(out.Results) != 1 {
+		return empty, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+	}
+	return out.Results[0], nil
 }
 
 // RevokeCredential revokes/deletes a cloud credential.
