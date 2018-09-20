@@ -1074,7 +1074,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	results, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 
