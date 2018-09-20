@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -291,4 +292,25 @@ func (env *environ) DeriveAvailabilityZones(
 		return nil, nil
 	}
 	return []string{p.nodeName}, nil
+}
+
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	hasProfile, err := env.server.HasProfile(pName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		return nil
+	}
+	post := api.ProfilesPost{
+		Name:       pName,
+		ProfilePut: api.ProfilePut(*put),
+	}
+	if err = env.server.CreateProfile(post); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("wrote lxd profile %q", pName)
+	return nil
 }

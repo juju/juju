@@ -650,6 +650,11 @@ func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]stri
 	return conn.NextErr()
 }
 
+func (conn *StubClient) CreateProfile(post api.ProfilesPost) error {
+	conn.AddCall("CreateProfile", post)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) ServerCertificate() string {
 	conn.AddCall("ServerCertificate")
 	return conn.ServerCert

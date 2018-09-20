@@ -112,6 +112,18 @@ func (mr *MockServerMockRecorder) CreatePool(arg0, arg1, arg2 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePool", reflect.TypeOf((*MockServer)(nil).CreatePool), arg0, arg1, arg2)
 }
 
+// CreateProfile mocks base method
+func (m *MockServer) CreateProfile(arg0 api.ProfilesPost) error {
+	ret := m.ctrl.Call(m, "CreateProfile", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateProfile indicates an expected call of CreateProfile
+func (mr *MockServerMockRecorder) CreateProfile(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProfile", reflect.TypeOf((*MockServer)(nil).CreateProfile), arg0)
+}
+
 // CreateProfileWithConfig mocks base method
 func (m *MockServer) CreateProfileWithConfig(arg0 string, arg1 map[string]string) error {
 	ret := m.ctrl.Call(m, "CreateProfileWithConfig", arg0, arg1)
