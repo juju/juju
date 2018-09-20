@@ -942,38 +942,6 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 	c.Assert(statusInfo, gc.Equals, "")
 }
 
-func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
-	// This test is really testing the apiserver code, and the
-	// state code, not really the API client.
-	// The watcher gets notified when either the unit meter status
-	// changes, or the metrics manager changes.
-	w, err := s.apiUnit.WatchMeterStatus()
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Non-change is not reported.
-	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	mm, err := s.State.MetricsManager()
-	c.Assert(err, jc.ErrorIsNil)
-	err = mm.SetLastSuccessfulSend(time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	err = mm.IncrementConsecutiveErrors()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-}
-
 func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
 	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
