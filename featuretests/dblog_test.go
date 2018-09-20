@@ -111,6 +111,8 @@ func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
 
 // debugLogDbSuite tests that the debuglog API works when logs are
 // being read from the database.
+// NOTE: the actual tests had to be split as the resetting causes
+// mongo on bionic to have issues, see note below.
 type debugLogDbSuite struct {
 	agenttest.AgentSuite
 }
@@ -144,7 +146,16 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 	s.AgentSuite.TearDownSuite(c)
 }
 
-func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
+// NOTE: this is terrible, however due to a bug in mongod on bionic
+// when resetting a mongo service with repl set on, we hit an inveriant bug
+// which causes the second test to fail always.
+
+// NOTE: do not merge with debugLogDbSuite2
+type debugLogDbSuite1 struct {
+	debugLogDbSuite
+}
+
+func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
@@ -225,7 +236,12 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 	})
 }
 
-func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
+// NOTE: do not merge with debugLogDbSuite1
+type debugLogDbSuite2 struct {
+	debugLogDbSuite
+}
+
+func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
