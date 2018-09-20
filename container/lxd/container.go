@@ -201,7 +201,7 @@ func (s *Server) ContainerAddresses(name string) ([]network.Address, error) {
 // Upon successful creation and start, the container is returned.
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
 	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
-
+	logger.Debugf("new container has profiles %v", spec.Profiles)
 	req := api.ContainersPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,

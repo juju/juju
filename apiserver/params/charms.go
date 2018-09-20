@@ -174,3 +174,23 @@ type CharmLXDProfile struct {
 type CharmLXDProfileResult struct {
 	LXDProfile *CharmLXDProfile `json:"lxd-profile"`
 }
+
+// ContainerLXDProfile contains the charm.LXDProfile information in addition to
+// the name of the profile.
+type ContainerLXDProfile struct {
+	Profile CharmLXDProfile `json:"profile" yaml:"profile"`
+	Name    string          `json:"name" yaml:"name"`
+}
+
+// ContainerProfileResult returns the result of finding the CharmLXDProfile and name of
+// the lxd profile to be used for 1 unit on the container
+type ContainerProfileResult struct {
+	Error       *Error                `json:"error,omitempty"`
+	LXDProfiles []ContainerLXDProfile `json:"lxd-profiles,omitempty"`
+}
+
+// ContainerProfileResults returns the ContainerProfileResult for each unit to be placed
+// on the container.
+type ContainerProfileResults struct {
+	Results []ContainerProfileResult `json:"results"`
+}

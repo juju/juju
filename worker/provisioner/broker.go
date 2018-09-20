@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/container"
@@ -18,10 +19,12 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+//go:generate mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/worker/provisioner APICalls
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	GetContainerProfileInfo(names.MachineTag) ([]apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
 	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)

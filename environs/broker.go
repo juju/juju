@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
@@ -158,4 +160,11 @@ type InstanceBroker interface {
 	// instances. It is currently only used to ensure that LXC hosts have the
 	// correct network configuration.
 	MaintainInstance(ctx context.ProviderCallContext, args StartInstanceParams) error
+}
+
+// LXDProfiler defines an interface for dealing with lxd profiles used to
+// deploy juju machines and containers.
+type LXDProfiler interface {
+	// MaybeWriteLXDProfile, write given LXDProfile to if not already there.
+	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
 }

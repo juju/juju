@@ -14,8 +14,10 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -221,6 +223,14 @@ func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger, a
 	return nil
 }
 
+func (f *fakeAPI) GetContainerProfileInfo(containerTag names.MachineTag) ([]apiprovisioner.LXDProfileResult, error) {
+	f.MethodCall(f, "GetContainerProfileInfo", containerTag)
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	return []apiprovisioner.LXDProfileResult{}, nil
+}
+
 type fakeContainerManager struct {
 	gitjujutesting.Stub
 }
@@ -258,6 +268,11 @@ func (m *fakeContainerManager) IsInitialized() bool {
 	m.MethodCall(m, "IsInitialized")
 	m.PopNoErr()
 	return true
+}
+
+func (m *fakeContainerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	m.MethodCall(m, "MaybeWriteLXDProfile")
+	return m.NextErr()
 }
 
 type mockInstance struct {

@@ -28,8 +28,9 @@ devices:
   bdisk:
     type: unix-block
     source: /dev/loop0
-  gpu:
-    type: gpu
+# gpu fails if not on a box where available.
+# gpu:
+#   type: gpu
 #
 # blacklisted devices
 #

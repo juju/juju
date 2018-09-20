@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"gopkg.in/juju/charm.v6"
 )
 
 func Test(t *stdtesting.T) {
@@ -97,6 +98,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		"",
 		false,
 		false,
+		nil,
 		nil,
 	)
 	list := coretools.List{
@@ -558,4 +560,37 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 		lxd.CloudImagesDailyRemote,
 	}
 	c.Check(sources, gc.DeepEquals, expectedSources)
+}
+
+func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	mgr := s.makeManager(c, cSvr)
+	proMgr, ok := mgr.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	put := charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting":    "true",
+			"security.privileged": "true",
+		},
+		Description: "lxd profile for testing",
+		Devices: map[string]map[string]string{
+			"tun": {
+				"path": "/dev/net/tun",
+				"type": "unix-char",
+			},
+		},
+	}
+	post := lxdapi.ProfilesPost{
+		ProfilePut: lxdapi.ProfilePut(put),
+		Name:       "juju-default-lxd-0",
+	}
+	cSvr.EXPECT().CreateProfile(post).Return(nil).Times(1)
+	cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil).Times(1)
+
+	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", &put)
+	c.Assert(err, jc.ErrorIsNil)
 }

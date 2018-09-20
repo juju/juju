@@ -858,9 +858,6 @@ func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
 				"source": "/dev/loop0",
 				"type":   "unix-block",
 			},
-			"gpu": {
-				"type": "gpu",
-			},
 		},
 	})
 }

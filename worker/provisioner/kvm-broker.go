@@ -135,6 +135,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
 		cloudInitUserData,
+		nil,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err

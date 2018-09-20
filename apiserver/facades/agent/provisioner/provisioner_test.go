@@ -5,6 +5,7 @@ package provisioner_test
 
 import (
 	"fmt"
+	"os"
 	stdtesting "testing"
 	"time"
 
@@ -23,7 +24,9 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -1714,3 +1717,77 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 // 3) Provider could allocate DHCP based addresses on the host device, which would let us
 //    use a bridge on the device and DHCP. (Currently not supported, but desirable for
 //    vSphere and Manual and probably LXD providers.)
+
+func (s *withControllerSuite) TestGetContainerProfileInfo(c *gc.C) {
+	// TODO (hml) lxd-profile
+	// enable this test once charmrepo test accepts charms with an lxdprofile
+	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+
+	profileMachine, err := s.State.AddMachineInsideNewMachine(
+		state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		state.MachineTemplate{ // parent
+			Series: "quantal",
+		},
+		instance.LXD,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profileCharm := s.AddTestingCharm(c, "lxd-profile")
+	profileService := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = profileUnit.AssignToMachine(profileMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: profileMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.GetContainerProfileInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.APIPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
+
+	pName := fmt.Sprintf("juju-%s-lxd-profile-0", coretesting.ModelConfig(c).Name())
+	expected := params.ContainerProfileResults{
+		Results: []params.ContainerProfileResult{{
+			LXDProfiles: []params.ContainerLXDProfile{{
+				Profile: params.CharmLXDProfile{
+					Config: map[string]string{
+						"security.nesting":       "true",
+						"security.privileged":    "true",
+						"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+						"environment.http_proxy": "",
+					},
+					Description: "lxd profile for testing, black list items grouped commented out",
+					Devices: map[string]map[string]string{
+						"tun": {
+							"path": "/dev/net/tun",
+							"type": "unix-char",
+						},
+						"sony": {
+							"type":      "usb",
+							"vendorid":  "0fce",
+							"productid": "51da",
+						},
+						"bdisk": {
+							"source": "/dev/loop0",
+							"type":   "unix-block",
+						},
+					},
+				},
+				Name: pName,
+			}},
+		}},
+	}
+
+	c.Assert(result, jc.DeepEquals, expected)
+}

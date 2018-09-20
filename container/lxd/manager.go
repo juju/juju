@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
+	"github.com/lxc/lxd/shared/api"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
@@ -223,7 +225,7 @@ func (m *containerManager) getContainerSpec(
 		Name:     name,
 		Image:    found,
 		Config:   cfg,
-		Profiles: nil,
+		Profiles: instanceConfig.Profiles,
 		Devices:  nics,
 	}
 	spec.ApplyConstraints(cons)
@@ -283,4 +285,25 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 
 	nics, err := m.server.GetNICsFromProfile(lxdDefaultProfileName)
 	return nics, nil, errors.Trace(err)
+}
+
+// MaybeWriteLXDProfile implements container.LXDProfileManager.
+func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	hasProfile, err := m.server.HasProfile(pName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if hasProfile {
+		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		return nil
+	}
+	post := api.ProfilesPost{
+		Name:       pName,
+		ProfilePut: api.ProfilePut(*put),
+	}
+	if err = m.server.CreateProfile(post); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("wrote lxd profile %q", pName)
+	return nil
 }
