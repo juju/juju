@@ -32,7 +32,6 @@ Valid access levels for models are:
 
 Valid access levels for controllers are:
     login
-    add-model
     superuser
 
 Valid access levels for application offers are:
@@ -52,10 +51,6 @@ Grant user 'jim' 'write' access to model 'mymodel':
 Grant user 'sam' 'read' access to models 'model1' and 'model2':
 
     juju grant sam read model1 model2
-
-Grant user 'maria' 'add-model' access to the controller:
-
-    juju grant maria add-model
 
 Grant user 'joe' 'read' access to application offer 'fred/prod.hosted-mysql':
 
@@ -91,10 +86,6 @@ Revoke 'read' (and 'write') access from user 'joe' for model 'mymodel':
 Revoke 'write' access from user 'sam' for models 'model1' and 'model2':
 
     juju revoke sam write model1 model2
-
-Revoke 'add-model' access from user 'maria' to the controller:
-
-    juju revoke maria add-model
 
 Revoke 'read' (and 'write') access from user 'joe' for application offer 'fred/prod.hosted-mysql':
 
@@ -152,10 +143,6 @@ func (c *accessCommand) Init(args []string) error {
 		return errors.New("either specify model names or offer URLs but not both")
 	}
 
-	// Special case for backwards compatibility.
-	if c.Access == "addmodel" {
-		c.Access = "add-model"
-	}
 	if len(c.ModelNames) > 0 || len(c.OfferURLs) > 0 {
 		if err := permission.ValidateControllerAccess(permission.Access(c.Access)); err == nil {
 			return errors.Errorf("You have specified a controller access permission %q.\n"+
