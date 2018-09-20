@@ -293,8 +293,8 @@ func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
 	credential.Label = "finalized"
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
-	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials", "UpdateCredential")
-	s.fakeCloudAPI.CheckCall(c, 3, "UpdateCredential", credentialTag, credential)
+	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials", "UpdateCredentialsCheckModels")
+	s.fakeCloudAPI.CheckCall(c, 3, "UpdateCredentialsCheckModels", credentialTag, credential)
 }
 
 func (s *AddModelSuite) TestCredentialsDetectedAmbiguous(c *gc.C) {
@@ -671,9 +671,9 @@ func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag)
 	return c.credentials, c.NextErr()
 }
 
-func (c *fakeCloudAPI) UpdateCredential(credentialTag names.CloudCredentialTag, credential cloud.Credential) error {
-	c.MethodCall(c, "UpdateCredential", credentialTag, credential)
-	return c.NextErr()
+func (c *fakeCloudAPI) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential cloud.Credential) (params.UpdateCredentialResult, error) {
+	c.MethodCall(c, "UpdateCredentialsCheckModels", tag, credential)
+	return params.UpdateCredentialResult{}, c.NextErr()
 }
 
 type fakeProviderRegistry struct {

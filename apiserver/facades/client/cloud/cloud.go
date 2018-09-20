@@ -345,6 +345,7 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 		}
 		if !modelsVisible {
 			// Some models that use this credential do not like the new content, do not update the credential...
+			results[i].Error = common.ServerError(errors.New("some models are no longer visible"))
 			continue
 		}
 
