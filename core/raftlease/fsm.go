@@ -36,6 +36,14 @@ const (
 	// OperationSetTime denotes updating stored global time (which
 	// will also remove any expired leases).
 	OperationSetTime = "setTime"
+
+	// OperationPin pins a lease, preventing it from expiring
+	// until it is unpinned.
+	OperationPin = "pin"
+
+	// OperationUnpin unpins a lease, restoring normal
+	// lease expiry behaviour.
+	OperationUnpin = "unpin"
 )
 
 // FSMResponse defines what will be available on the return value from
@@ -54,6 +62,7 @@ type FSMResponse interface {
 func NewFSM() *FSM {
 	return &FSM{
 		entries: make(map[lease.Key]*entry),
+		pinned:  make(map[lease.Key]bool),
 	}
 }
 
@@ -62,11 +71,10 @@ type FSM struct {
 	mu         sync.Mutex
 	globalTime time.Time
 	entries    map[lease.Key]*entry
+	pinned     map[lease.Key]bool
 }
 
 func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if _, found := f.entries[key]; found {
 		return invalidResponse()
 	}
@@ -79,8 +87,6 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 }
 
 func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	entry, found := f.entries[key]
 	if !found {
 		return invalidResponse()
@@ -101,35 +107,46 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 	return &response{}
 }
 
+func (f *FSM) pin(key lease.Key) *response {
+	f.pinned[key] = true
+	return &response{}
+}
+
+func (f *FSM) unpin(key lease.Key) *response {
+	delete(f.pinned, key)
+	return &response{}
+}
+
 func (f *FSM) setTime(oldTime, newTime time.Time) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.globalTime != oldTime {
 		return &response{err: globalclock.ErrConcurrentUpdate}
 	}
 	f.globalTime = newTime
+	return &response{expired: f.expired(newTime)}
+}
+
+// expired returns a collection of keys for leases that have expired.
+// Any pinned leases are not included in the return.
+func (f *FSM) expired(newTime time.Time) []lease.Key {
 	var expired []lease.Key
 	for key, entry := range f.entries {
 		expiry := entry.start.Add(entry.duration)
-		if expiry.Before(newTime) {
+		if expiry.Before(newTime) && !f.pinned[key] {
 			delete(f.entries, key)
 			expired = append(expired, key)
 		}
 	}
-	return &response{expired: expired}
+	return expired
 }
 
 // GlobalTime returns the FSM's internal time.
 func (f *FSM) GlobalTime() time.Time {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	return f.globalTime
 }
 
 // Leases gets information about all of the leases in the system.
 func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	results := make(map[lease.Key]lease.Info)
 	for key, entry := range f.entries {
 		globalExpiry := entry.start.Add(entry.duration)
@@ -140,6 +157,7 @@ func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
 			Expiry: localExpiry,
 		}
 	}
+	f.mu.Unlock()
 	return results
 }
 
@@ -195,11 +213,19 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 	if err := command.Validate(); err != nil {
 		return &response{err: errors.Trace(err)}
 	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	switch command.Operation {
 	case OperationClaim:
 		return f.claim(command.LeaseKey(), command.Holder, command.Duration)
 	case OperationExtend:
 		return f.extend(command.LeaseKey(), command.Holder, command.Duration)
+	case OperationPin:
+		return f.pin(command.LeaseKey())
+	case OperationUnpin:
+		return f.unpin(command.LeaseKey())
 	case OperationSetTime:
 		return f.setTime(command.OldTime, command.NewTime)
 	default:
@@ -210,7 +236,7 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 // Snapshot is part of raft.FSM.
 func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
+
 	entries := make(map[SnapshotKey]SnapshotEntry, len(f.entries))
 	for key, entry := range f.entries {
 		entries[SnapshotKey{
@@ -223,9 +249,22 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 			Duration: entry.duration,
 		}
 	}
+
+	pinned := make(map[SnapshotKey]bool, len(f.pinned))
+	for key := range f.pinned {
+		pinned[SnapshotKey{
+			Namespace: key.Namespace,
+			ModelUUID: key.ModelUUID,
+			Lease:     key.Lease,
+		}] = true
+	}
+
+	f.mu.Unlock()
+
 	return &Snapshot{
 		Version:    SnapshotVersion,
 		Entries:    entries,
+		Pinned:     pinned,
 		GlobalTime: f.globalTime,
 	}, nil
 }
@@ -233,6 +272,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 // Restore is part of raft.FSM.
 func (f *FSM) Restore(reader io.ReadCloser) error {
 	defer reader.Close()
+
 	var snapshot Snapshot
 	decoder := yaml.NewDecoder(reader)
 	if err := decoder.Decode(&snapshot); err != nil {
@@ -258,11 +298,20 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 		}
 	}
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	newPinned := make(map[lease.Key]bool, len(snapshot.Pinned))
+	for key := range snapshot.Pinned {
+		newPinned[lease.Key{
+			Namespace: key.Namespace,
+			ModelUUID: key.ModelUUID,
+			Lease:     key.Lease,
+		}] = true
+	}
 
+	f.mu.Lock()
 	f.globalTime = snapshot.GlobalTime
 	f.entries = newEntries
+	f.pinned = newPinned
+	f.mu.Unlock()
 
 	return nil
 }
@@ -271,6 +320,7 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 type Snapshot struct {
 	Version    int                           `yaml:"version"`
 	Entries    map[SnapshotKey]SnapshotEntry `yaml:"entries"`
+	Pinned     map[SnapshotKey]bool          `yaml:"pinned"`
 	GlobalTime time.Time                     `yaml:"global-time"`
 }
 
@@ -344,36 +394,37 @@ type Command struct {
 
 // Validate checks that the command describes a valid state change.
 func (c *Command) Validate() error {
-	var zeroTime time.Time
 	// For now there's only version 1.
 	if c.Version != 1 {
 		return errors.NotValidf("version %d", c.Version)
 	}
 	switch c.Operation {
 	case OperationClaim, OperationExtend:
+		if err := c.validateLeaseKey(); err != nil {
+			return err
+		}
+		if err := c.validateNoTime(); err != nil {
+			return err
+		}
 		if c.Holder == "" {
 			return errors.NotValidf("%s with empty holder", c.Operation)
 		}
 		if c.Duration == 0 {
 			return errors.NotValidf("%s with zero duration", c.Operation)
 		}
-		if c.Namespace == "" {
-			return errors.NotValidf("%s with empty namespace", c.Operation)
+	case OperationPin, OperationUnpin:
+		if err := c.validateLeaseKey(); err != nil {
+			return err
 		}
-		if c.ModelUUID == "" {
-			return errors.NotValidf("%s with empty model UUID", c.Operation)
+		if err := c.validateNoTime(); err != nil {
+			return err
 		}
-		if c.Lease == "" {
-			return errors.NotValidf("%s with empty lease", c.Operation)
-		}
-		if c.OldTime != zeroTime {
-			return errors.NotValidf("%s with old time", c.Operation)
-		}
-		if c.NewTime != zeroTime {
-			return errors.NotValidf("%s with new time", c.Operation)
+		if c.Duration != 0 {
+			return errors.NotValidf("pin with duration")
 		}
 	case OperationSetTime:
 		// An old time of 0 is valid when starting up.
+		var zeroTime time.Time
 		if c.NewTime == zeroTime {
 			return errors.NotValidf("setTime with zero new time")
 		}
@@ -390,10 +441,37 @@ func (c *Command) Validate() error {
 			return errors.NotValidf("setTime with model UUID")
 		}
 		if c.Lease != "" {
+			if c.Holder == "" {
+				return errors.NotValidf("%s with empty holder", c.Operation)
+			}
 			return errors.NotValidf("setTime with lease")
 		}
 	default:
 		return errors.NotValidf("operation %q", c.Operation)
+	}
+	return nil
+}
+
+func (c *Command) validateLeaseKey() error {
+	if c.Namespace == "" {
+		return errors.NotValidf("%s with empty namespace", c.Operation)
+	}
+	if c.ModelUUID == "" {
+		return errors.NotValidf("%s with empty model UUID", c.Operation)
+	}
+	if c.Lease == "" {
+		return errors.NotValidf("%s with empty lease", c.Operation)
+	}
+	return nil
+}
+
+func (c *Command) validateNoTime() error {
+	var zeroTime time.Time
+	if c.OldTime != zeroTime {
+		return errors.NotValidf("%s with old time", c.Operation)
+	}
+	if c.NewTime != zeroTime {
+		return errors.NotValidf("%s with new time", c.Operation)
 	}
 	return nil
 }
