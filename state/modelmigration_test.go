@@ -772,6 +772,7 @@ func (s *MigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
 func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
+	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 	w := st.WatchMigrationStatus()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, st, w)

@@ -57,10 +57,9 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
+	// Initial event.
 	wc.AssertOneChange()
 
-	err = s.unit.SetMeterStatus("GREEN", "ok")
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetMeterStatus("AMBER", "ok")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -74,11 +73,9 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 3; i++ {
-		err := mm.IncrementConsecutiveErrors()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	status := mm.MeterStatus()
-	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	wc.AssertOneChange()
+
+	err = mm.IncrementConsecutiveErrors()
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
