@@ -153,7 +153,7 @@ type CloudAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
 	UserCredentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
-	UpdateCredential(names.CloudCredentialTag, jujucloud.Credential) error
+	UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) (params.UpdateCredentialResult, error)
 }
 
 func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
@@ -223,7 +223,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	// Upload the credential if it was found locally.
 	if credential != nil {
 		ctx.Infof("Uploading credential '%s' to controller", credentialTag.Id())
-		if err := cloudClient.UpdateCredential(credentialTag, *credential); err != nil {
+		if _, err := cloudClient.UpdateCredentialsCheckModels(credentialTag, *credential); err != nil {
 			return errors.Trace(err)
 		}
 	}
