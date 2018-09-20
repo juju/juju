@@ -360,7 +360,7 @@ func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
 	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels")
 	c.Assert(results.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: &params.Error{
-			Message: "model \"testModel1\" (uuid deadbeef-0bad-400d-8000-4b1d0d06f00d): not valid for model\ncannot find machine failure"},
+			Message: "some models are no longer visible\nmodel \"testModel1\" (uuid deadbeef-0bad-400d-8000-4b1d0d06f00d): not valid for model\ncannot find machine failure"},
 		},
 	})
 }
