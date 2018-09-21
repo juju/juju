@@ -238,7 +238,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 	}
 
 	m := UpgradeSeriesPrepareFinishedMessage + "\n"
-	fmt.Fprintf(ctx.Stdout, m, c.machineNumber)
+	ctx.Infof(m, c.machineNumber)
 
 	return nil
 }
@@ -301,10 +301,7 @@ func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid s
 	if len(messages) == 0 {
 		return nil
 	}
-	_, err = fmt.Fprintln(ctx.Stdout, strings.Join(messages, "\n"))
-	if err != nil {
-		errors.Trace(err)
-	}
+	ctx.Infof(strings.Join(messages, "\n"))
 	return nil
 }
 
@@ -336,7 +333,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 	}
 
 	m := UpgradeSeriesCompleteFinishedMessage + "\n"
-	fmt.Fprintf(ctx.Stdout, m, c.machineNumber)
+	ctx.Infof(m, c.machineNumber)
 
 	return nil
 }
