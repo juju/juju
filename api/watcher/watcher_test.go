@@ -481,10 +481,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertChange, stop := s.setupOfferStatusWatch(c)
 	defer stop()
 
-	// We only want the most recent change.
-	err := mysql.SetStatus(status.StatusInfo{Status: status.Blocked, Message: "message"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysql.SetStatus(status.StatusInfo{Status: status.Waiting, Message: "another message"})
+	err := mysql.SetStatus(status.StatusInfo{Status: status.Waiting, Message: "another message"})
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(status.Waiting, "another message")
 
