@@ -236,6 +236,59 @@ func (s *fsmSuite) TestSetTimeExpiresLeases(c *gc.C) {
 	)
 }
 
+func (s *fsmSuite) TestPinUnpin(c *gc.C) {
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationSetTime,
+		OldTime:   zero,
+		NewTime:   offset(2 * time.Second),
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+		Holder:    "me",
+		Duration:  time.Second,
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationPin,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+	}).Error(), jc.ErrorIsNil)
+
+	// Pinned lease does not expire.
+	resp := s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationSetTime,
+		OldTime:   offset(2 * time.Second),
+		NewTime:   offset(4 * time.Second),
+	})
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertExpired(c, resp)
+
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationUnpin,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+	}).Error(), jc.ErrorIsNil)
+
+	// Unpinned lease expires when time advances.
+	resp = s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationSetTime,
+		OldTime:   offset(4 * time.Second),
+		NewTime:   offset(6 * time.Second),
+	})
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertExpired(c, resp, lease.Key{"ns", "model", "lease"})
+}
+
 func (s *fsmSuite) TestLeases(c *gc.C) {
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
@@ -265,6 +318,36 @@ func (s *fsmSuite) TestLeases(c *gc.C) {
 			{"ns2", "model2", "lease"}: {
 				Holder: "you",
 				Expiry: offset(4 * time.Second),
+			},
+		},
+	)
+}
+
+func (s *fsmSuite) TestLeasesPinnedFutureExpiry(c *gc.C) {
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+		Holder:    "me",
+		Duration:  time.Second,
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationPin,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+	}).Error(), jc.ErrorIsNil)
+
+	// Even though the lease duration is only one second,
+	// expiry should be represented as 30 seconds in the future.
+	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+		map[lease.Key]lease.Info{
+			{"ns", "model", "lease"}: {
+				Holder: "me",
+				Expiry: offset(30 * time.Second),
 			},
 		},
 	)
@@ -363,6 +446,13 @@ func (s *fsmSuite) TestSnapshot(c *gc.C) {
 		Holder:    "you",
 		Duration:  4 * time.Second,
 	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationPin,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+	}).Error(), jc.ErrorIsNil)
 
 	snapshot, err := s.fsm.Snapshot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,6 +471,7 @@ func (s *fsmSuite) TestSnapshot(c *gc.C) {
 			},
 		},
 		GlobalTime: zero.Add(2 * time.Second),
+		Pinned:     []raftlease.SnapshotKey{{"ns", "model", "lease"}},
 	})
 }
 
@@ -415,6 +506,7 @@ func (s *fsmSuite) TestRestore(c *gc.C) {
 			},
 		},
 		GlobalTime: zero.Add(3 * time.Second),
+		Pinned:     []raftlease.SnapshotKey{{"ns", "model", "lease"}},
 	}
 
 	actual, err := s.fsm.Snapshot()
@@ -437,6 +529,7 @@ func (s *fsmSuite) TestSnapshotPersist(c *gc.C) {
 				Duration: 4 * time.Second,
 			},
 		},
+		Pinned:     []raftlease.SnapshotKey{{"ns", "model", "lease"}},
 		GlobalTime: zero.Add(2 * time.Second),
 	}
 	var buffer bytes.Buffer
@@ -503,6 +596,25 @@ func (s *fsmSuite) TestCommandValidationSetTime(c *gc.C) {
 	command.Duration = 0
 	command.NewTime = time.Time{}
 	c.Assert(command.Validate(), gc.ErrorMatches, "setTime with zero new time not valid")
+}
+
+func (s *fsmSuite) TestCommandValidationPin(c *gc.C) {
+	command := raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationPin,
+		Namespace: "namespace",
+		ModelUUID: "model",
+		Lease:     "lease",
+	}
+	c.Assert(command.Validate(), gc.Equals, nil)
+	command.NewTime = time.Now()
+	c.Assert(command.Validate(), gc.ErrorMatches, "pin with new time not valid")
+	command.NewTime = time.Time{}
+	command.Namespace = ""
+	c.Assert(command.Validate(), gc.ErrorMatches, "pin with empty namespace not valid")
+	command.Namespace = "namespace"
+	command.Duration = time.Minute
+	c.Assert(command.Validate(), gc.ErrorMatches, "pin with duration not valid")
 }
 
 func assertClaimed(c *gc.C, resp raftlease.FSMResponse, key lease.Key, holder string) {
@@ -594,4 +706,8 @@ entries:
     start: 0001-01-01T00:00:02Z
     duration: 10s
 global-time: 0001-01-01T00:00:03Z
+pinned:
+  - namespace: ns
+    model-uuid: model
+    lease: lease
 `[1:]
