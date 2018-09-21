@@ -35,7 +35,7 @@ type CloudV3 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
-	UpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	UpdateCredentialsCheckModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
 	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
 }
 
@@ -296,14 +296,6 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 	authFunc, err := api.getCredentialsAuthFunc()
 	if err != nil {
 		return params.UpdateCredentialResults{}, err
-	}
-
-	credentialError := func(oneError error) *params.ErrorResults {
-		return &params.ErrorResults{
-			Results: []params.ErrorResult{
-				{common.ServerError(oneError)},
-			},
-		}
 	}
 
 	results := make([]params.UpdateCredentialResult, len(args.Credentials))
