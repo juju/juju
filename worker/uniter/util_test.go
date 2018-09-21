@@ -986,9 +986,10 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 		Charm:      sch,
 		ForceUnits: s.forced,
 	}
+	// Make sure we upload the charm before changing it in the DB.
+	serveCharm{}.step(c, ctx)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	serveCharm{}.step(c, ctx)
 }
 
 type verifyCharm struct {
