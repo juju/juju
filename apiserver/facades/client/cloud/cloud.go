@@ -152,6 +152,17 @@ func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer
 	}, nil
 }
 
+func (api *CloudAPI) canAccessCloud(cloud string, user names.UserTag, access permission.Access) (bool, error) {
+	perm, err := api.ctlrBackend.GetCloudAccess(cloud, user)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return perm.EqualOrGreaterCloudAccessThan(access), nil
+}
+
 // Clouds returns the definitions of all clouds supported by the controller.
 func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	var result params.CloudsResult
@@ -159,8 +170,22 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	if err != nil {
 		return result, err
 	}
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return result, errors.Trace(err)
+	}
 	result.Clouds = make(map[string]params.Cloud)
 	for tag, cloud := range clouds {
+		// Ensure user has permission to see the cloud.
+		if !isAdmin {
+			canAccess, err := api.canAccessCloud(tag.Id(), api.apiUser, permission.AddModelAccess)
+			if err != nil {
+				return result, err
+			}
+			if !canAccess {
+				continue
+			}
+		}
 		paramsCloud := common.CloudToParams(cloud)
 		result.Clouds[tag.String()] = paramsCloud
 	}
@@ -172,10 +197,24 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	results := params.CloudResults{
 		Results: make([]params.CloudResult, len(args.Entities)),
 	}
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return results, errors.Trace(err)
+	}
 	one := func(arg params.Entity) (*params.Cloud, error) {
 		tag, err := names.ParseCloudTag(arg.Tag)
 		if err != nil {
 			return nil, err
+		}
+		// Ensure user has permission to see the cloud.
+		if !isAdmin {
+			canAccess, err := api.canAccessCloud(tag.Id(), api.apiUser, permission.AddModelAccess)
+			if err != nil {
+				return nil, err
+			}
+			if !canAccess {
+				return nil, errors.NotFoundf("cloud %q", tag.Id())
+			}
 		}
 		cloud, err := api.backend.Cloud(tag.Id())
 		if err != nil {
@@ -186,6 +225,9 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	}
 	for i, arg := range args.Entities {
 		cloud, err := one(arg)
+		if errors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		} else {
@@ -534,11 +576,27 @@ func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, er
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return result, errors.Trace(err)
+	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseCloudTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
+		}
+		// Ensure user has permission to remove the cloud.
+		if !isAdmin {
+			canAccess, err := api.canAccessCloud(tag.Id(), api.apiUser, permission.AdminAccess)
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			if !canAccess {
+				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				continue
+			}
 		}
 		err = api.backend.RemoveCloud(tag.Id())
 		result.Results[i].Error = common.ServerError(err)

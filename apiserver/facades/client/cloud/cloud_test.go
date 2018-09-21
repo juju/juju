@@ -90,6 +90,7 @@ func (s *cloudSuite) setTestAPIForUser(c *gc.C, user names.UserTag) {
 }
 
 func (s *cloudSuite) TestCloud(c *gc.C) {
+	s.ctlrBackend.cloudAccess = permission.AddModelAccess
 	results, err := s.api.Cloud(params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-my-cloud"}, {Tag: "machine-0"}},
 	})
@@ -110,9 +111,12 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 }
 
 func (s *cloudSuite) TestClouds(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
+	s.ctlrBackend.cloudAccess = permission.AddModelAccess
 	result, err := s.api.Clouds()
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Clouds")
+	s.ctlrBackend.CheckCallNames(c, "ControllerTag", "GetCloudAccess", "GetCloudAccess")
 	c.Assert(result.Clouds, jc.DeepEquals, map[string]params.Cloud{
 		"cloud-my-cloud": {
 			Type:      "dummy",
@@ -568,7 +572,8 @@ func (st *mockBackend) Cloud(name string) (cloud.Cloud, error) {
 func (st *mockBackend) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	st.MethodCall(st, "Clouds")
 	return map[names.CloudTag]cloud.Cloud{
-		names.NewCloudTag("my-cloud"): st.cloud,
+		names.NewCloudTag("my-cloud"):   st.cloud,
+		names.NewCloudTag("your-cloud"): st.cloud,
 	}, st.NextErr()
 }
 
@@ -614,6 +619,9 @@ func (st *mockBackend) CredentialModels(tag names.CloudCredentialTag) (map[strin
 
 func (st *mockBackend) GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error) {
 	st.MethodCall(st, "GetCloudAccess", cloud, user)
+	if cloud == "your-cloud" {
+		return permission.NoAccess, errors.NotFoundf("cloud your-cloud")
+	}
 	return st.cloudAccess, nil
 }
 
