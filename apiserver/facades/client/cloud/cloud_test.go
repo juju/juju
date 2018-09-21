@@ -177,7 +177,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "machine-0",
 	}, {
 		Tag: "cloudcred-meep_admin_whatever",
@@ -201,16 +201,16 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 		Results: []params.UpdateCredentialResult{
 			{
 				CredentialTag: "machine-0",
-				Errors:        oneErrorResult(&params.Error{Message: `"machine-0" is not a valid cloudcred tag`}),
+				Error:         &params.Error{Message: `"machine-0" is not a valid cloudcred tag`},
 			},
 			{
 				CredentialTag: "cloudcred-meep_admin_whatever",
-				Errors:        oneErrorResult(&params.Error{Message: "permission denied", Code: params.CodeUnauthorized}),
+				Error:         &params.Error{Message: "permission denied", Code: params.CodeUnauthorized},
 			},
 			{CredentialTag: "cloudcred-meep_bruce_three"},
 			{
 				CredentialTag: "cloudcred-badcloud_bruce_three",
-				Errors:        oneErrorResult(&params.Error{Message: `cannot update credential "three": controller does not manage cloud "badcloud"`}),
+				Error:         &params.Error{Message: `cannot update credential "three": controller does not manage cloud "badcloud"`},
 			},
 		},
 	})
@@ -226,7 +226,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
@@ -240,7 +240,7 @@ func (s *cloudSuite) TestUpdateCredentialsNoModelsFound(c *gc.C) {
 	s.backend.credentialModelsF = func(tag names.CloudCredentialTag) (map[string]string, error) {
 		return nil, errors.NotFoundf("how about it")
 	}
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
@@ -252,9 +252,9 @@ func (s *cloudSuite) TestUpdateCredentialsNoModelsFound(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 	s.backend.credentialModelsF = func(tag names.CloudCredentialTag) (map[string]string, error) {
-		return nil, errors.New("how about it")
+		return nil, errors.New("cannot get models")
 	}
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
@@ -264,7 +264,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 		Results: []params.UpdateCredentialResult{
 			{
 				CredentialTag: "cloudcred-meep_julia_three",
-				Errors:        oneErrorResult(&params.Error{Message: "how about it"}),
+				Error:         &params.Error{Message: "cannot get models"},
 			},
 		}})
 }
@@ -280,14 +280,23 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 		return params.ErrorResults{}, nil
 	})
 
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "UpdateCloudCredential")
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{{CredentialTag: "cloudcred-meep_julia_three"}}})
+		Results: []params.UpdateCredentialResult{{
+			CredentialTag: "cloudcred-meep_julia_three",
+			Models: []params.UpdateCredentialModelResult{
+				{
+					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					ModelName: "testModel1",
+				},
+			},
+		}},
+	})
 }
 
 func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
@@ -297,10 +306,10 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 		}, nil
 	}
 	s.statePool.getF = func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-		return nil, errors.New("test dreaming")
+		return nil, errors.New("cannot get a model")
 	}
 
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
@@ -309,8 +318,16 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
-			Errors:        oneErrorResult(&params.Error{Message: "test dreaming"}),
-		}}})
+			Error:         &params.Error{Message: "some models are no longer visible"},
+			Models: []params.UpdateCredentialModelResult{
+				{
+					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					ModelName: "testModel1",
+					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "cannot get a model", Code: ""}}},
+				},
+			},
+		}},
+	})
 }
 
 func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
@@ -324,7 +341,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 		return params.ErrorResults{[]params.ErrorResult{{&params.Error{Message: "not valid for model"}}}}, nil
 	})
 
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
@@ -333,8 +350,16 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
-			Errors:        oneErrorResult(&params.Error{Message: "not valid for model"}),
-		}}})
+			Error:         &params.Error{Message: "some models are no longer visible"},
+			Models: []params.UpdateCredentialModelResult{
+				{
+					ModelUUID: coretesting.ModelTag.Id(),
+					ModelName: "testModel1",
+					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "not valid for model", Code: ""}}},
+				},
+			},
+		}},
+	})
 }
 
 func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
@@ -354,17 +379,31 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 		return params.ErrorResults{[]params.ErrorResult{}}, nil
 	})
 
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels")
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{{
-			CredentialTag: "cloudcred-meep_julia_three",
-			Errors:        oneErrorResult(&params.Error{Message: "not valid for model"}),
-		}}})
+		Results: []params.UpdateCredentialResult{
+			{
+				CredentialTag: "cloudcred-meep_julia_three",
+				Error:         &params.Error{Message: "some models are no longer visible"},
+				Models: []params.UpdateCredentialModelResult{
+					{
+						ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+						ModelName: "testModel1",
+						Errors:    []params.ErrorResult{{Error: &params.Error{Message: "not valid for model", Code: ""}}},
+					},
+					{
+						ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
+						ModelName: "testModel2",
+					},
+				},
+			},
+		},
+	})
 }
 
 func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
@@ -379,20 +418,30 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 		return params.ErrorResults{[]params.ErrorResult{{&params.Error{Message: "not valid for model"}}}}, nil
 	})
 
-	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
+	results, err := s.api.UpdateCredentialsCheckModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag:        "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels")
-	oneError := &params.Error{Message: "not valid for model"}
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
 		Results: []params.UpdateCredentialResult{{
 			CredentialTag: "cloudcred-meep_julia_three",
-			Errors: &params.ErrorResults{Results: []params.ErrorResult{
-				{oneError},
-				{oneError},
-			}}}}})
+			Error:         &params.Error{Message: "some models are no longer visible"},
+			Models: []params.UpdateCredentialModelResult{
+				{
+					ModelUUID: coretesting.ModelTag.Id(),
+					ModelName: "testModel1",
+					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}},
+				},
+				{
+					ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
+					ModelName: "testModel2",
+					Errors:    []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}},
+				},
+			},
+		}}},
+	)
 }
 
 func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {

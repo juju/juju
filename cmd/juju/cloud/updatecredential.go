@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -83,7 +84,7 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type credentialAPI interface {
-	UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error
+	UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error)
 	Close() error
 }
 
@@ -131,8 +132,26 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if err := client.UpdateCredential(credentialTag, *credToUpdate); err != nil {
-		return err
+	models, err := client.UpdateCredentialsCheckModels(credentialTag, *credToUpdate)
+	if err != nil {
+		ctx.Infof("Could not update credential %q for user %q on cloud %q: %v", c.credential, accountDetails.User, c.cloud, err)
+	}
+
+	for _, m := range models {
+		if len(m.Errors) == 0 {
+			ctx.Infof("Model %q is visible.", m.ModelName)
+			continue
+		} else {
+			ctx.Infof("Model %q is not visible:", m.ModelName)
+			for _, anErr := range m.Errors {
+				// This will allows to determine the last error.
+				ctx.Infof("  %v", errors.Trace(anErr.Error))
+			}
+		}
+	}
+	if err != nil {
+		// We do not want to return err here as we have already displayed it on the console.
+		return cmd.ErrSilent
 	}
 	ctx.Infof("Updated credential %q for user %q on cloud %q.", c.credential, accountDetails.User, c.cloud)
 	return nil
