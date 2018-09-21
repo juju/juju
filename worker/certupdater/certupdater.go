@@ -121,65 +121,65 @@ func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
 }
 
 func (c *CertificateUpdater) updateCertificate(addresses []network.Address) error {
-	logger.Debugf("new machine addresses: %#v", addresses)
-	c.addresses = addresses
+	// logger.Debugf("new machine addresses: %#v", addresses)
+	// c.addresses = addresses
 
-	// Older Juju deployments will not have the CA cert private key
-	// available.
-	stateInfo, ok := c.getter.StateServingInfo()
-	if !ok {
-		return errors.New("no state serving info, cannot regenerate server certificate")
-	}
-	caPrivateKey := stateInfo.CAPrivateKey
-	if caPrivateKey == "" {
-		logger.Errorf("no CA cert private key, cannot regenerate server certificate")
-		return nil
-	}
+	// // Older Juju deployments will not have the CA cert private key
+	// // available.
+	// stateInfo, ok := c.getter.StateServingInfo()
+	// if !ok {
+	// 	return errors.New("no state serving info, cannot regenerate server certificate")
+	// }
+	// caPrivateKey := stateInfo.CAPrivateKey
+	// if caPrivateKey == "" {
+	// 	logger.Errorf("no CA cert private key, cannot regenerate server certificate")
+	// 	return nil
+	// }
 
-	cfg, err := c.configGetter.ControllerConfig()
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller config")
-	}
+	// cfg, err := c.configGetter.ControllerConfig()
+	// if err != nil {
+	// 	return errors.Annotate(err, "cannot read controller config")
+	// }
 
-	// For backwards compatibility, we must include "anything", "juju-apiserver"
-	// and "juju-mongodb" as hostnames as that is what clients specify
-	// as the hostname for verification (this certificate is used both
-	// for serving MongoDB and API server connections).  We also
-	// explicitly include localhost.
-	serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb", "anything"}
-	for _, addr := range addresses {
-		if addr.Value == "localhost" {
-			continue
-		}
-		serverAddrs = append(serverAddrs, addr.Value)
-	}
-	newServerAddrs, update, err := updateRequired(stateInfo.Cert, serverAddrs)
-	if err != nil {
-		return errors.Annotate(err, "cannot determine if cert update needed")
-	}
-	if !update {
-		logger.Debugf("no certificate update required")
-		return nil
-	}
+	// // For backwards compatibility, we must include "anything", "juju-apiserver"
+	// // and "juju-mongodb" as hostnames as that is what clients specify
+	// // as the hostname for verification (this certificate is used both
+	// // for serving MongoDB and API server connections).  We also
+	// // explicitly include localhost.
+	// serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb", "anything"}
+	// for _, addr := range addresses {
+	// 	if addr.Value == "localhost" {
+	// 		continue
+	// 	}
+	// 	serverAddrs = append(serverAddrs, addr.Value)
+	// }
+	// newServerAddrs, update, err := updateRequired(stateInfo.Cert, serverAddrs)
+	// if err != nil {
+	// 	return errors.Annotate(err, "cannot determine if cert update needed")
+	// }
+	// if !update {
+	// 	logger.Debugf("no certificate update required")
+	// 	return nil
+	// }
 
-	// Generate a new controller certificate with the machine addresses in the SAN value.
-	caCert, hasCACert := cfg.CACert()
-	if !hasCACert {
-		return errors.New("configuration has no ca-cert")
-	}
-	newCert, newKey, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, newServerAddrs)
-	if err != nil {
-		return errors.Annotate(err, "cannot generate controller certificate")
-	}
-	stateInfo.Cert = newCert
-	stateInfo.PrivateKey = newKey
+	// // Generate a new controller certificate with the machine addresses in the SAN value.
+	// caCert, hasCACert := cfg.CACert()
+	// if !hasCACert {
+	// 	return errors.New("configuration has no ca-cert")
+	// }
+	// newCert, newKey, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, newServerAddrs)
+	// if err != nil {
+	// 	return errors.Annotate(err, "cannot generate controller certificate")
+	// }
+	// stateInfo.Cert = newCert
+	// stateInfo.PrivateKey = newKey
 
-	logger.Criticalf("CertificateUpdater.updateCertificate: addresses ---> %#v", addresses)
-	err = c.setter(stateInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot write agent config")
-	}
-	logger.Infof("controller certificate addresses updated to %q", newServerAddrs)
+	// logger.Criticalf("CertificateUpdater.updateCertificate: addresses ---> %#v", addresses)
+	// err = c.setter(stateInfo)
+	// if err != nil {
+	// 	return errors.Annotate(err, "cannot write agent config")
+	// }
+	// logger.Infof("controller certificate addresses updated to %q", newServerAddrs)
 	return nil
 }
 

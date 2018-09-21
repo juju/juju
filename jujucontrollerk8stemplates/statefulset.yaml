@@ -21,6 +21,8 @@ spec:
       terminationGracePeriodSeconds: 10
       restartPolicy: Always
       volumes:
+      - name: juju-controller-log-dir
+        emptyDir: {}
       # - name: juju-mongo-config-volume
       #   configMap:
       #     name: juju-controller-config
@@ -107,6 +109,8 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         volumeMounts:
+        - name: juju-controller-log-dir  # !!! mount juju log dir here for debuging coz emptyDir is gone if juju crashes
+          mountPath: /var/log/juju
         - name: mongo-persistent-storage
           mountPath: /var/lib/juju/db
         - name: juju-controller-agent-conf
@@ -121,6 +125,24 @@ spec:
           readOnly: true
         # - name: juju-mongo-config-volume
         #   mountPath: /var/lib/juju
+      - name: juju-controller
+        image: ycliuhw/jujud-controller:2.5-beta1-bionic-amd64
+        imagePullPolicy: Always
+        volumeMounts:
+        # - name: juju-controller-persistent-storage
+        #   mountPath: /var/lib/juju
+        - name: juju-controller-log-dir
+          mountPath: /var/log/juju
+        - name: juju-controller-agent-conf
+          mountPath: /var/lib/juju/agents/machine-0
+        - name: juju-mongo-server-pem
+          mountPath: /var/lib/juju/server.pem
+          subPath: server.pem
+          readOnly: true
+        - name: juju-mongo-shared-secret
+          mountPath: /var/lib/juju/shared-secret
+          subPath: shared-secret
+          readOnly: true
       - name: mongo-sidecar
         image: cvallance/mongo-k8s-sidecar
         env:
@@ -147,25 +169,18 @@ spec:
           value: "37017"
         - name: MONGO_SIDECAR_POD_LABELS
           value: "app=juju-controller"
-      - name: juju-controller
-        image: ycliuhw/jujud-controller
-        imagePullPolicy: Always
-        volumeMounts:
-        - name: juju-controller-agent-conf
-          mountPath: /var/lib/juju/agents/machine-0
-        - name: juju-mongo-server-pem
-          mountPath: /var/lib/juju/server.pem
-          subPath: server.pem
-          readOnly: true
-        - name: juju-mongo-shared-secret
-          mountPath: /var/lib/juju/shared-secret
-          subPath: shared-secret
-          readOnly: true
-        # - mountPath: /var/lib/juju
-        #   name: juju-controller-config-volume
   volumeClaimTemplates:
   - metadata:
       name: mongo-persistent-storage
+    spec:
+      storageClassName: standard
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  - metadata:
+      name: juju-controller-persistent-storage
     spec:
       storageClassName: standard
       accessModes:
