@@ -46,6 +46,20 @@ type Claimer interface {
 	WaitUntilExpired(leaseName string, cancel <-chan struct{}) error
 }
 
+// Pinner describes methods used to manage suspension of lease expiry.
+type Pinner interface {
+
+	// Pin ensures that the current holder of input lease name will not lose
+	// the lease to expiry until Unpin is called for the same lease name.
+	// If there is no current holder of the lease, the next claimant will be
+	// the recipient of the pin behaviour.
+	Pin(leaseName string) error
+
+	// Unpin ensures that the current or future holders of the input lease name
+	// are subject to normal lease expiry behaviour.
+	Unpin(leaseName string) error
+}
+
 // Checker exposes facts about lease ownership.
 type Checker interface {
 
