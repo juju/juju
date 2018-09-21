@@ -215,14 +215,15 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 }
 
 func (s *cloudSuiteV2) TestRemoveCloudInV2(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-foo"}, {Tag: "cloud-bar"}}}
 	result, err := s.apiv2.RemoveClouds(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
-	s.backend.CheckCallNames(c, "RemoveCloud", "RemoveCloud")
-	s.backend.CheckCall(c, 0, "RemoveCloud", "foo")
-	s.backend.CheckCall(c, 1, "RemoveCloud", "bar")
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}, {Error: &params.Error{Code: "unauthorized access", Message: "permission denied"}}}})
+	s.backend.CheckCallNames(c, "ControllerTag", "GetCloudAccess", "RemoveCloud", "GetCloudAccess")
+	s.backend.CheckCall(c, 2, "RemoveCloud", "foo")
 }
 
 func (s *cloudSuiteV2) TestAddCredentialInV2(c *gc.C) {
@@ -418,4 +419,12 @@ func (st *mockBackendV2) ModelConfig() (*config.Config, error) {
 func (st *mockBackendV2) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
 	st.MethodCall(st, "CredentialModels", tag)
 	return nil, nil
+}
+
+func (st *mockBackendV2) GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error) {
+	st.MethodCall(st, "GetCloudAccess", cloud, user)
+	if cloud == "bar" {
+		return permission.NoAccess, errors.NotFoundf("cloud your-cloud")
+	}
+	return permission.AdminAccess, nil
 }
