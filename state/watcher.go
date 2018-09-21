@@ -3289,8 +3289,8 @@ func (w *containerAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *containerAddressesWatcher) loop() error {
 	id := w.backend.docID(w.unit.globalKey())
-	continers, closer := w.db.GetCollection(cloudContainersC)
-	revno, err := getTxnRevno(continers, id)
+	containers, closer := w.db.GetCollection(cloudContainersC)
+	revno, err := getTxnRevno(containers, id)
 	closer()
 	if err != nil {
 		return err

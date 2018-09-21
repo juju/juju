@@ -815,6 +815,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 				SHA256:  tools.SHA256,
 				Size:    tools.Size,
 			})
+		} else {
+			// TODO(caas) - Actually use the exported cloud container details and status history.
+			// Currently these are only grabbed to make the MigrationExportSuite tests happy.
+			globalCCKey := unit.globalCloudContainerKey()
+			_, err = e.statusArgs(globalCCKey)
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					return errors.Annotatef(err, "cloud container workload status for unit %s", unit.Name())
+				}
+			}
+			e.statusHistoryArgs(globalCCKey)
 		}
 		exUnit.SetAnnotations(e.getAnnotations(globalKey))
 

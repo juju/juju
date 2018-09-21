@@ -831,3 +831,20 @@ func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.
 func UnitsHaveChanged(m *Machine, unitNames []string) (bool, error) {
 	return m.unitsHaveChanged(unitNames)
 }
+
+func GetCloudContainerStatus(st *State, name string) (status.StatusInfo, error) {
+	return getStatus(st.db(), globalCloudContainerKey(name), "unit")
+}
+
+func GetCloudContainerStatusHistory(st *State, name string, filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		db:        st.db(),
+		globalKey: globalCloudContainerKey(name),
+		filter:    filter,
+	}
+	return statusHistory(args)
+}
+
+func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus status.StatusInfo) status.StatusInfo {
+	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
+}

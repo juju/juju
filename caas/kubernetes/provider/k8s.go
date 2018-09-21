@@ -1285,7 +1285,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				statusMessage = cond.Message
 				since = cond.LastProbeTime.Time
 				if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
-					unitStatus = status.Allocating
+					unitStatus = status.Blocked
 					break
 				}
 			}
@@ -1340,8 +1340,9 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				logger.Warningf("volume for volume mount %q not found", volMount.Name)
 				continue
 			}
-			if vol.PersistentVolumeClaim == nil {
+			if vol.PersistentVolumeClaim == nil || vol.PersistentVolumeClaim.ClaimName == "" {
 				// Ignore volumes which are not Juju managed filesystems.
+				logger.Debugf("Ignoring blank PersistentVolumeClaim or ClaimName")
 				continue
 			}
 			pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
@@ -1351,16 +1352,20 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				continue
 			}
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotate(err, "unable to get persistent volume claim")
 			}
 
+			if pvc.Status.Phase == core.ClaimPending {
+				logger.Debugf(fmt.Sprintf("PersistentVolumeClaim for %v is pending", vol.PersistentVolumeClaim.ClaimName))
+				continue
+			}
 			pv, err := pVolumes.Get(pvc.Spec.VolumeName, v1.GetOptions{})
 			if k8serrors.IsNotFound(err) {
 				// Ignore volumes which don't exist (yet).
 				continue
 			}
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotate(err, "unable to get persistent volume")
 			}
 
 			statusMessage := ""
@@ -1378,7 +1383,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 					FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pvc.Name).String(),
 				})
 				if err != nil {
-					return nil, errors.Trace(err)
+					return nil, errors.Annotate(err, "unable to get events for PVC")
 				}
 				// Take the most recent event.
 				if count := len(eventList.Items); count > 0 {

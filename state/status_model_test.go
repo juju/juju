@@ -286,3 +286,137 @@ func (s *ModelStatusSuite) TestApplicationStatusWeirdness(c *gc.C) {
 	c.Check(msStatus.Status, gc.Equals, status.Waiting)
 	c.Check(msStatus, jc.DeepEquals, aStatus)
 }
+
+type UnitCloudStatusSuite struct{}
+
+var _ = gc.Suite(&UnitCloudStatusSuite{})
+
+func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
+
+	var checks = []struct {
+		cloudContainerStatus status.StatusInfo
+		unitStatus           status.StatusInfo
+		messageCheck         string
+	}{
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "unit",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Blocked,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Blocked,
+				Message: "unit",
+			},
+			messageCheck: "container",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Error,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Blocked,
+				Message: "unit",
+			},
+			messageCheck: "container",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Blocked,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Error,
+				Message: "unit",
+			},
+			messageCheck: "unit",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Running,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Waiting,
+				Message: status.MessageWaitForContainer,
+			},
+			messageCheck: "container",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{},
+			unitStatus: status.StatusInfo{
+				Status:  status.Waiting,
+				Message: status.MessageWaitForContainer,
+			},
+			messageCheck: status.MessageWaitForContainer,
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Waiting,
+				Message: "waiting for the movie to start",
+			},
+			messageCheck: "waiting for the movie to start",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Error,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "container",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Allocating,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "container",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{
+				Status:  status.Blocked,
+				Message: "container",
+			},
+			unitStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "container",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{},
+			unitStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: status.MessageWaitForContainer,
+		},
+	}
+
+	for i, check := range checks {
+		c.Logf("Check %d", i)
+		c.Assert(state.CaasUnitDisplayStatus(check.unitStatus, check.cloudContainerStatus).Message, gc.Equals, check.messageCheck)
+	}
+}
