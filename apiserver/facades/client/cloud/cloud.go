@@ -324,7 +324,7 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 			continue
 		}
 
-		modelsVisible := true
+		var modelsErred bool
 		if len(credentialModels) > 0 {
 			// since we get a map here, for consistency ensure that models are added
 			// sorted by model uuid.
@@ -339,13 +339,13 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
 				models = append(models, model)
 				if len(model.Errors) > 0 {
-					modelsVisible = false
+					modelsErred = true
 				}
 			}
 			results[i].Models = models
 		}
 
-		if !modelsVisible {
+		if modelsErred {
 			// Some models that use this credential do not like the new content, do not update the credential...
 			results[i].Error = common.ServerError(errors.New("some models are no longer visible"))
 			continue
