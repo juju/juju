@@ -11,6 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/container/testing"
+
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/packaging/manager"
@@ -45,7 +48,10 @@ type ContainerSetupSuite struct {
 	CommonProvisionerSuite
 	p           provisioner.Provisioner
 	agentConfig agent.ConfigSetter
-	// Record the apt commands issued as part of container initialisation
+
+	initialiser *testing.MockInitialiser
+
+	// Record the apt commands issued as part of container initialisation.
 	aptCmdChan  <-chan *exec.Cmd
 	machinelock *fakemachinelock
 }
@@ -180,9 +186,10 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
-		return fakeContainerInitialiser{}
-	})
+	defer s.patch(c).Finish()
+
+	s.initialiser.EXPECT().Initialise().Return(nil)
+
 	// Specifically ignore LXD here, if present in instance.ContainerTypes.
 	containerTypes := []instance.ContainerType{instance.KVM}
 	for _, ctype := range containerTypes {
@@ -207,19 +214,13 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) TestKvmContainerUsesTargetArch(c *gc.C) {
-	// KVM should do what it's told, and use the architecture in
-	// constraints.
+	defer s.patch(c).Finish()
+
+	s.initialiser.EXPECT().Initialise().Return(nil)
+
+	// KVM should do what it's told, and use the architecture in constraints.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
-		return fakeContainerInitialiser{}
-	})
 	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
-}
-
-type fakeContainerInitialiser struct{}
-
-func (_ fakeContainerInitialiser) Initialise() error {
-	return nil
 }
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(
@@ -392,6 +393,18 @@ func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
 	err = handler.Handle(abort, []string{"0/lxd/0"})
 	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: instance data for machine.*not found")
 
+}
+
+func (s *ContainerSetupSuite) patch(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.initialiser = testing.NewMockInitialiser(ctrl)
+
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return s.initialiser
+	})
+
+	return ctrl
 }
 
 type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)

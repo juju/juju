@@ -16,6 +16,8 @@ const (
 	ConfigAvailabilityZone = "availability-zone"
 )
 
+//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/container Manager,Initialiser
+
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.
 type ManagerConfig map[string]string
