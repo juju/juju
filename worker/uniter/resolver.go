@@ -56,8 +56,7 @@ func (s *uniterResolver) NextOp(
 	// state) then the uniter should idle in the face of all remote state
 	// changes accept for those which indicate termination - the unit is
 	// waiting to be shutdown.
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
+	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
 		return nil, resolver.ErrNoOperation
 	}
 
@@ -236,7 +235,6 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	switch remoteState.Life {
 	case params.Alive:
 	case params.Dying:
