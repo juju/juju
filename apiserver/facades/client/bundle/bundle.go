@@ -188,11 +188,22 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	}, nil
 }
 
+// bundleOutput has the same top level keys as the charm.BundleData
+// but in a more user oriented output order, with the description first,
+// then the distro series, then the apps, machines and releations.
+type bundleOutput struct {
+	Description  string                            `yaml:"description,omitempty"`
+	Series       string                            `yaml:"series,omitempty"`
+	Applications map[string]*charm.ApplicationSpec `yaml:"applications,omitempty"`
+	Machines     map[string]*charm.MachineSpec     `yaml:"machines,omitempty"`
+	Relations    [][]string                        `yaml:"relations,omitempty"`
+}
+
 // Mask the new method from V1 API.
 // ExportBundle is not in V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
-func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, error) {
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
 	if !ok {
@@ -200,25 +211,31 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 	defaultSeries := fmt.Sprintf("%v", value)
 
-	data := &charm.BundleData{
+	data := &bundleOutput{
 		Series:       defaultSeries,
 		Applications: make(map[string]*charm.ApplicationSpec),
-		Relations:    [][]string{},
 		Machines:     make(map[string]*charm.MachineSpec),
+		Relations:    [][]string{},
 	}
 
 	if len(model.Applications()) == 0 {
-		return &charm.BundleData{}, errors.Errorf("nothing to export as there are no applications")
+		return nil, errors.Errorf("nothing to export as there are no applications")
 	}
-	machineIds := make(set.Strings)
+	machineIds := set.NewStrings()
+	usedSeries := set.NewStrings()
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
+		appSeries := application.Series()
+		usedSeries.Add(appSeries)
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
 				Charm:       application.CharmURL(),
 				Expose:      application.Exposed(),
 				Options:     application.CharmConfig(),
 				Annotations: application.Annotations(),
+			}
+			if appSeries != defaultSeries {
+				newApplication.Series = appSeries
 			}
 			if result := b.constraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
@@ -246,6 +263,9 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Options:     application.CharmConfig(),
 				Annotations: application.Annotations(),
 			}
+			if appSeries != defaultSeries {
+				newApplication.Series = appSeries
+			}
 			if result := b.constraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
@@ -258,9 +278,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
+		macSeries := machine.Series()
+		usedSeries.Add(macSeries)
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),
-			Series:      machine.Series(),
+		}
+		if macSeries != defaultSeries {
+			newMachine.Series = macSeries
 		}
 
 		if result := b.hardwareConstraints(machine.Instance()); len(result) != 0 {
@@ -272,6 +296,26 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		}
 
 		data.Machines[machine.Id()] = newMachine
+	}
+	// If there is only one series used, make it the default and remove
+	// series from all the apps and machines.
+	size := usedSeries.Size()
+	switch {
+	case size == 1:
+		used := usedSeries.Values()[0]
+		if used != defaultSeries {
+			data.Series = used
+			for _, app := range data.Applications {
+				app.Series = ""
+			}
+			for _, mac := range data.Machines {
+				mac.Series = ""
+			}
+		}
+	case size > 1:
+		if !usedSeries.Contains(defaultSeries) {
+			data.Series = ""
+		}
 	}
 
 	for _, relation := range model.Relations() {
