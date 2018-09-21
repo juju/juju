@@ -5,12 +5,14 @@ package agent
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -239,6 +241,12 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
+		// This test intermittently fails and we haven't been able to determine
+		// why it gets wedged. So we will dump the goroutines before the fatal call.
+		buff := bytes.Buffer{}
+		err = pprof.Lookup("goroutine").WriteTo(&buff, 1)
+		c.Check(err, jc.ErrorIsNil)
+		c.Logf("\nagent didn't stop, here's what it was doing\n\n%s", buff)
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()
