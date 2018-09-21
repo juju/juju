@@ -122,12 +122,12 @@ func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 		return &response{err: globalclock.ErrConcurrentUpdate}
 	}
 	f.globalTime = newTime
-	return &response{expired: f.expired(newTime)}
+	return &response{expired: f.removeExpired(newTime)}
 }
 
 // expired returns a collection of keys for leases that have expired.
 // Any pinned leases are not included in the return.
-func (f *FSM) expired(newTime time.Time) []lease.Key {
+func (f *FSM) removeExpired(newTime time.Time) []lease.Key {
 	var expired []lease.Key
 	for key, entry := range f.entries {
 		expiry := entry.start.Add(entry.duration)
@@ -150,8 +150,16 @@ func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
 	results := make(map[lease.Key]lease.Info)
 	for key, entry := range f.entries {
 		globalExpiry := entry.start.Add(entry.duration)
+
+		// If there is a pinned lease, always represent it as having an expiry
+		// in the future. This prevents the lease manager from waking up
+		// thinking it has some expiry events to handle.
 		remaining := globalExpiry.Sub(f.globalTime)
+		if f.pinned[key] {
+			remaining = 30 * time.Second
+		}
 		localExpiry := localTime.Add(remaining)
+
 		results[key] = lease.Info{
 			Holder: entry.holder,
 			Expiry: localExpiry,
@@ -250,13 +258,15 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 		}
 	}
 
-	pinned := make(map[SnapshotKey]bool, len(f.pinned))
+	pinned := make([]SnapshotKey, len(f.pinned))
+	i := 0
 	for key := range f.pinned {
-		pinned[SnapshotKey{
+		pinned[i] = SnapshotKey{
 			Namespace: key.Namespace,
 			ModelUUID: key.ModelUUID,
 			Lease:     key.Lease,
-		}] = true
+		}
+		i++
 	}
 
 	f.mu.Unlock()
@@ -299,7 +309,7 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 	}
 
 	newPinned := make(map[lease.Key]bool, len(snapshot.Pinned))
-	for key := range snapshot.Pinned {
+	for _, key := range snapshot.Pinned {
 		newPinned[lease.Key{
 			Namespace: key.Namespace,
 			ModelUUID: key.ModelUUID,
@@ -320,7 +330,7 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 type Snapshot struct {
 	Version    int                           `yaml:"version"`
 	Entries    map[SnapshotKey]SnapshotEntry `yaml:"entries"`
-	Pinned     map[SnapshotKey]bool          `yaml:"pinned"`
+	Pinned     []SnapshotKey                 `yaml:"pinned"`
 	GlobalTime time.Time                     `yaml:"global-time"`
 }
 

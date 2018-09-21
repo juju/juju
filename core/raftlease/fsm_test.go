@@ -323,6 +323,36 @@ func (s *fsmSuite) TestLeases(c *gc.C) {
 	)
 }
 
+func (s *fsmSuite) TestLeasesPinnedFutureExpiry(c *gc.C) {
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+		Holder:    "me",
+		Duration:  time.Second,
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationPin,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+	}).Error(), jc.ErrorIsNil)
+
+	// Even though the lease duration is only one second,
+	// expiry should be represented as 30 seconds in the future.
+	c.Assert(s.fsm.Leases(zero), gc.DeepEquals,
+		map[lease.Key]lease.Info{
+			{"ns", "model", "lease"}: {
+				Holder: "me",
+				Expiry: offset(30 * time.Second),
+			},
+		},
+	)
+}
+
 func (s *fsmSuite) TestLeasesDifferentTime(c *gc.C) {
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
@@ -441,9 +471,7 @@ func (s *fsmSuite) TestSnapshot(c *gc.C) {
 			},
 		},
 		GlobalTime: zero.Add(2 * time.Second),
-		Pinned: map[raftlease.SnapshotKey]bool{
-			{"ns", "model", "lease"}: true,
-		},
+		Pinned:     []raftlease.SnapshotKey{{"ns", "model", "lease"}},
 	})
 }
 
@@ -478,9 +506,7 @@ func (s *fsmSuite) TestRestore(c *gc.C) {
 			},
 		},
 		GlobalTime: zero.Add(3 * time.Second),
-		Pinned: map[raftlease.SnapshotKey]bool{
-			{"ns", "model", "lease"}: true,
-		},
+		Pinned:     []raftlease.SnapshotKey{{"ns", "model", "lease"}},
 	}
 
 	actual, err := s.fsm.Snapshot()
@@ -503,9 +529,7 @@ func (s *fsmSuite) TestSnapshotPersist(c *gc.C) {
 				Duration: 4 * time.Second,
 			},
 		},
-		Pinned: map[raftlease.SnapshotKey]bool{
-			{"ns", "model", "lease"}: true,
-		},
+		Pinned:     []raftlease.SnapshotKey{{"ns", "model", "lease"}},
 		GlobalTime: zero.Add(2 * time.Second),
 	}
 	var buffer bytes.Buffer
@@ -683,8 +707,7 @@ entries:
     duration: 10s
 global-time: 0001-01-01T00:00:03Z
 pinned:
-  ? namespace: ns
+  - namespace: ns
     model-uuid: model
     lease: lease
-  : true
 `[1:]
