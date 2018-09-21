@@ -212,13 +212,30 @@ type ValidateCredentialArgs struct {
 	All []ValidateCredentialArg `json:"credentials,omitempty"`
 }
 
+// UpdateCredentialModelResult contains results for a model credential validation check
+// from a cloud credential update.
+type UpdateCredentialModelResult struct {
+
+	// ModelUUID contains model's UUID.
+	ModelUUID string `json:"uuid"`
+
+	// ModelName contains model name.
+	ModelName string `json:"name"`
+
+	// Errors contains the errors accumulated while trying to update a credential.
+	Errors []ErrorResult `json:"errors,omitempty"`
+}
+
 // UpdateCredentialResult stores the result of updating one cloud credential.
 type UpdateCredentialResult struct {
 	// CredentialTag holds credential tag.
 	CredentialTag string `json:"tag"`
 
-	// Errors contains the errors accumulated while trying to update a credential.
-	Errors *ErrorResults `json:"errors,omitempty"`
+	// Errors contains an error that may have occurred while trying to update a credential.
+	Error *Error `json:"error,omitempty"`
+
+	// Models contains results of credential check against models that use this cloud credential.
+	Models []UpdateCredentialModelResult `json:"models,omitempty"`
 }
 
 // UpdateCredentialResult contains a set of UpdateCredentialResult.
