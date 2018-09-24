@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+
 // MachineProvisioner defines what provisioner needs to provision a machine.
 type MachineProvisioner interface {
 	// Tag returns the machine's tag.
