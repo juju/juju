@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/api/base"
+	workermocks "github.com/juju/juju/worker/mocks"
 	"github.com/juju/juju/worker/upgradeseries"
 	. "github.com/juju/juju/worker/upgradeseries/mocks"
 )
@@ -16,7 +17,7 @@ import (
 // on the incoming controller. The mocked facade and worker are returned.
 func validManifoldConfig(ctrl *gomock.Controller) (upgradeseries.ManifoldConfig, upgradeseries.Facade, worker.Worker) {
 	facade := NewMockFacade(ctrl)
-	work := NewMockWorker(ctrl)
+	work := workermocks.NewMockWorker(ctrl)
 
 	cfg := newManifoldConfig(
 		voidLogger(ctrl),
