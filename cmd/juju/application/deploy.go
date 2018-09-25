@@ -798,8 +798,6 @@ func (c *DeployCommand) deployBundle(
 		}
 	}
 
-	logger.Criticalf("DeployBundle")
-
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	if _, err := deployBundle(
 		filePath,
@@ -861,8 +859,6 @@ func (c *DeployCommand) deployCharm(
 	if applicationName == "" {
 		applicationName = charmInfo.Meta.Name
 	}
-
-	logger.Criticalf("Located %+v", charmInfo.LXDProfile)
 
 	// Validate the charmInfo before launching, interesting if this fails
 	// I'm not entirely sure what you can do here with a stored charm
@@ -1483,7 +1479,6 @@ func flagWithMinus(name string) string {
 
 func validateCharmLXDProfile(ch charm.Charm) error {
 	if featureflag.Enabled(feature.LXDProfile) {
-		logger.Criticalf("Charm test")
 		// Check if the charm conforms to the LXDProfiler, as it's optional and in
 		// theory the charm.Charm doesn't have to provider a LXDProfile method we
 		// can ignore it if it's missing and assume it is therefore valid.
@@ -1500,7 +1495,6 @@ func validateCharmLXDProfile(ch charm.Charm) error {
 
 func validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
 	if featureflag.Enabled(feature.LXDProfile) {
-		logger.Criticalf("CharmInfo test")
 		if profile := info.LXDProfile; profile != nil {
 			err := profile.ValidateConfigDevices()
 			return errors.Trace(err)

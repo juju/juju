@@ -364,8 +364,6 @@ func (h *bundleHandler) handleChanges() error {
 		fmt.Fprintf(h.ctx.Stdout, "Executing changes:\n")
 	}
 
-	logger.Criticalf("handle changes")
-
 	// Deploy the bundle.
 	for i, change := range h.changes {
 		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
