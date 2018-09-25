@@ -120,6 +120,12 @@ func (st *State) WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorage
 	return st.watchAttachments("WatchVolumeAttachments", scope, apiwatcher.NewVolumeAttachmentsWatcher)
 }
 
+// WatchVolumeAttachmentPlans watches for changes to volume attachments
+// scoped to the entity with the tag passed to NewState.
+func (st *State) WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+	return st.watchAttachments("WatchVolumeAttachmentPlans", scope, apiwatcher.NewVolumeAttachmentPlansWatcher)
+}
+
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the specified tag.
 func (st *State) WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error) {
@@ -184,6 +190,30 @@ func (st *State) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemRes
 	}
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) VolumeAttachmentPlans(ids []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error) {
+	args := params.MachineStorageIds{ids}
+	var results params.VolumeAttachmentPlanResults
+	err := st.facade.FacadeCall("VolumeAttachmentPlans", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+	var results params.ErrorResults
+	args := params.MachineStorageIds{
+		Ids: ids,
+	}
+	if err := st.facade.FacadeCall("RemoveVolumeAttachmentPlan", args, &results); err != nil {
+		return nil, err
 	}
 	return results.Results, nil
 }
@@ -365,6 +395,32 @@ func (st *State) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.Er
 	}
 	if len(results.Results) != len(filesystems) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(filesystems), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
+	var results params.ErrorResults
+	err := st.facade.FacadeCall("CreateVolumeAttachmentPlans", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(volumeAttachmentPlans) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(volumeAttachmentPlans), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+func (st *State) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
+	var results params.ErrorResults
+	err := st.facade.FacadeCall("SetVolumeAttachmentPlanBlockInfo", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(volumeAttachmentPlans) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(volumeAttachmentPlans), len(results.Results))
 	}
 	return results.Results, nil
 }

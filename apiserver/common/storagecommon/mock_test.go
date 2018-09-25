@@ -22,6 +22,7 @@ type fakeStorage struct {
 	storageInstanceVolume     func(names.StorageTag) (state.Volume, error)
 	storageInstanceFilesystem func(names.StorageTag) (state.Filesystem, error)
 	volumeAttachment          func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
+	volumeAttachmentPlan      func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
 	filesystemAttachment      func(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	blockDevices              func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
@@ -39,6 +40,11 @@ func (s *fakeStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume,
 func (s *fakeStorage) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	s.MethodCall(s, "VolumeAttachment", m, v)
 	return s.volumeAttachment(m, v)
+}
+
+func (s *fakeStorage) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTag) (state.VolumeAttachmentPlan, error) {
+	s.MethodCall(s, "VolumeAttachmentPlan", host, volume)
+	return s.volumeAttachmentPlan(host, volume)
 }
 
 func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
@@ -127,6 +133,19 @@ func (v *fakeVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
 		return state.VolumeAttachmentInfo{}, errors.NotProvisionedf("volume attachment")
 	}
 	return *v.info, nil
+}
+
+type fakeVolumeAttachmentPlan struct {
+	state.VolumeAttachmentPlan
+	blockInfo *state.BlockDeviceInfo
+	err       error
+}
+
+func (p *fakeVolumeAttachmentPlan) BlockDeviceInfo() (state.BlockDeviceInfo, error) {
+	if p.blockInfo == nil {
+		return state.BlockDeviceInfo{}, p.err
+	}
+	return *p.blockInfo, p.err
 }
 
 type fakePoolManager struct {

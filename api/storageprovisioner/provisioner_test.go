@@ -124,6 +124,33 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
+func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchVolumeAttachmentPlans")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "machine-123"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.MachineStorageIdsWatchResults{})
+		*(result.(*params.MachineStorageIdsWatchResults)) = params.MachineStorageIdsWatchResults{
+			Results: []params.MachineStorageIdsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+
+	st, err := storageprovisioner.NewState(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = st.WatchVolumeAttachmentPlans(names.NewMachineTag("123"))
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
 func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -295,6 +322,56 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(volumes, jc.DeepEquals, volumeAttachmentResults)
+}
+
+func (s *provisionerSuite) TestVolumeAttachmentPlans(c *gc.C) {
+	volumeAttachmentPlanResults := []params.VolumeAttachmentPlanResult{{
+		Result: params.VolumeAttachmentPlan{
+			MachineTag: "machine-100",
+			VolumeTag:  "volume-100",
+			PlanInfo: params.VolumeAttachmentPlanInfo{
+				DeviceType: storage.DeviceTypeISCSI,
+				DeviceAttributes: map[string]string{
+					"iqn":         "bogusIQN",
+					"address":     "192.168.1.1",
+					"port":        "9999",
+					"chap-user":   "example",
+					"chap-secret": "supersecretpassword",
+				},
+			},
+			BlockDevice: storage.BlockDevice{
+				DeviceName: "sda",
+			},
+		},
+	}}
+
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "VolumeAttachmentPlans")
+		c.Check(arg, gc.DeepEquals, params.MachineStorageIds{
+			Ids: []params.MachineStorageId{{
+				MachineTag: "machine-100", AttachmentTag: "volume-100",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.VolumeAttachmentPlanResults{})
+		*(result.(*params.VolumeAttachmentPlanResults)) = params.VolumeAttachmentPlanResults{
+			Results: volumeAttachmentPlanResults,
+		}
+		callCount++
+		return nil
+	})
+
+	st, err := storageprovisioner.NewState(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	volumes, err := st.VolumeAttachmentPlans([]params.MachineStorageId{{
+		MachineTag: "machine-100", AttachmentTag: "volume-100",
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(volumes, jc.DeepEquals, volumeAttachmentPlanResults)
 }
 
 func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
@@ -620,6 +697,169 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 		},
 	}}
 	errorResults, err := st.SetVolumeInfo(volumes)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(errorResults, gc.HasLen, 1)
+	c.Assert(errorResults[0].Error, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *gc.C) {
+	var callCount int
+
+	attachmentPlan := []params.VolumeAttachmentPlan{
+		{
+			MachineTag: "machine-100",
+			VolumeTag:  "volume-100",
+			PlanInfo: params.VolumeAttachmentPlanInfo{
+				DeviceType: storage.DeviceTypeISCSI,
+				DeviceAttributes: map[string]string{
+					"iqn":         "bogusIQN",
+					"address":     "192.168.1.1",
+					"port":        "9999",
+					"chap-user":   "example",
+					"chap-secret": "supersecretpassword",
+				},
+			},
+			BlockDevice: storage.BlockDevice{
+				DeviceName: "sda",
+			},
+		},
+	}
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "CreateVolumeAttachmentPlans")
+		c.Check(arg, gc.DeepEquals, params.VolumeAttachmentPlans{
+			VolumeAttachmentPlans: []params.VolumeAttachmentPlan{
+				{
+					MachineTag: "machine-100",
+					VolumeTag:  "volume-100",
+					PlanInfo: params.VolumeAttachmentPlanInfo{
+						DeviceType: storage.DeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"iqn":         "bogusIQN",
+							"address":     "192.168.1.1",
+							"port":        "9999",
+							"chap-user":   "example",
+							"chap-secret": "supersecretpassword",
+						},
+					},
+					BlockDevice: storage.BlockDevice{
+						DeviceName: "sda",
+					},
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: nil}},
+		}
+		callCount++
+		return nil
+	})
+
+	st, err := storageprovisioner.NewState(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	errorResults, err := st.CreateVolumeAttachmentPlans(attachmentPlan)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(errorResults, gc.HasLen, 1)
+	c.Assert(errorResults[0].Error, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *gc.C) {
+	var callCount int
+
+	attachmentPlan := []params.VolumeAttachmentPlan{
+		{
+			MachineTag: "machine-100",
+			VolumeTag:  "volume-100",
+			PlanInfo: params.VolumeAttachmentPlanInfo{
+				DeviceType: storage.DeviceTypeISCSI,
+				DeviceAttributes: map[string]string{
+					"iqn":         "bogusIQN",
+					"address":     "192.168.1.1",
+					"port":        "9999",
+					"chap-user":   "example",
+					"chap-secret": "supersecretpassword",
+				},
+			},
+			BlockDevice: storage.BlockDevice{
+				DeviceName: "sda",
+			},
+		},
+	}
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetVolumeAttachmentPlanBlockInfo")
+		c.Check(arg, gc.DeepEquals, params.VolumeAttachmentPlans{
+			VolumeAttachmentPlans: []params.VolumeAttachmentPlan{
+				{
+					MachineTag: "machine-100",
+					VolumeTag:  "volume-100",
+					PlanInfo: params.VolumeAttachmentPlanInfo{
+						DeviceType: storage.DeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"iqn":         "bogusIQN",
+							"address":     "192.168.1.1",
+							"port":        "9999",
+							"chap-user":   "example",
+							"chap-secret": "supersecretpassword",
+						},
+					},
+					BlockDevice: storage.BlockDevice{
+						DeviceName: "sda",
+					},
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: nil}},
+		}
+		callCount++
+		return nil
+	})
+
+	st, err := storageprovisioner.NewState(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	errorResults, err := st.SetVolumeAttachmentPlanBlockInfo(attachmentPlan)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(errorResults, gc.HasLen, 1)
+	c.Assert(errorResults[0].Error, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestRemoveVolumeAttachmentPlan(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "RemoveVolumeAttachmentPlan")
+		c.Check(arg, gc.DeepEquals, params.MachineStorageIds{
+			Ids: []params.MachineStorageId{{
+				MachineTag: "machine-100", AttachmentTag: "volume-100",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: nil}},
+		}
+		callCount++
+		return nil
+	})
+
+	st, err := storageprovisioner.NewState(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	errorResults, err := st.RemoveVolumeAttachmentPlan([]params.MachineStorageId{{
+		MachineTag: "machine-100", AttachmentTag: "volume-100",
+	}})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)

@@ -190,6 +190,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// we include the name of the leader unit. On import, a new lease
 		// is created for the leader unit.
 		leasesC,
+
+		// Volume attachment plans are ignored if missing. A missing collection
+		// simply defaults to the old code path.
+		volumeAttachmentPlanC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -749,7 +753,7 @@ func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
 	s.AssertExportedFields(c, volumeAttachmentDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeAttachmentInfo{}, set.NewStrings(
-		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly"))
+		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly", "PlanInfo"))
 	s.AssertExportedFields(c, VolumeAttachmentParams{}, set.NewStrings(
 		"ReadOnly"))
 }

@@ -136,6 +136,51 @@ func VolumeInfoFromState(info state.VolumeInfo) params.VolumeInfo {
 	}
 }
 
+// VolumeAttachmentPlanFromState converts a state.VolumeAttachmentPlan to params.VolumeAttachmentPlan.
+func VolumeAttachmentPlanFromState(v state.VolumeAttachmentPlan) (params.VolumeAttachmentPlan, error) {
+	planInfo, err := v.PlanInfo()
+	if err != nil {
+		return params.VolumeAttachmentPlan{}, errors.Trace(err)
+	}
+
+	blockInfo, err := v.BlockDeviceInfo()
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return params.VolumeAttachmentPlan{}, errors.Trace(err)
+		}
+	}
+	return params.VolumeAttachmentPlan{
+		VolumeTag:   v.Volume().String(),
+		MachineTag:  v.Machine().String(),
+		Life:        params.Life(v.Life().String()),
+		PlanInfo:    VolumeAttachmentPlanInfoFromState(planInfo),
+		BlockDevice: VolumeAttachmentPlanBlockInfoFromState(blockInfo),
+	}, nil
+}
+
+func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) storage.BlockDevice {
+	return storage.BlockDevice{
+		DeviceName:     blockInfo.DeviceName,
+		DeviceLinks:    blockInfo.DeviceLinks,
+		Label:          blockInfo.Label,
+		UUID:           blockInfo.UUID,
+		HardwareId:     blockInfo.HardwareId,
+		WWN:            blockInfo.WWN,
+		BusAddress:     blockInfo.BusAddress,
+		Size:           blockInfo.Size,
+		FilesystemType: blockInfo.FilesystemType,
+		InUse:          blockInfo.InUse,
+		MountPoint:     blockInfo.MountPoint,
+	}
+}
+
+func VolumeAttachmentPlanInfoFromState(planInfo state.VolumeAttachmentPlanInfo) params.VolumeAttachmentPlanInfo {
+	return params.VolumeAttachmentPlanInfo{
+		DeviceType:       planInfo.DeviceType,
+		DeviceAttributes: planInfo.DeviceAttributes,
+	}
+}
+
 // VolumeAttachmentFromState converts a state.VolumeAttachment to params.VolumeAttachment.
 func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachment, error) {
 	info, err := v.Info()
@@ -151,11 +196,19 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 
 // VolumeAttachmentInfoFromState converts a state.VolumeAttachmentInfo to params.VolumeAttachmentInfo.
 func VolumeAttachmentInfoFromState(info state.VolumeAttachmentInfo) params.VolumeAttachmentInfo {
+	planInfo := &params.VolumeAttachmentPlanInfo{}
+	if info.PlanInfo != nil {
+		planInfo.DeviceType = info.PlanInfo.DeviceType
+		planInfo.DeviceAttributes = info.PlanInfo.DeviceAttributes
+	} else {
+		planInfo = nil
+	}
 	return params.VolumeAttachmentInfo{
 		info.DeviceName,
 		info.DeviceLink,
 		info.BusAddress,
 		info.ReadOnly,
+		planInfo,
 	}
 }
 
@@ -174,6 +227,36 @@ func VolumeAttachmentInfosToState(in map[string]params.VolumeAttachmentInfo) (ma
 	return m, nil
 }
 
+func VolumeAttachmentPlanToState(in params.VolumeAttachmentPlan) (names.MachineTag, names.VolumeTag, state.VolumeAttachmentPlanInfo, state.BlockDeviceInfo, error) {
+	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentPlanInfo{}, state.BlockDeviceInfo{}, err
+	}
+	volumeTag, err := names.ParseVolumeTag(in.VolumeTag)
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentPlanInfo{}, state.BlockDeviceInfo{}, err
+	}
+	info := VolumeAttachmentPlanInfoToState(in.PlanInfo)
+	blockInfo := BlockDeviceInfoToState(in.BlockDevice)
+	return machineTag, volumeTag, info, blockInfo, nil
+}
+
+func BlockDeviceInfoToState(in storage.BlockDevice) state.BlockDeviceInfo {
+	return state.BlockDeviceInfo{
+		DeviceName:     in.DeviceName,
+		DeviceLinks:    in.DeviceLinks,
+		Label:          in.Label,
+		UUID:           in.UUID,
+		HardwareId:     in.HardwareId,
+		WWN:            in.WWN,
+		BusAddress:     in.BusAddress,
+		Size:           in.Size,
+		FilesystemType: in.FilesystemType,
+		InUse:          in.InUse,
+		MountPoint:     in.MountPoint,
+	}
+}
+
 // VolumeAttachmentToState converts a params.VolumeAttachment
 // to a state.VolumeAttachmentInfo and tags.
 func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo, error) {
@@ -189,14 +272,34 @@ func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, name
 	return machineTag, volumeTag, info, nil
 }
 
+func VolumeAttachmentPlanInfoToState(in params.VolumeAttachmentPlanInfo) state.VolumeAttachmentPlanInfo {
+	deviceType := in.DeviceType
+	if deviceType == "" {
+		deviceType = storage.DeviceTypeLocal
+	}
+
+	return state.VolumeAttachmentPlanInfo{
+		DeviceType:       deviceType,
+		DeviceAttributes: in.DeviceAttributes,
+	}
+}
+
 // VolumeAttachmentInfoToState converts a params.VolumeAttachmentInfo
 // to a state.VolumeAttachmentInfo.
 func VolumeAttachmentInfoToState(in params.VolumeAttachmentInfo) state.VolumeAttachmentInfo {
+	planInfo := &state.VolumeAttachmentPlanInfo{}
+	if in.PlanInfo != nil {
+		planInfo.DeviceAttributes = in.PlanInfo.DeviceAttributes
+		planInfo.DeviceType = in.PlanInfo.DeviceType
+	} else {
+		planInfo = nil
+	}
 	return state.VolumeAttachmentInfo{
 		in.DeviceName,
 		in.DeviceLink,
 		in.BusAddress,
 		in.ReadOnly,
+		planInfo,
 	}
 }
 

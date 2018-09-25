@@ -683,7 +683,19 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 				return nil, errors.Trace(err)
 			}
 			if detachableVolume {
-				volOps := detachVolumeOps(host, volume)
+				plans, err := sb.machineVolumeAttachmentPlans(host, volume)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				// NOTE(gsamfira): if we're upgrading, we might not have plans set up,
+				// so we check if volume plans were created, and if not, just skip to
+				// detaching the actual disk
+				var volOps []txn.Op
+				if plans == nil || len(plans) == 0 {
+					volOps = detachVolumeOps(host, volume)
+				} else {
+					volOps = detachStorageAttachmentOps(host, volume)
+				}
 				ops = append(ops, volOps...)
 			}
 		}

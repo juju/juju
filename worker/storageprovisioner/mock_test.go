@@ -119,17 +119,34 @@ func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.changes
 }
 
+func newMockAttachmentPlansWatcher() *mockAttachmentPlansWatcher {
+	return &mockAttachmentPlansWatcher{
+		changes: make(chan []watcher.MachineStorageId, 1),
+	}
+}
+
+type mockAttachmentPlansWatcher struct {
+	mockWatcher
+	changes chan []watcher.MachineStorageId
+}
+
+func (w *mockAttachmentPlansWatcher) Changes() watcher.MachineStorageIdsChannel {
+	return w.changes
+}
+
 type mockVolumeAccessor struct {
 	volumesWatcher         *mockStringsWatcher
 	attachmentsWatcher     *mockAttachmentsWatcher
+	attachmentPlansWatcher *mockAttachmentPlansWatcher
 	blockDevicesWatcher    *mockNotifyWatcher
 	provisionedMachines    map[string]instance.Id
 	provisionedVolumes     map[string]params.Volume
 	provisionedAttachments map[params.MachineStorageId]params.VolumeAttachment
 	blockDevices           map[params.MachineStorageId]storage.BlockDevice
 
-	setVolumeInfo           func([]params.Volume) ([]params.ErrorResult, error)
-	setVolumeAttachmentInfo func([]params.VolumeAttachment) ([]params.ErrorResult, error)
+	setVolumeInfo               func([]params.Volume) ([]params.ErrorResult, error)
+	setVolumeAttachmentInfo     func([]params.VolumeAttachment) ([]params.ErrorResult, error)
+	createVolumeAttachmentPlans func([]params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
 }
 
 func (m *mockVolumeAccessor) provisionVolume(tag names.VolumeTag) params.Volume {
@@ -153,6 +170,10 @@ func (w *mockVolumeAccessor) WatchVolumeAttachments(names.Tag) (watcher.MachineS
 
 func (w *mockVolumeAccessor) WatchBlockDevices(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	return w.blockDevicesWatcher, nil
+}
+
+func (w *mockVolumeAccessor) WatchVolumeAttachmentPlans(names.Tag) (watcher.MachineStorageIdsWatcher, error) {
+	return w.attachmentPlansWatcher, nil
 }
 
 func (v *mockVolumeAccessor) Volumes(volumes []names.VolumeTag) ([]params.VolumeResult, error) {
@@ -276,10 +297,30 @@ func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.
 	return make([]params.ErrorResult, len(volumeAttachments)), nil
 }
 
+func (v *mockVolumeAccessor) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+	if v.createVolumeAttachmentPlans != nil {
+		return v.createVolumeAttachmentPlans(volumeAttachmentPlans)
+	}
+	return make([]params.ErrorResult, len(volumeAttachmentPlans)), nil
+}
+
+func (v *mockVolumeAccessor) RemoveVolumeAttachmentPlan(machineIds []params.MachineStorageId) ([]params.ErrorResult, error) {
+	return make([]params.ErrorResult, len(machineIds)), nil
+}
+
+func (v *mockVolumeAccessor) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+	return make([]params.ErrorResult, len(volumeAttachmentPlans)), nil
+}
+
+func (v *mockVolumeAccessor) VolumeAttachmentPlans([]params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error) {
+	return []params.VolumeAttachmentPlanResult{}, nil
+}
+
 func newMockVolumeAccessor() *mockVolumeAccessor {
 	return &mockVolumeAccessor{
 		volumesWatcher:         newMockStringsWatcher(),
 		attachmentsWatcher:     newMockAttachmentsWatcher(),
+		attachmentPlansWatcher: newMockAttachmentPlansWatcher(),
 		blockDevicesWatcher:    newMockNotifyWatcher(),
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedVolumes:     make(map[string]params.Volume),

@@ -1162,6 +1162,225 @@ func (*goodToken) Check(interface{}) error {
 	return nil
 }
 
+func (s *MigrationExportSuite) TestVolumeAttachmentPlansLocalDisk(c *gc.C) {
+	// Storage attachment plans aim to allow the development of external
+	// storage backends like iSCSI to be attachable to machines. These
+	// types of storage backends, need extra initialization in userspace
+	// before they are usable. But this feature also aims to preserve the
+	// old codepath, where no extra initialization is needed, and where the
+	// providers are forced to guess the final device name that will appear on
+	// the machine agents as a result of attaching a disk.
+	// This test will ensure that given a local disk (the way it worked before
+	// this feature was added), the information set by the provider in
+	// VolumeAttachmentInfo is preserved. Different DeviceTypes may overwrite
+	// this information, based on what they discover from the newly attached
+	// device, after userspace initialization happens. For example, in the
+	// case of an iSCSI device, there is no way to guess the final device name,
+	// the WWN or any other kind of information about it, until we actually log
+	// into the iSCSI target. That information is later sent by the machine
+	// worker using SetVolumeAttachmentPlanBlockInfo.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.HostVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err = sb.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		WWN:        "drbr",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	attachmentPlanInfo := state.VolumeAttachmentPlanInfo{
+		DeviceType: storage.DeviceTypeLocal,
+	}
+	attachmentInfo := state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+		PlanInfo:   &attachmentPlanInfo,
+	}
+	err = sb.SetVolumeAttachmentInfo(machineTag, volTag, attachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.CreateVolumeAttachmentPlan(machineTag, volTag, attachmentPlanInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 1)
+	volume := volumes[0]
+
+	c.Check(volume.Tag(), gc.Equals, volTag)
+	c.Check(volume.Provisioned(), jc.IsTrue)
+	c.Check(volume.Size(), gc.Equals, uint64(1500))
+	c.Check(volume.Pool(), gc.Equals, "loop")
+	c.Check(volume.HardwareID(), gc.Equals, "magic")
+	c.Check(volume.WWN(), gc.Equals, "drbr")
+	c.Check(volume.VolumeID(), gc.Equals, "volume id")
+	c.Check(volume.Persistent(), jc.IsTrue)
+	attachments := volume.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	attachmentPlans := volume.AttachmentPlans()
+	c.Assert(attachmentPlans, gc.HasLen, 1)
+
+	plan := attachmentPlans[0]
+	c.Check(plan.Machine(), gc.Equals, machineTag)
+	c.Check(plan.VolumePlanInfo(), gc.NotNil)
+	c.Check(storage.DeviceType(plan.VolumePlanInfo().DeviceType()), gc.Equals, storage.DeviceTypeLocal)
+	c.Check(plan.VolumePlanInfo().DeviceAttributes(), gc.DeepEquals, map[string]string(nil))
+
+	// This should all be empty
+	planBlockDeviceInfo := plan.BlockDevice()
+	c.Check(planBlockDeviceInfo.Name(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Label(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.UUID(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.HardwareID(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.WWN(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.BusAddress(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.FilesystemType(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.MountPoint(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Links(), gc.IsNil)
+	c.Check(planBlockDeviceInfo.InUse(), gc.Equals, false)
+	c.Check(planBlockDeviceInfo.Size(), gc.Equals, uint64(0))
+}
+
+func (s *MigrationExportSuite) TestVolumeAttachmentPlansISCSIDisk(c *gc.C) {
+	// An ISCSI disk will also set the plan block info back in state. This means
+	// that once the machine agent logs into the target, and a disk appears on
+	// the system, the machine agent fetches all relevant info about that disk
+	// and sends it back to state. This info will take precedence when identifying
+	// the attached disk, as this info is observed on the machine itself, not
+	// guessed by the provider.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.HostVolumeParams{{
+			Volume:     state.VolumeParams{Size: 1234},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}},
+	})
+	machineTag := machine.MachineTag()
+
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// We know that the first volume is called "0/0" as it is the first volume
+	// (volumes use sequences), and it is bound to machine 0.
+	volTag := names.NewVolumeTag("0/0")
+	err = sb.SetVolumeInfo(volTag, state.VolumeInfo{
+		HardwareId: "magic",
+		WWN:        "drbr",
+		Size:       1500,
+		VolumeId:   "volume id",
+		Persistent: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	deviceAttrs := map[string]string{
+		"iqn":         "bogusIQN",
+		"address":     "192.168.1.1",
+		"port":        "9999",
+		"chap-user":   "example",
+		"chap-secret": "supersecretpassword",
+	}
+
+	attachmentPlanInfo := state.VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceTypeISCSI,
+		DeviceAttributes: deviceAttrs,
+	}
+	attachmentInfo := state.VolumeAttachmentInfo{
+		DeviceName: "device name",
+		DeviceLink: "device link",
+		BusAddress: "bus address",
+		ReadOnly:   true,
+		PlanInfo:   &attachmentPlanInfo,
+	}
+	err = sb.SetVolumeAttachmentInfo(machineTag, volTag, attachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.CreateVolumeAttachmentPlan(machineTag, volTag, attachmentPlanInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	deviceLinks := []string{"/dev/sdb", "/dev/mapper/testDevice"}
+
+	blockInfo := state.BlockDeviceInfo{
+		WWN:         "testWWN",
+		DeviceLinks: deviceLinks,
+		HardwareId:  "test-id",
+	}
+
+	err = sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volTag, blockInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes := model.Volumes()
+	c.Assert(volumes, gc.HasLen, 1)
+	volume := volumes[0]
+
+	c.Check(volume.Tag(), gc.Equals, volTag)
+	c.Check(volume.Provisioned(), jc.IsTrue)
+	c.Check(volume.Size(), gc.Equals, uint64(1500))
+	c.Check(volume.Pool(), gc.Equals, "loop")
+	c.Check(volume.HardwareID(), gc.Equals, "magic")
+	c.Check(volume.WWN(), gc.Equals, "drbr")
+	c.Check(volume.VolumeID(), gc.Equals, "volume id")
+	c.Check(volume.Persistent(), jc.IsTrue)
+	attachments := volume.Attachments()
+	c.Assert(attachments, gc.HasLen, 1)
+	attachment := attachments[0]
+	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Provisioned(), jc.IsTrue)
+	c.Check(attachment.ReadOnly(), jc.IsTrue)
+	c.Check(attachment.DeviceName(), gc.Equals, "device name")
+	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
+	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	attachmentPlans := volume.AttachmentPlans()
+	c.Assert(attachmentPlans, gc.HasLen, 1)
+
+	plan := attachmentPlans[0]
+	c.Check(plan.Machine(), gc.Equals, machineTag)
+	c.Check(plan.VolumePlanInfo(), gc.NotNil)
+	c.Check(storage.DeviceType(plan.VolumePlanInfo().DeviceType()), gc.Equals, storage.DeviceTypeISCSI)
+	c.Check(plan.VolumePlanInfo().DeviceAttributes(), gc.DeepEquals, deviceAttrs)
+
+	// This should all be empty
+	planBlockDeviceInfo := plan.BlockDevice()
+	c.Check(planBlockDeviceInfo.Name(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Label(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.UUID(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.HardwareID(), gc.Equals, blockInfo.HardwareId)
+	c.Check(planBlockDeviceInfo.WWN(), gc.Equals, blockInfo.WWN)
+	c.Check(planBlockDeviceInfo.BusAddress(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.FilesystemType(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.MountPoint(), gc.Equals, "")
+	c.Check(planBlockDeviceInfo.Links(), gc.DeepEquals, blockInfo.DeviceLinks)
+	c.Check(planBlockDeviceInfo.InUse(), gc.Equals, false)
+	c.Check(planBlockDeviceInfo.Size(), gc.Equals, uint64(0))
+
+}
+
 func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.HostVolumeParams{{
@@ -1218,6 +1437,9 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
 	c.Check(attachment.DeviceLink(), gc.Equals, "device link")
 	c.Check(attachment.BusAddress(), gc.Equals, "bus address")
+
+	attachmentPlans := provisioned.AttachmentPlans()
+	c.Assert(attachmentPlans, gc.HasLen, 0)
 
 	c.Check(notProvisioned.Tag(), gc.Equals, names.NewVolumeTag("0/1"))
 	c.Check(notProvisioned.Provisioned(), jc.IsFalse)

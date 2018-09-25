@@ -776,7 +776,9 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 			// for non-detachable or volume-backed filesystems, which should
 			// have been set to Dying by the destruction of the machine
 			// filesystems, or filesystem detachment, above.
+			machineTag := fsa.Host()
 			var remove bool
+			var volumeTag names.VolumeTag
 			var updateStatus func() error
 			if !detachable {
 				remove = true
@@ -786,8 +788,9 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, err := f.Volume(); err == nil {
+				if v, err := f.Volume(); err == nil {
 					// Filesystem is volume-backed.
+					volumeTag = v
 					remove = true
 				}
 				updateStatus = func() error {
@@ -801,6 +804,13 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 					fsa.Host(), fsa.Filesystem(),
 				); err != nil {
 					return errors.Trace(err)
+				}
+				if volumeTag != (names.VolumeTag{}) {
+					if err := sb.RemoveVolumeAttachmentPlan(
+						machineTag, volumeTag,
+					); err != nil {
+						return errors.Trace(err)
+					}
 				}
 				if err := updateStatus(); err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)

@@ -1481,6 +1481,14 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			)
 			return nil, nil
 		}
+
+		if plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume.VolumeTag()); err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			if len(plans) > 0 {
+				return detachStorageAttachmentOps(hostTag, volume.VolumeTag()), nil
+			}
+		}
 		return detachVolumeOps(hostTag, volume.VolumeTag()), nil
 
 	case StorageKindFilesystem:

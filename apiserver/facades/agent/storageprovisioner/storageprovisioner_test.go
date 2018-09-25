@@ -1302,6 +1302,69 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	})
 }
 
+func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
+	s.setupVolumes(c)
+	s.Factory.MakeMachine(c, nil)
+
+	err := s.storageBackend.SetVolumeAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewVolumeTag("0/0"),
+		state.VolumeAttachmentInfo{},
+	)
+
+	deviceAttrs := map[string]string{
+		"iqn":         "bogusIQN",
+		"address":     "192.168.1.1",
+		"port":        "9999",
+		"chap-user":   "example",
+		"chap-secret": "supersecretpassword",
+	}
+
+	attachmentPlanInfo := state.VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceTypeISCSI,
+		DeviceAttributes: deviceAttrs,
+	}
+
+	err = s.storageBackend.CreateVolumeAttachmentPlan(
+		names.NewMachineTag("0"), names.NewVolumeTag("0/0"), attachmentPlanInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The HardwareId set here should override the HardwareId in the volume info.
+	blockInfo := state.BlockDeviceInfo{
+		WWN: "testWWN",
+		DeviceLinks: []string{
+			"/dev/sda", "/dev/mapper/testDevice"},
+		HardwareId: "test-id",
+	}
+	err = s.storageBackend.SetVolumeAttachmentPlanBlockInfo(
+		names.NewMachineTag("0"), names.NewVolumeTag("0/0"), blockInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine0.SetMachineBlockDevices(state.BlockDeviceInfo{
+		DeviceName: "sda",
+		Size:       123,
+		HardwareId: "test-id",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.MachineStorageIds{Ids: []params.MachineStorageId{
+		{MachineTag: "machine-0", AttachmentTag: "volume-0-0"},
+	}}
+	results, err := s.api.VolumeBlockDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
+		Results: []params.BlockDeviceResult{
+			{Result: storage.BlockDevice{
+				DeviceName: "sda",
+				Size:       123,
+				HardwareId: "test-id",
+			}},
+		},
+	})
+}
+
 func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)

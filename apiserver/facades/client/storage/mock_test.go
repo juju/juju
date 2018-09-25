@@ -49,6 +49,8 @@ type mockStorageAccessor struct {
 	volume                              func(tag names.VolumeTag) (state.Volume, error)
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
+	volumeAttachmentPlan                func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
+	volumeAttachmentPlans               func(names.VolumeTag) ([]state.VolumeAttachmentPlan, error)
 	allVolumes                          func() ([]state.Volume, error)
 	filesystem                          func(tag names.FilesystemTag) (state.Filesystem, error)
 	machineFilesystemAttachments        func(machine names.MachineTag) ([]state.FilesystemAttachment, error)
@@ -97,6 +99,15 @@ func (st *mockStorageAccessor) StorageInstanceVolume(s names.StorageTag) (state.
 
 func (st *mockStorageAccessor) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	return st.volumeAttachment(m, v)
+}
+
+func (st *mockStorageAccessor) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTag) (state.VolumeAttachmentPlan, error) {
+	return st.volumeAttachmentPlan(host, volume)
+}
+
+func (st *mockStorageAccessor) VolumeAttachmentPlans(volume names.VolumeTag) ([]state.VolumeAttachmentPlan, error) {
+	// st.MethodCall(st, "VolumeAttachmentPlans", volume)
+	return st.volumeAttachmentPlans(volume)
 }
 
 func (st *mockStorageAccessor) AllVolumes() ([]state.Volume, error) {
@@ -324,6 +335,40 @@ func (m *mockStorageAttachment) Unit() names.UnitTag {
 
 func (m *mockStorageAttachment) Life() state.Life {
 	return m.life
+}
+
+type mockVolumeAttachmentPlan struct {
+	VolumeTag names.VolumeTag
+	HostTag   names.MachineTag
+	info      *state.VolumeAttachmentPlanInfo
+	life      state.Life
+	blk       *state.BlockDeviceInfo
+}
+
+func (v *mockVolumeAttachmentPlan) Volume() names.VolumeTag {
+	return v.VolumeTag
+}
+
+func (v *mockVolumeAttachmentPlan) Machine() names.MachineTag {
+	return v.HostTag
+}
+
+func (v *mockVolumeAttachmentPlan) PlanInfo() (state.VolumeAttachmentPlanInfo, error) {
+	if v.info != nil {
+		return *v.info, nil
+	}
+	return state.VolumeAttachmentPlanInfo{}, nil
+}
+
+func (v *mockVolumeAttachmentPlan) BlockDeviceInfo() (state.BlockDeviceInfo, error) {
+	if v.blk != nil {
+		return *v.blk, nil
+	}
+	return state.BlockDeviceInfo{}, nil
+}
+
+func (v *mockVolumeAttachmentPlan) Life() state.Life {
+	return v.life
 }
 
 type mockVolumeAttachment struct {

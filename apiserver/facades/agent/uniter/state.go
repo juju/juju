@@ -33,6 +33,7 @@ type storageVolumeInterface interface {
 	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
+	VolumeAttachmentPlan(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
 }
 
 type storageFilesystemInterface interface {

@@ -346,6 +346,13 @@ func newVolumeAttachmentsWatcher(context facade.Context) (facade.Facade, error) 
 	)
 }
 
+func newVolumeAttachmentPlansWatcher(context facade.Context) (facade.Facade, error) {
+	return newMachineStorageIdsWatcher(
+		context,
+		storagecommon.ParseVolumeAttachmentIds,
+	)
+}
+
 func newFilesystemAttachmentsWatcher(context facade.Context) (facade.Facade, error) {
 	return newMachineStorageIdsWatcher(
 		context,

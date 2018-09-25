@@ -39,6 +39,7 @@ type baseStorageSuite struct {
 	volumeTag            names.VolumeTag
 	volume               *mockVolume
 	volumeAttachment     *mockVolumeAttachment
+	volumeAttachmentPlan *mockVolumeAttachmentPlan
 	filesystemTag        names.FilesystemTag
 	filesystem           *mockFilesystem
 	filesystemAttachment *mockFilesystemAttachment
@@ -95,6 +96,8 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
+	volumeAttachmentPlanCall                = "volumeAttachmentPlan"
+	volumeAttachmentPlansCall               = "volumeAttachmentPlans"
 	attachStorageCall                       = "attachStorage"
 	detachStorageCall                       = "detachStorage"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
@@ -151,6 +154,14 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 		life:      state.Alive,
 	}
 
+	s.volumeAttachmentPlan = &mockVolumeAttachmentPlan{
+		VolumeTag: s.volumeTag,
+		HostTag:   s.machineTag,
+		life:      state.Alive,
+		info:      &state.VolumeAttachmentPlanInfo{},
+		blk:       &state.BlockDeviceInfo{},
+	}
+
 	return &mockStorageAccessor{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.stub.AddCall(allStorageInstancesCall)
@@ -194,6 +205,14 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 		volumeAttachment: func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error) {
 			s.stub.AddCall(volumeAttachmentCall)
 			return s.volumeAttachment, nil
+		},
+		volumeAttachmentPlan: func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error) {
+			s.stub.AddCall(volumeAttachmentPlanCall)
+			return s.volumeAttachmentPlan, nil
+		},
+		volumeAttachmentPlans: func(names.VolumeTag) ([]state.VolumeAttachmentPlan, error) {
+			s.stub.AddCall(volumeAttachmentPlansCall)
+			return []state.VolumeAttachmentPlan{s.volumeAttachmentPlan}, nil
 		},
 		volume: func(tag names.VolumeTag) (state.Volume, error) {
 			s.stub.AddCall(volumeCall)

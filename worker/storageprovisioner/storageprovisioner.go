@@ -59,6 +59,11 @@ type VolumeAccessor interface {
 	// that this storage provisioner is responsible for.
 	WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
 
+	// WatchVolumeAttachmentPlans watches for changes to volume attachments
+	// destined for this machine. It allows the machine agent to do any extra
+	// initialization of the attachment, such as logging into the iSCSI target
+	WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIdsWatcher, error)
+
 	// Volumes returns details of volumes with the specified tags.
 	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
 
@@ -69,6 +74,8 @@ type VolumeAccessor interface {
 	// VolumeAttachments returns details of volume attachments with
 	// the specified tags.
 	VolumeAttachments([]params.MachineStorageId) ([]params.VolumeAttachmentResult, error)
+
+	VolumeAttachmentPlans([]params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error)
 
 	// VolumeParams returns the parameters for creating the volumes
 	// with the specified tags.
@@ -88,6 +95,10 @@ type VolumeAccessor interface {
 	// SetVolumeAttachmentInfo records the details of newly provisioned
 	// volume attachments.
 	SetVolumeAttachmentInfo([]params.VolumeAttachment) ([]params.ErrorResult, error)
+
+	CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
+	RemoveVolumeAttachmentPlan([]params.MachineStorageId) ([]params.ErrorResult, error)
+	SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
 }
 
 // FilesystemAccessor defines an interface used to allow a storage provisioner
@@ -199,7 +210,8 @@ func (w *storageProvisioner) Kill() {
 
 // Wait implements Worker.Wait().
 func (w *storageProvisioner) Wait() error {
-	return w.catacomb.Wait()
+	err := w.catacomb.Wait()
+	return err
 }
 
 func (w *storageProvisioner) loop() error {
@@ -207,6 +219,7 @@ func (w *storageProvisioner) loop() error {
 		volumesChanges               watcher.StringsChannel
 		filesystemsChanges           watcher.StringsChannel
 		volumeAttachmentsChanges     watcher.MachineStorageIdsChannel
+		volumeAttachmentPlansChanges watcher.MachineStorageIdsChannel
 		filesystemAttachmentsChanges watcher.MachineStorageIdsChannel
 		machineBlockDevicesChanges   <-chan struct{}
 	)
@@ -223,6 +236,16 @@ func (w *storageProvisioner) loop() error {
 			return errors.Trace(err)
 		}
 		machineBlockDevicesChanges = machineBlockDevicesWatcher.Changes()
+
+		volumeAttachmentPlansWatcher, err := w.config.Volumes.WatchVolumeAttachmentPlans(machineTag)
+		if err != nil {
+			return errors.Annotate(err, "watching volume attachment plans")
+		}
+		if err := w.catacomb.Add(volumeAttachmentPlansWatcher); err != nil {
+			return errors.Trace(err)
+		}
+
+		volumeAttachmentPlansChanges = volumeAttachmentPlansWatcher.Changes()
 	}
 
 	// Units don't have unit-scoped volumes - all volumes are
@@ -254,6 +277,7 @@ func (w *storageProvisioner) loop() error {
 	if err := w.catacomb.Add(volumeAttachmentsWatcher); err != nil {
 		return errors.Trace(err)
 	}
+
 	volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
 
 	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments(w.config.Scope)
@@ -312,6 +336,13 @@ func (w *storageProvisioner) loop() error {
 				return errors.New("volume attachments watcher closed")
 			}
 			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
+				return errors.Trace(err)
+			}
+		case changes, ok := <-volumeAttachmentPlansChanges:
+			if !ok {
+				return errors.New("volume attachment plans watcher closed")
+			}
+			if err := volumeAttachmentPlansChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case changes, ok := <-filesystemsChanges:

@@ -1756,12 +1756,19 @@ func (e *exporter) volumes() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	attachmentPlans, err := e.readVolumeAttachmentPlans()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		vol := &volume{e.st, doc}
-		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
+		plan := attachmentPlans[doc.Name]
+		if err := e.addVolume(vol, attachments[doc.Name], plan); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1771,7 +1778,7 @@ func (e *exporter) volumes() error {
 	return nil
 }
 
-func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
+func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, attachmentPlans []volumeAttachmentPlanDoc) error {
 	args := description.VolumeArgs{
 		Tag: vol.VolumeTag(),
 	}
@@ -1827,12 +1834,48 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 			args.DeviceName = info.DeviceName
 			args.DeviceLink = info.DeviceLink
 			args.BusAddress = info.BusAddress
+			if info.PlanInfo != nil {
+				args.DeviceType = string(info.PlanInfo.DeviceType)
+				args.DeviceAttributes = info.PlanInfo.DeviceAttributes
+			}
 		} else {
 			params, _ := va.Params()
 			logger.Debugf("    params %#v", params)
 			args.ReadOnly = params.ReadOnly
 		}
 		exVolume.AddAttachment(args)
+	}
+
+	for _, doc := range attachmentPlans {
+		va := volumeAttachmentPlan{doc}
+		logger.Debugf("  attachment plan %#v", doc)
+		args := description.VolumeAttachmentPlanArgs{
+			Machine: va.Machine(),
+		}
+		if info, err := va.PlanInfo(); err == nil {
+			logger.Debugf("    plan info %#v", info)
+			args.DeviceType = string(info.DeviceType)
+			args.DeviceAttributes = info.DeviceAttributes
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if info, err := va.BlockDeviceInfo(); err == nil {
+			logger.Debugf("    block device info %#v", info)
+			args.DeviceName = info.DeviceName
+			args.DeviceLinks = info.DeviceLinks
+			args.Label = info.Label
+			args.UUID = info.UUID
+			args.HardwareId = info.HardwareId
+			args.WWN = info.WWN
+			args.BusAddress = info.BusAddress
+			args.Size = info.Size
+			args.FilesystemType = info.FilesystemType
+			args.InUse = info.InUse
+			args.MountPoint = info.MountPoint
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		exVolume.AddAttachmentPlan(args)
 	}
 	return nil
 }
@@ -1854,6 +1897,26 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) readVolumeAttachmentPlans() (map[string][]volumeAttachmentPlanDoc, error) {
+	coll, closer := e.st.db().GetCollection(volumeAttachmentPlanC)
+	defer closer()
+
+	result := make(map[string][]volumeAttachmentPlanDoc)
+	var doc volumeAttachmentPlanDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[doc.Volume] = append(result[doc.Volume], doc)
+		count++
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotate(err, "failed to read volume attachment plans")
+	}
+	e.logger.Debugf("read %d volume attachment plan documents", count)
 	return result, nil
 }
 

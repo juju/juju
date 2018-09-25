@@ -195,12 +195,36 @@ type VolumeAttachment struct {
 	Info       VolumeAttachmentInfo `json:"info"`
 }
 
+// VolumeAttachment identifies and describes a volume attachment.
+type VolumeAttachmentPlan struct {
+	VolumeTag  string                   `json:"volume-tag"`
+	MachineTag string                   `json:"machine-tag"`
+	Life       Life                     `json:"life,omitempty"`
+	PlanInfo   VolumeAttachmentPlanInfo `json:"plan-info"`
+	// BlockDevice should only be set by machine agents after
+	// the AttachVolume() function is called. It represents the machines
+	// view of the block device represented by the plan.
+	BlockDevice storage.BlockDevice `json:"block-device,omitempty"`
+}
+
+type VolumeAttachmentPlans struct {
+	VolumeAttachmentPlans []VolumeAttachmentPlan `json:"volume-plans"`
+}
+
+// VolumeAttachmentPlanInfo describes info needed by machine agents
+// to initialize attached volumes
+type VolumeAttachmentPlanInfo struct {
+	DeviceType       storage.DeviceType `json:"device-type,omitempty"`
+	DeviceAttributes map[string]string  `json:"device-attributes,omitempty"`
+}
+
 // VolumeAttachmentInfo describes a volume attachment.
 type VolumeAttachmentInfo struct {
-	DeviceName string `json:"device-name,omitempty"`
-	DeviceLink string `json:"device-link,omitempty"`
-	BusAddress string `json:"bus-address,omitempty"`
-	ReadOnly   bool   `json:"read-only,omitempty"`
+	DeviceName string                    `json:"device-name,omitempty"`
+	DeviceLink string                    `json:"device-link,omitempty"`
+	BusAddress string                    `json:"bus-address,omitempty"`
+	ReadOnly   bool                      `json:"read-only,omitempty"`
+	PlanInfo   *VolumeAttachmentPlanInfo `json:"plan-info,omitempty"`
 }
 
 // VolumeAttachments describes a set of storage volume attachments.
@@ -266,6 +290,18 @@ type VolumeAttachmentResult struct {
 // VolumeAttachmentResults holds a set of VolumeAttachmentResults.
 type VolumeAttachmentResults struct {
 	Results []VolumeAttachmentResult `json:"results,omitempty"`
+}
+
+// VolumeAttachmentPlanResult holds the details of a single volume attachment plan,
+// or an error.
+type VolumeAttachmentPlanResult struct {
+	Result VolumeAttachmentPlan `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
+}
+
+// VolumeAttachmentPlanResults holds a set of VolumeAttachmentPlanResult.
+type VolumeAttachmentPlanResults struct {
+	Results []VolumeAttachmentPlanResult `json:"results,omitempty"`
 }
 
 // VolumeResult holds information about a volume.

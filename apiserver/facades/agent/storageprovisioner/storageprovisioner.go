@@ -403,6 +403,82 @@ func (s *StorageProvisionerAPIv3) WatchFilesystemAttachments(args params.Entitie
 	)
 }
 
+// WatchVolumeAttachmentPlans watches for changes to volume attachments for a machine for the purpose of allowing
+// that machine to run any initialization needed, for that volume to actually appear as a block device (ie: iSCSI)
+func (s *StorageProvisionerAPIv3) WatchVolumeAttachmentPlans(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+	canAccess, err := s.getMachineAuthFunc()
+	if err != nil {
+		return params.MachineStorageIdsWatchResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.MachineStorageIdsWatchResults{
+		Results: make([]params.MachineStorageIdsWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []params.MachineStorageId, error) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return "", nil, common.ErrPerm
+		}
+		var w state.StringsWatcher
+		if tag, ok := tag.(names.MachineTag); ok {
+			w = s.sb.WatchMachineAttachmentsPlans(tag)
+		} else {
+			return "", nil, common.ErrPerm
+		}
+		if stringChanges, ok := <-w.Changes(); ok {
+			changes, err := storagecommon.ParseVolumeAttachmentIds(stringChanges)
+			if err != nil {
+				w.Stop()
+				return "", nil, err
+			}
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.MachineStorageIdsWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.MachineStorageIdsWatcherId = id
+			result.Changes = changes
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+func (s *StorageProvisionerAPIv3) RemoveVolumeAttachmentPlan(args params.MachineStorageIds) (params.ErrorResults, error) {
+	canAccess, err := s.getMachineAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Ids)),
+	}
+
+	one := func(arg params.MachineStorageId) error {
+		volumeAttachmentPlan, err := s.oneVolumeAttachmentPlan(arg, canAccess)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return common.ErrPerm
+			}
+			return common.ServerError(err)
+		}
+		if volumeAttachmentPlan.Life() != state.Dying {
+			return common.ErrPerm
+		}
+		return s.sb.RemoveVolumeAttachmentPlan(
+			volumeAttachmentPlan.Machine(),
+			volumeAttachmentPlan.Volume())
+	}
+	for i, arg := range args.Ids {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
 func (s *StorageProvisionerAPIv3) watchAttachments(
 	args params.Entities,
 	watchEnvironAttachments func() state.StringsWatcher,
@@ -519,6 +595,37 @@ func (s *StorageProvisionerAPIv3) Filesystems(args params.Entities) (params.File
 			result.Error = common.ServerError(err)
 		} else {
 			result.Result = filesystem
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+// VolumeAttachmentPlans returns details of volume attachment plans with the specified IDs.
+func (s *StorageProvisionerAPIv3) VolumeAttachmentPlans(args params.MachineStorageIds) (params.VolumeAttachmentPlanResults, error) {
+	// NOTE(gsamfira): Containers will probably not be a concern for this at the moment
+	// revisit this if containers should be treated
+	canAccess, err := s.getMachineAuthFunc()
+	if err != nil {
+		return params.VolumeAttachmentPlanResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.VolumeAttachmentPlanResults{
+		Results: make([]params.VolumeAttachmentPlanResult, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.VolumeAttachmentPlan, error) {
+		volumeAttachmentPlan, err := s.oneVolumeAttachmentPlan(arg, canAccess)
+		if err != nil {
+			return params.VolumeAttachmentPlan{}, err
+		}
+		return storagecommon.VolumeAttachmentPlanFromState(volumeAttachmentPlan)
+	}
+	for i, arg := range args.Ids {
+		var result params.VolumeAttachmentPlanResult
+		volumeAttachmentPlan, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = volumeAttachmentPlan
 		}
 		results.Results[i] = result
 	}
@@ -1053,6 +1160,27 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 	return results, nil
 }
 
+func (s *StorageProvisionerAPIv3) oneVolumeAttachmentPlan(
+	id params.MachineStorageId, canAccess common.AuthFunc,
+) (state.VolumeAttachmentPlan, error) {
+	machineTag, err := names.ParseMachineTag(id.MachineTag)
+	if err != nil {
+		return nil, err
+	}
+	volumeTag, err := names.ParseVolumeTag(id.AttachmentTag)
+	if err != nil {
+		return nil, err
+	}
+	if !canAccess(machineTag) {
+		return nil, common.ErrPerm
+	}
+	volumeAttachmentPlan, err := s.sb.VolumeAttachmentPlan(machineTag, volumeTag)
+	if err != nil {
+		return nil, err
+	}
+	return volumeAttachmentPlan, nil
+}
+
 func (s *StorageProvisionerAPIv3) oneVolumeAttachment(
 	id params.MachineStorageId, canAccess func(names.Tag, names.Tag) bool,
 ) (state.VolumeAttachment, error) {
@@ -1098,6 +1226,33 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
+	planCanAccess, err := s.getMachineAuthFunc()
+	if err != nil && !errors.IsNotFound(err) {
+		return state.BlockDeviceInfo{}, err
+	}
+	var blockDeviceInfo state.BlockDeviceInfo
+
+	volumeAttachmentPlan, err := s.oneVolumeAttachmentPlan(id, planCanAccess)
+
+	if err != nil {
+		// Volume attachment plans are optional. We should not err out
+		// if one is missing, and simply return an empty state.BlockDeviceInfo{}
+		if !errors.IsNotFound(err) {
+			return state.BlockDeviceInfo{}, err
+		}
+		blockDeviceInfo = state.BlockDeviceInfo{}
+	} else {
+		blockDeviceInfo, err = volumeAttachmentPlan.BlockDeviceInfo()
+
+		if err != nil {
+			// Volume attachment plans are optional. We should not err out
+			// if one is missing, and simply return an empty state.BlockDeviceInfo{}
+			if !errors.IsNotFound(err) {
+				return state.BlockDeviceInfo{}, err
+			}
+			blockDeviceInfo = state.BlockDeviceInfo{}
+		}
+	}
 	blockDevices, err := s.sb.BlockDevices(volumeAttachment.Host().(names.MachineTag))
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
@@ -1106,6 +1261,7 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
+		blockDeviceInfo,
 	)
 	if !ok {
 		return state.BlockDeviceInfo{}, errors.NotFoundf(
@@ -1196,6 +1352,64 @@ func (s *StorageProvisionerAPIv3) SetFilesystemInfo(args params.Filesystems) (pa
 	}
 	for i, arg := range args.Filesystems {
 		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (s *StorageProvisionerAPIv3) CreateVolumeAttachmentPlans(args params.VolumeAttachmentPlans) (params.ErrorResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.VolumeAttachmentPlans)),
+	}
+	one := func(arg params.VolumeAttachmentPlan) error {
+		machineTag, volumeTag, planInfo, _, err := storagecommon.VolumeAttachmentPlanToState(arg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(machineTag, volumeTag) {
+			return common.ErrPerm
+		}
+		err = s.sb.CreateVolumeAttachmentPlan(machineTag, volumeTag, planInfo)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+	for i, plan := range args.VolumeAttachmentPlans {
+		err := one(plan)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (s *StorageProvisionerAPIv3) SetVolumeAttachmentPlanBlockInfo(args params.VolumeAttachmentPlans) (params.ErrorResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.VolumeAttachmentPlans)),
+	}
+	one := func(arg params.VolumeAttachmentPlan) error {
+		machineTag, volumeTag, _, blockInfo, err := storagecommon.VolumeAttachmentPlanToState(arg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(machineTag, volumeTag) {
+			return common.ErrPerm
+		}
+		err = s.sb.SetVolumeAttachmentPlanBlockInfo(machineTag, volumeTag, blockInfo)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+	for i, plan := range args.VolumeAttachmentPlans {
+		err := one(plan)
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil

@@ -508,6 +508,13 @@ func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineSto
 	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
 }
 
+// NewVolumeAttachmentPlansWatcher returns a MachineStorageIdsWatcher which
+// communicates with the VolumeAttachmentPlansWatcher API facade to watch
+// volume attachments.
+func NewVolumeAttachmentPlansWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
+	return newMachineStorageIdsWatcher("VolumeAttachmentPlansWatcher", caller, result)
+}
+
 // NewFilesystemAttachmentsWatcher returns a MachineStorageIdsWatcher which
 // communicates with the FilesystemAttachmentsWatcher API facade to watch
 // filesystem attachments.

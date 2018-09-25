@@ -77,6 +77,7 @@ type StorageBackend interface {
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	WatchUnitVolumeAttachments(tag names.ApplicationTag) state.StringsWatcher
 	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
+	WatchMachineAttachmentsPlans(names.MachineTag) state.StringsWatcher
 
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)
@@ -91,6 +92,8 @@ type StorageBackend interface {
 	Volume(names.VolumeTag) (state.Volume, error)
 	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
+	VolumeAttachmentPlan(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
+	VolumeAttachmentPlans(volume names.VolumeTag) ([]state.VolumeAttachmentPlan, error)
 
 	RemoveFilesystem(names.FilesystemTag) error
 	RemoveFilesystemAttachment(names.Tag, names.FilesystemTag) error
@@ -105,6 +108,10 @@ type StorageBackend interface {
 	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
 	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
 	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
+
+	CreateVolumeAttachmentPlan(names.Tag, names.VolumeTag, state.VolumeAttachmentPlanInfo) error
+	RemoveVolumeAttachmentPlan(names.Tag, names.VolumeTag) error
+	SetVolumeAttachmentPlanBlockInfo(machineTag names.Tag, volumeTag names.VolumeTag, info state.BlockDeviceInfo) error
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
