@@ -1164,9 +1164,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}, nil
 }
 
-func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
-	bundleFile := c.CharmOrBundle
-	var bundleDir string
+func readLocalBundle(bundleFile string) (*charm.BundleData, bool, bool, error) {
 	isDir := false
 	resolveDir := false
 
@@ -1175,12 +1173,7 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 		// We may have been given a local bundle archive or exploded directory.
 		bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
 		if charmrepo.IsInvalidPathError(pathErr) {
-			return nil, errors.Errorf(""+
-				"The charm or bundle %q is ambiguous.\n"+
-				"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-				"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
-				bundleFile,
-			)
+			return nil, false, false, pathErr
 		}
 		if pathErr != nil {
 			// If the bundle files existed but we couldn't read them,
@@ -1189,13 +1182,13 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 			if info, statErr := os.Stat(bundleFile); statErr == nil {
 				if info.IsDir() {
 					if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
-						return nil, errors.Annotate(pathErr, "cannot deploy bundle")
+						return nil, false, false, errors.Trace(pathErr)
 					}
 				}
 			}
 
 			logger.Debugf("cannot interpret as local bundle: %v", err)
-			return nil, nil
+			return nil, false, false, nil
 		}
 
 		bundleData = bundle.Data()
@@ -1207,6 +1200,27 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 		resolveDir = true
 	}
 
+	return bundleData, resolveDir, isDir, nil
+}
+
+func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
+	var bundleDir string
+	bundleFile := c.CharmOrBundle
+	bundleData, resolveDir, isDir, err := readLocalBundle(bundleFile)
+	if charmrepo.IsInvalidPathError(err) {
+		return nil, errors.Errorf(""+
+			"The charm or bundle %q is ambiguous.\n"+
+			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
+			"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
+			bundleFile,
+		)
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot deploy bundle")
+	}
+	if bundleData == nil {
+		return nil, nil
+	}
 	if err := c.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1326,43 +1340,55 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}, nil
 }
 
+func resolveBundleURL(apiRoot DeployAPI, maybeBundle string) (*charm.URL, params.Channel, error) {
+	userRequestedURL, err := charm.ParseURL(maybeBundle)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	modelCfg, err := getModelConfig(apiRoot)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	// Charm or bundle has been supplied as a URL so we resolve and
+	// deploy using the store.
+	storeCharmOrBundleURL, channel, _, err := apiRoot.Resolve(modelCfg, userRequestedURL)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if storeCharmOrBundleURL.Series != "bundle" {
+		logger.Debugf(
+			`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
+			storeCharmOrBundleURL.Series,
+		)
+		return nil, "", nil
+	}
+	return storeCharmOrBundleURL, channel, nil
+}
+
 func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		userRequestedURL, err := charm.ParseURL(c.CharmOrBundle)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		modelCfg, err := getModelConfig(apiRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// Charm or bundle has been supplied as a URL so we resolve and
-		// deploy using the store.
-		storeCharmOrBundleURL, channel, _, err := apiRoot.Resolve(modelCfg, userRequestedURL)
-		if charm.IsUnsupportedSeriesError(err) {
+		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
+		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		} else if err != nil {
 			return nil, errors.Trace(err)
-		} else if storeCharmOrBundleURL.Series != "bundle" {
-			logger.Debugf(
-				`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
-				storeCharmOrBundleURL.Series,
-			)
+		}
+		if bundleURL == nil {
+			// The URL resolved alright, but not to a bundle.
 			return nil, nil
 		}
-
 		if err := c.validateBundleFlags(); err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-			bundle, err := apiRoot.GetBundle(storeCharmOrBundleURL)
+			bundle, err := apiRoot.GetBundle(bundleURL)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			ctx.Infof("Located bundle %q", storeCharmOrBundleURL)
+			ctx.Infof("Located bundle %q", bundleURL)
 			data := bundle.Data()
 
 			return errors.Trace(c.deployBundle(
