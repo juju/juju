@@ -1082,7 +1082,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	deploy, err := findDeployerFIFO(
-		c.maybeReadLocalBundle,
+		func() (deployFn, error) { return c.maybeReadLocalBundle(ctx) },
 		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
 		c.maybeReadCharmstoreBundleFn(apiRoot),
@@ -1164,49 +1164,50 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}, nil
 }
 
-func readLocalBundle(bundleFile string) (*charm.BundleData, bool, bool, error) {
-	isDir := false
-	resolveDir := false
-
+func readLocalBundle(ctx *cmd.Context, bundleFile string) (*charm.BundleData, string, error) {
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
-	if err != nil {
-		// We may have been given a local bundle archive or exploded directory.
-		bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
-		if charmrepo.IsInvalidPathError(pathErr) {
-			return nil, false, false, pathErr
-		}
-		if pathErr != nil {
-			// If the bundle files existed but we couldn't read them,
-			// then return that error rather than trying to interpret
-			// as a charm.
-			if info, statErr := os.Stat(bundleFile); statErr == nil {
-				if info.IsDir() {
-					if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
-						return nil, false, false, errors.Trace(pathErr)
-					}
-				}
-			}
-
-			logger.Debugf("cannot interpret as local bundle: %v", err)
-			return nil, false, false, nil
-		}
-
-		bundleData = bundle.Data()
-		if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
-			resolveDir = true
-			isDir = true
-		}
-	} else {
-		resolveDir = true
+	if err == nil {
+		// If the bundle is defined with just a yaml file, the bundle
+		// path is the directory that holds the file.
+		return bundleData, filepath.Dir(ctx.AbsPath(bundleFile)), nil
 	}
 
-	return bundleData, resolveDir, isDir, nil
+	// We may have been given a local bundle archive or exploded directory.
+	bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
+	if charmrepo.IsInvalidPathError(pathErr) {
+		return nil, "", pathErr
+	}
+	if pathErr != nil {
+		// If the bundle files existed but we couldn't read them,
+		// then return that error rather than trying to interpret
+		// as a charm.
+		if info, statErr := os.Stat(bundleFile); statErr == nil {
+			if info.IsDir() {
+				if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
+					return nil, "", errors.Trace(pathErr)
+				}
+			}
+		}
+
+		logger.Debugf("cannot interpret as local bundle: %v", err)
+		return nil, "", nil
+	}
+	bundleData = bundle.Data()
+
+	// If we get to here bundleFile is a directory, in which case
+	// we should use the absolute path as the bundFilePath, or it is
+	// an archive, in which case we should pass the empty string.
+	var bundleDir string
+	if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
+		bundleDir = ctx.AbsPath(bundleFile)
+	}
+
+	return bundleData, bundleDir, nil
 }
 
-func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
-	var bundleDir string
+func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error) {
 	bundleFile := c.CharmOrBundle
-	bundleData, resolveDir, isDir, err := readLocalBundle(bundleFile)
+	bundleData, bundleDir, err := readLocalBundle(ctx, bundleFile)
 	if charmrepo.IsInvalidPathError(err) {
 		return nil, errors.Errorf(""+
 			"The charm or bundle %q is ambiguous.\n"+
@@ -1226,18 +1227,6 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-		if resolveDir {
-			if isDir {
-				// If we get to here bundleFile is a directory, in which case
-				// we should use the absolute path as the bundFilePath, or it is
-				// an archive, in which case we should pass the empty string.
-				bundleDir = ctx.AbsPath(bundleFile)
-			} else {
-				// If the bundle is defined with just a yaml file, the bundle
-				// path is the directory that holds the file.
-				bundleDir = filepath.Dir(ctx.AbsPath(bundleFile))
-			}
-		}
 		return errors.Trace(c.deployBundle(
 			ctx,
 			bundleDir,
