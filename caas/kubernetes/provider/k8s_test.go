@@ -469,7 +469,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{}
-	err := s.broker.EnsureService("test", params, 0, nil)
+	err := s.broker.EnsureService("test", nil, params, 0, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -544,7 +544,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		PodSpec:      basicPodspec,
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
-	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -803,7 +803,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 	}
-	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -875,7 +875,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			},
 		},
 	}
-	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -943,7 +943,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			},
 		},
 	}
-	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1002,7 +1002,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		}},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
 	}
-	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1054,7 +1054,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 		}},
 		Placement: "a=b",
 	}
-	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",

@@ -78,6 +78,7 @@ type Application interface {
 	Name() string
 	Constraints() (constraints.Value, error)
 	GetPlacement() string
+	SetOperatorStatus(sInfo status.StatusInfo) error
 }
 
 type stateShim struct {

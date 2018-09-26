@@ -185,6 +185,11 @@ func (m *mockApplication) AddOperation(props state.UnitUpdateProperties) *state.
 	return addOp
 }
 
+func (m *mockApplication) SetOperatorStatus(sInfo status.StatusInfo) error {
+	m.MethodCall(m, "SetOperatorStatus", sInfo)
+	return nil
+}
+
 type mockContainerInfo struct {
 	state.CloudContainer
 	providerId string

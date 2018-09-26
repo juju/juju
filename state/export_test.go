@@ -848,3 +848,7 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus status.StatusInfo) status.StatusInfo {
 	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
 }
+
+func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
+	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
+}

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -409,4 +410,32 @@ func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
 	})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+}
+
+func (s *unitprovisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetOperatorStatus")
+		c.Assert(arg, jc.DeepEquals, params.SetStatus{
+			Entities: []params.EntityStatusArgs{{
+				Tag:    "application-gitlab",
+				Status: "error",
+				Info:   "broken",
+				Data:   map[string]interface{}{"foo": "bar"},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	err := client.SetOperatorStatus("gitlab", status.Error, "broken", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

@@ -3751,3 +3751,39 @@ func (s *ApplicationSuite) TestApplicationWaitAgentPresence(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, jc.IsFalse)
 }
+
+func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
+	_, err := state.ApplicationOperatorStatus(s.State, s.mysql.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	// Initial status.
+	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.DeepEquals, status.Waiting)
+	c.Assert(appStatus.Message, gc.DeepEquals, "waiting for container")
+
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "broken",
+		Since:   &now,
+	}
+	err = app.SetOperatorStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appStatus, err = state.ApplicationOperatorStatus(st, app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
+	c.Assert(appStatus.Message, gc.DeepEquals, "broken")
+}
