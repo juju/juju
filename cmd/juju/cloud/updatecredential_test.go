@@ -92,9 +92,10 @@ func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
 	cmd := cloud.NewUpdateCredentialCommandForTest(s.store(c), fake)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	output := cmdtesting.Stderr(ctx)
-	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `Updated credential "my-credential" for user "admin@local" on cloud "aws".`)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Controller credential "my-credential" for user "admin@local" on cloud "aws" updated.
+For more information, see ‘juju show-credential aws my-credential’.
+`[1:])
 }
 
 func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
@@ -175,7 +176,7 @@ func (s *updateCredentialSuite) TestUpdateResultError(c *gc.C) {
 	cmd := cloud.NewUpdateCredentialCommandForTest(s.store(c), fake)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, gc.NotNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Could not update credential \"my-credential\" for user \"admin@local\" on cloud \"aws\": kaboom\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Controller credential \"my-credential\" for user \"admin@local\" on cloud \"aws\" not updated: kaboom.\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 func (s *updateCredentialSuite) TestUpdateWithModels(c *gc.C) {
@@ -205,13 +206,15 @@ func (s *updateCredentialSuite) TestUpdateWithModels(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-Could not update credential "my-credential" for user "admin@local" on cloud "aws": models issues
-Model "model-a" is not visible:
-  kaboom
-  kaboom 2
-Model "model-b" is not visible:
-  one failure
-Model "model-c" is visible.
+Credential valid for:
+  model-c
+Credential invalid for:
+  model-a:
+    kaboom
+    kaboom 2
+  model-b:
+    one failure
+Controller credential "my-credential" for user "admin@local" on cloud "aws" not updated: models issues.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

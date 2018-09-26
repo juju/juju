@@ -133,25 +133,55 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	models, err := client.UpdateCredentialsCheckModels(credentialTag, *credToUpdate)
-	if err != nil {
-		ctx.Infof("Could not update credential %q for user %q on cloud %q: %v", c.credential, accountDetails.User, c.cloud, err)
-	}
+
+	// We always want to display models information if there is any.
+	var valid []string
+	invalid := map[string][]error{}
 	for _, m := range models {
 		if len(m.Errors) == 0 {
-			ctx.Infof("Model %q is visible.", m.ModelName)
+			valid = append(valid, m.ModelName)
 			continue
 		} else {
-			ctx.Infof("Model %q is not visible:", m.ModelName)
+			var mError []error
 			for _, anErr := range m.Errors {
-				// This will allows to determine the last error.
-				ctx.Infof("  %v", errors.Trace(anErr.Error))
+				mError = append(mError, errors.Trace(anErr.Error))
+			}
+			invalid[m.ModelName] = mError
+		}
+	}
+
+	if len(valid) > 0 {
+		ctx.Infof("Credential valid for:")
+		for _, v := range valid {
+			ctx.Infof("  %v", v)
+		}
+	}
+	if len(invalid) > 0 {
+		ctx.Infof("Credential invalid for:")
+		for m, errs := range invalid {
+			ctx.Infof("  %v:", m)
+			for _, e := range errs {
+				ctx.Infof("    %v", e)
 			}
 		}
 	}
+
 	if err != nil {
+		ctx.Infof("Controller credential %q for user %q on cloud %q not updated: %v.", c.credential, accountDetails.User, c.cloud, err)
+		// TODO (anastasiamac 2018-09-21) When set-credential is done, also direct user to it.
+		// Something along the lines of:
+		// "
+		// Failed models may require a different credential.
+		// Use ‘juju set-credential’ to change credential for these models before repeating this update.
+		// "
+		//
 		// We do not want to return err here as we have already displayed it on the console.
 		return cmd.ErrSilent
 	}
-	ctx.Infof("Updated credential %q for user %q on cloud %q.", c.credential, accountDetails.User, c.cloud)
+	ctx.Infof(`
+Controller credential %q for user %q on cloud %q updated.
+For more information, see ‘juju show-credential %v %v’.`[1:],
+		c.credential, accountDetails.User, c.cloud,
+		c.cloud, c.credential)
 	return nil
 }
