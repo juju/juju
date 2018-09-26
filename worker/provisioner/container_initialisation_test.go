@@ -12,12 +12,11 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/container/testing"
-
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -26,10 +25,13 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
+	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	provisionermocks "github.com/juju/juju/api/provisioner/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -41,6 +43,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	workercommon "github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/mocks"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -49,7 +52,16 @@ type ContainerSetupSuite struct {
 	p           provisioner.Provisioner
 	agentConfig agent.ConfigSetter
 
-	initialiser *testing.MockInitialiser
+	modelUUID utils.UUID
+
+	initialiser  *testing.MockInitialiser
+	facadeCaller *apimocks.MockFacadeCaller
+	machine      *provisionermocks.MockMachineProvisioner
+	notifyWorker *mocks.MockWorker
+
+	// The done channel is used by tests to indicate that
+	// the worker has accomplished the scenario and can be stopped.
+	done chan struct{}
 
 	// Record the apt commands issued as part of container initialisation.
 	aptCmdChan  <-chan *exec.Cmd
@@ -66,22 +78,12 @@ func (s *ContainerSetupSuite) SetUpSuite(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpSuite(c)
 }
 
-func (s *ContainerSetupSuite) TearDownSuite(c *gc.C) {
-	s.CommonProvisionerSuite.TearDownSuite(c)
-}
-
-func allFatal(error) bool {
-	return true
-}
-
-func noImportance(err0, err1 error) bool {
-	return false
-}
-
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	aptCmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
+
+	s.modelUUID = utils.MustNewUUID()
 
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
@@ -89,6 +91,8 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig, s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.machinelock = &fakemachinelock{}
+
+	s.done = make(chan struct{})
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -98,10 +102,88 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
+func (s *ContainerSetupSuite) TestStartContainerContainerProvisionerStarted(c *gc.C) {
+	defer s.patch(c).Finish()
+
+	// Adding one new container machine.
+	s.notify([]string{"0/lxd/0"})
+
+	// ContainerSetup will request manager config for the container type above.
+	resultSource := params.ContainerManagerConfig{
+		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
+	}
+	s.facadeCaller.EXPECT().FacadeCall(
+		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any(),
+	).SetArg(2, resultSource)
+
+	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
+	s.machine.EXPECT().Series().Return("bionic", nil)
+
+	s.initialiser.EXPECT().Initialise().Return(nil)
+
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       func(_ error) bool { return true },
+		MoreImportant: func(_, _ error) bool { return false },
+		RestartDelay:  jworker.RestartDelay,
+	})
+
+	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
+	watcherName := fmt.Sprintf("%s-container-watcher", s.machine.Id())
+
+	args := provisioner.ContainerSetupParams{
+		Runner:              runner,
+		WorkerName:          watcherName,
+		SupportedContainers: instance.ContainerTypes,
+		Machine:             s.machine,
+		Provisioner:         pState,
+		Config:              s.AgentConfigForTag(c, s.machine.MachineTag()),
+		MachineLock:         s.machinelock,
+		CredentialAPI:       &credentialAPIForTest{},
+	}
+
+	// Stub out network config getter.
+	handler := provisioner.NewContainerSetupHandler(args)
+	handler.(*provisioner.ContainerSetup).SetGetNetConfig(
+		func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		})
+
+	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+		return watcher.NewStringsWorker(watcher.StringsConfig{
+			Handler: handler,
+		})
+	})
+
+	// Watch the runner report. We are waiting for 2 workers to be started:
+	// the container watcher and the LXD provisioner.
+	workers := make(chan map[string]interface{})
+	go func() {
+		for {
+			rep := runner.Report()["workers"].(map[string]interface{})
+			if len(rep) == 2 {
+				workers <- rep
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	// Check that the provisioner is there.
+	select {
+	case w := <-workers:
+		_, ok := w["lxd-provisioner"]
+		c.Check(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("timed out waiting for runner to start all workers")
+	}
+
+	s.cleanKill(c, runner)
+}
+
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, *worker.Runner) {
 	runner := worker.NewRunner(worker.RunnerParams{
-		IsFatal:       allFatal,
-		MoreImportant: noImportance,
+		IsFatal:       func(_ error) bool { return true },
+		MoreImportant: func(_, _ error) bool { return false },
 		RestartDelay:  jworker.RestartDelay,
 	})
 	pr := apiprovisioner.NewState(s.st)
@@ -149,68 +231,18 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 		Series: supportedversion.SupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
+	cntr, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the host machine agent should not attempt to create the container
 	s.checkNoOperations(c)
 
 	// cleanup
-	c.Assert(container.EnsureDead(), gc.IsNil)
-	c.Assert(container.Remove(), gc.IsNil)
+	c.Assert(cntr.EnsureDead(), gc.IsNil)
+	c.Assert(cntr.Remove(), gc.IsNil)
 	c.Assert(host.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitForRemovalMark(c, host)
-}
-
-func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
-	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
-
-	// A stub worker callback to record what happens.
-	var provisionerStarted uint32
-	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder,
-		credentialAPI workercommon.CredentialAPI) error {
-		c.Assert(containerType, gc.Equals, ctype)
-		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
-		atomic.StoreUint32(&provisionerStarted, 1)
-		return nil
-	}
-	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
-
-	s.createContainer(c, host, ctype)
-
-	// the container worker should have created the provisioner
-	c.Assert(atomic.LoadUint32(&provisionerStarted) > 0, jc.IsTrue)
-}
-
-func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
-	defer s.patch(c).Finish()
-
-	s.initialiser.EXPECT().Initialise().Return(nil)
-
-	// Specifically ignore LXD here, if present in instance.ContainerTypes.
-	containerTypes := []instance.ContainerType{instance.KVM}
-	for _, ctype := range containerTypes {
-		// create a machine to host the container.
-		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-			Series:      supportedversion.SupportedLTS(),
-			Jobs:        []state.MachineJob{state.JobHostUnits},
-			Constraints: s.defaultConstraints,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetSupportedContainers(containerTypes)
-		c.Assert(err, jc.ErrorIsNil)
-		current := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}
-		err = m.SetAgentVersion(current)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertContainerProvisionerStarted(c, m, ctype)
-	}
 }
 
 func (s *ContainerSetupSuite) TestKvmContainerUsesTargetArch(c *gc.C) {
@@ -399,12 +431,76 @@ func (s *ContainerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
+	s.facadeCaller = apimocks.NewMockFacadeCaller(ctrl)
+	s.notifyWorker = mocks.NewMockWorker(ctrl)
+	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
+
+	s.stubOutProvisioner(ctrl)
+
+	s.machine.EXPECT().Id().Return("0").AnyTimes()
+	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
 	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
 		return s.initialiser
 	})
 
 	return ctrl
+}
+
+// stubOutProvisioner is used to effectively ignore provisioner calls that we
+// do not care about for testing container provisioning.
+func (s *ContainerSetupSuite) stubOutProvisioner(ctrl *gomock.Controller) {
+	// We could have mocked only the base caller and not the FacadeCaller,
+	// but expectations would be verbose to the point of obfuscation.
+	// So we only mock the base caller for calls that use it directly,
+	// such as watcher acquisition.
+	caller := apimocks.NewMockAPICaller(ctrl)
+	cExp := caller.EXPECT()
+	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+	cExp.APICall("NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
+
+	fExp := s.facadeCaller.EXPECT()
+	fExp.RawAPICaller().Return(caller).AnyTimes()
+
+	watchSource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
+	fExp.FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
+
+	cfgSource := params.ModelConfigResult{}
+	fExp.FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, cfgSource).Return(nil).AnyTimes()
+}
+
+// notify returns a suite behaviour that will cause the upgrade-series watcher
+// to send a number of notifications equal to the supplied argument.
+// Once notifications have been consumed, we notify via the suite's channel.
+func (s *ContainerSetupSuite) notify(messages ...[]string) {
+	ch := make(chan []string)
+
+	go func() {
+		for _, m := range messages {
+			ch <- m
+		}
+		close(s.done)
+	}()
+
+	s.notifyWorker.EXPECT().Kill().AnyTimes()
+	s.notifyWorker.EXPECT().Wait().Return(nil).AnyTimes()
+
+	s.machine.EXPECT().WatchAllContainers().Return(
+		&fakeWatcher{
+			Worker: s.notifyWorker,
+			ch:     ch,
+		}, nil)
+}
+
+// cleanKill waits for notifications to be processed, then waits for the input
+// worker to be killed cleanly. If either ops time out, the test fails.
+func (s *ContainerSetupSuite) cleanKill(c *gc.C, w worker.Worker) {
+	select {
+	case <-s.done:
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
+	workertest.CleanKill(c, w)
 }
 
 type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)
@@ -448,4 +544,13 @@ func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
 
 func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
 	return "", nil
+}
+
+type fakeWatcher struct {
+	worker.Worker
+	ch <-chan []string
+}
+
+func (w *fakeWatcher) Changes() watcher.StringsChannel {
+	return w.ch
 }
