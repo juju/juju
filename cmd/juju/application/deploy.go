@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/romulus"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
@@ -39,9 +38,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -862,7 +861,7 @@ func (c *DeployCommand) deployCharm(
 
 	// Validate the charmInfo before launching, interesting if this fails
 	// I'm not entirely sure what you can do here with a stored charm
-	if err := validateCharmInfoLXDProfile(charmInfo); err != nil {
+	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1279,7 +1278,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	if err := c.validateCharmSeries(series); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateCharmLXDProfile(ch); err != nil {
+	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1475,30 +1474,4 @@ func flagWithMinus(name string) string {
 		return "--" + name
 	}
 	return "-" + name
-}
-
-func validateCharmLXDProfile(ch charm.Charm) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// Check if the charm conforms to the LXDProfiler, as it's optional and in
-		// theory the charm.Charm doesn't have to provider a LXDProfile method we
-		// can ignore it if it's missing and assume it is therefore valid.
-		if profiler, ok := ch.(charm.LXDProfiler); ok {
-			// Profile from the api could be nil, so check that it isn't
-			if profile := profiler.LXDProfile(); profile != nil {
-				err := profile.ValidateConfigDevices()
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
-}
-
-func validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		if profile := info.LXDProfile; profile != nil {
-			err := profile.ValidateConfigDevices()
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }

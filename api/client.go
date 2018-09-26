@@ -15,9 +15,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
@@ -311,7 +311,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if err := c.validateCharmVersion(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateCharmLXDProfile(ch); err != nil {
+	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -354,22 +354,6 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Trace(err)
 	}
 	return curl, nil
-}
-
-func validateCharmLXDProfile(ch charm.Charm) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// Check if the charm conforms to the LXDProfiler, as it's optional and in
-		// theory the charm.Charm doesn't have to provider a LXDProfile method we
-		// can ignore it if it's missing and assume it is therefore valid.
-		if profiler, ok := ch.(charm.LXDProfiler); ok {
-			// Profile from the api could be nil, so check that it isn't
-			if profile := profiler.LXDProfile(); profile != nil {
-				err := profile.ValidateConfigDevices()
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
 }
 
 var hasHooks = hasHooksFolder

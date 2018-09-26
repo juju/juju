@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -558,7 +559,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	if err := validateCharmInfoLXDProfile(charmInfo); err != nil {
+	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
 		return errors.Trace(err)
 	}
 
