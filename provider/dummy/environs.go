@@ -43,6 +43,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -1842,6 +1843,11 @@ func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *networ
 // AreSpacesRoutable implements NetworkingEnviron.
 func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
+}
+
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	return nil
 }
 
 // SSHAddresses implements environs.SSHAddresses.

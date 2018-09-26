@@ -86,8 +86,9 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 	// TODO: lxd-profile 2018-09-18
 	// Add withoutControllerSuite.TestProvisioningInfoWithLXDProfile when
 	// lxd profiles added to ProvisioningInfo.
+	var pNames []string
 	if featureflag.Enabled(feature.LXDProfile) {
-		_, err = p.machineLXDProfiles(m, env)
+		pNames, err = p.machineLXDProfiles(m, env)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot write lxd profiles")
 		}
@@ -121,6 +122,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		ImageMetadata:     imageMetadata,
 		ControllerConfig:  controllerCfg,
 		CloudInitUserData: env.Config().CloudInitUserData(),
+		CharmLXDProfiles:  pNames,
 	}, nil
 }
 

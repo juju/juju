@@ -179,7 +179,7 @@ func (env *environ) getContainerSpec(
 	}
 	cSpec := lxd.ContainerSpec{
 		Name:     hostname,
-		Profiles: []string{"default", env.profileName()},
+		Profiles: append([]string{"default", env.profileName()}, args.CharmLXDProfiles...),
 		Image:    image,
 		Config:   make(map[string]string),
 	}
