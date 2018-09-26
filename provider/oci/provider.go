@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/juju/clock"
@@ -302,8 +303,14 @@ func (e EnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 // Configuration options for the OCI SDK are detailed here:
 // https://docs.us-phoenix-1.oraclecloud.com/Content/API/Concepts/sdkconfig.htm
 func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	result := cloud.CloudCredential{
+		AuthCredentials: make(map[string]cloud.Credential),
+	}
 	cfg_file, err := ociConfigFile()
 	if err != nil {
+		if os.IsNotExist(errors.Cause(err)) {
+			return &result, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -312,10 +319,6 @@ func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 		return nil, errors.Trace(err)
 	}
 	cfg.NameMapper = ini.TitleUnderscore
-
-	result := cloud.CloudCredential{
-		AuthCredentials: make(map[string]cloud.Credential),
-	}
 
 	var defaultRegion string
 

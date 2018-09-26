@@ -1,6 +1,7 @@
 package oci_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -312,6 +313,31 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 		tags.JujuIsController: "true",
 	}
 	s.ociInstance.FreeformTags = s.tags
+}
+
+func (e *commonSuite) setupListInstancesExpectations(instanceId string, state ociCore.InstanceLifecycleStateEnum, times int) {
+	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
+		[]ociCore.Instance{
+			{
+				AvailabilityDomain: makeStringPointer("fakeZone1"),
+				CompartmentId:      &e.testCompartment,
+				Id:                 makeStringPointer(instanceId),
+				LifecycleState:     state,
+				Region:             makeStringPointer("us-phoenix-1"),
+				Shape:              makeStringPointer("VM.Standard1.1"),
+				DisplayName:        makeStringPointer("fakeName"),
+				FreeformTags:       e.tags,
+			},
+		},
+	)
+	expect := e.compute.EXPECT().ListInstances(
+		context.Background(), listInstancesRequest).Return(
+		listInstancesResponse, nil)
+	if times == 0 {
+		expect.AnyTimes()
+	} else {
+		expect.Times(times)
+	}
 }
 
 func (s *commonSuite) patchEnv(c *gc.C) *gomock.Controller {
