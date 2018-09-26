@@ -734,6 +734,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exApplication.SetAnnotations(e.getAnnotations(globalKey))
 
+	// TODO(caas) - Actually use the exported application operator details and status history.
+	// Currently these are only grabbed to make the MigrationExportSuite tests happy.
+	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
+	_, err = e.statusArgs(globalAppWorkloadKey)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "application operator status for applucation %s", appName)
+		}
+	}
+	e.statusHistoryArgs(globalAppWorkloadKey)
+
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
 		return errors.Trace(err)

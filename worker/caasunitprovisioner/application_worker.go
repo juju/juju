@@ -23,29 +23,32 @@ type applicationWorker struct {
 	serviceBroker   ServiceBroker
 	containerBroker ContainerBroker
 
-	provisioningInfoGetter ProvisioningInfoGetter
-	applicationGetter      ApplicationGetter
-	applicationUpdater     ApplicationUpdater
-	unitUpdater            UnitUpdater
+	provisioningStatusSetter ProvisioningStatusSetter
+	provisioningInfoGetter   ProvisioningInfoGetter
+	applicationGetter        ApplicationGetter
+	applicationUpdater       ApplicationUpdater
+	unitUpdater              UnitUpdater
 }
 
 func newApplicationWorker(
 	application string,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
+	provisioningStatusSetter ProvisioningStatusSetter,
 	provisioningInfoGetter ProvisioningInfoGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 	unitUpdater UnitUpdater,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
-		application:            application,
-		serviceBroker:          serviceBroker,
-		containerBroker:        containerBroker,
-		provisioningInfoGetter: provisioningInfoGetter,
-		applicationGetter:      applicationGetter,
-		applicationUpdater:     applicationUpdater,
-		unitUpdater:            unitUpdater,
+		application:              application,
+		serviceBroker:            serviceBroker,
+		containerBroker:          containerBroker,
+		provisioningStatusSetter: provisioningStatusSetter,
+		provisioningInfoGetter:   provisioningInfoGetter,
+		applicationGetter:        applicationGetter,
+		applicationUpdater:       applicationUpdater,
+		unitUpdater:              unitUpdater,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -69,6 +72,7 @@ func (aw *applicationWorker) Wait() error {
 func (aw *applicationWorker) loop() error {
 	deploymentWorker, err := newDeploymentWorker(
 		aw.application,
+		aw.provisioningStatusSetter,
 		aw.serviceBroker,
 		aw.provisioningInfoGetter,
 		aw.applicationGetter,

@@ -525,3 +525,25 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 	c.Assert(s.st.application.providerId, gc.Equals, "id")
 	c.Assert(s.st.application.addresses, jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
 }
+
+func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	results, err := s.facade.SetOperatorStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "application-gitlab", Status: "error", Info: "broken", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+	now := s.clock.Now()
+	s.st.application.CheckCall(c, 0, "SetOperatorStatus", status.StatusInfo{
+		Status:  status.Error,
+		Message: "broken",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}

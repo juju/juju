@@ -658,8 +658,14 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(t *caas.Custom
 
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
-	appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
+	appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
 ) (err error) {
+	defer func() {
+		if err != nil {
+			statusCallback(appName, status.Error, err.Error(), nil)
+		}
+	}()
+
 	logger.Debugf("creating/updating application %s", appName)
 
 	if numUnits < 0 {

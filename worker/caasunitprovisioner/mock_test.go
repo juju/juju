@@ -51,8 +51,9 @@ func (m *mockServiceBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return m.podSpec, nil
 }
 
-func (m *mockServiceBroker) EnsureService(appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
+func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, params, numUnits, config)
+	statusCallback(appName, status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	m.ensured <- struct{}{}
 	return m.NextErr()
 }
@@ -258,6 +259,18 @@ type mockUnitUpdater struct {
 
 func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	m.MethodCall(m, "UpdateUnits", arg)
+	if err := m.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type mockProvisioningStatusSetter struct {
+	testing.Stub
+}
+
+func (m *mockProvisioningStatusSetter) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
+	m.MethodCall(m, "SetOperatorStatus", appName, status, message, data)
 	if err := m.NextErr(); err != nil {
 		return err
 	}

@@ -69,6 +69,9 @@ func Open(p environs.EnvironProvider, args environs.OpenParams) (Broker, error) 
 // NewContainerBrokerFunc returns a Container Broker.
 type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
 
+// StatusCallbackFunc represents a function that can be called to report a status.
+type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error
+
 // ServiceParams defines parameters used to create a service.
 type ServiceParams struct {
 	// PodSpec is the spec used to configure a pod.
@@ -114,7 +117,7 @@ type Broker interface {
 	DeleteOperator(appName string) error
 
 	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
 
 	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error

@@ -41,6 +41,7 @@ type WorkerSuite struct {
 	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
 	unitUpdater        mockUnitUpdater
+	statusSetter       mockProvisioningStatusSetter
 
 	applicationChanges      chan []string
 	applicationScaleChanges chan struct{}
@@ -140,15 +141,17 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ensured: s.serviceEnsured,
 		podSpec: &parsedSpec,
 	}
+	s.statusSetter = mockProvisioningStatusSetter{}
 
 	s.config = caasunitprovisioner.Config{
-		ApplicationGetter:      &s.applicationGetter,
-		ApplicationUpdater:     &s.applicationUpdater,
-		ServiceBroker:          &s.serviceBroker,
-		ContainerBroker:        &s.containerBroker,
-		ProvisioningInfoGetter: &s.podSpecGetter,
-		LifeGetter:             &s.lifeGetter,
-		UnitUpdater:            &s.unitUpdater,
+		ApplicationGetter:        &s.applicationGetter,
+		ApplicationUpdater:       &s.applicationUpdater,
+		ServiceBroker:            &s.serviceBroker,
+		ContainerBroker:          &s.containerBroker,
+		ProvisioningInfoGetter:   &s.podSpecGetter,
+		LifeGetter:               &s.lifeGetter,
+		UnitUpdater:              &s.unitUpdater,
+		ProvisioningStatusSetter: &s.statusSetter,
 	}
 }
 
@@ -184,6 +187,9 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.ProvisioningStatusSetter = nil
+	}, `missing ProvisioningStatusSetter not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Config), expect string) {
@@ -239,6 +245,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be ensured")
 	}
+	s.statusSetter.CheckCall(c, 0, "SetOperatorStatus", "gitlab", status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	select {
 	case <-s.serviceUpdated:
 	case <-time.After(coretesting.LongWait):

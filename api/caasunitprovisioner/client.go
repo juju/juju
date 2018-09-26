@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -297,4 +298,17 @@ func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg
 		return nil
 	}
 	return maybeNotFound(result.Results[0].Error)
+}
+
+// SetOperatorStatus updates the provisioning status of an operator.
+func (c *Client) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: names.NewApplicationTag(appName).String(), Status: status.String(), Info: message, Data: data},
+	}}
+	err := c.facade.FacadeCall("SetOperatorStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

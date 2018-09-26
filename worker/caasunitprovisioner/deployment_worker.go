@@ -17,27 +17,30 @@ import (
 // deploymentWorker informs the CAAS broker of how many pods to run and their spec, and
 // lets the broker figure out how to make that all happen.
 type deploymentWorker struct {
-	catacomb               catacomb.Catacomb
-	application            string
-	broker                 ServiceBroker
-	applicationGetter      ApplicationGetter
-	applicationUpdater     ApplicationUpdater
-	provisioningInfoGetter ProvisioningInfoGetter
+	catacomb                 catacomb.Catacomb
+	application              string
+	provisioningStatusSetter ProvisioningStatusSetter
+	broker                   ServiceBroker
+	applicationGetter        ApplicationGetter
+	applicationUpdater       ApplicationUpdater
+	provisioningInfoGetter   ProvisioningInfoGetter
 }
 
 func newDeploymentWorker(
 	application string,
+	provisioningStatusSetter ProvisioningStatusSetter,
 	broker ServiceBroker,
 	provisioningInfoGetter ProvisioningInfoGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
-		application:            application,
-		broker:                 broker,
-		provisioningInfoGetter: provisioningInfoGetter,
-		applicationGetter:      applicationGetter,
-		applicationUpdater:     applicationUpdater,
+		application:              application,
+		provisioningStatusSetter: provisioningStatusSetter,
+		broker:                   broker,
+		provisioningInfoGetter:   provisioningInfoGetter,
+		applicationGetter:        applicationGetter,
+		applicationUpdater:       applicationUpdater,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -110,7 +113,7 @@ func (w *deploymentWorker) loop() error {
 				specChan = nil
 			}
 			logger.Debugf("no units for %v", w.application)
-			err = w.broker.EnsureService(w.application, &caas.ServiceParams{}, 0, nil)
+			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -161,7 +164,7 @@ func (w *deploymentWorker) loop() error {
 			Filesystems:  info.Filesystems,
 			Devices:      info.Devices,
 		}
-		err = w.broker.EnsureService(w.application, serviceParams, currentScale, appConfig)
+		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}

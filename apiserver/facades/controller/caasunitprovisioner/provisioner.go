@@ -1183,3 +1183,33 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 	}
 	return result, nil
 }
+
+// SetOperatorStatus updates the operator status for each given application.
+func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		appTag, err := names.ParseApplicationTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		now := a.clock.Now()
+		s := status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+			Since:   &now,
+		}
+		if err := app.SetOperatorStatus(s); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}

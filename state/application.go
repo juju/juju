@@ -112,6 +112,10 @@ func (a *Application) globalKey() string {
 	return applicationGlobalKey(a.doc.Name)
 }
 
+func applicationGlobalOperatorKey(appName string) string {
+	return applicationGlobalKey(appName) + "#operator"
+}
+
 func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
@@ -417,6 +421,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
+		removeStatusOp(a.st, applicationGlobalOperatorKey(name)),
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
@@ -2243,6 +2248,19 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	})
 }
 
+// SetOperatorStatus sets the operator status for an application.
+// This is used on CAAS models.
+func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
+	return setStatus(a.st.db(), setStatusParams{
+		badge:     "operator",
+		globalKey: applicationGlobalOperatorKey(a.Name()),
+		status:    sInfo.Status,
+		message:   sInfo.Message,
+		rawData:   sInfo.Data,
+		updated:   timeOrNow(sInfo.Since, a.st.clock()),
+	})
+}
+
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
 // or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this application.
@@ -2344,6 +2362,14 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.Name()),
 	}
+	model, err := app.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() == ModelTypeCAAS {
+		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.Name()), args.statusDoc))
+	}
+
 	ops = append(ops, charmRefOps...)
 	ops = append(ops, txn.Op{
 		C:      applicationsC,

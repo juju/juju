@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -20,6 +21,7 @@ type Client interface {
 	ProvisioningInfoGetter
 	LifeGetter
 	UnitUpdater
+	ProvisioningStatusSetter
 }
 
 // ApplicationGetter provides an interface for
@@ -57,4 +59,11 @@ type LifeGetter interface {
 // Juju units from changes in the cloud.
 type UnitUpdater interface {
 	UpdateUnits(arg params.UpdateApplicationUnits) error
+}
+
+// ProvisioningStatusSetter provides an interface for
+// setting status information.
+type ProvisioningStatusSetter interface {
+	// SetOperatorStatus sets the status for the application operator.
+	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 }
