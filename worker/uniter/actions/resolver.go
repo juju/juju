@@ -57,7 +57,11 @@ func (r *actionsResolver) NextOp(
 		}
 	case operation.RunAction:
 		if localState.Hook != nil {
-			logger.Infof("found incomplete action %q; ignoring", localState.ActionId)
+			var id string
+			if localState.ActionId != nil {
+				id = *localState.ActionId
+			}
+			logger.Infof("found incomplete action %q; ignoring", id)
 			logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
 		} else {
