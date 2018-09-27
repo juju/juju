@@ -5,7 +5,6 @@ package machine_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -75,9 +74,6 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	if err != nil {
 		return nil, err
 	}
-	if stderr.String() != "" {
-		return nil, errors.New(stderr.String())
-	}
 	return ctx, nil
 }
 
@@ -142,9 +138,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c
 	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 	confirmationMsg := fmt.Sprintf(machine.UpgradeSeriesConfirmationMsg, machineArg, seriesArg, machineArg, unitsString)
-	finishedMessage := fmt.Sprintf(machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
-	displayedMessage := strings.Join([]string{confirmationMsg, finishedMessage}, "") + "\n"
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, confirmationMsg)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *gc.C) {
@@ -153,8 +147,8 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *
 	confirmationMessage := "" //There is no confirmation message since the `--agree` flag is being used to avoid the prompt
 	finishedMessage := fmt.Sprintf(machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
 }
 
 type upgradeSeriesPrepareExpectation struct {
