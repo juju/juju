@@ -197,10 +197,18 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 		}
 		timestamp := bson.Now()
 		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(m.Tag().String(), message, timestamp))
+		changeCount := 0
 		for unitName, us := range lock.UnitStatuses {
+			if us.Status == model.UpgradeSeriesCompleteStarted {
+				continue
+			}
 			us.Status = model.UpgradeSeriesCompleteStarted
 			us.Timestamp = timestamp
 			lock.UnitStatuses[unitName] = us
+			changeCount++
+		}
+		if changeCount == 0 {
+			return nil, jujutxn.ErrNoOperations
 		}
 		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock), nil
 	}
