@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -81,6 +80,12 @@ type MeteredDeployAPI interface {
 	SetMetricCredentials(application string, credentials []byte) error
 }
 
+// CharmDeployAPI represents the methods of the API the deploy
+// command needs for charms.
+type CharmDeployAPI interface {
+	CharmInfo(string) (*apicharms.CharmInfo, error)
+}
+
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
@@ -89,11 +94,11 @@ type DeployAPI interface {
 	api.Connection
 	CharmAdder
 	MeteredDeployAPI
+	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
 
 	// ApplicationClient
-	CharmInfo(string) (*apicharms.CharmInfo, error)
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
@@ -260,6 +265,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			RegisterPath: "/plan/authorize",
 			QueryPath:    "/charm",
 		},
+		&ValidateLXDProfileCharm{},
 	}
 	deployCmd := &DeployCommand{
 		Steps: steps,
@@ -562,6 +568,13 @@ See also:
     spaces
 `
 
+// DeployStepAPI represents a API required for deploying using the step
+// deployment code.
+type DeployStepAPI interface {
+	MeteredDeployAPI
+	CharmDeployAPI
+}
+
 // DeployStep is an action that needs to be taken during charm deployment.
 type DeployStep interface {
 
@@ -572,11 +585,11 @@ type DeployStep interface {
 	SetPlanURL(planURL string)
 
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
+	RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -857,12 +870,6 @@ func (c *DeployCommand) deployCharm(
 	applicationName := c.ApplicationName
 	if applicationName == "" {
 		applicationName = charmInfo.Meta.Name
-	}
-
-	// Validate the charmInfo before launching, interesting if this fails
-	// I'm not entirely sure what you can do here with a stored charm
-	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
-		return errors.Trace(err)
 	}
 
 	// Process the --config args.
@@ -1276,9 +1283,6 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(series); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 

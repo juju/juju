@@ -20,6 +20,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -104,6 +105,11 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
 	if !ok {
 		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
+	}
+
+	// Validate the charm lxd profile once we've downloaded it.
+	if err := lxdprofile.ValidateCharmLXDProfile(downloadedCharm); err != nil {
+		return errors.Annotate(err, "cannot add charm")
 	}
 
 	// Clean up the downloaded charm - we don't need to cache it in
