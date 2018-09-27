@@ -574,96 +574,31 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 }
 
 type fakeBlockDevice struct {
-	id     int
-	uuid   string
+	gomaasapi.BlockDevice
+
 	name   string
-	path   string
 	idPath string
-	model  string
-	serial string
 	size   uint64
-}
-
-func (bd fakeBlockDevice) Type() string {
-	return "blockdevice"
-}
-
-func (bd fakeBlockDevice) ID() int {
-	return bd.id
-}
-
-func (bd fakeBlockDevice) UUID() string {
-	return bd.uuid
 }
 
 func (bd fakeBlockDevice) Name() string {
 	return bd.name
 }
 
-func (bd fakeBlockDevice) Path() string {
-	return bd.path
-}
-
 func (bd fakeBlockDevice) IDPath() string {
 	return bd.idPath
-}
-
-func (bd fakeBlockDevice) Model() string {
-	return bd.model
-}
-
-func (bd fakeBlockDevice) Serial() string {
-	return bd.serial
 }
 
 func (bd fakeBlockDevice) Size() uint64 {
 	return bd.size
 }
 
-func (bd fakeBlockDevice) UsedSize() uint64 {
-	return 0
-}
-
-func (bd fakeBlockDevice) BlockSize() uint64 {
-	return 512
-}
-
-func (bd fakeBlockDevice) Tags() []string {
-	return []string{}
-}
-
-func (bd fakeBlockDevice) UsedFor() string {
-	return ""
-}
-
-func (bd fakeBlockDevice) FileSystem() gomaasapi.FileSystem {
-	return nil
-}
-
-func (bd fakeBlockDevice) Partitions() []gomaasapi.Partition {
-	return []gomaasapi.Partition{}
-}
-
-var _ gomaasapi.BlockDevice = (*fakeBlockDevice)(nil)
-
 type fakePartition struct {
-	id   int
-	uuid string
+	gomaasapi.Partition
+
 	name string
 	path string
 	size uint64
-}
-
-func (part fakePartition) Type() string {
-	return "partition"
-}
-
-func (part fakePartition) ID() int {
-	return part.id
-}
-
-func (part fakePartition) UUID() string {
-	return part.uuid
 }
 
 func (part fakePartition) Name() string {
@@ -677,20 +612,6 @@ func (part fakePartition) Path() string {
 func (part fakePartition) Size() uint64 {
 	return part.size
 }
-
-func (part fakePartition) UsedFor() string {
-	return ""
-}
-
-func (part fakePartition) Tags() []string {
-	return []string{}
-}
-
-func (part fakePartition) FileSystem() gomaasapi.FileSystem {
-	return nil
-}
-
-var _ gomaasapi.Partition = (*fakePartition)(nil)
 
 type fakeDevice struct {
 	*testing.Stub
