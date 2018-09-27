@@ -32,7 +32,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass")
+	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass", "certificate")
 }
 
 func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {

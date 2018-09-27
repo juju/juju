@@ -114,7 +114,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType && authType != cloud.CertificateAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil
