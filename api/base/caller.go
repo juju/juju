@@ -13,6 +13,8 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 )
 
+//go:generate mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
+
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
 // the various API implementations to actually make
@@ -92,7 +94,6 @@ type Stream interface {
 // FacadeCaller is a wrapper for the common paradigm that a given client just
 // wants to make calls on a facade using the best known version of the API. And
 // without dealing with an id parameter.
-//go:generate mockgen -package mocks -destination mocks/facadecaller_mock.go github.com/juju/juju/api/base FacadeCaller
 type FacadeCaller interface {
 	// FacadeCall will place a request against the API using the requested
 	// Facade and the best version that the API server supports that is

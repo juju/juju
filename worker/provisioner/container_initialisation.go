@@ -131,7 +131,7 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 			}
 		}
 	}
-	return resultError
+	return errors.Trace(resultError)
 }
 
 func (cs *ContainerSetup) initialiseAndStartProvisioner(

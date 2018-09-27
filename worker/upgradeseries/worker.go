@@ -17,9 +17,6 @@ import (
 	"github.com/juju/os/series"
 )
 
-// TODO (manadart 2018-07-30) Relocate this somewhere more central?
-//go:generate mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
-
 //go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
 
 var hostSeries = series.HostSeries

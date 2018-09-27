@@ -49,9 +49,15 @@ type DistributionGroupResult struct {
 
 const provisionerFacade = "Provisioner"
 
-// NewState creates a new client-side Machiner facade.
+// NewState creates a new provisioner facade using the input caller.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
+	return NewStateFromFacade(facadeCaller)
+}
+
+// NewStateFromFacade creates a new provisioner facade using the input
+// facade caller.
+func NewStateFromFacade(facadeCaller base.FacadeCaller) *State {
 	return &State{
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),

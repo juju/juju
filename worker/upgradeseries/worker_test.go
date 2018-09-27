@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
+	workermocks "github.com/juju/juju/worker/mocks"
 	"github.com/juju/juju/worker/upgradeseries"
 	. "github.com/juju/juju/worker/upgradeseries/mocks"
 )
@@ -36,9 +37,9 @@ type workerSuite struct {
 
 	logger       *MockLogger
 	facade       *MockFacade
-	notifyWorker *MockWorker
 	service      *MockServiceAccess
 	upgrader     *MockUpgrader
+	notifyWorker *workermocks.MockWorker
 
 	wordPressAgent *MockAgentService
 	mySQLAgent     *MockAgentService
@@ -301,9 +302,9 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.logger = NewMockLogger(ctrl)
 	s.facade = NewMockFacade(ctrl)
-	s.notifyWorker = NewMockWorker(ctrl)
 	s.service = NewMockServiceAccess(ctrl)
 	s.upgrader = NewMockUpgrader(ctrl)
+	s.notifyWorker = workermocks.NewMockWorker(ctrl)
 	s.wordPressAgent = NewMockAgentService(ctrl)
 	s.mySQLAgent = NewMockAgentService(ctrl)
 

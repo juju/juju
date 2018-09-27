@@ -16,7 +16,7 @@ import (
 
 // NewContainerManager creates the appropriate container.Manager for the
 // specified container type.
-func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig) (container.Manager, error) {
+var NewContainerManager = func(forType instance.ContainerType, conf container.ManagerConfig) (container.Manager, error) {
 	switch forType {
 	case instance.LXD:
 		svr, err := lxd.MaybeNewLocalServer()
