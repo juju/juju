@@ -575,6 +575,7 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 
 type fakeBlockDevice struct {
 	gomaasapi.BlockDevice
+
 	name   string
 	idPath string
 	size   uint64
@@ -590,6 +591,26 @@ func (bd fakeBlockDevice) IDPath() string {
 
 func (bd fakeBlockDevice) Size() uint64 {
 	return bd.size
+}
+
+type fakePartition struct {
+	gomaasapi.Partition
+
+	name string
+	path string
+	size uint64
+}
+
+func (part fakePartition) Name() string {
+	return part.name
+}
+
+func (part fakePartition) Path() string {
+	return part.path
+}
+
+func (part fakePartition) Size() uint64 {
+	return part.size
 }
 
 type fakeDevice struct {
