@@ -549,6 +549,7 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 // all support the input series. If not, an error is returned.
 // If they do, the agent statuses are checked to ensure that they are all in
 // the idle state i.e. not installing, running hooks, or needing intervention.
+// the final check is that the unit itself is not in an error state.
 func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
 	principals := machine.Principals()
 	units, err := machine.VerifyUnitsSeries(principals, series, force)
@@ -563,9 +564,18 @@ func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force
 			return nil, errors.Trace(err)
 		}
 		if agentStatus.Status != status.Idle {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its current status is: %q %s",
+			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its agent status is: %q %s",
 				u.Name(), agentStatus.Status, agentStatus.Message)
 		}
+		unitStatus, err := u.Status()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if unitStatus.Status == status.Error {
+			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its status is: \"error\" %s",
+				u.Name(), unitStatus.Message)
+		}
+
 		unitNames[i] = u.UnitTag().Id()
 	}
 	return unitNames, nil

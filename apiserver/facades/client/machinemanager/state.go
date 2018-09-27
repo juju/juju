@@ -102,6 +102,7 @@ type Unit interface {
 	UnitTag() names.UnitTag
 	Name() string
 	AgentStatus() (status.StatusInfo, error)
+	Status() (status.StatusInfo, error)
 }
 
 func (m machineShim) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error) {
