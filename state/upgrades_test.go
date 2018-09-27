@@ -250,7 +250,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 	var initialPermissions []bson.M
 	err := coll.Find(nil).Sort("_id").All(&initialPermissions)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(initialPermissions, gc.HasLen, 2)
+	c.Assert(initialPermissions, gc.HasLen, 3)
 
 	err = coll.Insert(
 		permissionDoc{
@@ -275,7 +275,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 		initialPermissions[i] = perm
 	}
 
-	expected := []bson.M{initialPermissions[0], initialPermissions[1], {
+	expected := []bson.M{initialPermissions[0], initialPermissions[1], initialPermissions[2], {
 		"_id":                "uuid#fred",
 		"object-global-key":  "c#uuid",
 		"subject-global-key": "fred",
@@ -365,7 +365,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 	var initialPermissions []bson.M
 	err := coll.Find(nil).Sort("_id").All(&initialPermissions)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(initialPermissions, gc.HasLen, 2)
+	c.Assert(initialPermissions, gc.HasLen, 3)
 
 	err = coll.Insert(
 		permissionDoc{
@@ -390,7 +390,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 		initialPermissions[i] = perm
 	}
 
-	expected := []bson.M{initialPermissions[0], initialPermissions[1], {
+	expected := []bson.M{initialPermissions[0], initialPermissions[1], initialPermissions[2], {
 		"_id":                "uuid#fred",
 		"object-global-key":  "c#uuid",
 		"subject-global-key": "fred",
@@ -2799,6 +2799,11 @@ func (s *upgradesSuite) TestMigrateAddModelPermissions(c *gc.C) {
 		"_id":                permissionID(modelKey, "us#test-admin"),
 		"object-global-key":  modelKey,
 		"subject-global-key": "us#test-admin",
+		"access":             "admin",
+	}, {
+		"_id":                permissionID("cloud#dummy", "us#test-admin"),
+		"subject-global-key": "us#test-admin",
+		"object-global-key":  "cloud#dummy",
 		"access":             "admin",
 	}, {
 		"_id":                permissionID(controllerKey, "us#bob"),

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -110,4 +111,39 @@ func (s *CloudUserSuite) TestRemoveCloudAccessNoUser(c *gc.C) {
 	cloud, _ := s.makeCloud(c, permission.AddModelAccess)
 	err := s.State.RemoveCloudAccess(cloud.Name, names.NewUserTag("fred"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CloudUserSuite) TestCloudsForUser(c *gc.C) {
+	cloudName := s.assertAddCloud(c, permission.AddModelAccess)
+	info, err := s.State.CloudsForUser(names.NewUserTag("validusername"), false)
+	c.Assert(err, jc.ErrorIsNil)
+	cloud, err := s.State.Cloud(cloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []state.CloudInfo{
+		{
+			Cloud:  cloud,
+			Access: permission.AddModelAccess,
+		},
+	})
+}
+
+func (s *CloudUserSuite) TestCloudsForUserAll(c *gc.C) {
+	cloudName := s.assertAddCloud(c, permission.AddModelAccess)
+	info, err := s.State.CloudsForUser(names.NewUserTag("test-admin"), true)
+	c.Assert(err, jc.ErrorIsNil)
+	cloud, err := s.State.Cloud(cloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerInfo, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	controllerCloud, err := s.State.Cloud(controllerInfo.CloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []state.CloudInfo{
+		{
+			Cloud:  controllerCloud,
+			Access: permission.AdminAccess,
+		}, {
+			Cloud:  cloud,
+			Access: permission.AdminAccess,
+		},
+	})
 }

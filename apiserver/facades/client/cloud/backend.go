@@ -19,6 +19,7 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
+	User(tag names.UserTag) (User, error)
 
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]state.Credential, error)
 	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
@@ -31,9 +32,11 @@ type Backend interface {
 
 	ControllerInfo() (*state.ControllerInfo, error)
 	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
+	GetCloudUsers(cloud string) (map[string]permission.Access, error)
 	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	RemoveCloudAccess(cloud string, user names.UserTag) error
+	CloudsForUser(user names.UserTag, all bool) ([]state.CloudInfo, error)
 }
 
 type stateShim struct {
@@ -116,4 +119,12 @@ func NewPooledModelBackend(st *state.PooledState) PooledModelBackend {
 // Model implements PooledModelBackend.Model.
 func (s modelShim) Model() credentialcommon.ModelBackend {
 	return credentialcommon.NewModelBackend(s.PooledState.State)
+}
+
+type User interface {
+	DisplayName() string
+}
+
+func (s stateShim) User(tag names.UserTag) (User, error) {
+	return s.State.User(tag)
 }

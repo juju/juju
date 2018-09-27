@@ -212,6 +212,11 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err != nil {
 		return nil, err
 	}
+	// Ensure the controller cloud owner has admin.
+	cloudPermissionOps := createPermissionOp(
+		cloudGlobalKey(args.Cloud.Name),
+		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
+		permission.AdminAccess)
 
 	ops = append(ops,
 		txn.Op{
@@ -224,6 +229,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			},
 		},
 		createCloudOp(args.Cloud),
+		cloudPermissionOps,
 		cloudRefCountOp,
 		txn.Op{
 			C:      controllersC,

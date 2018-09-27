@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -207,6 +208,11 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		"dummy/initialize-admin/some-credential":  expectedUserpassCredential,
 		"dummy/initialize-admin/empty-credential": expectedEmptyCredential,
 	})
+
+	// Check that the cloud owner has admin access.
+	access, err := s.State.GetCloudAccess("dummy", owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
 
 	// Check that the cloud's model count is initially 1.
 	cloud, err := s.State.Cloud("dummy")
