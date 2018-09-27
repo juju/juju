@@ -446,7 +446,8 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 		CharmVersion: version,
 	}
 	// Store the charm archive in environment storage.
-	return application.StoreCharmArchive(st, info)
+	shim := application.NewStateShim(st)
+	return application.StoreCharmArchive(shim, info)
 }
 
 // processGet handles a charm file GET request after authentication.

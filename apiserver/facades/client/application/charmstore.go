@@ -18,14 +18,18 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
+	mgo "gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
+
+//go:generate mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
@@ -39,13 +43,57 @@ func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
 	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
+// StateCharm represents a Charm from the state package
+//go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
+type StateCharm interface {
+	IsUploaded() bool
+}
+
+// StateModel represents a Model from the state package
+//go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
+type StateModel interface {
+	ModelConfig() (*config.Config, error)
+}
+
+// CharmState represents directives for accessing charm methods
+type CharmState interface {
+	UpdateUploadedCharm(info state.CharmInfo) (*state.Charm, error)
+	PrepareStoreCharmUpload(curl *charm.URL) (StateCharm, error)
+}
+
+// MongoSessionState defines access to mongo sessions
+type MongoSessionState interface {
+	MongoSession() *mgo.Session
+}
+
+// ModelState represents methods for accessing model definitions
+type ModelState interface {
+	Model() (StateModel, error)
+	ModelUUID() string
+}
+
+// ControllerState represents information defined for accessing controller
+// configuration
+type ControllerState interface {
+	ControllerConfig() (controller.Config, error)
+}
+
+// State represents the access patterns for the charm store methods.
+//go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
+type State interface {
+	CharmState
+	MongoSessionState
+	ModelState
+	ControllerState
+}
+
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthorization) error {
+func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return err
@@ -223,7 +271,7 @@ type CharmArchive struct {
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
-func StoreCharmArchive(st *state.State, archive CharmArchive) error {
+func StoreCharmArchive(st State, archive CharmArchive) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(archive.ID)
 	if err != nil {
@@ -278,7 +326,7 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
+func ResolveCharms(st State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
 	model, err := st.Model()
@@ -320,7 +368,7 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 
 func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
-		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
+		return nil, errors.New("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the repository.
@@ -332,4 +380,46 @@ func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) 
 		return nil, errors.Errorf("no series found in charm URL %q", resolved)
 	}
 	return resolved.WithRevision(ref.Revision), nil
+}
+
+type csStateShim struct {
+	*state.State
+}
+
+func NewStateShim(st *state.State) State {
+	return csStateShim{
+		State: st,
+	}
+}
+
+func (s csStateShim) PrepareStoreCharmUpload(curl *charm.URL) (StateCharm, error) {
+	charm, err := s.State.PrepareStoreCharmUpload(curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return csStateCharmShim{Charm: charm}, nil
+}
+
+func (s csStateShim) Model() (StateModel, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return csStateModelShim{Model: model}, nil
+}
+
+type csStateCharmShim struct {
+	*state.Charm
+}
+
+func (s csStateCharmShim) IsUploaded() bool {
+	return s.Charm.IsUploaded()
+}
+
+type csStateModelShim struct {
+	*state.Model
+}
+
+func (s csStateModelShim) ModelConfig() (*config.Config, error) {
+	return s.Model.ModelConfig()
 }
