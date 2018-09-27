@@ -277,7 +277,7 @@ func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 // the config observer.
 func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
 	if err := p.environ.SetConfig(modelConfig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	return nil
@@ -330,14 +330,14 @@ func (p *containerProvisioner) loop() error {
 
 	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)
