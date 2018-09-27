@@ -6,6 +6,8 @@ package common
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -42,11 +44,11 @@ func (e *ModelWatcher) ModelConfig() (*config.Config, error) {
 	var result params.ModelConfigResult
 	err := e.facade.FacadeCall("ModelConfig", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	conf, err := config.New(config.NoDefaults, result.Config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return conf, nil
 }
