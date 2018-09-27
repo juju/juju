@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/golang/mock/gomock"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -102,57 +104,16 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) TestStartContainerContainerProvisionerStarted(c *gc.C) {
+func (s *ContainerSetupSuite) TestStartContainerStartsContainerProvisioner(c *gc.C) {
 	defer s.patch(c).Finish()
 
 	// Adding one new container machine.
 	s.notify([]string{"0/lxd/0"})
 
-	// ContainerSetup will request manager config for the container type above.
-	resultSource := params.ContainerManagerConfig{
-		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
-	}
-	s.facadeCaller.EXPECT().FacadeCall(
-		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any(),
-	).SetArg(2, resultSource)
-
-	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
-	s.machine.EXPECT().Series().Return("bionic", nil)
-
+	s.expectContainerManagerConfig("lxd")
 	s.initialiser.EXPECT().Initialise().Return(nil)
 
-	runner := worker.NewRunner(worker.RunnerParams{
-		IsFatal:       func(_ error) bool { return true },
-		MoreImportant: func(_, _ error) bool { return false },
-		RestartDelay:  jworker.RestartDelay,
-	})
-
-	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
-	watcherName := fmt.Sprintf("%s-container-watcher", s.machine.Id())
-
-	args := provisioner.ContainerSetupParams{
-		Runner:              runner,
-		WorkerName:          watcherName,
-		SupportedContainers: instance.ContainerTypes,
-		Machine:             s.machine,
-		Provisioner:         pState,
-		Config:              s.AgentConfigForTag(c, s.machine.MachineTag()),
-		MachineLock:         s.machinelock,
-		CredentialAPI:       &credentialAPIForTest{},
-	}
-
-	// Stub out network config getter.
-	handler := provisioner.NewContainerSetupHandler(args)
-	handler.(*provisioner.ContainerSetup).SetGetNetConfig(
-		func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-			return nil, nil
-		})
-
-	runner.StartWorker(watcherName, func() (worker.Worker, error) {
-		return watcher.NewStringsWorker(watcher.StringsConfig{
-			Handler: handler,
-		})
-	})
+	_, runner := s.setUpContainerWorker(c)
 
 	// Watch the runner report. We are waiting for 2 workers to be started:
 	// the container watcher and the LXD provisioner.
@@ -180,7 +141,74 @@ func (s *ContainerSetupSuite) TestStartContainerContainerProvisionerStarted(c *g
 	s.cleanKill(c, runner)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, *worker.Runner) {
+func (s *ContainerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
+	defer s.patch(c).Finish()
+
+	s.facadeCaller.EXPECT().FacadeCall(
+		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any()).Return(
+		errors.New("boom"))
+
+	s.notify(nil)
+	handler, runner := s.setUpContainerWorker(c)
+	s.cleanKill(c, runner)
+
+	abort := make(chan struct{})
+	close(abort)
+	err := handler.Handle(abort, []string{"0/lxd/0"})
+	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: boom")
+}
+
+func (s *ContainerSetupSuite) setUpContainerWorker(c *gc.C) (watcher.StringsHandler, *worker.Runner) {
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       func(_ error) bool { return true },
+		MoreImportant: func(_, _ error) bool { return false },
+		RestartDelay:  jworker.RestartDelay,
+	})
+
+	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
+	watcherName := fmt.Sprintf("%s-container-watcher", s.machine.Id())
+	/*
+		cfg, err := agent.NewAgentConfig(
+			agent.AgentConfigParams{
+				Paths:             agent.DefaultPaths,
+				Tag:               s.machine.MachineTag(),
+				UpgradedToVersion: jujuversion.Current,
+				Password:          "password",
+				Nonce:             "nonce",
+				APIAddresses:      nil,
+				CACert:            "",
+				Controller:        s.State.ControllerTag(),
+				Model:             names.NewModelTag(s.modelUUID.String()),
+			})
+	*/
+	args := provisioner.ContainerSetupParams{
+		Runner:              runner,
+		WorkerName:          watcherName,
+		SupportedContainers: instance.ContainerTypes,
+		Machine:             s.machine,
+		Provisioner:         pState,
+		Config:              s.AgentConfigForTag(c, s.machine.MachineTag()),
+		MachineLock:         s.machinelock,
+		CredentialAPI:       &credentialAPIForTest{},
+	}
+
+	// Stub out network config getter.
+	handler := provisioner.NewContainerSetupHandler(args)
+	handler.(*provisioner.ContainerSetup).SetGetNetConfig(
+		func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		})
+
+	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+		return watcher.NewStringsWorker(watcher.StringsConfig{
+			Handler: handler,
+		})
+	})
+
+	return handler, runner
+}
+
+func (s *ContainerSetupSuite) setupContainerWorkerOld(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, *worker.Runner) {
 	runner := worker.NewRunner(worker.RunnerParams{
 		IsFatal:       func(_ error) bool { return true },
 		MoreImportant: func(_, _ error) bool { return false },
@@ -224,7 +252,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.MachineTag())
+	s.setupContainerWorkerOld(c, host.MachineTag())
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
@@ -394,39 +422,6 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
-	releaser, err := s.machinelock.Acquire(machinelock.Spec{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer releaser()
-
-	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      supportedversion.SupportedLTS(),
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: s.defaultConstraints,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-	err = m.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
-
-	handler, runner := s.setupContainerWorker(c, m.MachineTag())
-	runner.Kill()
-	err = runner.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = handler.SetUp()
-	c.Assert(err, jc.ErrorIsNil)
-	abort := make(chan struct{})
-	close(abort)
-	err = handler.Handle(abort, []string{"0/lxd/0"})
-	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: instance data for machine.*not found")
-
-}
-
 func (s *ContainerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -449,6 +444,9 @@ func (s *ContainerSetupSuite) patch(c *gc.C) *gomock.Controller {
 
 // stubOutProvisioner is used to effectively ignore provisioner calls that we
 // do not care about for testing container provisioning.
+// The bulk of the calls mocked here are called in
+// authentication.NewAPIAuthenticator, which is passed the provisioner's
+// client-side state by the provisioner worker.
 func (s *ContainerSetupSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	// We could have mocked only the base caller and not the FacadeCaller,
 	// but expectations would be verbose to the point of obfuscation.
@@ -458,15 +456,46 @@ func (s *ContainerSetupSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	cExp := caller.EXPECT()
 	cExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
 	cExp.APICall("NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
+	cExp.APICall("StringsWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
 
 	fExp := s.facadeCaller.EXPECT()
 	fExp.RawAPICaller().Return(caller).AnyTimes()
 
-	watchSource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
-	fExp.FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
+	notifySource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
+	fExp.FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, notifySource).Return(nil).AnyTimes()
 
-	cfgSource := params.ModelConfigResult{}
-	fExp.FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, cfgSource).Return(nil).AnyTimes()
+	modelCfgSource := params.ModelConfigResult{
+		Config: map[string]interface{}{
+			"uuid": s.modelUUID.String(),
+			"type": "maas",
+			"name": "container-init-test-model",
+		},
+	}
+	fExp.FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, modelCfgSource).Return(nil).AnyTimes()
+
+	addrSource := params.StringsResult{Result: []string{"0.0.0.0"}}
+	fExp.FacadeCall("StateAddresses", nil, gomock.Any()).SetArg(2, addrSource).Return(nil).AnyTimes()
+	fExp.FacadeCall("APIAddresses", nil, gomock.Any()).SetArg(2, addrSource).Return(nil).AnyTimes()
+
+	certSource := params.BytesResult{Result: []byte(coretesting.CACert)}
+	fExp.FacadeCall("CACert", nil, gomock.Any()).SetArg(2, certSource).Return(nil).AnyTimes()
+
+	uuidSource := params.StringResult{Result: s.modelUUID.String()}
+	fExp.FacadeCall("ModelUUID", nil, gomock.Any()).SetArg(2, uuidSource).Return(nil).AnyTimes()
+
+	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}
+	fExp.FacadeCall("Life", gomock.Any(), gomock.Any()).SetArg(2, lifeSource).Return(nil).AnyTimes()
+
+	watchSource := params.StringsWatchResults{Results: []params.StringsWatchResult{{
+		StringsWatcherId: "whatever",
+		Changes:          []string{},
+	}}}
+	fExp.FacadeCall("WatchContainers", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
+
+	controllerCfgSource := params.ControllerConfigResult{
+		Config: map[string]interface{}{"controller-uuid": utils.MustNewUUID().String()},
+	}
+	fExp.FacadeCall("ControllerConfig", nil, gomock.Any()).SetArg(2, controllerCfgSource).Return(nil).AnyTimes()
 }
 
 // notify returns a suite behaviour that will cause the upgrade-series watcher
@@ -490,6 +519,20 @@ func (s *ContainerSetupSuite) notify(messages ...[]string) {
 			Worker: s.notifyWorker,
 			ch:     ch,
 		}, nil)
+}
+
+// expectContainerManagerConfig sets up expectations associated with
+// acquisition and decoration of container manager configuration.
+func (s *ContainerSetupSuite) expectContainerManagerConfig(cType instance.ContainerType) {
+	resultSource := params.ContainerManagerConfig{
+		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
+	}
+	s.facadeCaller.EXPECT().FacadeCall(
+		"ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
+	).SetArg(2, resultSource).MinTimes(1)
+
+	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
+	s.machine.EXPECT().Series().Return("bionic", nil)
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input
