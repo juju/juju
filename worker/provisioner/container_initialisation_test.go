@@ -339,13 +339,6 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(
 	c.Assert(atomic.LoadUint32(&called) > 0, jc.IsTrue)
 }
 
-func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
-	pr := apiprovisioner.NewState(s.st)
-	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
-}
-
 type ContainerInstance struct {
 	ctype    instance.ContainerType
 	packages [][]string
