@@ -365,7 +365,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	}
 	defined, err := checker.Coerce(attrs, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	c := &Config{
@@ -373,12 +373,12 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		unknown: make(map[string]interface{}),
 	}
 	if err := c.ensureUnitLogging(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// no old config to compare against
 	if err := Validate(c, nil); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
