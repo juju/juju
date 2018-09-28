@@ -252,13 +252,7 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 			},
 		},
 		Relations: map[string]application.UnitsGoalState{
-			"db": application.UnitsGoalState{
-				"u": application.GoalStateStatus{
-					Status: "joining",
-					Since:  &timestamp,
-				},
-			},
-			"server": application.UnitsGoalState{
+			"server": {
 				"db0": application.GoalStateStatus{
 					Status: "joining",
 					Since:  &timestamp,
@@ -281,7 +275,7 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 	}
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(goalState, gc.DeepEquals, &goalStateCheck)
+	c.Assert(goalState, jc.DeepEquals, &goalStateCheck)
 }
 
 // TestNonActionCallsToActionMethodsFail does exactly what its name says:
