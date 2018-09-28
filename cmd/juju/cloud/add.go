@@ -259,8 +259,8 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
 	ctxt.Infof("")
-	ctxt.Infof("You may need to `juju add-credential %s' if your cloud needs additional credentials", name)
-	ctxt.Infof("Then you can bootstrap with 'juju bootstrap %s'", name)
+	ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
+	ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
 
 	return nil
 }
