@@ -568,11 +568,12 @@ See also:
     spaces
 `
 
+//go:generate mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
+
 // DeployStepAPI represents a API required for deploying using the step
 // deployment code.
 type DeployStepAPI interface {
 	MeteredDeployAPI
-	CharmDeployAPI
 }
 
 // DeployStep is an action that needs to be taken during charm deployment.
