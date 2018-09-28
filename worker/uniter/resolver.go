@@ -269,6 +269,13 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
+	// This is checked early so that after a series upgrade, it is the first
+	// hook to be run.
+	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
+		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
+	}
+
 	// Only IAAS models will react to a charm modified change.
 	// For CAAS models, the operator will unpack the new charm and
 	// inform the uniter workers to run the upgrade hook.
@@ -288,11 +295,6 @@ func (s *uniterResolver) nextOp(
 	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
 		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
-	}
-
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
-		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 
 	// If the local state is completed but the remote state is not started,
