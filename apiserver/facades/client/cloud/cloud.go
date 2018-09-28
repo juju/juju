@@ -164,7 +164,8 @@ func (api *CloudAPI) canAccessCloud(cloud string, user names.UserTag, access per
 	return perm.EqualOrGreaterCloudAccessThan(access), nil
 }
 
-// Clouds returns the definitions of all clouds supported by the controller.
+// Clouds returns the definitions of all clouds supported by the controller
+// that the logged in user can see.
 func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 	var result params.CloudsResult
 	clouds, err := api.backend.Clouds()
@@ -236,6 +237,149 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 		}
 	}
 	return results, nil
+}
+
+// CloudInfo returns information about the specified clouds.
+func (api *CloudAPI) CloudInfo(args params.Entities) (params.CloudInfoResults, error) {
+	results := params.CloudInfoResults{
+		Results: make([]params.CloudInfoResult, len(args.Entities)),
+	}
+
+	oneCloudInfo := func(arg params.Entity) (*params.CloudInfo, error) {
+		tag, err := names.ParseCloudTag(arg.Tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return api.getCloudInfo(tag)
+	}
+
+	for i, arg := range args.Entities {
+		cloudInfo, err := oneCloudInfo(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = cloudInfo
+	}
+	return results, nil
+}
+
+func cloudToParams(cloud cloud.Cloud) params.CloudDetails {
+	authTypes := make([]string, len(cloud.AuthTypes))
+	for i, authType := range cloud.AuthTypes {
+		authTypes[i] = string(authType)
+	}
+	regions := make([]params.CloudRegion, len(cloud.Regions))
+	for i, region := range cloud.Regions {
+		regions[i] = params.CloudRegion{
+			Name:             region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
+		}
+	}
+	return params.CloudDetails{
+		Type:             cloud.Type,
+		AuthTypes:        authTypes,
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
+		Regions:          regions,
+	}
+}
+
+func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error) {
+	isAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	// If not a controller admin, check for cloud admin.
+	if !isAdmin {
+		perm, err := api.ctlrBackend.GetCloudAccess(tag.Id(), api.apiUser)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		isAdmin = perm == permission.AdminAccess
+	}
+
+	cloud, err := api.backend.Cloud(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info := params.CloudInfo{
+		CloudDetails: cloudToParams(cloud),
+	}
+
+	cloudUsers, err := api.ctlrBackend.GetCloudUsers(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for userId, perm := range cloudUsers {
+		if !isAdmin && api.apiUser.Id() != userId {
+			// The authenticated user is neither the a controller
+			// superuser, a cloud administrator, nor a cloud user, so
+			// has no business knowing about the cloud user.
+			continue
+		}
+		userTag := names.NewUserTag(userId)
+		displayName := userId
+		if userTag.IsLocal() {
+			u, err := api.backend.User(userTag)
+			if err != nil {
+				if _, ok := err.(state.DeletedUserError); !ok {
+					// We ignore deleted users for now. So if it is not a
+					// DeletedUserError we return the error.
+					return nil, errors.Trace(err)
+				}
+				continue
+			}
+			displayName = u.DisplayName()
+		}
+
+		userInfo := params.CloudUserInfo{
+			UserName:    userId,
+			DisplayName: displayName,
+			Access:      string(perm),
+		}
+
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		info.Users = append(info.Users, userInfo)
+	}
+
+	if len(info.Users) == 0 {
+		// No users, which means the authenticated user doesn't
+		// have access to the cloud.
+		return nil, errors.Trace(common.ErrPerm)
+	}
+	return &info, nil
+}
+
+// ListCloudInfo returns clouds that the specified user has access to.
+// Controller admins (superuser) can list clouds for any user.
+// Other users can only ask about their own clouds.
+func (api *CloudAPI) ListCloudInfo(req params.ListCloudsRequest) (params.ListCloudInfoResults, error) {
+	result := params.ListCloudInfoResults{}
+
+	userTag, err := names.ParseUserTag(req.UserTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	cloudInfos, err := api.ctlrBackend.CloudsForUser(userTag, req.All)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for _, ci := range cloudInfos {
+		info := &params.ListCloudInfo{
+			CloudDetails: cloudToParams(ci.Cloud),
+			Access:       string(ci.Access),
+		}
+		result.Results = append(result.Results, params.ListCloudInfoResult{Result: info})
+	}
+	return result, nil
 }
 
 // DefaultCloud returns the tag of the cloud that models will be

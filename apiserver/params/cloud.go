@@ -45,6 +45,71 @@ type CloudsResult struct {
 	Clouds map[string]Cloud `json:"clouds,omitempty"`
 }
 
+// CloudUserInfo holds information on a user who has access to a
+// cloud. Cloud admins can see this information for all users
+// who have access, so it should not include sensitive information.
+type CloudUserInfo struct {
+	UserName    string `json:"user"`
+	DisplayName string `json:"display-name"`
+	Access      string `json:"access"`
+}
+
+// CloudDetails holds information about a cloud.
+type CloudDetails struct {
+	Type             string        `json:"type"`
+	AuthTypes        []string      `json:"auth-types,omitempty"`
+	Endpoint         string        `json:"endpoint,omitempty"`
+	IdentityEndpoint string        `json:"identity-endpoint,omitempty"`
+	StorageEndpoint  string        `json:"storage-endpoint,omitempty"`
+	Regions          []CloudRegion `json:"regions,omitempty"`
+}
+
+// CloudInfo holds information about a cloud and user who can access it.
+type CloudInfo struct {
+	CloudDetails `json:",inline"`
+
+	// Users contains information about the users that have access
+	// to the cloud. Administrators can see all users that have access;
+	// other users can only see their own details.
+	Users []CloudUserInfo `json:"users"`
+}
+
+// CloudInfoResult holds the result of a CloudInfo call.
+type CloudInfoResult struct {
+	Result *CloudInfo `json:"result,omitempty"`
+	Error  *Error     `json:"error,omitempty"`
+}
+
+// CloudInfoResults holds the result of a bulk CloudInfo call.
+type CloudInfoResults struct {
+	Results []CloudInfoResult `json:"results"`
+}
+
+// ListCloudsRequest encapsulates how we request a list of cloud details for a user.
+type ListCloudsRequest struct {
+	UserTag string `json:"user-tag"`
+	All     bool   `json:"all,omitempty"`
+}
+
+// ListCloudInfo holds information about a cloud for a user.
+type ListCloudInfo struct {
+	CloudDetails `json:",inline"`
+
+	// Access is the access level for the user.
+	Access string `json:"user-access"`
+}
+
+// ListCloudInfoResult holds the result of a ListCloudInfo call.
+type ListCloudInfoResult struct {
+	Result *ListCloudInfo `json:"result,omitempty"`
+	Error  *Error         `json:"error,omitempty"`
+}
+
+// ListCloudInfoResults holds the result of a bulk ListCloudInfo call.
+type ListCloudInfoResults struct {
+	Results []ListCloudInfoResult `json:"results"`
+}
+
 // ModifyCloudAccessRequest holds the parameters for making grant and revoke cloud calls.
 type ModifyCloudAccessRequest struct {
 	Changes []ModifyCloudAccess `json:"changes"`

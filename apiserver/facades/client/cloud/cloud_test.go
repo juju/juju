@@ -126,6 +126,84 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
+	result, err := s.api.CloudInfo(params.Entities{Entities: []params.Entity{{
+		Tag: "cloud-my-cloud",
+	}, {
+		Tag: "machine-0",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Cloud", "User", "User")
+	s.ctlrBackend.CheckCallNames(c, "ControllerTag", "GetCloudUsers")
+	c.Assert(result.Results, jc.DeepEquals, []params.CloudInfoResult{
+		{
+			Result: &params.CloudInfo{
+				CloudDetails: params.CloudDetails{
+					Type:      "dummy",
+					AuthTypes: []string{"empty", "userpass"},
+					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+				},
+				Users: []params.CloudUserInfo{
+					{UserName: "fred", DisplayName: "display-fred", Access: "add-model"},
+					{UserName: "mary", DisplayName: "display-mary", Access: "admin"},
+				},
+			},
+		}, {
+			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
+		},
+	})
+}
+
+func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("fred"))
+	result, err := s.api.CloudInfo(params.Entities{Entities: []params.Entity{{
+		Tag: "cloud-my-cloud",
+	}, {
+		Tag: "machine-0",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Cloud", "User")
+	s.ctlrBackend.CheckCallNames(c, "ControllerTag", "GetCloudAccess", "GetCloudUsers")
+	c.Assert(result.Results, jc.DeepEquals, []params.CloudInfoResult{
+		{
+			Result: &params.CloudInfo{
+				CloudDetails: params.CloudDetails{
+					Type:      "dummy",
+					AuthTypes: []string{"empty", "userpass"},
+					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+				},
+				Users: []params.CloudUserInfo{
+					{UserName: "fred", DisplayName: "display-fred", Access: "add-model"},
+				},
+			},
+		}, {
+			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
+		},
+	})
+}
+
+func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
+	result, err := s.api.ListCloudInfo(params.ListCloudsRequest{
+		UserTag: "user-fred",
+		All:     true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckNoCalls(c)
+	s.ctlrBackend.CheckCallNames(c, "CloudsForUser")
+	c.Assert(result.Results, jc.DeepEquals, []params.ListCloudInfoResult{
+		{
+			Result: &params.ListCloudInfo{
+				CloudDetails: params.CloudDetails{
+					Type:      "dummy",
+					AuthTypes: []string{"empty", "userpass"},
+					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+				},
+				Access: "add-model",
+			},
+		},
+	})
+}
+
 func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 	result, err := s.api.DefaultCloud()
 	c.Assert(err, jc.ErrorIsNil)
@@ -674,6 +752,29 @@ func (st *mockBackend) GetCloudAccess(cloud string, user names.UserTag) (permiss
 	return st.cloudAccess, nil
 }
 
+func (st *mockBackend) GetCloudUsers(cloud string) (map[string]permission.Access, error) {
+	st.MethodCall(st, "GetCloudUsers", cloud)
+	return map[string]permission.Access{
+		"fred": permission.AddModelAccess,
+		"mary": permission.AdminAccess,
+	}, nil
+}
+
+func (st *mockBackend) CloudsForUser(user names.UserTag, all bool) ([]state.CloudInfo, error) {
+	st.MethodCall(st, "CloudsForUser", user, all)
+	return []state.CloudInfo{
+		{
+			Cloud:  st.cloud,
+			Access: permission.AddModelAccess,
+		},
+	}, nil
+}
+
+func (st *mockBackend) User(tag names.UserTag) (cloudfacade.User, error) {
+	st.MethodCall(st, "User", tag)
+	return &mockUser{tag.Name()}, nil
+}
+
 func (st *mockBackend) CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error {
 	st.MethodCall(st, "CreateCloudAccess", cloud, user, access)
 	if st.cloudAccess != permission.NoAccess {
@@ -693,6 +794,14 @@ func (st *mockBackend) RemoveCloudAccess(cloud string, user names.UserTag) error
 	st.MethodCall(st, "RemoveCloudAccess", cloud, user)
 	st.cloudAccess = permission.NoAccess
 	return nil
+}
+
+type mockUser struct {
+	name string
+}
+
+func (m *mockUser) DisplayName() string {
+	return "display-" + m.name
 }
 
 type mockModel struct {
