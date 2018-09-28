@@ -30,6 +30,9 @@ import (
 )
 
 //go:generate mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
+//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v3 Interface
+//go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
+//go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
@@ -44,13 +47,11 @@ func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
 }
 
 // StateCharm represents a Charm from the state package
-//go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 type StateCharm interface {
 	IsUploaded() bool
 }
 
 // StateModel represents a Model from the state package
-//go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 type StateModel interface {
 	ModelConfig() (*config.Config, error)
 }
@@ -87,13 +88,7 @@ type State interface {
 	ControllerState
 }
 
-// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
-// the environment, if it does not exist yet. Local charms are not
-// supported, only charm store URLs. See also AddLocalCharm().
-//
-// The authorization macaroon, args.CharmStoreMacaroon, may be
-// omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) error {
+func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (charmrepo.Interface, error)) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return err
@@ -115,25 +110,8 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) 
 		return nil
 	}
 
-	// determine which charmstore api url to use.
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return err
-	}
-
-	repo, err := openCSRepo(controllerCfg.CharmStoreURL(), args)
-	if err != nil {
-		return err
-	}
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelConfig, err := model.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
+	// Get the repo from the constructor
+	repo, err := repoFn()
 
 	// Get the charm and its information from the store.
 	downloadedCharm, err := repo.Get(charmURL)
@@ -190,6 +168,37 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) 
 
 	// Store the charm archive in environment storage.
 	return StoreCharmArchive(st, ca)
+}
+
+// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm().
+//
+// The authorization macaroon, args.CharmStoreMacaroon, may be
+// omitted, in which case this call is equivalent to AddCharm.
+func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) error {
+	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
+		// determine which charmstore api url to use.
+		controllerCfg, err := st.ControllerConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		repo, err := openCSRepo(controllerCfg.CharmStoreURL(), args)
+		if err != nil {
+			return nil, err
+		}
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelConfig, err := model.ModelConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
+		return repo, nil
+	})
 }
 
 func openCSRepo(csURL string, args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
