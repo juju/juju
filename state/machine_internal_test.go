@@ -78,6 +78,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 		Update: bson.D{
 			{"$set", bson.D{
 				{"unit-statuses.application/0.status", arbitraryStatus},
+				{"timestamp", arbitraryUpdateTime},
 				{"unit-statuses.application/0.timestamp", arbitraryUpdateTime}}},
 			{"$push", bson.D{{"messages", arbitraryUpgradeSeriesMessage}}},
 		},
@@ -110,7 +111,8 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 
 func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.C) {
 	arbitraryMachineID := "id"
-	arbitraryLock := &upgradeSeriesLockDoc{}
+	arbitraryTimestamp := bson.Now()
+	arbitraryLock := &upgradeSeriesLockDoc{TimeStamp: arbitraryTimestamp}
 	expectedOps := []txn.Op{
 		{
 			C:      machinesC,
@@ -123,6 +125,7 @@ func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
 			Update: bson.D{{"$set", bson.D{
 				{"unit-statuses", map[string]UpgradeSeriesUnitStatus{}},
+				{"timestamp", arbitraryTimestamp},
 				{"messages", []UpgradeSeriesMessage{}}}}},
 		},
 	}
