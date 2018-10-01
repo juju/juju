@@ -270,8 +270,12 @@ func (s *uniterResolver) nextOp(
 	}
 
 	// This is checked early so that after a series upgrade, it is the first
-	// hook to be run.
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
+	// hook to be run. The uniter's local state will be in the "not started" state
+	// if the uniter was stopped, for whatever reason, when performing a
+	// series upgrade. If the uniter was not stopped then it will be in the
+	// "prepare completed" state and should fire the hook likewise.
+	if (localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted ||
+		localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted) &&
 		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
