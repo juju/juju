@@ -197,6 +197,7 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 		}
 		timestamp := bson.Now()
 		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(m.Tag().String(), message, timestamp))
+		lock.TimeStamp = timestamp
 		changeCount := 0
 		for unitName, us := range lock.UnitStatuses {
 			if us.Status == model.UpgradeSeriesCompleteStarted {
@@ -232,7 +233,10 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, lock *upgradeSe
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}, {"messages", lock.Messages}}}},
+			Update: bson.D{{"$set", bson.D{
+				{statusField, lock.UnitStatuses},
+				{"timestamp", lock.TimeStamp},
+				{"messages", lock.Messages}}}},
 		},
 	}
 }
@@ -256,8 +260,9 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !readyForCompletion {
 			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
-		message := newUpgradeSeriesMessage(m.Tag().String(), "complete phase started", bson.Now())
-		return completeUpgradeSeriesTxnOps(m.doc.Id, message), nil
+		timestamp := bson.Now()
+		message := newUpgradeSeriesMessage(m.Tag().String(), "complete phase started", timestamp)
+		return completeUpgradeSeriesTxnOps(m.doc.Id, timestamp, message), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -275,7 +280,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	return lock.MachineStatus == model.UpgradeSeriesPrepareCompleted, nil
 }
 
-func completeUpgradeSeriesTxnOps(machineDocID string, message UpgradeSeriesMessage) []txn.Op {
+func completeUpgradeSeriesTxnOps(machineDocID string, timestamp time.Time, message UpgradeSeriesMessage) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -287,7 +292,10 @@ func completeUpgradeSeriesTxnOps(machineDocID string, message UpgradeSeriesMessa
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
 			Update: bson.D{
-				{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}},
+				{"$set", bson.D{
+					{"machine-status", model.UpgradeSeriesCompleteStarted},
+					{"timestamp", timestamp},
+				}},
 				{"$push", bson.D{{"messages", message}}}},
 		},
 	}
@@ -440,7 +448,10 @@ func setUpgradeSeriesTxnOps(
 				{{statusField, bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
-				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}},
+				{"$set", bson.D{
+					{unitStatusField, status},
+					{"timestamp", timestamp},
+					{unitTimestampField, timestamp}}},
 				{"$push", bson.D{{"messages", message}}},
 			},
 		},
