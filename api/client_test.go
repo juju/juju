@@ -23,6 +23,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -34,7 +35,9 @@ import (
 	"github.com/juju/juju/api/common"
 	servercommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	jujunames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -166,6 +169,53 @@ func (s *clientSuite) TestAddLocalCharmNoHooks(c *gc.C) {
 			return false, nil
 		},
 		`invalid charm \"dummy\": has no hooks`)
+}
+
+func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	client := s.APIState.Client()
+
+	// Upload an archive with its original revision.
+	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.String())
+
+	// Upload a charm directory with changed revision.
+	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile")
+	charmDir.SetDiskRevision(42)
+	savedURL, err = client.AddLocalCharm(curl, charmDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.Revision, gc.Equals, 42)
+
+	// Upload a charm directory again, revision should be bumped.
+	savedURL, err = client.AddLocalCharm(curl, charmDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+}
+
+func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	client := s.APIState.Client()
+
+	// Upload an archive with its original revision.
+	_, err = client.AddLocalCharm(curl, charmArchive)
+	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
 
 func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
