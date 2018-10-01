@@ -113,18 +113,18 @@ func (env *environ) newContainer(
 	}
 	defer cleanupCallback()
 
-	image, err := env.server.FindImage(args.InstanceConfig.Series, arch, imageSources, true, statusCallback)
+	target, err := env.getTargetServer(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	image, err := target.FindImage(args.InstanceConfig.Series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
 	cSpec, err := env.getContainerSpec(image, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	target, err := env.getTargetServer(ctx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
