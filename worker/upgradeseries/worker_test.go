@@ -68,7 +68,7 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	// here, with the same effect and greater clarity.
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(6),
-		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine,
+		s.expectMachineUnitServiceDiscovery,
 		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
 		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
 		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
@@ -138,32 +138,13 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
-func (s *workerSuite) TestMachinePrepareStartedUnitsStoppedProgressPrepareMachine(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine)
-
-	s.cleanKill(c, w)
-	expected := map[string]interface{}{
-		"machine status": model.UpgradeSeriesPrepareStarted,
-		"prepared units": []string{"wordpress/0", "mysql/0"},
-	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
-}
-
-func (s *workerSuite) expectMachinePrepareStartedUnitsStoppedProgressPrepareMachine() {
+func (s *workerSuite) expectMachineUnitServiceDiscovery() {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	// All known units have completed preparation - the workflow progresses.
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 	s.facade.EXPECT().SetMachineStatus(model.UpgradeSeriesPrepareMachine, gomock.Any()).Return(nil)
 
-	s.expectServiceDiscovery(true)
-
-	s.wordPressAgent.EXPECT().Running().Return(true, nil)
-	s.wordPressAgent.EXPECT().Stop().Return(nil)
-
-	s.mySQLAgent.EXPECT().Running().Return(false, nil)
+	s.expectServiceDiscovery(false)
 }
 
 func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
