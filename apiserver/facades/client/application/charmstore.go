@@ -18,7 +18,6 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
-	mgo "gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -33,9 +32,11 @@ import (
 //go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v3 Interface
 //go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 //go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
+//go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
+
 // NewCharmStoreRepo instantiates a new charm store repository.
 // It is exported for testing purposes.
 var NewCharmStoreRepo = newCharmStoreFromClient
@@ -62,11 +63,6 @@ type CharmState interface {
 	PrepareStoreCharmUpload(curl *charm.URL) (StateCharm, error)
 }
 
-// MongoSessionState defines access to mongo sessions
-type MongoSessionState interface {
-	MongoSession() *mgo.Session
-}
-
 // ModelState represents methods for accessing model definitions
 type ModelState interface {
 	Model() (StateModel, error)
@@ -80,14 +76,23 @@ type ControllerState interface {
 }
 
 // State represents the access patterns for the charm store methods.
-//go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
 type State interface {
 	CharmState
-	MongoSessionState
 	ModelState
 	ControllerState
+	state.MongoSessioner
 }
 
+// AddCharmWithAuthorizationAndRepo adds the given charm URL (which must include
+// revision) to the environment, if it does not exist yet.
+// Local charms are not supported, only charm store URLs.
+// See also AddLocalCharm().
+// Additionally a Repo (See charmrepo.Interface) function factory can be
+// provided to help with overriding the source of downloading charms. The main
+// benefit of this indirection is to help with testing (mocking)
+//
+// The authorization macaroon, args.CharmStoreMacaroon, may be
+// omitted, in which case this call is equivalent to AddCharm.
 func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (charmrepo.Interface, error)) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {

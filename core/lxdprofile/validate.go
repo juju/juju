@@ -14,11 +14,10 @@ import (
 
 //go:generate mockgen -package lxdprofile_test -destination lxdprofile_mock_test.go gopkg.in/juju/charm.v6 LXDProfiler
 
-// ValidateCharmLXDProfile will validate attempt to validate a charm.Charm
+// ValidateCharmLXDProfile will attempt to validate a charm.Charm
 // lxd profile. The LXDProfile is an optional method on the charm.Charm, so
 // testing to check that it conforms to a LXDProfiler first is required.
-// Failure to conform to the LXDProfiler will return no error and will assume
-// that there was never a validation error.
+// Failure to conform to the LXDProfiler will return no error.
 func ValidateCharmLXDProfile(ch charm.Charm) error {
 	if featureflag.Enabled(feature.LXDProfile) {
 		// Check if the charm conforms to the LXDProfiler, as it's optional and in
