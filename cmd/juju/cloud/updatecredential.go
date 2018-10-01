@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"sort"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -157,10 +159,19 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	if len(invalid) > 0 {
+		// ensure we sort the valid, invalid slices so that the output is consistent
+		i := 0
+		names := make([]string, len(invalid))
+		for k := range invalid {
+			names[i] = k
+			i++
+		}
+		sort.Strings(names)
+
 		ctx.Infof("Credential invalid for:")
-		for m, errs := range invalid {
-			ctx.Infof("  %v:", m)
-			for _, e := range errs {
+		for _, v := range names {
+			ctx.Infof("  %v:", v)
+			for _, e := range invalid[v] {
 				ctx.Infof("    %v", e)
 			}
 		}
