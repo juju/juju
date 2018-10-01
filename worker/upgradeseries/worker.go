@@ -200,31 +200,8 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 	return errors.Trace(w.transitionPrepareMachine(unitServices))
 }
 
-// transitionPrepareMachine stops all unit agents on this machine and updates
-// the upgrade-series status lock to indicate that upgrade work can proceed.
-// TODO (manadart 2018-08-09): Rename when a better name is contrived for
-// "UpgradeSeriesPrepareMachine".
 func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]string) error {
-	w.logger.Infof("stopping units for series upgrade")
-
-	for unit, serviceName := range unitServices {
-		svc, err := w.service.DiscoverService(serviceName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		running, err := svc.Running()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !running {
-			continue
-		}
-
-		if err := svc.Stop(); err != nil {
-			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
-		}
-	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "all units stopped for series upgrade"))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "all unit prepare hooks completed"))
 }
 
 // handlePrepareMachine handles workflow for the machine with an upgrade-series
