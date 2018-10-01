@@ -6,6 +6,7 @@ package charms
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	names "gopkg.in/juju/names.v2"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -94,6 +96,15 @@ func (a *API) CharmInfo(args params.CharmURL) (params.CharmInfo, error) {
 		Actions:  convertCharmActions(aCharm.Actions()),
 		Metrics:  convertCharmMetrics(aCharm.Metrics()),
 	}
+
+	if featureflag.Enabled(feature.LXDProfile) {
+		// we don't need to check that this is a charm.LXDProfiler, as we can
+		// state that the function exists.
+		if profile := aCharm.LXDProfile(); !profile.Empty() {
+			info.LXDProfile = convertCharmLXDProfile(profile)
+		}
+	}
+
 	return info, nil
 }
 
@@ -133,16 +144,16 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 
 	curl, err := charm.ParseURL(args.URL)
 	if err != nil {
-		return params.IsMeteredResult{false}, errors.Trace(err)
+		return params.IsMeteredResult{Metered: false}, errors.Trace(err)
 	}
 	aCharm, err := a.backend.Charm(curl)
 	if err != nil {
-		return params.IsMeteredResult{false}, errors.Trace(err)
+		return params.IsMeteredResult{Metered: false}, errors.Trace(err)
 	}
 	if aCharm.Metrics() != nil && len(aCharm.Metrics().Metrics) > 0 {
-		return params.IsMeteredResult{true}, nil
+		return params.IsMeteredResult{Metered: true}, nil
 	}
-	return params.IsMeteredResult{false}, nil
+	return params.IsMeteredResult{Metered: false}, nil
 }
 
 func convertCharmConfig(config *charm.Config) map[string]params.CharmOption {
@@ -347,6 +358,34 @@ func convertCharmExtraBindingMap(bindings map[string]charm.ExtraBinding) map[str
 	result := make(map[string]string)
 	for key, value := range bindings {
 		result[key] = value.Name
+	}
+	return result
+}
+
+func convertCharmLXDProfile(profile *charm.LXDProfile) *params.CharmLXDProfile {
+	return &params.CharmLXDProfile{
+		Description: profile.Description,
+		Config:      convertCharmLXDProfileConfig(profile.Config),
+		Devices:     convertCharmLXDProfileDevices(profile.Devices),
+	}
+}
+
+func convertCharmLXDProfileConfig(config map[string]string) map[string]string {
+	result := map[string]string{}
+	for k, v := range config {
+		result[k] = v
+	}
+	return result
+}
+
+func convertCharmLXDProfileDevices(devices map[string]map[string]string) map[string]map[string]string {
+	result := map[string]map[string]string{}
+	for k, v := range devices {
+		nested := map[string]string{}
+		for nk, nv := range v {
+			nested[nk] = nv
+		}
+		result[k] = nested
 	}
 	return result
 }

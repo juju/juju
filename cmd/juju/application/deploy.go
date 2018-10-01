@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/romulus"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
@@ -41,7 +40,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -82,6 +80,12 @@ type MeteredDeployAPI interface {
 	SetMetricCredentials(application string, credentials []byte) error
 }
 
+// CharmDeployAPI represents the methods of the API the deploy
+// command needs for charms.
+type CharmDeployAPI interface {
+	CharmInfo(string) (*apicharms.CharmInfo, error)
+}
+
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
@@ -90,11 +94,11 @@ type DeployAPI interface {
 	api.Connection
 	CharmAdder
 	MeteredDeployAPI
+	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
 
 	// ApplicationClient
-	CharmInfo(string) (*apicharms.CharmInfo, error)
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
@@ -261,6 +265,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			RegisterPath: "/plan/authorize",
 			QueryPath:    "/charm",
 		},
+		&ValidateLXDProfileCharm{},
 	}
 	deployCmd := &DeployCommand{
 		Steps: steps,
@@ -563,6 +568,14 @@ See also:
     spaces
 `
 
+//go:generate mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
+
+// DeployStepAPI represents a API required for deploying using the step
+// deployment code.
+type DeployStepAPI interface {
+	MeteredDeployAPI
+}
+
 // DeployStep is an action that needs to be taken during charm deployment.
 type DeployStep interface {
 
@@ -573,11 +586,11 @@ type DeployStep interface {
 	SetPlanURL(planURL string)
 
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
+	RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -860,12 +873,6 @@ func (c *DeployCommand) deployCharm(
 		applicationName = charmInfo.Meta.Name
 	}
 
-	// Validate the charmInfo before launching, interesting if this fails
-	// I'm not entirely sure what you can do here with a stored charm
-	if err := c.validateCharmInfoLXDProfile(charmInfo); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Process the --config args.
 	// We may have a single file arg specified, in which case
 	// it points to a YAML file keyed on the charm name and
@@ -1110,32 +1117,6 @@ func (c *DeployCommand) validateCharmSeries(series string) error {
 	return model.ValidateSeries(modelType, series)
 }
 
-func (c *DeployCommand) validateCharmLXDProfile(ch charm.Charm) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// Check if the charm conforms to the LXDProfiler, as it's optional and in
-		// theory the charm.Charm doesn't have to provider a LXDProfile method we
-		// can ignore it if it's missing and assume it is therefore valid.
-		if profiler, ok := ch.(charm.LXDProfiler); ok {
-			// Profile from the api could be nil, so check that it isn't
-			if profile := profiler.LXDProfile(); profile != nil {
-				err := profile.ValidateConfigDevices()
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (c *DeployCommand) validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		if profile := info.LXDProfile; profile != nil {
-			err := profile.ValidateConfigDevices()
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
@@ -1303,9 +1284,6 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(series); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := c.validateCharmLXDProfile(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 

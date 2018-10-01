@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
@@ -307,6 +308,9 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	}
 
 	if err := c.validateCharmVersion(ch); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 

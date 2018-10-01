@@ -169,3 +169,8 @@ type CharmLXDProfile struct {
 	Description string                       `json:"description"`
 	Devices     map[string]map[string]string `json:"devices"`
 }
+
+// CharmLXDProfileResult returns the result of finding the CharmLXDProfile
+type CharmLXDProfileResult struct {
+	LXDProfile *CharmLXDProfile `json:"lxd-profile"`
+}
