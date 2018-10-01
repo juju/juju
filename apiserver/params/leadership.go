@@ -40,11 +40,11 @@ type ReleaseLeadershipBulkParams struct {
 // leadership claim.
 type ReleaseLeadershipParams struct {
 
-	// ApplicationTag is the application for which you want to make a
+	// ApplicationTag is the application for which you want to release the
 	// leadership claim.
 	ApplicationTag string `json:"application-tag"`
 
-	// UnitTag is the unit which is making the leadership claim.
+	// UnitTag is the unit which is releasing the leadership claim.
 	UnitTag string `json:"unit-tag"`
 }
 
