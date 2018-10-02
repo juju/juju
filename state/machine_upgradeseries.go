@@ -393,11 +393,11 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		statusSet, err := m.isUnitUpgradeSeriesStatusSet(unitName, status)
+		canUpdate, err := m.verifyUnitUpgradeSeriesStatus(unitName, status)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if statusSet {
+		if !canUpdate {
 			return nil, jujutxn.ErrNoOperations
 		}
 		timestamp := bson.Now()
@@ -412,7 +412,9 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 	return nil
 }
 
-func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
+// verifyUnitUpgradeSeriesStatus returns a boolean indicating whether or not it
+// is safe to update the UpgradeSeriesStatus of a lock.
+func (m *Machine) verifyUnitUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return false, err
@@ -421,7 +423,7 @@ func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.Upg
 	if !ok {
 		return false, errors.NotFoundf(unitName)
 	}
-	return us.Status == status, nil
+	return model.CompareUpgradeSeriesStatus(us.Status, status) == -1, nil
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
@@ -579,7 +581,6 @@ func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStat
 	if err != nil {
 		return false, err
 	}
-
 	return lock.MachineStatus == status, nil
 }
 

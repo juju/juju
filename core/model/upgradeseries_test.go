@@ -36,3 +36,21 @@ func (*upgradeSeriesSuite) TestValidateUnitUpgradeSeriesStatus(c *gc.C) {
 		c.Check(status, gc.Equals, t.expected)
 	}
 }
+
+func (*upgradeSeriesSuite) TestUpgradeSeriesStatusOrderComparison(c *gc.C) {
+	for status1, i := range model.UpgradeSeriesStatusOrder {
+		for status2, j := range model.UpgradeSeriesStatusOrder {
+			comp := model.CompareUpgradeSeriesStatus(status1, status2)
+			if status1 == status2 {
+				c.Check(comp, gc.Equals, 0)
+			} else {
+				sig := i - j
+				c.Check(sameSign(comp, sig), jc.IsTrue)
+			}
+		}
+	}
+}
+
+func sameSign(x, y int) bool {
+	return (x >= 0) != (y < 0)
+}

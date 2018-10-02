@@ -222,7 +222,9 @@ func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
 // config-changed hooks to directly follow install and upgrade-charm hooks.
 // Commit is part of the Operation interface.
 func (rh *runHook) Commit(state State) (*State, error) {
-	if err := rh.callbacks.CommitHook(rh.info); err != nil {
+	var err error
+	err = rh.callbacks.CommitHook(rh.info)
+	if err != nil {
 		return nil, err
 	}
 
@@ -245,6 +247,12 @@ func (rh *runHook) Commit(state State) (*State, error) {
 			Step: Queued,
 			Hook: hi,
 		}
+	case hooks.PreSeriesUpgrade:
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
+	case hooks.PostSeriesUpgrade:
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	}
 
 	newState := change.apply(state)
@@ -256,12 +264,6 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		newState.Started = true
 	case hooks.Stop:
 		newState.Stopped = true
-	case hooks.PreSeriesUpgrade:
-		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
-	case hooks.PostSeriesUpgrade:
-		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	}
 
 	return newState, nil
