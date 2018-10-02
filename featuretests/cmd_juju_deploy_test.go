@@ -44,6 +44,11 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+// The following LXDProfile feature tests are to ensure that we can deploy a
+// charm (subordinate charm) and that it passes the validation stages of
+// deployment. These tests don't validate that the charm was successfully stood
+// up once deployed.
+
 func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
 	c.Assert(err, jc.ErrorIsNil)
