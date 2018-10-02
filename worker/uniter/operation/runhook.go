@@ -206,12 +206,6 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		if rErr == nil && rel.Suspended() {
 			err = rel.SetStatus(relation.Suspended)
 		}
-	case hooks.PreSeriesUpgrade:
-		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
-	case hooks.PostSeriesUpgrade:
-		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	}
 	return hasRunStatusSet && err == nil, err
 }
@@ -262,6 +256,12 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		newState.Started = true
 	case hooks.Stop:
 		newState.Stopped = true
+	case hooks.PreSeriesUpgrade:
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
+	case hooks.PostSeriesUpgrade:
+		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	}
 
 	return newState, nil
