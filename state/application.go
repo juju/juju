@@ -868,6 +868,26 @@ func (a *Application) changeCharmOps(
 	return append(ops, decOps...), nil
 }
 
+// SetCharmProfile updates each machine the application is deployed
+// on with the name and charm url for a profile update of that machine.
+func (a *Application) SetCharmProfile(charmURL string) error {
+	units, err := a.AllUnits()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, u := range units {
+		m, err := u.machine()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = m.SetUpgradeCharmProfile(a.Name(), charmURL)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 func (a *Application) newCharmStorageOps(
 	ch *Charm,
 	units []*Unit,
@@ -1093,6 +1113,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "validating config settings")
 	}
+
+	// TODO validate lxd profile?
 
 	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)

@@ -141,6 +141,15 @@ type machineDoc struct {
 	// StopMongoUntilVersion holds the version that must be checked to
 	// know if mongo must be stopped.
 	StopMongoUntilVersion string `bson:",omitempty"`
+
+	// UpgradeCharmProfileApplication holds the name of the application where there
+	// is an charm upgrade event and a charm profile.
+	UpgradeCharmProfileApplication string `bson:",omitempty"`
+
+	// UpgradeCharmProfileCharmURL holds the charm URL when there is an charm
+	// upgrade event with a charm profile.  This is used before the application
+	// contains the new charm URL during a charm upgrade.
+	UpgradeCharmProfileCharmURL string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -319,6 +328,8 @@ func (m *Machine) CharmProfiles() ([]string, error) {
 	return instData.CharmProfiles, nil
 }
 
+// SetCharmProfiles sets the names of the charm profiles used on a machine
+// in its instanceData.
 func (m *Machine) SetCharmProfiles(profiles []string) error {
 	if len(profiles) == 0 {
 		return nil
@@ -2108,6 +2119,39 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 		results = append(results, subUnits...)
 	}
 	return results, nil
+}
+
+// SetUpgradeCharmProfile sets a application name and a charm url for
+// machine's needing a charm profile change.  For a container only.
+func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		life := m.Life()
+		if life == Dead || life == Dying {
+			return nil, ErrDead
+		}
+
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"life", Alive}},
+			Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecharmurl", chURL},
+				{"upgradecharmprofileapplication", appName}}}},
+		}}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return err
+	}
+	m.doc.UpgradeCharmProfileApplication = appName
+	m.doc.UpgradeCharmProfileCharmURL = chURL
+	return nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.

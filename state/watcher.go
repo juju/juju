@@ -797,6 +797,106 @@ func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
+// modelMachinesProfileWatcher notifies about charm upgrade changes where a
+// machine's LXD profile may need to be changed. At startup, the watcher
+// gathers current values for a machine's UpgradeLXDProfileCharmURL, no events
+// are returned. Events are generated when there are changes to a machine's
+// UpgradeLXDProfileCharmURL.
+type modelMachinesProfileWatcher struct {
+	commonWatcher
+	known map[string]string
+	out   chan []string
+}
+
+var _ Watcher = (*modelMachinesProfileWatcher)(nil)
+
+func newModelMachinesProfileWatcher(backend modelBackend) StringsWatcher {
+	w := &modelMachinesProfileWatcher{
+		commonWatcher: newCommonWatcher(backend),
+		known:         make(map[string]string),
+		out:           make(chan []string),
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
+// changes to the upgrade charm profile charm url for a machine.
+func (st *State) WatchModelMachinesCharmProfiles() StringsWatcher {
+	return newModelMachinesProfileWatcher(st)
+}
+
+func (w *modelMachinesProfileWatcher) initial() (set.Strings, error) {
+	machineIds := make(set.Strings)
+	var doc machineDoc
+	newMachines, closer := w.db.GetCollection(machinesC)
+	defer closer()
+
+	iter := newMachines.Find(nil).Iter()
+	for iter.Next(&doc) {
+		w.known[doc.Id] = doc.UpgradeCharmProfileCharmURL
+		machineIds.Add(doc.Id)
+	}
+	return machineIds, iter.Close()
+}
+
+func (w *modelMachinesProfileWatcher) merge(machineIds set.Strings, change watcher.Change) error {
+	machineId := w.backend.localID(change.Id.(string))
+	if change.Revno == -1 {
+		delete(w.known, machineId)
+		machineIds.Remove(machineId)
+		return nil
+	}
+	doc := machineDoc{}
+	newMachines, closer := w.db.GetCollection(machinesC)
+	defer closer()
+	if err := newMachines.FindId(change.Id).One(&doc); err != nil {
+		return err
+	}
+	profileApplication, _ := w.known[machineId]
+	w.known[machineId] = doc.UpgradeCharmProfileCharmURL
+	if doc.UpgradeCharmProfileCharmURL != profileApplication {
+		machineIds.Add(machineId)
+	}
+	return nil
+}
+
+func (w *modelMachinesProfileWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(machinesC, ch, isLocalID(w.backend))
+	defer w.watcher.UnwatchCollection(machinesC, ch)
+	machineIds, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case change := <-ch:
+			if err = w.merge(machineIds, change); err != nil {
+				return err
+			}
+			if !machineIds.IsEmpty() {
+				out = w.out
+			}
+		case out <- machineIds.Values():
+			out = nil
+			machineIds = set.NewStrings()
+		}
+	}
+}
+
+func (w *modelMachinesProfileWatcher) Changes() <-chan []string {
+	return w.out
+}
+
 // scopeInfo holds a RelationScopeWatcher's last-delivered state, and any
 // known but undelivered changes thereto.
 type scopeInfo struct {
@@ -1613,6 +1713,11 @@ func (u *Unit) Watch() NotifyWatcher {
 // Watch returns a watcher for observing changes to a model.
 func (m *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
+}
+
+// Watch returns a watcher for observing changes to a model.
+func (m *Machine) WatchInstanceData() NotifyWatcher {
+	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade

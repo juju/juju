@@ -247,6 +247,7 @@ func AllFacades() *facade.Registry {
 	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
 	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
 	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6) // v6 adds more proxy settings
+	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7) // v7 adds charm profile watcher
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
