@@ -102,7 +102,32 @@ users:
     client-key-data: Qg==
     username: "fifth-user"
     password: "userpasscertpass"
-
+`
+	notSupportedAuthProviderTypeConfigYAML = `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://1.1.1.1:8888
+    certificate-authority-data: QQ==
+  name: the-cluster
+contexts:
+- context:
+    cluster: the-cluster
+    user: the-user
+  name: the-context
+current-context: the-context
+preferences: {}
+users:
+- name: gke_gothic-list-89514_us-central1-a_kubeflow-codelab
+  user:
+    auth-provider:
+      config:
+        cmd-args: config config-helper --format=json
+        cmd-path: /usr/lib/google-cloud-sdk/bin/gcloud
+        expiry-key: '{.credential.token_expiry}'
+        token-key: '{.credential.access_token}'
+      name: gcp
 `
 )
 
@@ -176,6 +201,15 @@ func (s *k8sConfigSuite) assertSingleConfig(c *gc.C, f *os.File) {
 		})
 }
 
+func (s *k8sConfigSuite) TestAuthProviderTypeConfigError(c *gc.C) {
+	f, err := s.writeTempKubeConfig(c, "notSupportedAuthProviderTypeConfig", notSupportedAuthProviderTypeConfigYAML)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = clientconfig.NewK8sClientConfig(f)
+	c.Assert(err, gc.ErrorMatches,
+		`failed to read credentials from kubernetes config: unsupported configuration for AuthInfo "gke_gothic-list-89514_us-central1-a_kubeflow-codelab" not valid`)
+}
+
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	f, err := s.writeTempKubeConfig(c, "multiConfig", multiConfigYAML)
 	defer f.Close()
@@ -204,7 +238,6 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	fifthCred.Label = `kubernetes credential "fifth-user"`
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
-
 			Type: "kubernetes",
 			Contexts: map[string]clientconfig.Context{
 				"default-context": {
