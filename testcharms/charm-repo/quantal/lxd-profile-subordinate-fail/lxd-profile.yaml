@@ -17,5 +17,3 @@ devices:
   bdisk:
     type: unix-disk
     source: /dev/loop0
-  gpu:
-    type: gpu
