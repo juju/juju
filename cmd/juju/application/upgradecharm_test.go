@@ -37,6 +37,7 @@ import (
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -177,8 +178,8 @@ func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Conte
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -226,8 +227,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -474,13 +475,34 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "lxd-profile")
-	err := runDeploy(c, path, "lxd-profile")
+	err := runDeploy(c, path, "lxd-profile", "--to", "lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("lxd-profile")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 0)
+
+	units, err := application.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+
+	container, err := s.State.AddMachineInsideNewMachine(
+		state.MachineTemplate{
+			Series: "bionic",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		state.MachineTemplate{ // parent
+			Series: "bionic",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		instance.LXD,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.AssignToMachine(container)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Overwrite the lxd-profile.yaml to change the supported series.
 	lxdProfilePath := filepath.Join(path, "lxd-profile.yaml")
@@ -826,6 +848,11 @@ func (m *mockCharmUpgradeClient) SetCharm(cfg application.SetCharmConfig) error 
 func (m *mockCharmUpgradeClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{}, m.NextErr()
+}
+
+func (m *mockCharmUpgradeClient) SetCharmProfile(appName string, charmID jujucharmstore.CharmID) error {
+	m.MethodCall(m, "SetCharmProfile", appName, charmID)
+	return m.NextErr()
 }
 
 type mockModelConfigGetter struct {

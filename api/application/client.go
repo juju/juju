@@ -850,3 +850,17 @@ func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
 	}
 	return errors.Trace(results.Combine())
 }
+
+// SetCharmProfile a new charm's url on deployed machines for changing the profile used
+// on those machine.
+func (c *Client) SetCharmProfile(applicationName string, charmID charmstore.CharmID) error {
+	if c.BestAPIVersion() < 8 {
+		return errors.NotSupportedf("SetCharmProfile not supported by this version of Juju")
+	}
+	args := params.ApplicationSetCharmProfile{
+		ApplicationName: applicationName,
+		CharmURL:        charmID.URL.String(),
+	}
+	var results params.ErrorResults
+	return c.facade.FacadeCall("SetCharmProfile", args, &results)
+}

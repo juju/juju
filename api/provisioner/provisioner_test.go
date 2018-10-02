@@ -859,6 +859,28 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
+func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
+	w, err := s.provisioner.WatchModelMachinesCharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Add one LXD container.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Initial event.
+	wc.AssertChange(s.machine.Id())
+
+	container.SetUpgradeCharmProfile("app-name", "local:charm-url-0")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(container.Id())
+}
+
 var _ = gc.Suite(&provisionerContainerSuite{})
 
 type provisionerContainerSuite struct {

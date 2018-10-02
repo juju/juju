@@ -1346,6 +1346,8 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
+	machineProfileWatcher, err := s.provisioner.WatchModelMachinesCharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1358,6 +1360,7 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 		toolsFinder,
 		machineWatcher,
 		retryWatcher,
+		machineProfileWatcher,
 		broker,
 		auth,
 		imagemetadata.ReleasedStream,

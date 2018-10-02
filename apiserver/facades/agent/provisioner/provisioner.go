@@ -158,6 +158,11 @@ type ProvisionerAPIV5 struct {
 
 // ProvisionerAPIV6 provides v6 of the provisioner facade.
 type ProvisionerAPIV6 struct {
+	*ProvisionerAPIV7
+}
+
+// ProvisionerAPIV7 provides v7 of the provisioner facade.
+type ProvisionerAPIV7 struct {
 	*ProvisionerAPI
 }
 
@@ -181,11 +186,20 @@ func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV6, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV7(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV6{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV7, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV7{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -724,6 +738,24 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	// Consume any initial event and forward it to the result.
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = p.resources.Register(watch)
+	} else {
+		return result, watcher.EnsureErr(watch)
+	}
+	return result, nil
+}
+
+// WatchModelMachinesCharmProfiles returns a StringsWaterch that notifies when
+// the provisioner should update the charm profiles used by a machine.
+func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	if !p.authorizer.AuthController() {
+		return result, common.ErrPerm
+	}
+	watch := p.st.WatchModelMachinesCharmProfiles()
+	// Consume any initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = p.resources.Register(watch)
+		result.Changes = changes
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}
