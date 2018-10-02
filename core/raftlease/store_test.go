@@ -224,6 +224,56 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
 }
 
+func (s *storeSuite) TestPin(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			err := s.store.PinLease(
+				lease.Key{"warframe", "frost", "prime"},
+			)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationPin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+		},
+		func(req raftlease.ForwardRequest) {
+			_, err := s.hub.Publish(
+				req.ResponseTopic,
+				raftlease.ForwardResponse{},
+			)
+			c.Check(err, jc.ErrorIsNil)
+		},
+	)
+}
+
+func (s *storeSuite) TestUnpin(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			err := s.store.UnpinLease(
+				lease.Key{"warframe", "frost", "prime"},
+			)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationUnpin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+		},
+		func(req raftlease.ForwardRequest) {
+			_, err := s.hub.Publish(
+				req.ResponseTopic,
+				raftlease.ForwardResponse{},
+			)
+			c.Check(err, jc.ErrorIsNil)
+		},
+	)
+}
+
 // handleHubRequest takes the action that triggers the request, the
 // expected command, and a function that will be run to make checks on
 // the request and send the response back.

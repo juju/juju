@@ -171,6 +171,16 @@ func (store *Store) Refresh() error {
 	return store.call("Refresh", nil)
 }
 
+// PinLease is part of the corelease.Store interface.
+func (store *Store) PinLease(key lease.Key) error {
+	return store.call("PinLease", []interface{}{key})
+}
+
+// UnpinLease is part of the corelease.Store interface.
+func (store *Store) UnpinLease(key lease.Key) error {
+	return store.call("UnpinLease", []interface{}{key})
+}
+
 // call defines a expected method call on a Store; it encodes:
 type call struct {
 
