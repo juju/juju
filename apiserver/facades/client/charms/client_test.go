@@ -180,9 +180,6 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 							"type":   "unix-block",
 							"source": "/dev/loop0",
 						},
-						"gpu": {
-							"type": "gpu",
-						},
 					},
 				},
 			},

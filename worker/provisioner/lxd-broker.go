@@ -6,6 +6,7 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -91,6 +92,8 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}
 	net := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
 
+	pNames, err := broker.writeProfiles(containerMachineID)
+
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
 	// include tools for architectures other than the host's. We
@@ -126,6 +129,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
 		cloudInitUserData,
+		append([]string{"default"}, pNames...),
 	); err != nil {
 		lxdLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err
@@ -178,4 +182,33 @@ func (broker *lxdBroker) MaintainInstance(ctx context.ProviderCallContext, args 
 		lxdLogger,
 	)
 	return err
+}
+
+func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
+	containerTag := names.NewMachineTag(machineID)
+	profileInfo, err := broker.api.GetContainerProfileInfo(containerTag)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(profileInfo))
+	for i, profile := range profileInfo {
+		err := broker.maybeWriteLXDProfile(profile.Name, &charm.LXDProfile{
+			Config:      profile.Config,
+			Description: profile.Description,
+			Devices:     profile.Devices,
+		})
+		if err != nil {
+			return nil, err
+		}
+		names[i] = profile.Name
+	}
+	return names, nil
+}
+
+func (broker *lxdBroker) maybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	profileMgr, ok := broker.manager.(container.LXDProfileManager)
+	if !ok {
+		return nil
+	}
+	return profileMgr.MaybeWriteLXDProfile(pName, put)
 }

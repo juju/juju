@@ -4,6 +4,8 @@
 package container
 
 import (
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -74,4 +76,11 @@ func (m ManagerConfig) WarnAboutUnused() {
 	for key, value := range m {
 		logger.Infof("unused config option: %q -> %q", key, value)
 	}
+}
+
+// LXDProfileManager defines an interface for dealing with lxd profiles used to
+// deploy juju containers.
+type LXDProfileManager interface {
+	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already there.
+	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
 }

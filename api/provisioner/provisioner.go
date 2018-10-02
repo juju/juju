@@ -47,6 +47,14 @@ type DistributionGroupResult struct {
 	Err        *params.Error
 }
 
+// ContainerLXDProfile provides a charm.LXDProfile, adding the name.
+type LXDProfileResult struct {
+	Config      map[string]string            `json:"config" yaml:"config"`
+	Description string                       `json:"description" yaml:"description"`
+	Devices     map[string]map[string]string `json:"devices" yaml:"devices"`
+	Name        string                       `json:"name" yaml:"name"`
+}
+
 const provisionerFacade = "Provisioner"
 
 // NewState creates a new provisioner facade using the input caller.
@@ -379,4 +387,31 @@ func (a *State) CACert() (string, error) {
 		return "", err
 	}
 	return string(result.Result), nil
+}
+
+// GetContainerProfileInfo returns a slice of ContainerLXDProfile, 1 for each unit's charm
+// which contains an lxd-profile.yaml.
+func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]LXDProfileResult, error) {
+	var result params.ContainerProfileResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: containerTag.String()}},
+	}
+	if err := st.facade.FacadeCall("GetContainerProfileInfo", args, &result); err != nil {
+		return []LXDProfileResult{}, err
+	}
+	if len(result.Results) != 1 {
+		return []LXDProfileResult{}, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return []LXDProfileResult{}, err
+	}
+	profiles := result.Results[0].LXDProfiles
+	res := make([]LXDProfileResult, len(profiles))
+	for i, p := range profiles {
+		res[i].Config = p.Profile.Config
+		res[i].Description = p.Profile.Description
+		res[i].Devices = p.Profile.Devices
+		res[i].Name = p.Name
+	}
+	return res, nil
 }

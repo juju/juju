@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -1071,6 +1072,88 @@ func (p *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.
 		return ctx.result, errors.Trace(err)
 	}
 	return ctx.result, nil
+}
+
+// GetContainerProfileInfo returns information to configure a lxd profile(s) for a
+// container based on the charms deployed to the container. It accepts container
+// tags as arguments.
+func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
+	var result params.ContainerProfileResults
+	_, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
+	if err != nil {
+		// Overall error
+		return result, errors.Trace(err)
+	}
+	_, err = hostMachine.InstanceId()
+	if errors.IsNotProvisioned(err) {
+		err = errors.NotProvisionedf("cannot prepare container profile: host machine %q", hostMachine)
+		return result, err
+	} else if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Results = make([]params.ContainerProfileResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, machineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot prepare profile for %q: not a container", machineTag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		profiles, err := p.containerProfiles(container)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i] = profiles
+	}
+	return result, nil
+}
+
+func (p *ProvisionerAPI) containerProfiles(m *state.Machine) (params.ContainerProfileResult, error) {
+	var result params.ContainerProfileResult
+	units, err := m.Units()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.LXDProfiles = make([]params.ContainerLXDProfile, len(units))
+	for i, unit := range units {
+		app, err := unit.Application()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		profile := ch.LXDProfile()
+		if profile == nil || (profile != nil && profile.Empty()) {
+			continue
+		}
+		paramProfile := params.ContainerLXDProfile{
+			Profile: params.CharmLXDProfile{
+				Config:      profile.Config,
+				Description: profile.Description,
+				Devices:     profile.Devices,
+			},
+			// juju-<model>-<application>-<charm-revision>
+			Name: fmt.Sprintf("juju-%s-%s-%d", p.m.Name(), app.Name(), ch.Revision()),
+		}
+		result.LXDProfiles[i] = paramProfile
+	}
+	return result, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.

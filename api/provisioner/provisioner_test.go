@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -18,7 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
+	apimocks "github.com/juju/juju/api/base/mocks"
 	apibasetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
@@ -828,106 +828,85 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
-var _ = gc.Suite(&prepareContainerSuite{})
+var _ = gc.Suite(&provisionerContainerSuite{})
 
-type prepareContainerSuite struct {
-	coretesting.BaseSuite
-
-	*gitjujutesting.Stub
+type provisionerContainerSuite struct {
+	containerTag names.MachineTag
 }
 
-type prepareFacade struct {
-	*gitjujutesting.Stub
-
-	prepareResult []params.NetworkConfig
-	prepareError  error
+func (s *provisionerContainerSuite) SetUpTest(c *gc.C) {
+	s.containerTag = names.NewMachineTag("0/lxd/0")
 }
 
-func (f *prepareFacade) FacadeCall(objType string, version int, id, request string, requestParams, response interface{}) error {
-	// We only support PrepareContainerInterfaceInfo
-	if objType != "Provisioner" {
-		return errors.Errorf("bad facade name: %q", objType)
-	}
-	if version != 0 {
-		return errors.Errorf("bad version: %d", version)
-	}
-	if request != "PrepareContainerInterfaceInfo" {
-		return errors.Errorf("bad method name: %q", request)
-	}
-	entities, ok := requestParams.(params.Entities)
-	if !ok {
-		return errors.Errorf("unknown request type: %t", requestParams)
-	}
-	f.Stub.AddCall("api.PrepareContainerInterfaceInfo", entities.Entities)
-	if len(entities.Entities) != 1 {
-		return errors.Errorf("only support a single entity not: %v", entities.Entities)
-	}
-	result, ok := response.(*params.MachineNetworkConfigResults)
-	if !ok {
-		return errors.Errorf("invalid return type: %t", response)
-	}
-	result.Results = make([]params.MachineNetworkConfigResult, len(entities.Entities))
-	if f.prepareError != nil {
-		result.Results[0].Error = common.ServerError(f.prepareError)
-	} else {
-		result.Results[0].Config = f.prepareResult
-	}
-	return nil
-}
+func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-func (s *prepareContainerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.Stub = &gitjujutesting.Stub{}
-}
-
-func (s *prepareContainerSuite) apiForPrepareContainer(config []params.NetworkConfig, err error) base.APICaller {
-	facade := &prepareFacade{
-		Stub:          s.Stub,
-		prepareResult: config,
-		prepareError:  err,
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.containerTag.String()}},
 	}
-	return apibasetesting.APICallerFunc(facade.FacadeCall)
-}
+	results := params.MachineNetworkConfigResults{Results: []params.MachineNetworkConfigResult{{
+		Config: nil,
+		Error:  nil,
+	}}}
 
-func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
-	apicaller := s.apiForPrepareContainer(nil, nil)
-	st := provisioner.NewState(apicaller)
-	networkInfo, err := st.PrepareContainerInterfaceInfo(names.NewMachineTag("machine-0/lxd/0"))
+	facadeCaller := apimocks.NewMockFacadeCaller(ctrl)
+	fExp := facadeCaller.EXPECT()
+	fExp.FacadeCall("PrepareContainerInterfaceInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
+
+	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{})
 }
 
-func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
-	apicaller := s.apiForPrepareContainer([]params.NetworkConfig{{
-		DeviceIndex:         1,
-		MACAddress:          "de:ad:be:ff:11:22",
-		CIDR:                "192.168.0.5/24",
-		MTU:                 9000,
-		ProviderId:          "prov-id",
-		ProviderSubnetId:    "prov-sub-id",
-		ProviderSpaceId:     "prov-space-id",
-		ProviderAddressId:   "prov-address-id",
-		ProviderVLANId:      "prov-vlan-id",
-		VLANTag:             25,
-		InterfaceName:       "eth5",
-		ParentInterfaceName: "parent#br-eth5",
-		InterfaceType:       "ethernet",
-		Disabled:            false,
-		NoAutoStart:         false,
-		ConfigType:          "static",
-		Address:             "192.168.0.6",
-		DNSServers:          []string{"8.8.8.8"},
-		DNSSearchDomains:    []string{"mydomain"},
-		GatewayAddress:      "192.168.0.1",
-		Routes: []params.NetworkRoute{{
-			DestinationCIDR: "10.0.0.0/16",
-			GatewayIP:       "192.168.0.1",
-			Metric:          55,
+func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.containerTag.String()}},
+	}
+	results := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{
+			Config: []params.NetworkConfig{{
+				DeviceIndex:         1,
+				MACAddress:          "de:ad:be:ff:11:22",
+				CIDR:                "192.168.0.5/24",
+				MTU:                 9000,
+				ProviderId:          "prov-id",
+				ProviderSubnetId:    "prov-sub-id",
+				ProviderSpaceId:     "prov-space-id",
+				ProviderAddressId:   "prov-address-id",
+				ProviderVLANId:      "prov-vlan-id",
+				VLANTag:             25,
+				InterfaceName:       "eth5",
+				ParentInterfaceName: "parent#br-eth5",
+				InterfaceType:       "ethernet",
+				Disabled:            false,
+				NoAutoStart:         false,
+				ConfigType:          "static",
+				Address:             "192.168.0.6",
+				DNSServers:          []string{"8.8.8.8"},
+				DNSSearchDomains:    []string{"mydomain"},
+				GatewayAddress:      "192.168.0.1",
+				Routes: []params.NetworkRoute{{
+					DestinationCIDR: "10.0.0.0/16",
+					GatewayIP:       "192.168.0.1",
+					Metric:          55,
+				}},
+			}},
+			Error: nil,
 		}},
-	}}, nil)
-	st := provisioner.NewState(apicaller)
-	networkInfo, err := st.PrepareContainerInterfaceInfo(names.NewMachineTag("machine-0/lxd/0"))
+	}
+
+	facadeCaller := apimocks.NewMockFacadeCaller(ctrl)
+	fExp := facadeCaller.EXPECT()
+	fExp.FacadeCall("PrepareContainerInterfaceInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
+	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:         1,
@@ -956,4 +935,63 @@ func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc
 			Metric:          55,
 		}},
 	}})
+}
+
+func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.containerTag.String()}},
+	}
+	results := params.ContainerProfileResults{
+		Results: []params.ContainerProfileResult{
+			{
+				LXDProfiles: []params.ContainerLXDProfile{{
+					Profile: params.CharmLXDProfile{
+						Config: map[string]string{
+							"security.nesting":    "true",
+							"security.privileged": "true",
+						},
+					},
+					Name: "one",
+				}, {
+					Profile: params.CharmLXDProfile{
+						Devices: map[string]map[string]string{
+							"bdisk": {
+								"source": "/dev/loop0",
+								"type":   "unix-block",
+							},
+						},
+					},
+					Name: "two",
+				}},
+				Error: nil,
+			}},
+	}
+
+	facadeCaller := apimocks.NewMockFacadeCaller(ctrl)
+	fExp := facadeCaller.EXPECT()
+	fExp.FacadeCall("GetContainerProfileInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
+
+	obtainedResults, err := provisionerApi.GetContainerProfileInfo(s.containerTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResults, gc.DeepEquals, []provisioner.LXDProfileResult{{
+		Config: map[string]string{
+			"security.nesting":    "true",
+			"security.privileged": "true",
+		},
+		Name: "one",
+	}, {
+		Devices: map[string]map[string]string{
+			"bdisk": {
+				"source": "/dev/loop0",
+				"type":   "unix-block",
+			},
+		},
+		Name: "two",
+	}})
+
 }

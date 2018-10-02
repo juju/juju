@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/jsonschema"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -521,11 +520,4 @@ type DefaultConstraintsChecker interface {
 	// ShouldApplyControllerConstraints returns if bootstrapping logic should
 	// use default constraints
 	ShouldApplyControllerConstraints() bool
-}
-
-// LXDProfiler defines an interface for dealing with lxd profiles used to
-// deploy juju machines.
-type LXDProfiler interface {
-	// MaybeWriteLXDProfile, write given LXDProfile to if not already there.
-	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
 }
