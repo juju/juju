@@ -38,17 +38,17 @@ func NewK8sClientConfig(reader io.Reader) (*ClientConfig, error) {
 
 	contexts, err := contextsFromConfig(config)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config.")
+		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config")
 	}
 
 	clouds, err := cloudsFromConfig(config)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read clouds from kubernetes config.")
+		return nil, errors.Annotate(err, "failed to read clouds from kubernetes config")
 	}
 
 	credentials, err := credentialsFromConfig(config)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config.")
+		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
 	}
 
 	return &ClientConfig{
@@ -99,6 +99,8 @@ func cloudsFromConfig(config *clientcmdapi.Config) (map[string]CloudConfig, erro
 func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Credential, error) {
 	rv := map[string]cloud.Credential{}
 	for name, user := range config.AuthInfos {
+		logger.Debugf("name %q, user %#v", name, user)
+
 		var hasCert bool
 		attrs := map[string]string{}
 
@@ -134,8 +136,7 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 		var authType cloud.AuthType
 		if user.Token != "" {
 			if user.Username != "" || user.Password != "" {
-				logger.Warningf("invalid AuthInfo: '%s' has both Token and User/Pass: skipping", name)
-				continue
+				return nil, errors.NotValidf("AuthInfo: %q has both Token and User/Pass", name)
 			}
 			attrs["Token"] = user.Token
 			if hasCert {
@@ -156,8 +157,11 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 			}
 		} else if hasCert {
 			authType = cloud.CertificateAuthType
+			if len(user.ClientKeyData) == 0 {
+				return nil, errors.NotValidf("ClientKeyData is empty for %q AuthInfo %q", authType, name)
+			}
 		} else {
-			logger.Warningf("unsupported configuration for AuthInfo '%s'", name)
+			return nil, errors.NotValidf("unsupported configuration for AuthInfo %q", name)
 		}
 
 		cred := cloud.NewCredential(authType, attrs)
