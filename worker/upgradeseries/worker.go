@@ -167,8 +167,6 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	switch w.machineStatus {
 	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted()
-	case model.UpgradeSeriesPrepareMachine:
-		err = w.handlePrepareMachine()
 	case model.UpgradeSeriesCompleteStarted:
 		err = w.handleCompleteStarted()
 	case model.UpgradeSeriesCompleted:
@@ -195,37 +193,6 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 			unitNames(unitServices),
 		)
 		return nil
-	}
-
-	return errors.Trace(w.transitionPrepareMachine(unitServices))
-}
-
-func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]string) error {
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "all unit prepare hooks completed"))
-}
-
-// handlePrepareMachine handles workflow for the machine with an upgrade-series
-// lock status of "UpgradeSeriesPrepareMachine".
-// TODO (manadart 2018-08-09): Rename when a better name is contrived for
-// "UpgradeSeriesPrepareMachine".
-func (w *upgradeSeriesWorker) handlePrepareMachine() error {
-	var err error
-	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// This is a sanity check.
-	// The units should all still be in the "PrepareComplete" state.
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !allConfirmed {
-		w.logger.Warningf(
-			"units are not all in the expected state for series upgrade preparation (complete); "+
-				"known unit agent services: %s",
-			unitNames(unitServices),
-		)
 	}
 
 	return errors.Trace(w.transitionPrepareComplete(unitServices))
