@@ -137,14 +137,14 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	target := lxdtesting.NewMockContainerServer(ctrl)
 	tExp := target.EXPECT()
 	serverRet := &api.Server{}
+	image := &api.Image{Filename: "container-image"}
+
 	tExp.GetServer().Return(serverRet, lxdtesting.ETag, nil)
+	tExp.GetImageAlias("juju/bionic/amd64").Return(&api.ImageAliasesEntry{}, lxdtesting.ETag, nil)
+	tExp.GetImage("").Return(image, lxdtesting.ETag, nil)
 
 	jujuTarget, err := containerlxd.NewServer(target)
 	c.Assert(err, jc.ErrorIsNil)
-
-	image := containerlxd.SourcedImage{
-		Image: &api.Image{Filename: "container-image"},
-	}
 
 	members := []api.ClusterMember{
 		{
@@ -167,11 +167,10 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	sExp := svr.EXPECT()
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
-		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 		sExp.UseTargetServer("node01").Return(jujuTarget, nil),
+		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.HostArch().Return(arch.AMD64),
 	)
 
@@ -195,10 +194,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	image := containerlxd.SourcedImage{
-		Image: &api.Image{Filename: "container-image"},
-	}
-
 	members := []api.ClusterMember{{
 		ServerName: "node01",
 		Status:     "ONLINE",
@@ -207,8 +202,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	sExp := svr.EXPECT()
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
-		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 	)
@@ -227,10 +220,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	image := containerlxd.SourcedImage{
-		Image: &api.Image{Filename: "container-image"},
-	}
-
 	members := []api.ClusterMember{{
 		ServerName: "node01",
 		Status:     "OFFLINE",
@@ -239,8 +228,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	sExp := svr.EXPECT()
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
-		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 	)
@@ -259,15 +246,9 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	image := containerlxd.SourcedImage{
-		Image: &api.Image{Filename: "container-image"},
-	}
-
 	sExp := svr.EXPECT()
 	gomock.InOrder(
 		sExp.HostArch().Return(arch.AMD64),
-		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
-		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 	)
 	env := s.NewEnviron(c, svr, nil)
 
