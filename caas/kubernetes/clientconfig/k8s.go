@@ -136,7 +136,7 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 		var authType cloud.AuthType
 		if user.Token != "" {
 			if user.Username != "" || user.Password != "" {
-				return nil, errors.NotValidf("AuthInfo: %q has both Token and User/Pass", name)
+				return nil, errors.NotValidf("AuthInfo: %q with both Token and User/Pass", name)
 			}
 			attrs["Token"] = user.Token
 			if hasCert {
@@ -158,10 +158,10 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 		} else if hasCert {
 			authType = cloud.CertificateAuthType
 			if len(user.ClientKeyData) == 0 {
-				return nil, errors.NotValidf("ClientKeyData is empty for %q AuthInfo %q", authType, name)
+				return nil, errors.NotValidf("empty ClientKeyData for %q with auth type %q", name, authType)
 			}
 		} else {
-			return nil, errors.NotValidf("unsupported configuration for AuthInfo %q", name)
+			return nil, errors.NotSupportedf("configuration for %q", name)
 		}
 
 		cred := cloud.NewCredential(authType, attrs)
