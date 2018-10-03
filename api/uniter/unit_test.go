@@ -723,7 +723,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
-	arbitraryNonDefaultStatus := model.UpgradeSeriesNotStarted
+	arbitraryNonDefaultStatus := model.UpgradeSeriesPrepareRunning
 	arbitraryReason := ""
 
 	// First we create the prepare lock or the required state will not exists
