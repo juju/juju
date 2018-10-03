@@ -8,11 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/utils/featureflag"
 
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-
-	"github.com/juju/juju/feature"
 )
 
 // ValidateLXDProfileCharm implements the DeployStep interface.
@@ -30,13 +27,19 @@ func (r *ValidateLXDProfileCharm) SetPlanURL(planURL string) {
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *ValidateLXDProfileCharm) RunPre(api DeployStepAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// if the charm info is not empty, we should use that to validate the
-		// lxd profile.
-		if charmInfo := deployInfo.CharmInfo; charmInfo != nil {
-			if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
-				return errors.Trace(err)
+	// if the charm info is not empty, we should use that to validate the
+	// lxd profile.
+	if charmInfo := deployInfo.CharmInfo; charmInfo != nil {
+		if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
+			// The force flag was provided, but we should let the user know that
+			// this could deliver some unexpected results.
+			if deployInfo.Force {
+				// TODO (stickupkid): should we consider raising this to the user
+				// so they're aware of potential pitfalls?
+				logger.Infof("force flag used to override validation error %v", err)
+				return nil
 			}
+			return errors.Trace(err)
 		}
 	}
 	return nil

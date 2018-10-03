@@ -601,6 +601,7 @@ type DeploymentInfo struct {
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
 	ApplicationPlan string
+	Force           bool
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -794,6 +795,7 @@ func (c *DeployCommand) deployBundle(
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       modelUUID,
+					Force:           c.Force,
 				}
 
 				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
@@ -950,6 +952,7 @@ func (c *DeployCommand) deployCharm(
 		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
+		Force:           c.Force,
 	}
 
 	for _, step := range c.Steps {
