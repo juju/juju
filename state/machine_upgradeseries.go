@@ -423,7 +423,7 @@ func (m *Machine) verifyUnitUpgradeSeriesStatus(unitName string, status model.Up
 	if !ok {
 		return false, errors.NotFoundf(unitName)
 	}
-	return model.CompareUpgradeSeriesStatus(us.Status, status) == -1, nil
+	return model.CompareUpgradeSeriesStatus(us.Status, status) == -1
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
