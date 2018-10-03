@@ -68,8 +68,8 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	// here, with the same effect and greater clarity.
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(6),
-		s.expectMachineUnitServiceDiscovery,
-		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete,
+		s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction,
+		s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete,
 		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
 		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
 		s.expectMachineCompletedFinishUpgradeSeries,
@@ -120,15 +120,7 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
-	// Only one of the two units has completed preparation.
-	s.expectUnitsPrepared("wordpress/0")
-
-	// After comparing the prepare-complete units with the services,
-	// no further action is taken.
-	s.expectServiceDiscovery(false)
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1), s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -138,33 +130,34 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
-func (s *workerSuite) expectMachineUnitServiceDiscovery() {
+func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction() {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
-	// All known units have completed preparation - the workflow progresses.
-	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	s.facade.EXPECT().SetMachineStatus(model.UpgradeSeriesPrepareMachine, gomock.Any()).Return(nil)
+	// Only one of the two units has completed preparation.
+	s.expectUnitsPrepared("wordpress/0")
 
+	// After comparing the prepare-complete units with the services,
+	// no further action is taken.
 	s.expectServiceDiscovery(false)
 }
 
-func (s *workerSuite) TestMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
+func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete)
+		s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
-		"machine status": model.UpgradeSeriesPrepareMachine,
+		"machine status": model.UpgradeSeriesPrepareStarted,
 		"prepared units": []string{"wordpress/0", "mysql/0"},
 	}
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
 }
 
-func (s *workerSuite) expectMachinePrepareMachineUnitFilesWrittenProgressPrepareComplete() {
+func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete() {
 	exp := s.facade.EXPECT()
 
-	exp.MachineStatus().Return(model.UpgradeSeriesPrepareMachine, nil)
+	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 	exp.TargetSeries().Return("xenial", nil)
 
