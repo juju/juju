@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
@@ -121,4 +122,14 @@ func (s *leaseStore) Leases() map[lease.Key]lease.Info {
 // Refresh is part of lease.Store.
 func (s *leaseStore) Refresh() error {
 	return nil
+}
+
+// PinLease is part of lease.Store.
+func (s *leaseStore) PinLease(key lease.Key) error {
+	return errors.NotImplementedf("pinning for legacy leases")
+}
+
+// UnpinLease is part of lease.Store.
+func (s *leaseStore) UnpinLease(key lease.Key) error {
+	return errors.NotImplementedf("unpinning for legacy leases")
 }

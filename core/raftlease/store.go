@@ -128,6 +128,26 @@ func (s *Store) Refresh() error {
 	return nil
 }
 
+// PinLease is part of lease.Store.
+func (s *Store) PinLease(key lease.Key) error {
+	return errors.Trace(s.pinOp(key, OperationPin))
+}
+
+// UnpinLease is part of lease.Store.
+func (s *Store) UnpinLease(key lease.Key) error {
+	return errors.Trace(s.pinOp(key, OperationUnpin))
+}
+
+func (s *Store) pinOp(key lease.Key, operation string) error {
+	return errors.Trace(s.runOnLeader(&Command{
+		Version:   CommandVersion,
+		Operation: operation,
+		Namespace: key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Lease:     key.Lease,
+	}))
+}
+
 // Advance is part of globalclock.Updater.
 func (s *Store) Advance(duration time.Duration) error {
 	s.prevTimeMu.Lock()

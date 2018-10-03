@@ -69,10 +69,10 @@ type leadershipChecker struct {
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
-func (m leadershipChecker) LeadershipCheck(applicationname, unitName string) leadership.Token {
-	token := m.checker.Token(applicationname, unitName)
+func (m leadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
+	token := m.checker.Token(applicationName, unitName)
 	return leadershipToken{
-		applicationname: applicationname,
+		applicationName: applicationName,
 		unitName:        unitName,
 		token:           token,
 	}
@@ -80,7 +80,7 @@ func (m leadershipChecker) LeadershipCheck(applicationname, unitName string) lea
 
 // leadershipToken implements leadership.Token by wrapping a lease.Token.
 type leadershipToken struct {
-	applicationname string
+	applicationName string
 	unitName        string
 	token           lease.Token
 }
@@ -89,12 +89,12 @@ type leadershipToken struct {
 func (t leadershipToken) Check(out interface{}) error {
 	err := t.token.Check(out)
 	if errors.Cause(err) == lease.ErrNotHeld {
-		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationname)
+		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationName)
 	}
 	return errors.Trace(err)
 }
 
-// leadershipClaimer implements leadership.Claimer by wrappping a lease.Claimer.
+// leadershipClaimer implements leadership.Claimer by wrapping a lease.Claimer.
 type leadershipClaimer struct {
 	claimer lease.Claimer
 }

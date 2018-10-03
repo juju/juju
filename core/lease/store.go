@@ -36,7 +36,7 @@ type Store interface {
 	// expressed according to the Clock the store was configured with.
 	Leases() map[Key]Info
 
-	// TODO (jam) 2017-10-31: Many callers of Leases() actually only tant
+	// TODO (jam) 2017-10-31: Many callers of Leases() actually only want
 	// exactly 1 lease, we should have a way to do a query to return exactly
 	// that lease, instead of having to read all of them to pull one out of the
 	// map. (Worst case it is implemented as exactly this, best case avoids
@@ -44,6 +44,17 @@ type Store interface {
 
 	// Refresh reads all lease state from the database.
 	Refresh() error
+
+	// PinLease ensures that the holder of the input lease will not have its
+	// claim expired until UnpinLease is called for the same key.
+	// A current lease holder is not required for this operation to succeed.
+	// If there is no holder, the next claimant of the lease will hold it at
+	// least until Unpin is called.
+	PinLease(lease Key) error
+
+	// UnpinLease removes the pin from the input lease,
+	// restoring normal expiry behaviour.
+	UnpinLease(lease Key) error
 }
 
 // Key fully identifies a lease, including the namespace and

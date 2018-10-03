@@ -52,6 +52,16 @@ func (s *deadManagerSuite) TestChecker(c *gc.C) {
 	checkMethods(c, checker)
 }
 
+// And Pinner.
+func (s *deadManagerSuite) TestPinner(c *gc.C) {
+	deadManagerErr := deadManagerError{}
+	deadManager := lease.NewDeadManager(&deadManagerErr)
+
+	checker, err := deadManager.Pinner("namespace", "model")
+	c.Assert(err, jc.ErrorIsNil)
+	checkMethods(c, checker)
+}
+
 func checkMethods(c *gc.C, manager interface{}) {
 	managerType := reflect.TypeOf(manager)
 	managerValue := reflect.ValueOf(manager)

@@ -188,6 +188,16 @@ func (store *store) ExpireLease(key lease.Key) error {
 	return nil
 }
 
+// PinLease is part of the Store interface.
+func (store *store) PinLease(key lease.Key) error {
+	return errors.NotImplementedf("pinning for legacy leases")
+}
+
+// UnpinLease is part of the Store interface.
+func (store *store) UnpinLease(key lease.Key) error {
+	return errors.NotImplementedf("unpinning for legacy leases")
+}
+
 // Refresh is part of the Store interface.
 func (store *store) Refresh() error {
 	store.mu.Lock()

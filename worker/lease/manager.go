@@ -72,6 +72,8 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		claims:     make(chan claim),
 		checks:     make(chan check),
 		blocks:     make(chan block),
+		pins:       make(chan pin),
+		unpins:     make(chan pin),
 		errors:     make(chan error),
 		logContext: logContext,
 	}
@@ -110,6 +112,12 @@ type Manager struct {
 
 	// blocks is used to deliver expiry block requests to the loop.
 	blocks chan block
+
+	// pins is used to deliver lease pin requests to the loop.
+	pins chan pin
+
+	// unpins is used to deliver lease unpin requests to the loop.
+	unpins chan pin
 
 	// errors is used to send errors from background claim or tick
 	// goroutines back to the main loop.
@@ -164,6 +172,10 @@ func (manager *Manager) choose(blocks blocks) error {
 	case claim := <-manager.claims:
 		manager.wg.Add(1)
 		go manager.retryingClaim(claim)
+	case pin := <-manager.pins:
+		manager.handlePin(pin)
+	case unpin := <-manager.unpins:
+		manager.handleUnpin(unpin)
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
@@ -172,7 +184,7 @@ func (manager *Manager) choose(blocks blocks) error {
 	return nil
 }
 
-func (manager *Manager) bind(namespace, modelUUID string) (checkerClaimer, error) {
+func (manager *Manager) bind(namespace, modelUUID string) (broker, error) {
 	secretary, err := manager.config.Secretary(namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -192,6 +204,11 @@ func (manager *Manager) Checker(namespace, modelUUID string) (lease.Checker, err
 
 // Claimer returns a lease.Claimer for the specified namespace and model.
 func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, error) {
+	return manager.bind(namespace, modelUUID)
+}
+
+// Pinner returns a lease.Pinner for the specified namespace and model.
+func (manager *Manager) Pinner(namespace, modelUUID string) (lease.Pinner, error) {
 	return manager.bind(namespace, modelUUID)
 }
 
@@ -259,10 +276,12 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 			info, found := store.Leases()[claim.leaseKey]
 			switch {
 			case !found:
-				manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+				manager.config.Logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 				err = store.ClaimLease(claim.leaseKey, request)
 			case info.Holder == claim.holderName:
-				manager.config.Logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+				manager.config.Logger.Tracef("[%s] %s extending lease %s for %s",
+					manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
 				err = store.ExtendLease(claim.leaseKey, request)
 			default:
 				// Note: (jam) 2017-10-31) We don't check here if the lease has
@@ -285,10 +304,13 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
 	store := manager.config.Store
-	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseKey.Lease, check.holderName)
+	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
+		manager.logContext, check.leaseKey.Lease, check.holderName)
+
 	info, found := store.Leases()[check.leaseKey]
 	if !found || info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseKey.Lease, check.holderName)
+		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
+			manager.logContext, check.leaseKey.Lease, check.holderName)
 		if err := store.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
@@ -297,7 +319,8 @@ func (manager *Manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseKey.Lease, check.holderName)
+		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
+			manager.logContext, check.leaseKey.Lease, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
@@ -408,7 +431,8 @@ func (manager *Manager) tick(now time.Time) error {
 		for _, expiredKey := range expired {
 			names = append(names, expiredKey.Lease)
 		}
-		manager.config.Logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
+		manager.config.Logger.Debugf(
+			"[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
 	}
 	return nil
 }
@@ -422,6 +446,14 @@ func (manager *Manager) startRetry() *retry.Attempt {
 		manager.config.Clock,
 		manager.catacomb.Dying(),
 	)
+}
+
+func (manager *Manager) handlePin(p pin) {
+	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey)))
+}
+
+func (manager *Manager) handleUnpin(p pin) {
+	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey)))
 }
 
 func keysLess(a, b lease.Key) bool {
