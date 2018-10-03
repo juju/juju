@@ -167,8 +167,6 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	switch w.machineStatus {
 	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted()
-	case model.UpgradeSeriesPrepareMachine:
-		err = w.handlePrepareMachine()
 	case model.UpgradeSeriesCompleteStarted:
 		err = w.handleCompleteStarted()
 	case model.UpgradeSeriesCompleted:
@@ -195,60 +193,6 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 			unitNames(unitServices),
 		)
 		return nil
-	}
-
-	return errors.Trace(w.transitionPrepareMachine(unitServices))
-}
-
-// transitionPrepareMachine stops all unit agents on this machine and updates
-// the upgrade-series status lock to indicate that upgrade work can proceed.
-// TODO (manadart 2018-08-09): Rename when a better name is contrived for
-// "UpgradeSeriesPrepareMachine".
-func (w *upgradeSeriesWorker) transitionPrepareMachine(unitServices map[string]string) error {
-	w.logger.Infof("stopping units for series upgrade")
-
-	for unit, serviceName := range unitServices {
-		svc, err := w.service.DiscoverService(serviceName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		running, err := svc.Running()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !running {
-			continue
-		}
-
-		if err := svc.Stop(); err != nil {
-			return errors.Annotatef(err, "stopping %q unit agent for series upgrade", unit)
-		}
-	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareMachine, "all units stopped for series upgrade"))
-}
-
-// handlePrepareMachine handles workflow for the machine with an upgrade-series
-// lock status of "UpgradeSeriesPrepareMachine".
-// TODO (manadart 2018-08-09): Rename when a better name is contrived for
-// "UpgradeSeriesPrepareMachine".
-func (w *upgradeSeriesWorker) handlePrepareMachine() error {
-	var err error
-	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// This is a sanity check.
-	// The units should all still be in the "PrepareComplete" state.
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !allConfirmed {
-		w.logger.Warningf(
-			"units are not all in the expected state for series upgrade preparation (complete); "+
-				"known unit agent services: %s",
-			unitNames(unitServices),
-		)
 	}
 
 	return errors.Trace(w.transitionPrepareComplete(unitServices))
