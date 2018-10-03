@@ -28,6 +28,7 @@ type applicationWorker struct {
 	applicationGetter        ApplicationGetter
 	applicationUpdater       ApplicationUpdater
 	unitUpdater              UnitUpdater
+	operatorUpdater          OperatorUpdater
 }
 
 func newApplicationWorker(
@@ -39,6 +40,7 @@ func newApplicationWorker(
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 	unitUpdater UnitUpdater,
+	operatorUpdater OperatorUpdater,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
 		application:              application,
@@ -49,6 +51,7 @@ func newApplicationWorker(
 		applicationGetter:        applicationGetter,
 		applicationUpdater:       applicationUpdater,
 		unitUpdater:              unitUpdater,
+		operatorUpdater:          operatorUpdater,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -83,13 +86,19 @@ func (aw *applicationWorker) loop() error {
 	}
 	aw.catacomb.Add(deploymentWorker)
 
-	var brokerUnitsWatcher watcher.NotifyWatcher
+	var (
+		brokerUnitsWatcher watcher.NotifyWatcher
+		appOperatorWatcher watcher.NotifyWatcher
+	)
 	// The caas watcher can just die from underneath us hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
 	// workers unbounded, use use a defer to stop the running worker.
 	defer func() {
 		if brokerUnitsWatcher != nil {
 			worker.Stop(brokerUnitsWatcher)
+		}
+		if appOperatorWatcher != nil {
+			worker.Stop(appOperatorWatcher)
 		}
 	}()
 
@@ -109,6 +118,13 @@ func (aw *applicationWorker) loop() error {
 				return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
 			}
 		}
+		if appOperatorWatcher == nil {
+			appOperatorWatcher, err = aw.containerBroker.WatchOperator(aw.application)
+			if err != nil {
+				return errors.Annotatef(err, "failed to start operator watcher for %q", aw.application)
+			}
+		}
+
 		select {
 		// We must handle any processing due to application being removed prior
 		// to shutdown so that we don't leave stuff running in the cloud.
@@ -189,6 +205,20 @@ func (aw *applicationWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
+		case _, ok := <-appOperatorWatcher.Changes():
+			if !ok {
+				return errors.New("operator watcher channel closed")
+			}
+			logger.Debugf("operator update for %v", aw.application)
+			operator, err := aw.containerBroker.Operator(aw.application)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = aw.operatorUpdater.UpdateOperator(aw.application, operator.Status)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
+
 	}
 }

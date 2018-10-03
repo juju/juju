@@ -592,6 +592,19 @@ type UpdateApplicationServiceArg struct {
 	Addresses      []Address `json:"addresses"`
 }
 
+type UpdateApplicationOperatorArgs struct {
+	Args []UpdateApplicationOperatorArg `json:"args"`
+}
+
+// UpdateApplicationServiceArg holds parameters used to update
+// an application's service definition for the cloud.
+type UpdateApplicationOperatorArg struct {
+	ApplicationTag string                 `json:"application-tag"`
+	Status         string                 `json:"status"`
+	Info           string                 `json:"info"`
+	Data           map[string]interface{} `json:"data,omitempty"`
+}
+
 // DestroyApplicationUnits holds parameters for the deprecated
 // Application.DestroyUnits call.
 type DestroyApplicationUnits struct {

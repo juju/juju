@@ -76,10 +76,12 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 type mockContainerBroker struct {
 	testing.Stub
 	caas.ContainerEnvironProvider
-	serviceDeleted     chan<- struct{}
-	unitsWatcher       *watchertest.MockNotifyWatcher
-	reportedUnitStatus status.Status
-	podSpec            *caas.PodSpec
+	serviceDeleted         chan<- struct{}
+	unitsWatcher           *watchertest.MockNotifyWatcher
+	operatorWatcher        *watchertest.MockNotifyWatcher
+	reportedUnitStatus     status.Status
+	reportedOperatorStatus status.Status
+	podSpec                *caas.PodSpec
 }
 
 func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
@@ -124,6 +126,22 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 			},
 		},
 		m.NextErr()
+}
+
+func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
+	m.MethodCall(m, "Operator", appName)
+	return &caas.Operator{
+		Dying: false,
+		Status: status.StatusInfo{
+			Status:  m.reportedOperatorStatus,
+			Message: "testing 1. 2. 3.",
+		},
+	}, nil
+}
+
+func (m *mockContainerBroker) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchOperator", appName)
+	return m.operatorWatcher, m.NextErr()
 }
 
 type mockApplicationGetter struct {
@@ -259,6 +277,18 @@ type mockUnitUpdater struct {
 
 func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	m.MethodCall(m, "UpdateUnits", arg)
+	if err := m.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type mockOperatorUpdater struct {
+	testing.Stub
+}
+
+func (m *mockOperatorUpdater) UpdateOperator(appName string, opStatus status.StatusInfo) error {
+	m.MethodCall(m, "UpdateOperator", appName, opStatus)
 	if err := m.NextErr(); err != nil {
 		return err
 	}

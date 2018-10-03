@@ -79,7 +79,7 @@ func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAt
 	return application.ConfigAttributes(results.Results[0].Config), nil
 }
 
-// WatchUnits returns a StringsWatcher that notifies of
+// WatchApplicationScale returns a NotifyWatcher that notifies of
 // changes to the lifecycles of units of the specified
 // CAAS application in the current model.
 func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {
@@ -141,6 +141,27 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 	}
 	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), results.Results[0])
 	return w, nil
+}
+
+// UpdateOperator updates the stored details for an applications operator.
+func (c *Client) UpdateOperator(appName string, opStatus status.StatusInfo) error {
+	tag, err := applicationTag(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var result params.ErrorResults
+	args := params.UpdateApplicationOperatorArgs{
+		Args: []params.UpdateApplicationOperatorArg{{
+			ApplicationTag: tag.String(),
+			Status:         opStatus.Status.String(),
+			Info:           opStatus.Message,
+			Data:           opStatus.Data,
+		}},
+	}
+	if err := c.facade.FacadeCall("UpdateOperator", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
 }
 
 // ProvisioningInfo holds unit provisioning info.

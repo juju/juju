@@ -309,6 +309,37 @@ func (s *unitprovisionerSuite) TestApplicationConfig(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, application.ConfigAttributes{"foo": "bar"})
 }
 
+func (s *unitprovisionerSuite) TestUpdateOperator(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "UpdateOperator")
+		c.Assert(a, jc.DeepEquals, params.UpdateApplicationOperatorArgs{
+			Args: []params.UpdateApplicationOperatorArg{{
+				ApplicationTag: "application-gitlab",
+				Status:         status.Active.String(),
+				Info:           "testing 1. 2. 3.",
+				Data:           map[string]interface{}{"foo": "bar"},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	testStatus := status.StatusInfo{
+		Status:  status.Active,
+		Message: "testing 1. 2. 3.",
+		Data:    map[string]interface{}{"foo": "bar"},
+	}
+	err := client.UpdateOperator("gitlab", testStatus)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+}
+
 func (s *unitprovisionerSuite) TestUpdateUnits(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
