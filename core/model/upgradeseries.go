@@ -14,12 +14,11 @@ var UpgradeSeriesStatusOrder map[UpgradeSeriesStatus]int = map[UpgradeSeriesStat
 	UpgradeSeriesNotStarted:       0,
 	UpgradeSeriesPrepareStarted:   1,
 	UpgradeSeriesPrepareRunning:   2,
-	UpgradeSeriesPrepareMachine:   3,
-	UpgradeSeriesPrepareCompleted: 4,
-	UpgradeSeriesCompleteStarted:  5,
-	UpgradeSeriesCompleteRunning:  6,
-	UpgradeSeriesCompleted:        7,
-	UpgradeSeriesError:            8,
+	UpgradeSeriesPrepareCompleted: 3,
+	UpgradeSeriesCompleteStarted:  4,
+	UpgradeSeriesCompleteRunning:  5,
+	UpgradeSeriesCompleted:        6,
+	UpgradeSeriesError:            7,
 }
 
 const (
@@ -34,9 +33,9 @@ const (
 	UpgradeSeriesError            UpgradeSeriesStatus = "error"
 )
 
-// ValidateUnitSeriesUpgradeStatus validates a the input status as valid for a
+// ValidateUpgradeSeriesStatus validates a the input status as valid for a
 // unit, returning the valid status or an error.
-func ValidateUnitSeriesUpgradeStatus(status UpgradeSeriesStatus) (UpgradeSeriesStatus, error) {
+func ValidateUpgradeSeriesStatus(status UpgradeSeriesStatus) (UpgradeSeriesStatus, error) {
 	if _, ok := UpgradeSeriesStatusOrder[status]; !ok {
 		return UpgradeSeriesNotStarted, errors.NotValidf("upgrade series status of %q is", status)
 	}
@@ -48,8 +47,8 @@ func ValidateUnitSeriesUpgradeStatus(status UpgradeSeriesStatus) (UpgradeSeriesS
 // returned; 1 is returned otherwise.
 func CompareUpgradeSeriesStatus(status1 UpgradeSeriesStatus, status2 UpgradeSeriesStatus) (int, error) {
 	var err error
-	st1, err := ValidateUnitSeriesUpgradeStatus(status1)
-	st2, err := ValidateUnitSeriesUpgradeStatus(status2)
+	st1, err := ValidateUpgradeSeriesStatus(status1)
+	st2, err := ValidateUpgradeSeriesStatus(status2)
 	if err != nil {
 		return 0, err
 	}

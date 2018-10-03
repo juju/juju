@@ -27,7 +27,7 @@ func (*upgradeSeriesSuite) TestValidateUnitUpgradeSeriesStatus(c *gc.C) {
 		{model.UpgradeSeriesPrepareStarted, "prepare started", true},
 		{model.UpgradeSeriesNotStarted, "GTFO", false},
 	} {
-		status, err := model.ValidateUnitSeriesUpgradeStatus(model.UpgradeSeriesStatus(t.name))
+		status, err := model.ValidateUpgradeSeriesStatus(model.UpgradeSeriesStatus(t.name))
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

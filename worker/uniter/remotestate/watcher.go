@@ -582,7 +582,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, e
 	if err != nil {
 		return "", err
 	}
-	status, err := model.ValidateUnitSeriesUpgradeStatus(rawStatus)
+	status, err := model.ValidateUpgradeSeriesStatus(rawStatus)
 	if err != nil {
 		return "", err
 	}
