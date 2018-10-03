@@ -120,7 +120,7 @@ var initErrorTests = []struct {
 		err:  `invalid --to parameter "#:foo"`,
 	}, {
 		args: []string{"charm", "application", "--force"},
-		err:  `--force is only used with --series`,
+		err:  "",
 	}, {
 		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
@@ -134,7 +134,11 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
 		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
-		c.Check(err, gc.ErrorMatches, t.err)
+		if t.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.err)
+		}
 	}
 }
 

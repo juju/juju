@@ -663,9 +663,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	if c.Force && c.Series == "" && c.PlacementSpec == "" {
-		return errors.New("--force is only used with --series")
-	}
 	modelType, err := c.ModelType()
 	if err != nil {
 		return err
