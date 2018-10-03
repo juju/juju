@@ -27,6 +27,7 @@ type Config struct {
 	ProvisioningStatusSetter ProvisioningStatusSetter
 	LifeGetter               LifeGetter
 	UnitUpdater              UnitUpdater
+	OperatorUpdater          OperatorUpdater
 }
 
 // Validate validates the worker configuration.
@@ -51,6 +52,9 @@ func (config Config) Validate() error {
 	}
 	if config.UnitUpdater == nil {
 		return errors.NotValidf("missing UnitUpdater")
+	}
+	if config.OperatorUpdater == nil {
+		return errors.NotValidf("missing OperatorUpdater")
 	}
 	if config.ProvisioningStatusSetter == nil {
 		return errors.NotValidf("missing ProvisioningStatusSetter")
@@ -178,6 +182,7 @@ func (p *provisioner) loop() error {
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,
 					p.config.UnitUpdater,
+					p.config.OperatorUpdater,
 				)
 				if err != nil {
 					return errors.Trace(err)

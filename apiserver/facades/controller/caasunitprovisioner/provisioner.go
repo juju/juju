@@ -1184,6 +1184,40 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 	return result, nil
 }
 
+// UpdateOperator starts a StringsWatcher to watch changes to the
+// lifecycle states of units for the specified applications in
+// this model.
+func (f *Facade) UpdateOperator(args params.UpdateApplicationOperatorArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, appOperator := range args.Args {
+		appTag, err := names.ParseApplicationTag(appOperator.ApplicationTag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := f.state.Application(appTag.Id())
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		now := f.clock.Now()
+		appOperatorStatus := status.StatusInfo{
+			Status:  status.Status(appOperator.Status),
+			Message: appOperator.Info,
+			Data:    appOperator.Data,
+			Since:   &now,
+		}
+		err = app.SetOperatorStatus(appOperatorStatus)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+
+	return results, nil
+}
+
 // SetOperatorStatus updates the operator status for each given application.
 func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{

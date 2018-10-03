@@ -21,6 +21,7 @@ type Client interface {
 	ProvisioningInfoGetter
 	LifeGetter
 	UnitUpdater
+	OperatorUpdater
 	ProvisioningStatusSetter
 }
 
@@ -59,6 +60,12 @@ type LifeGetter interface {
 // Juju units from changes in the cloud.
 type UnitUpdater interface {
 	UpdateUnits(arg params.UpdateApplicationUnits) error
+}
+
+// OperatorUpdater provides an interface for updating application agent changes
+// from the operator
+type OperatorUpdater interface {
+	UpdateOperator(appName string, status status.StatusInfo) error
 }
 
 // ProvisioningStatusSetter provides an interface for

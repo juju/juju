@@ -1258,6 +1258,20 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	return newKubernetesWatcher(w, appName)
 }
 
+// WatchOperator returns a watcher which notifies when there
+// are changes to the operator of the specified application.
+func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
+	pods := k.CoreV1().Pods(k.namespace)
+	w, err := pods.Watch(v1.ListOptions{
+		LabelSelector: operatorSelector(appName),
+		Watch:         true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newKubernetesWatcher(w, appName)
+}
+
 // jujuPVNameRegexp matches how Juju labels persistent volumes.
 // The pattern is: juju-<storagename>-<digit>
 var jujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
@@ -1425,6 +1439,36 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	return units, nil
 }
 
+// Operator returns an Operator with current status and life details.
+func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
+	pods := k.CoreV1().Pods(k.namespace)
+	podsList, err := pods.List(v1.ListOptions{
+		LabelSelector: operatorSelector(appName),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(podsList.Items) == 0 {
+		return nil, errors.NotFoundf("operator pod")
+	}
+
+	opPod := podsList.Items[0]
+	terminated := opPod.DeletionTimestamp != nil
+	opStatus := k.jujuWorkloadStatus(opPod.Status.Phase, terminated)
+	statusMessage := opPod.Status.Message
+	now := time.Now()
+	// Split out and get condition message or event message for status if needed (i.e. as above in Units)
+	return &caas.Operator{
+		Id:    string(opPod.UID),
+		Dying: terminated,
+		Status: status.StatusInfo{
+			Status:  opStatus,
+			Message: statusMessage,
+			Since:   &now,
+		},
+	}, nil
+}
+
 func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {
 	if terminated {
 		return status.Terminated
@@ -1436,6 +1480,23 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 		return status.Error
 	case core.PodPending:
 		return status.Allocating
+	default:
+		return status.Unknown
+	}
+}
+
+func (k *kubernetesClient) jujuWorkloadStatus(podPhase core.PodPhase, terminated bool) status.Status {
+	if terminated {
+		return status.Terminated
+	}
+	// No comparable status for Waiting.
+	switch podPhase {
+	case core.PodRunning:
+		return status.Active
+	case core.PodPending:
+		return status.Maintenance
+	case core.PodFailed:
+		return status.Blocked
 	default:
 		return status.Unknown
 	}

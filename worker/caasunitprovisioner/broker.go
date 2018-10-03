@@ -13,6 +13,8 @@ type ContainerBroker interface {
 	Provider() caas.ContainerEnvironProvider
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 	Units(appName string) ([]caas.Unit, error)
+	WatchOperator(string) (watcher.NotifyWatcher, error)
+	Operator(string) (*caas.Operator, error)
 	DeleteService(appName string) error
 	UnexposeService(appName string) error
 }
