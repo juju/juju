@@ -87,6 +87,10 @@ type Context interface {
 	// context's model.
 	LeadershipChecker() (leadership.Checker, error)
 
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
+
 	// SingularClaimer returns a lease.Claimer for singular leases for
 	// this context's model.
 	SingularClaimer() (lease.Claimer, error)
