@@ -2,7 +2,9 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 /*
-The existing machinemanager_test.go uses a home grown mocking mechanism. I wanted to establish the new suffixed file to have a place to start systematically moving those tests to use gomock. There are two benefits to this
+The existing machinemanager_test.go uses a home grown mocking mechanism.
+I wanted to establish the new suffixed file to have a place to start systematically moving those tests to use gomock.
+There are two benefits to this
 
 1) We can work piecemeal
 2) We don't have to mix two mocking styles (in attempt to preserve one file) when transitioning between mocking styles
@@ -29,12 +31,15 @@ var _ = gc.Suite(&NewMachineManagerSuite{})
 type NewMachineManagerSuite struct {
 	jujutesting.BaseSuite
 
-	tag  names.Tag
-	args params.Entities
+	clientFacade *mocks.MockClientFacade
+	facade       *mocks.MockFacadeCaller
+
+	tag    names.Tag
+	args   params.Entities
+	client *machinemanager.Client
 }
 
 func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
-
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
 
@@ -42,16 +47,12 @@ func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	fFacade := mocks.NewMockClientFacade(ctrl)
-	fCaller := mocks.NewMockFacadeCaller(ctrl)
-	arbitraryName := "machine-0"
+	defer s.setup(c).Finish()
 
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{
 			{
-				Entity: params.Entity{Tag: names.NewMachineTag(arbitraryName).String()},
+				Entity: params.Entity{Tag: names.NewMachineTag(s.tag.String()).String()},
 				Series: "xenial",
 			},
 		},
@@ -59,15 +60,60 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 	result := params.UpgradeSeriesUnitsResult{
 		UnitNames: []string{"ubuntu/0", "ubuntu/1"},
 	}
-
 	results := params.UpgradeSeriesUnitsResults{Results: []params.UpgradeSeriesUnitsResult{result}}
+	s.facade.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
 
-	fFacade.EXPECT().BestAPIVersion().Return(5)
-	fCaller.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
-	client := machinemanager.ConstructClient(fFacade, fCaller)
-
-	unitNames, err := client.UpgradeSeriesValidate(arbitraryName, "xenial")
+	unitNames, err := s.client.UpgradeSeriesValidate(s.tag.String(), "xenial")
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(unitNames, gc.DeepEquals, result.UnitNames)
+}
+
+func (s *NewMachineManagerSuite) TestApplicationsSuccess(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	resultSource := params.StringsResults{Results: []params.StringsResult{
+		{Result: []string{"redis"}},
+	}}
+	s.facade.EXPECT().FacadeCall("Applications", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	result, err := s.client.Applications(s.tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []string{"redis"})
+}
+
+func (s *NewMachineManagerSuite) TestApplicationsError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	resultSource := params.StringsResults{Results: []params.StringsResult{
+		{Error: &params.Error{Message: "boom"}},
+	}}
+	s.facade.EXPECT().FacadeCall("Applications", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	_, err := s.client.Applications(s.tag.Id())
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *NewMachineManagerSuite) TestApplicationsMultiResultError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	resultSource := params.StringsResults{Results: []params.StringsResult{
+		{}, {},
+	}}
+	s.facade.EXPECT().FacadeCall("Applications", s.args, gomock.Any()).SetArg(2, resultSource)
+
+	_, err := s.client.Applications(s.tag.Id())
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *NewMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.clientFacade = mocks.NewMockClientFacade(ctrl)
+	s.facade = mocks.NewMockFacadeCaller(ctrl)
+
+	s.clientFacade.EXPECT().BestAPIVersion().Return(5)
+
+	s.client = machinemanager.ConstructClient(s.clientFacade, s.facade)
+
+	return ctrl
 }
