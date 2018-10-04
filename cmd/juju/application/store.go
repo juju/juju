@@ -82,7 +82,7 @@ func resolveCharm(
 // The resulting charm URL of the added charm is displayed on stdout.
 func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channel, force bool) (*charm.URL, *macaroon.Macaroon, error) {
 	var csMac *macaroon.Macaroon
-	if err := client.AddCharm(curl, channel); err != nil {
+	if err := client.AddCharm(curl, channel, force); err != nil {
 		if !params.IsCodeUnauthorized(err) {
 			return nil, nil, errors.Trace(err)
 		}

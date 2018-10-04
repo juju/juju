@@ -733,8 +733,8 @@ type mockCharmAdder struct {
 	testing.Stub
 }
 
-func (m *mockCharmAdder) AddCharm(curl *charm.URL, channel csclientparams.Channel) error {
-	m.MethodCall(m, "AddCharm", curl, channel)
+func (m *mockCharmAdder) AddCharm(curl *charm.URL, channel csclientparams.Channel, force bool) error {
+	m.MethodCall(m, "AddCharm", curl, channel, force)
 	return m.NextErr()
 }
 
