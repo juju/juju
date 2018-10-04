@@ -97,7 +97,8 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAbortOnFailedConfirmation(c
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommands(c *gc.C) {
 	invalidPrepCommand := "actuate"
 	err := s.runUpgradeSeriesCommand(c, invalidPrepCommand, machineArg, seriesArg)
-	c.Assert(err, gc.ErrorMatches, ".* \"actuate\" is an invalid upgrade-series command; valid commands are: prepare, complete.")
+	c.Assert(err, gc.ErrorMatches,
+		".* \"actuate\" is an invalid upgrade-series command; valid commands are: prepare, complete.")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
