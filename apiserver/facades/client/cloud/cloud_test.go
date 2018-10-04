@@ -4,6 +4,8 @@
 package cloud_test
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/permission"
 	gitjujutesting "github.com/juju/testing"
@@ -135,6 +137,12 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Cloud", "User", "User")
 	s.ctlrBackend.CheckCallNames(c, "ControllerTag", "GetCloudUsers")
+
+	// Make sure that the slice is sorted in a predictable manor
+	sort.Slice(result.Results[0].Result.Users, func(i, j int) bool {
+		return result.Results[0].Result.Users[i].UserName < result.Results[0].Result.Users[j].UserName
+	})
+
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudInfoResult{
 		{
 			Result: &params.CloudInfo{
