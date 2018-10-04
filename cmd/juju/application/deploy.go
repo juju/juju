@@ -821,6 +821,7 @@ func (c *DeployCommand) deployBundle(
 		bundleStorage,
 		bundleDevices,
 		c.DryRun,
+		c.Force,
 		c.UseExisting,
 		c.BundleMachines,
 	); err != nil {
