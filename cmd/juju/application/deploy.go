@@ -46,9 +46,9 @@ import (
 )
 
 type CharmAdder interface {
-	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
+	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
 	AddCharm(*charm.URL, params.Channel) error
-	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon) error
+	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
 	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
 }
 
@@ -649,7 +649,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
@@ -1293,7 +1293,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 			return errors.Trace(err)
 		}
 
-		if curl, err = apiRoot.AddLocalCharm(curl, ch); err != nil {
+		if curl, err = apiRoot.AddLocalCharm(curl, ch, c.Force); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1436,7 +1436,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel)
+		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())
