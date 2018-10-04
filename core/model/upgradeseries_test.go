@@ -27,7 +27,7 @@ func (*upgradeSeriesSuite) TestValidateUnitUpgradeSeriesStatus(c *gc.C) {
 		{model.UpgradeSeriesPrepareStarted, "prepare started", true},
 		{model.UpgradeSeriesNotStarted, "GTFO", false},
 	} {
-		status, err := model.ValidateUnitSeriesUpgradeStatus(model.UpgradeSeriesStatus(t.name))
+		status, err := model.ValidateUpgradeSeriesStatus(model.UpgradeSeriesStatus(t.name))
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -35,4 +35,28 @@ func (*upgradeSeriesSuite) TestValidateUnitUpgradeSeriesStatus(c *gc.C) {
 		}
 		c.Check(status, gc.Equals, t.expected)
 	}
+}
+
+func (*upgradeSeriesSuite) TestUpgradeSeriesStatusOrderComparison(c *gc.C) {
+	for status1, i := range model.UpgradeSeriesStatusOrder {
+		for status2, j := range model.UpgradeSeriesStatusOrder {
+			comp, err := model.CompareUpgradeSeriesStatus(status1, status2)
+			c.Check(err, jc.ErrorIsNil)
+			if status1 == status2 {
+				c.Check(comp, gc.Equals, 0)
+			} else {
+				sig := i - j
+				c.Check(sameSign(comp, sig), jc.IsTrue)
+			}
+		}
+	}
+}
+
+func (*upgradeSeriesSuite) TestUpgradeSeriesStatusOrderComparisonVlidatesStatuses(c *gc.C) {
+	_, err := model.CompareUpgradeSeriesStatus(model.UpgradeSeriesNotStarted, "bad status")
+	c.Check(err.Error(), gc.Equals, "upgrade series status of \"bad status\" is not valid")
+}
+
+func sameSign(x, y int) bool {
+	return (x >= 0) != (y < 0)
 }

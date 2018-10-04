@@ -225,7 +225,7 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		status, err := model.ValidateUnitSeriesUpgradeStatus(p.Status)
+		status, err := model.ValidateUpgradeSeriesStatus(p.Status)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
