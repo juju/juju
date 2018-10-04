@@ -7,6 +7,7 @@ package cloud
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
@@ -353,6 +354,10 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 		// have access to the cloud.
 		return nil, errors.Trace(common.ErrPerm)
 	}
+	// Make sure that the slice is sorted in a predictable manor
+	sort.Slice(info.Users, func(i, j int) bool {
+		return info.Users[i].UserName < info.Users[j].UserName
+	})
 	return &info, nil
 }
 
