@@ -47,7 +47,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, `POST https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
@@ -61,7 +61,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
 	testcharms.CheckCharmReady(c, charmArchive)
 
 	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 }
@@ -74,6 +74,6 @@ func (s *clientMacaroonSuite) TestAddLocalCharmUnauthorized(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	// Upload an archive with its original revision.
-	_, err := client.AddLocalCharm(curl, charmArchive)
+	_, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, `.*invalid entity name or password$`)
 }
