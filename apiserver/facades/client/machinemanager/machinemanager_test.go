@@ -5,6 +5,7 @@ package machinemanager_test
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -601,6 +602,19 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MachineManagerSuite) TestApplications(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewMachineTag("0").String(),
+		}},
+	}
+	results, err := apiV5.Applications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Result, jc.SameContents, []string{"foo"})
+}
+
 // TestIsSeriesLessThan tests a validation method which is not very complicated
 // but complex enough to warrant being exported from an export test package for
 // testing.
@@ -850,6 +864,10 @@ func (u *mockUnit) AgentStatus() (status.StatusInfo, error) {
 
 func (u *mockUnit) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: u.unitStatus}, nil
+}
+
+func (u *mockUnit) ApplicationName() string {
+	return strings.Split(u.tag.String(), "-")[1]
 }
 
 type mockStorage struct {
