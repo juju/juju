@@ -69,7 +69,7 @@ func deployBundle(
 	ctx *cmd.Context,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
-	dryRun bool,
+	dryRun, force bool,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
@@ -135,6 +135,10 @@ func deployBundle(
 // bundleHandler provides helpers and the state required to deploy a bundle.
 type bundleHandler struct {
 	dryRun bool
+
+	// force is used to override validation errors, so that a deploy of a
+	// bundle will continue to happen.
+	force bool
 
 	// bundleDir is the path where the bundle file is located for local bundles.
 	bundleDir string
@@ -433,7 +437,11 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 		if err == nil {
 			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
-				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+				if h.force {
+					logger.Infof("force flag used to override validation error %v", err)
+				} else {
+					return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+				}
 			}
 			if curl, err = h.api.AddLocalCharm(curl, ch); err != nil {
 				return err
@@ -563,7 +571,11 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
-		return errors.Trace(err)
+		if h.force {
+			logger.Infof("force flag used to override validation error %v", err)
+		} else {
+			return errors.Trace(err)
+		}
 	}
 
 	resNames2IDs, err := resourceadapters.DeployResources(
