@@ -134,23 +134,23 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	client := s.APIState.Client()
 
 	// Test the sanity checks first.
-	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil)
+	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil, false)
 	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "cs:quantal/wordpress-1"`)
 
 	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
 	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	charmDir.SetDiskRevision(42)
-	savedURL, err = client.AddLocalCharm(curl, charmDir)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.AddLocalCharm(curl, charmDir)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
@@ -184,19 +184,19 @@ func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	client := s.APIState.Client()
 
 	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
 	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile")
 	charmDir.SetDiskRevision(42)
-	savedURL, err = client.AddLocalCharm(curl, charmDir)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.AddLocalCharm(curl, charmDir)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
@@ -214,14 +214,14 @@ func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 	client := s.APIState.Client()
 
 	// Upload an archive with its original revision.
-	_, err = client.AddLocalCharm(curl, charmArchive)
+	_, err = client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
 
 func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
 	curl, ch := s.testCharm(c)
 	s.PatchValue(api.HasHooks, f)
-	_, err := s.APIState.Client().AddLocalCharm(curl, ch)
+	_, err := s.APIState.Client().AddLocalCharm(curl, ch, false)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -230,7 +230,7 @@ func (s *clientSuite) TestAddLocalCharmDefinetelyWithHooks(c *gc.C) {
 	s.PatchValue(api.HasHooks, func(string) (bool, error) {
 		return true, nil
 	})
-	savedCURL, err := s.APIState.Client().AddLocalCharm(curl, ch)
+	savedCURL, err := s.APIState.Client().AddLocalCharm(curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCURL.String(), gc.Equals, curl.String())
 }
@@ -255,7 +255,7 @@ func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 	client := otherAPISt.Client()
 
 	// Upload an archive
-	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
@@ -294,7 +294,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	_, err := client.AddLocalCharm(curl, charmArchive)
+	_, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, `.*the POST method is not allowed$`)
 }
 
@@ -346,7 +346,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	)
 	charmArchive.Meta().MinJujuVersion = charmMinVer
 
-	_, err := client.AddLocalCharm(curl, charmArchive)
+	_, err := client.AddLocalCharm(curl, charmArchive, false)
 
 	if t.ok {
 		if err != nil {
@@ -410,7 +410,7 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 func addLocalCharm(c *gc.C, client *api.Client, name string) (*charm.URL, *charm.CharmArchive) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
-	_, err := client.AddLocalCharm(curl, charmArchive)
+	_, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, jc.ErrorIsNil)
 	return curl, charmArchive
 }
