@@ -172,6 +172,7 @@ type AddCharmWithAuthorization struct {
 	URL                string             `json:"url"`
 	Channel            string             `json:"channel"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	Force              bool               `json:"force"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.

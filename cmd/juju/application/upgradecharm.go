@@ -105,6 +105,7 @@ type upgradeCharmCommand struct {
 	CharmStoreURLGetter   func(api.Connection) (string, error)
 
 	ApplicationName string
+	Force           bool
 	ForceUnits      bool
 	ForceSeries     bool
 	SwitchURL       string
@@ -211,6 +212,7 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses for LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")
@@ -318,7 +320,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	deployedSeries := applicationInfo.Series
 
-	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries)
+	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -526,6 +528,7 @@ func (c *upgradeCharmCommand) addCharm(
 	oldURL *charm.URL,
 	charmRef string,
 	deployedSeries string,
+	force bool,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
 	// Charm may have been supplied via a path reference. If so, build a
@@ -536,7 +539,7 @@ func (c *upgradeCharmCommand) addCharm(
 		if newName != oldURL.Name {
 			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
-		addedURL, err := charmAdder.AddLocalCharm(newURL, ch)
+		addedURL, err := charmAdder.AddLocalCharm(newURL, ch, force)
 		id.URL = addedURL
 		return id, nil, err
 	}
@@ -583,7 +586,7 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel)
+	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
