@@ -165,6 +165,7 @@ type RelationSuspendedArg struct {
 type AddCharm struct {
 	URL     string `json:"url"`
 	Channel string `json:"channel"`
+	Force   bool   `json:"force"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.

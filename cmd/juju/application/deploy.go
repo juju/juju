@@ -47,7 +47,7 @@ import (
 
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
-	AddCharm(*charm.URL, params.Channel) error
+	AddCharm(*charm.URL, params.Channel, bool) error
 	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
 	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
 }

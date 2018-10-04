@@ -446,10 +446,11 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
+func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel, force bool) error {
 	args := params.AddCharm{
 		URL:     curl.String(),
 		Channel: string(channel),
+		Force:   force,
 	}
 	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
 		return errors.Trace(err)

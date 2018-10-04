@@ -55,6 +55,14 @@ var _ = gc.Suite(&clientSuite{})
 // TODO(jam) 2013-08-27 http://pad.lv/1217282
 // Right now most of the direct tests for api.Client behavior are in
 // apiserver/client/*_test.go
+func (s *clientSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
 
 func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 	client := s.APIState.Client()
@@ -172,11 +180,6 @@ func (s *clientSuite) TestAddLocalCharmNoHooks(c *gc.C) {
 }
 
 func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
@@ -202,11 +205,6 @@ func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 }
 
 func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
@@ -214,8 +212,58 @@ func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 	client := s.APIState.Client()
 
 	// Upload an archive with its original revision.
-	_, err = client.AddLocalCharm(curl, charmArchive, false)
+	_, err := client.AddLocalCharm(curl, charmArchive, false)
 	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains device type \"unix-disk\"")
+}
+
+func (s *clientSuite) TestAddLocalCharmWithValidLXDProfileWithForceSucceeds(c *gc.C) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	client := s.APIState.Client()
+
+	// Upload an archive with its original revision.
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.String())
+
+	// Upload a charm directory with changed revision.
+	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile")
+	charmDir.SetDiskRevision(42)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.Revision, gc.Equals, 42)
+
+	// Upload a charm directory again, revision should be bumped.
+	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+}
+
+func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfileWithForceSucceeds(c *gc.C) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	client := s.APIState.Client()
+
+	// Upload an archive with its original revision.
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.String())
+
+	// Upload a charm directory with changed revision.
+	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile-fail")
+	charmDir.SetDiskRevision(42)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.Revision, gc.Equals, 42)
+
+	// Upload a charm directory again, revision should be bumped.
+	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
 
 func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
