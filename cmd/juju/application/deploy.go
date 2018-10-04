@@ -624,7 +624,7 @@ var (
 // whether we are deploying a charm or a bundle.
 func charmOnlyFlags() []string {
 	charmOnlyFlags := []string{
-		"bind", "config", "constraints", "force", "n", "num-units",
+		"bind", "config", "constraints", "n", "num-units",
 		"series", "to", "resource", "attach-storage",
 	}
 

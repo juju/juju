@@ -59,8 +59,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --config")
 	err = runDeploy(c, "bundle/wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: -n")
-	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial", "--force")
-	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --force, --series")
+	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial")
+	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --series")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
@@ -906,6 +906,29 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
                 num_units: 1
     `, lxdProfilePath))
 	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath),
+		"--force")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "local:bionic/lxd-profile-0")
+	lxdProfile, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"lxd-profile": {charm: "local:bionic/lxd-profile-0", config: lxdProfile.Config().DefaultSettings()},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"lxd-profile/0": "0",
+	})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
