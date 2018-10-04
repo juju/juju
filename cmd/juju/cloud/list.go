@@ -203,11 +203,6 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	printClouds(clouds.builtin, nil)
 	printClouds(clouds.personal, ansiterm.Foreground(ansiterm.BrightBlue))
 
-	w.Println("\n - Import a cloud credential with `add-credential <cloud>`.")
-	w.Println(" - List a cloud's regions and endpoints with `show-cloud <cloud>`.")
-	w.Println(" - Add a cloud to Juju with `add-cloud`.")
-	w.Println(" - Update cloud metadata with `update-clouds`.")
-
 	tw.Flush()
 	return nil
 }

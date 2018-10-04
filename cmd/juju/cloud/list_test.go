@@ -33,8 +33,6 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	c.Assert(out, gc.Matches, `.*aws-china[ ]*1[ ]*cn-north-1[ ]*ec2.*`)
 	// LXD should be there too.
 	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
-	// The private provider types should be there also.
-	c.Assert(out, gc.Matches, `.*maas, manual, oci, openstack, oracle, vsphere.*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
