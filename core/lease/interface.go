@@ -84,9 +84,10 @@ type Token interface {
 	Check(trapdoorKey interface{}) error
 }
 
-// Manager represents somewhere you can get Checkers and Claimers for
-// different models.
+// Manager describes methods for acquiring objects that manipulate and query
+// leases for different models.
 type Manager interface {
 	Checker(namespace string, modelUUID string) (Checker, error)
 	Claimer(namespace string, modelUUID string) (Claimer, error)
+	Pinner(namespace string, modelUUID string) (Pinner, error)
 }

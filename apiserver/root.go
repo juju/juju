@@ -105,7 +105,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
 	if err := r.resources.RegisterNamed(
 		"offerAccessAuthContext",
-		common.ValueResource{offerAuthCtxt},
+		common.ValueResource{Value: offerAuthCtxt},
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -471,6 +471,23 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	return leadershipChecker{checker}, nil
 }
 
+// LeadershipPinner is part of the facade.Context interface.
+// Pinning functionality is only available with the Raft leases implementation.
+func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
+	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+		return nil, errors.Errorf(
+			"unable to get leadership pinner; pinning is not available with the legacy lease manager")
+	}
+	pinner, err := ctx.r.shared.leaseManager.Pinner(
+		lease.ApplicationLeadershipNamespace,
+		modelUUID,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipPinner{pinner}, nil
+}
+
 // SingularClaimer is part of the facade.Context interface.
 func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
@@ -585,9 +602,9 @@ func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.
 func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
 	facades := registry.List()
 	result := make([]params.FacadeVersions, len(facades))
-	for i, facade := range facades {
-		result[i].Name = facade.Name
-		result[i].Versions = facade.Versions
+	for i, f := range facades {
+		result[i].Name = f.Name
+		result[i].Versions = f.Versions
 	}
 	return result
 }
