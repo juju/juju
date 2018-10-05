@@ -348,15 +348,24 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 
 func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 	tests := []minverTest{
-		{"2.0.0", "1.0.0", true},
-		{"1.0.0", "2.0.0", false},
-		{"1.25.0", "1.24.0", true},
-		{"1.24.0", "1.25.0", false},
-		{"1.25.1", "1.25.0", true},
-		{"1.25.0", "1.25.1", false},
-		{"1.25.0", "1.25.0", true},
-		{"1.25.0", "1.25-alpha1", true},
-		{"1.25-alpha1", "1.25.0", false},
+		{"2.0.0", "1.0.0", false, true},
+		{"1.0.0", "2.0.0", false, false},
+		{"1.25.0", "1.24.0", false, true},
+		{"1.24.0", "1.25.0", false, false},
+		{"1.25.1", "1.25.0", false, true},
+		{"1.25.0", "1.25.1", false, false},
+		{"1.25.0", "1.25.0", false, true},
+		{"1.25.0", "1.25-alpha1", false, true},
+		{"1.25-alpha1", "1.25.0", false, false},
+		{"2.0.0", "1.0.0", true, true},
+		{"1.0.0", "2.0.0", true, false},
+		{"1.25.0", "1.24.0", true, true},
+		{"1.24.0", "1.25.0", true, false},
+		{"1.25.1", "1.25.0", true, true},
+		{"1.25.0", "1.25.1", true, false},
+		{"1.25.0", "1.25.0", true, true},
+		{"1.25.0", "1.25-alpha1", true, true},
+		{"1.25-alpha1", "1.25.0", true, false},
 	}
 	client := s.APIState.Client()
 	for _, t := range tests {
@@ -367,6 +376,7 @@ func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 type minverTest struct {
 	juju  string
 	charm string
+	force bool
 	ok    bool
 }
 
@@ -394,7 +404,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	)
 	charmArchive.Meta().MinJujuVersion = charmMinVer
 
-	_, err := client.AddLocalCharm(curl, charmArchive, false)
+	_, err := client.AddLocalCharm(curl, charmArchive, t.force)
 
 	if t.ok {
 		if err != nil {
@@ -433,7 +443,22 @@ func (s *clientSuite) TestOpenURIError(c *gc.C) {
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 	client := s.APIState.Client()
-	curl, ch := addLocalCharm(c, client, "dummy")
+	curl, ch := addLocalCharm(c, client, "dummy", false)
+	expected, err := ioutil.ReadFile(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	reader, err := client.OpenCharm(curl)
+	defer reader.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data, jc.DeepEquals, expected)
+}
+
+func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
+	client := s.APIState.Client()
+	curl, ch := addLocalCharm(c, client, "dummy", true)
 	expected, err := ioutil.ReadFile(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -455,10 +480,10 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
 }
 
-func addLocalCharm(c *gc.C, client *api.Client, name string) (*charm.URL, *charm.CharmArchive) {
+func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
-	_, err := client.AddLocalCharm(curl, charmArchive, false)
+	_, err := client.AddLocalCharm(curl, charmArchive, force)
 	c.Assert(err, jc.ErrorIsNil)
 	return curl, charmArchive
 }

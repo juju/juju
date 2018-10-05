@@ -674,11 +674,11 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel)
+	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
-	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel)
+	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
-	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel)
+	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
 
 	// Add a charm, without uploading it to storage, to
@@ -696,14 +696,14 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// AddCharm should see the charm in state and not upload it.
-	err = client.AddCharm(sch.URL(), csparams.StableChannel)
+	err = client.AddCharm(sch.URL(), csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
-	err = client.AddCharm(curl, csparams.StableChannel)
+	err = client.AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
@@ -725,7 +725,7 @@ func (s *applicationSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	// Try to add a charm to the model without authorization.
 	s.DischargeUser = ""
-	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
+	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
 
 	tryAs := func(user string) error {
@@ -782,7 +782,7 @@ func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
 		go func(index int) {
 			defer wg.Done()
 
-			c.Assert(client.AddCharm(curl, csparams.StableChannel), gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(client.AddCharm(curl, csparams.StableChannel, false), gc.IsNil, gc.Commentf("goroutine %d", index))
 			sch, err := s.State.Charm(curl)
 			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
 			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
@@ -831,7 +831,7 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 	// Now try to add the charm, which will convert the placeholder to
 	// a pending charm.
-	err = client.AddCharm(curl, csparams.StableChannel)
+	err = client.AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the document's flags were reset as expected.
@@ -1204,7 +1204,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
-	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
+	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 }
