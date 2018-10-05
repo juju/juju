@@ -29,19 +29,18 @@ type listCloudsCommand struct {
 // commands for ease in markdown.
 var listCloudsDoc = "" +
         "Output includes fundamental properties for each cloud known to the\n" +
-        "current Juju client. These are: name, number of regions, default region,\n" +
-	"type, and description.\n" +
-        "\nThe cloud name is what's used to refer to a cloud in any Juju command.\n" +
-        "\nThe default output shows public clouds known to Juju out of the box\n" +
-	"(these may change between Juju versions). In addition to these public\n" +
+        "current Juju client: name, number of regions, default region, type,\n" +
+	"and description.\n" +
+        "\nThe default output shows public clouds known to Juju out of the box.\n" +
+	"These may change between Juju versions. In addition to these public\n" +
 	"clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
         "\nThis command's default output format is 'tabular'.\n" +
         "\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
 	"`update-clouds` command to update the current Juju client accordingly.\n" +
-	"\nUse the `add-cloud` command to add a private cloud to the list of clouds\n" +
-	"known to the current Juju client.\n" +
-        "\nUse the `regions` command to list a cloud's regions and the `show-cloud`\n" +
-	"command to get more detail, such as regions and endpoints.\n" +
+	"\nUse the `add-cloud` command to add a private cloud to the list of\n" +
+	"clouds known to the current Juju client.\n" +
+        "\nUse the `regions` command to list a cloud's regions. Use the\n" +
+	"`show-cloud` command to get more detail, such as regions and endpoints.\n" +
         "\nFurther reading: https://docs.jujucharms.com/stable/clouds\n" + listCloudsDocExamples
 
 var listCloudsDocExamples = `
