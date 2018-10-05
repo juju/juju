@@ -69,7 +69,7 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
 	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
 	bun := testcharms.Repo.CharmDir("dummy")
-	sch, err := testing.AddCharm(s.State, curl, bun)
+	sch, err := testing.AddCharm(s.State, curl, bun, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiCharm, err := s.uniter.Charm(sch.URL())

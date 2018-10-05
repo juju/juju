@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/clock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -612,7 +614,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 // the same URL already exists in the state.
 // If bumpRevision is true, the charm must be a local directory,
 // and the revision number will be incremented before pushing.
-func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
+func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision, force bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
 		var err error
 		curl, _, err = repo.Resolve(curl)
@@ -637,11 +639,11 @@ func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRe
 	if sch, err := st.Charm(curl); err == nil {
 		return sch, nil
 	}
-	return AddCharm(st, curl, ch)
+	return AddCharm(st, curl, ch, force)
 }
 
 // AddCharm adds the charm to state and storage.
-func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
+func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*state.Charm, error) {
 	var f *os.File
 	name := charm.Quote(curl.String())
 	switch ch := ch.(type) {
@@ -673,6 +675,10 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 		return nil, err
 	}
 	if _, err := f.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
+	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil && !force {
 		return nil, err
 	}
 
@@ -781,7 +787,7 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 		charmrepo.NewCharmStoreParams{},
 		repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	sch, err := PutCharm(s.State, curl, storerepo, false)
+	sch, err := PutCharm(s.State, curl, storerepo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }
