@@ -41,7 +41,7 @@ from utility import (
 
 __metaclass__ = type
 
-log = logging.getLogger("assess_updateseries")
+log = logging.getLogger("assess_upgrade-series")
 charm_app = 'dummy-source'
 
 expectedStartAgents = dedent("""\
@@ -51,7 +51,7 @@ all agents successfully restarted
 """)
 
 
-def assess_jujud_updateseries(client, args):
+def assess_juju_upgrade_series_prepare(client, args):
     """ Tests juju-updateseries --to-series <series> --from-series <series>
 
     Using the origin trusty unit, run do-release-upgrade
@@ -65,19 +65,47 @@ def assess_jujud_updateseries(client, args):
     Run juju-updateseries on unit with --start-agents
     Verify agents start.
     """
-    upgrade_release(client, '0', args.from_series, args.to_series, 'after')
-    unit_num = client.get_status().get_service_unit_count(charm_app)
-    client.juju('add-unit', (charm_app))
-    client.wait_for_started()
-    upgrade_release(
-        client, unit_num, args.from_series, args.to_series, 'before')
+    target_machine = '0'
+    upgrade_series_prepare(client, target_machine, args.to_series, True)
+    do_release_upgrade(client, target_machine)
+    reboot_machine(client, target_machine)
+    upgrade_series_complete(client, target_machine)
+#    unit_num = client.get_status().get_service_unit_count(charm_app)
+#    client.juju('add-unit', (charm_app))
+#    client.wait_for_started()
+#    upgrade_release(
+#        client, unit_num, args.from_series, args.to_series, 'before')
+
+def upgrade_series_prepare(client, machine, series, agree=False):
+    """ Run juju update-series with given arguments
+
+    :param client: Juju client
+    :param machine: machine number to upgrade
+    :param series: series to upgrade to
+    :param agree: premptively agree to all changes before prompted
+    :return:
+    """
+    args = (machine, series)
+    if agree:
+        args += ('--agree',)
+    client.juju('upgrade-series prepare', args)
 
 
-def upgrade_release(client, unit_num, from_series, to_series, reboot):
+def upgrade_series_complete(client, machine):
+    """ Run juju update-series with given arguments
+
+    :param client: Juju client
+    :param machine: machine number to upgrade
+    :return:
+    """
+    args = (machine)
+    client.juju('upgrade-series complete', args)
+
+def do_release_upgrade(client, machine):
     """ Update the series of the given unit.
 
     :param client: Juju client
-    :param unit_num: unit number to use
+    :param machine: machine number to use
     :param from_series: original series of unit
     :param to_series: series to update the unit to
     :param reboot: 'before' or 'after' juju-updateseries is called
@@ -85,10 +113,10 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
     :raises JujuAssertionError: if juju-updateseries doesn't act as expected.
     :raises AssertionError: non juju failures in the process.
     """
-    unit = "{}/{}".format(charm_app, unit_num)
+
     try:
         output = client.get_juju_output(
-            'ssh', unit, 'sudo do-release-upgrade -f '
+            'ssh', machine, 'sudo do-release-upgrade -f '
             'DistUpgradeViewNonInteractive', timeout=3600)
     except subprocess.CalledProcessError as e:
         raise AssertionError(
@@ -96,69 +124,7 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
 
     log.info("do-release-upgrade response: ".format(output))
 
-    if reboot == 'before':
-        reboot_unit(client, unit, False)
-
-    # NOTE: attempts to use calls such as client.juju() or remote.ssh() from
-    # this point on return timeouts.  The reboot above timesout, though a
-    # reboot does occur.  Subsequent attempts to access the unit time out.
-    # The cause is unknown, but suspected to be in the CI packages as
-    # subprocess works and is used from here on out.
-
-    assert_correct_series(client, unit, to_series)
-
-    cmd = build_ssh_cmd(
-            client, unit, 'sudo juju-updateseries --to-series '
-            '{} --from-series {}'.format(to_series, from_series))
-    try:
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        raise JujuAssertionError(
-            "error running juju-updateseries on {}: {}".format(unit, e))
-
-    log.info(
-        "juju-updateseries ... succeeded:\n{}".format(output))
-
-    if "successfully copied tools and relinked agent tools" not in output:
-        raise JujuAssertionError("failure in juju-updateseries")
-
-    cmd = build_ssh_cmd(
-            client, unit, 'sudo juju-updateseries --to-series '
-            '{} --from-series {} --start-agents'.format(
-            to_series, from_series))
-    try:
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        if reboot in 'before':
-            if expectedStartAgents.format(charm_app, unit_num, unit_num) \
-                    not in output:
-                raise JujuAssertionError("above output incorrect")
-        elif reboot in 'after':
-            # if the unit has NOT been rebooted before calling updateseries
-            # with --start-agents, and ERROR will be returned, but that's
-            # expected, look for it here
-            if 'systemd is not fully running, please reboot to start agents'\
-                            not in e.output:
-                raise JujuAssertionError(
-                    "error running juju-updateseries on {}: {}".format(
-                    unit, e))
-        else:
-            log.critical("test failure: reboot no longer before or after")
-            raise
-
-    log.info('sudo juju-updateseries ... --start-agents: {}'.format(output))
-
-    if reboot == 'after':
-        reboot_unit(client, unit, True)
-    else:
-        client.wait_for_started()
-
-    log.info(
-        "juju-updateseries .... --start-agents, reboot "
-        "{} command, succeeded".format(reboot))
-
-
-def reboot_unit(client, unit, expect_agents):
+def reboot_machine(client, machine):
     """ Reboot a unit, wait for the agents to restart, or if not agents
     restarting is not expected, wait for the ssh port to be available.
 
@@ -169,10 +135,10 @@ def reboot_unit(client, unit, expect_agents):
     :return: None
     """
     try:
-        log.info("Restarting unit: {}".format(unit))
-        cmd = build_ssh_cmd(client, unit, 'sudo shutdown -r now && exit')
+        log.info("Restarting: {}".format(machine))
+        cmd = build_ssh_cmd(client, machine, 'sudo shutdown -r now && exit')
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        log.info("Restarting unit output: {}\n".format(output))
+        log.info("Restarting machine output: {}\n".format(output))
     except subprocess.CalledProcessError as e:
         # There is a failure logged with run with expect_agents False,
         # though the reboot still happens???
@@ -180,23 +146,84 @@ def reboot_unit(client, unit, expect_agents):
             "Error running shutdown:\nstdout: %s\nstderr: %s",
             e.output, getattr(e, 'stderr', None))
 
-    if expect_agents:
-        log.info("wait_for_started()")
-        client.wait_for_started()
-    else:
-        # for cases where machine agents are not expected to be
-        # running after reboot, wait for the ssh port to be available
-        # instead.
-        status = client.get_status()
-        unit_status = dict(status.iter_units())
-        m = unit_status[unit]['machine']
-        machine_status = dict(status.iter_machines())
-        hostname = machine_status[m]['dns-name']
-        log.info("wait_for_port({}:22)".format(hostname))
-        wait_for_port(hostname, 22, timeout=240)
+    log.info("wait_for_started()")
+    client.wait_for_started()
+    # else:
+    #     # for cases where machine agents are not expected to be
+    #     # running after reboot, wait for the ssh port to be available
+    #     # instead.
+    #     status = client.get_status()
+    #     unit_status = dict(status.iter_units())
+    #     m = unit_status[unit]['machine']
+    #     machine_status = dict(status.iter_machines())
+    #     hostname = machine_status[m]['dns-name']
+    #     log.info("wait_for_port({}:22)".format(hostname))
+    #     wait_for_port(hostname, 22, timeout=240)
 
 
-def build_ssh_cmd(client, unit, command):
+    #if reboot == 'before':
+    #    reboot_unit(client, unit, False)
+
+    # NOTE: attempts to use calls such as client.juju() or remote.ssh() from
+    # this point on return timeouts.  The reboot above timesout, though a
+    # reboot does occur.  Subsequent attempts to access the unit time out.
+    # The cause is unknown, but suspected to be in the CI packages as
+    # subprocess works and is used from here on out.
+
+    # assert_correct_series(client, unit, to_series)
+
+    # cmd = build_ssh_cmd(
+    #         client, unit, 'sudo juju-updateseries --to-series '
+    #         '{} --from-series {}'.format(to_series, from_series))
+    # try:
+    #     output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    # except subprocess.CalledProcessError as e:
+    #     raise JujuAssertionError(
+    #         "error running juju-updateseries on {}: {}".format(unit, e))
+
+    # log.info(
+    #     "juju-updateseries ... succeeded:\n{}".format(output))
+
+    # if "successfully copied tools and relinked agent tools" not in output:
+    #     raise JujuAssertionError("failure in juju-updateseries")
+
+    # cmd = build_ssh_cmd(
+    #         client, unit, 'sudo juju-updateseries --to-series '
+    #         '{} --from-series {} --start-agents'.format(
+    #         to_series, from_series))
+    # try:
+    #     output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    # except subprocess.CalledProcessError as e:
+    #     if reboot in 'before':
+    #         if expectedStartAgents.format(charm_app, unit_num, unit_num) \
+    #                 not in output:
+    #             raise JujuAssertionError("above output incorrect")
+    #     elif reboot in 'after':
+    #         # if the unit has NOT been rebooted before calling updateseries
+    #         # with --start-agents, and ERROR will be returned, but that's
+    #         # expected, look for it here
+    #         if 'systemd is not fully running, please reboot to start agents'\
+    #                         not in e.output:
+    #             raise JujuAssertionError(
+    #                 "error running juju-updateseries on {}: {}".format(
+    #                 unit, e))
+    #     else:
+    #         log.critical("test failure: reboot no longer before or after")
+    #         raise
+
+    # log.info('sudo juju-updateseries ... --start-agents: {}'.format(output))
+
+    # if reboot == 'after':
+    #     reboot_unit(client, unit, True)
+    # else:
+    #     client.wait_for_started()
+
+    # log.info(
+    #     "juju-updateseries .... --start-agents, reboot "
+    #     "{} command, succeeded".format(reboot))
+
+
+def build_ssh_cmd(client, machine, command):
     """ build_ssh_cmd is a helper method taking pieces from Client and Remote
 
     :param client: Juju client
@@ -212,12 +239,12 @@ def build_ssh_cmd(client, unit, command):
     ]
 
     status = client.get_status()
-    unit_status = status.get_unit(unit)
-    cmd = ["ssh"] + ssh_opts + [unit_status['public-address']] + [command]
+    machine_status = status.get_machine(machine)
+    cmd = ["ssh"] + ssh_opts + [machine_status['public-address']] + [command]
     return cmd
 
 
-def assert_correct_series(client, unit, expected):
+def assert_correct_series(client, machine, expected):
     """ Verify the unit is now running the expected series.
 
     :param client: Juju client
@@ -326,22 +353,6 @@ def update_application_series_verify(client, series):
             "Series from {} doesn't match expected: {}".format(unit, series))
     log.info("juju update-series {} {} succeeded".format(charm_app, series))
 
-
-def update_series(client, item, series, force=False):
-    """ Run juju update-series with given arguments
-
-    :param client: Juju client
-    :param item: application name or machine num to update the series of
-    :param series: series to update to
-    :param force: do update even if charm doesn't allow given series
-    :return:
-    """
-    args = (item, series)
-    if force:
-        args += ('--force')
-    client.juju('update-series', args)
-
-
 def setup(client, start_series):
     """ Deploy charms, there are several under ./repository """
     charm_source = local_charm_path(
@@ -356,10 +367,10 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test juju update series.")
     add_basic_testing_arguments(parser)
-    parser.add_argument('--from-series', default='trusty', dest='from_series',
-                        help='Series to start units with')
-    parser.add_argument('--to-series', default='xenial', dest='to_series',
-                        help='Series to upgrade units to')
+    parser.add_argument('--from-series', default='xenial', dest='from_series',
+                        help='Series to start machine and units with')
+    parser.add_argument('--to-series', default='bionic', dest='to_series',
+                        help='Series to upgrade machine and units to')
     return parser.parse_args(argv)
 
 
@@ -369,9 +380,7 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         setup(bs_manager.client, args.from_series)
-        assess_juju_updateseries_machine(bs_manager.client, args)
-        assess_juju_updateseries_application(bs_manager.client, args)
-        assess_jujud_updateseries(bs_manager.client, args)
+        assess_juju_upgrade_series_prepare(bs_manager.client, args)
     return 0
 
 
