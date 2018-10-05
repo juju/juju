@@ -125,3 +125,97 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot add charm: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
+
+func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cacheDir := c.MkDir()
+	s.PatchValue(&charmrepo.CacheDir, cacheDir)
+
+	url := "cs:~juju-qa/bionic/lxd-profile-0"
+	charmURL, err := charm.ParseURL(url)
+	c.Assert(err, gc.IsNil)
+
+	mockState := mocks.NewMockState(ctrl)
+	mockStateCharm := mocks.NewMockStateCharm(ctrl)
+	mockStorage := mocks.NewMockStorage(ctrl)
+	mockInterface := mocks.NewMockInterface(ctrl)
+
+	charm := testcharms.Repo.CharmArchive(cacheDir, "lxd-profile")
+
+	// inject the mock as a back handed dependency
+	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
+		return mockStorage
+	})
+
+	sExp := mockState.EXPECT()
+	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.ModelUUID().Return("model-id")
+	sExp.MongoSession().Return(&mgo.Session{})
+	sExp.UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
+
+	cExp := mockStateCharm.EXPECT()
+	cExp.IsUploaded().Return(false)
+
+	stExp := mockStorage.EXPECT()
+	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	iExp := mockInterface.EXPECT()
+	iExp.Get(charmURL).Return(charm, nil)
+
+	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
+		URL:   url,
+		Force: true,
+	}, func() (charmrepo.Interface, error) {
+		return mockInterface, nil
+	})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndForceStilSucceeds(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cacheDir := c.MkDir()
+	s.PatchValue(&charmrepo.CacheDir, cacheDir)
+
+	url := "cs:~juju-qa/bionic/lxd-profile-fail-0"
+	charmURL, err := charm.ParseURL(url)
+	c.Assert(err, gc.IsNil)
+
+	mockState := mocks.NewMockState(ctrl)
+	mockStateCharm := mocks.NewMockStateCharm(ctrl)
+	mockStorage := mocks.NewMockStorage(ctrl)
+	mockInterface := mocks.NewMockInterface(ctrl)
+
+	charm := testcharms.Repo.CharmArchive(cacheDir, "lxd-profile-fail")
+
+	// inject the mock as a back handed dependency
+	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
+		return mockStorage
+	})
+
+	sExp := mockState.EXPECT()
+	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.ModelUUID().Return("model-id")
+	sExp.MongoSession().Return(&mgo.Session{})
+	sExp.UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
+
+	cExp := mockStateCharm.EXPECT()
+	cExp.IsUploaded().Return(false)
+
+	stExp := mockStorage.EXPECT()
+	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	iExp := mockInterface.EXPECT()
+	iExp.Get(charmURL).Return(charm, nil)
+
+	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
+		URL:   url,
+		Force: true,
+	}, func() (charmrepo.Interface, error) {
+		return mockInterface, nil
+	})
+	c.Assert(err, gc.IsNil)
+}
