@@ -320,18 +320,6 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	}
 }
 
-func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
-	runClient := &testRunClient{}
-	appClient := &testApplicationClient{}
-	appClient.charmURL = "cs:quantal/charm"
-	s.PatchValue(metricsdebug.NewAPIConn, noConn)
-	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(appClient))
-	_, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), "foobar")
-	c.Assert(err, gc.ErrorMatches, `"foobar" is not a local charm`)
-	runClient.CheckCallNames(c, "Close")
-}
-
 type testRunClient struct {
 	action.APIClient
 	testing.Stub

@@ -165,14 +165,6 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	runnerClient := newRunClient(root)
 	defer runnerClient.Close()
 
-	islocal, err := isLocalCharmURL(root, c.entity)
-	if err != nil {
-		return errors.Annotate(err, "failed to find charmURL for entity")
-	}
-	if !islocal {
-		return errors.Errorf("%q is not a local charm", c.entity)
-	}
-
 	units := []string{}
 	applications := []string{}
 	if c.unit != "" {
