@@ -16,12 +16,13 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/leadership"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/leadership/mocks"
 )
 
 type LeadershipSuite struct {
 	coretesting.BaseSuite
 
-	pinner   *MockPinner
+	pinner   *mocks.MockPinner
 	modelTag names.ModelTag
 	api      leadership.API
 }
@@ -101,7 +102,7 @@ func (s *LeadershipSuite) TestUnpinError(c *gc.C) {
 func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.pinner = NewMockPinner(ctrl)
+	s.pinner = mocks.NewMockPinner(ctrl)
 	s.modelTag = names.NewModelTag(utils.MustNewUUID().String())
 
 	var err error
