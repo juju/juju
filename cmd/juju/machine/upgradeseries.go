@@ -5,18 +5,19 @@ package machine
 
 import (
 	"fmt"
+	"sort"
 	"strings"
-
-	"github.com/juju/juju/api/facades/client/leadership"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/facades/client/leadership"
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -266,12 +267,12 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) ([]string, e
 // pinLeaders extracts the unique list of applications from the input unit IDs
 // and pins the leadership for them.
 func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) error {
-	applications := make(map[string]bool)
+	applications := set.NewStrings()
 	for _, unit := range units {
-		applications[strings.Split(unit, "/")[0]] = true
+		applications.Add(strings.Split(unit, "/")[0])
 	}
 
-	for app := range applications {
+	for _, app := range applications.SortedValues() {
 		if err := c.leadershipClient.PinLeadership(app); err != nil {
 			return errors.Trace(err)
 		}
@@ -404,7 +405,9 @@ func (c *upgradeSeriesCommand) unpinLeaders(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	for _, app := range applications {
+	apps := sort.StringSlice(applications)
+	apps.Sort()
+	for _, app := range apps {
 		if err := c.leadershipClient.UnpinLeadership(app); err != nil {
 			return errors.Trace(err)
 		}
