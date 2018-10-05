@@ -28,17 +28,26 @@ type listCloudsCommand struct {
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var listCloudsDoc = "" +
-	"Provided information includes 'cloud' (as understood by Juju), cloud\n" +
-	"'type', and cloud 'regions'.\n" +
-	"The listing will consist of public clouds and any custom clouds made\n" +
-	"available through the `juju add-cloud` command. The former can be updated\n" +
-	"via the `juju update-clouds` command.\n" +
-	"By default, the tabular format is used.\n" + listCloudsDocExamples
+	"Output includes fundamental properties for each cloud known to the\n" +
+	"current Juju client: name, number of regions, default region, type,\n" +
+	"and description.\n" +
+	"\nThe default output shows public clouds known to Juju out of the box.\n" +
+	"These may change between Juju versions. In addition to these public\n" +
+	"clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
+	"\nThis command's default output format is 'tabular'.\n" +
+	"\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
+	"`update-clouds` command to update the current Juju client accordingly.\n" +
+	"\nUse the `add-cloud` command to add a private cloud to the list of\n" +
+	"clouds known to the current Juju client.\n" +
+	"\nUse the `regions` command to list a cloud's regions. Use the\n" +
+	"`show-cloud` command to get more detail, such as regions and endpoints.\n" +
+	"\nFurther reading: https://docs.jujucharms.com/stable/clouds\n" + listCloudsDocExamples
 
 var listCloudsDocExamples = `
 Examples:
 
     juju clouds
+    juju clouds --format yaml
 
 See also:
     add-cloud
