@@ -38,7 +38,7 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 const machineArg = "1"
 const seriesArg = "xenial"
 
-var units = []string{"foo/0", "bar/0"}
+var units = []string{"bar/0", "foo/0"}
 
 func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
 	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
@@ -168,7 +168,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *
 	}
 	finishedMessage = fmt.Sprintf(finishedMessage+machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, displayedMessage)
 }
 
 type upgradeSeriesPrepareExpectation struct {
