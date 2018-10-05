@@ -5,13 +5,13 @@ package machine
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/juju/core/leadership"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/storage"
-	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 var (
