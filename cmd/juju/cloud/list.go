@@ -28,20 +28,20 @@ type listCloudsCommand struct {
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var listCloudsDoc = "" +
-        "Output includes fundamental properties for each cloud known to Juju.\n" +
-        "These are: name, number of regions, default region, type, and description.\n" +
+        "Output includes fundamental properties for each cloud known to the\n" +
+        "current Juju client. These are: name, number of regions, default region,\n" +
+	"type, and description.\n" +
         "\nThe cloud name is what's used to refer to a cloud in any Juju command.\n" +
-        "\nThe `regions` command lists a cloud's regions. Both regions and endpoints\n" +
-	"are exposed with `show-cloud`.\n" +
-        "\nThe default output shows those clouds known to Juju out of the box (the\n" +
-	"\"baked in\" clouds). With the exception of the 'localhost' cloud, these\n" +
-	"are all the supported public clouds. Other (private) clouds need to be\n" +
-	"added via the `add-cloud` command. These are 'lxd' (remote), 'maas',\n" +
-	"'manual', 'openstack', and 'vsphere'.\n" +
-        "\nCloud metadata sometimes changes (e.g. AWS adds a new region). To\n" +
-	"synchronise Juju with the \"baked in\" clouds the `update-clouds` command\n" +
-	"is used.\n" +
+        "\nThe default output shows public clouds known to Juju out of the box\n" +
+	"(these may change between Juju versions). In addition to these public\n" +
+	"clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
         "\nThis command's default output format is 'tabular'.\n" +
+        "\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
+	"`update-clouds` command to update the current Juju client accordingly.\n" +
+	"\nUse the `add-cloud` command to add a private cloud to the list of clouds\n" +
+	"known to the current Juju client.\n" +
+        "\nUse the `regions` command to list a cloud's regions and the `show-cloud`\n" +
+	"command to get more detail, such as regions and endpoints.\n" +
         "\nFurther reading: https://docs.jujucharms.com/stable/clouds\n" + listCloudsDocExamples
 
 var listCloudsDocExamples = `
