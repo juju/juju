@@ -58,12 +58,14 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	defer mockController.Finish()
 
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockLeadershipAPI := NewMockPinn
 
 	exp := mockUpgradeSeriesAPI.EXPECT()
 	prep := s.prepareExpectation
 	exp.UpgradeSeriesValidate(prep.machineArg, prep.seriesArg).AnyTimes().Return(strings.Split(unitsString, "\n"), nil)
 	exp.UpgradeSeriesPrepare(prep.machineArg, prep.seriesArg, prep.force).AnyTimes()
 	exp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
+
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 
 	err = cmdtesting.InitCommand(com, args)
