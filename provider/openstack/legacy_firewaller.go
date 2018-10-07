@@ -31,19 +31,19 @@ type legacyNovaFirewaller struct {
 // In addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (c *legacyNovaFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPort int) ([]string, error) {
-	jujuGroup, err := c.setUpGlobalGroup(c.jujuGroupName(controllerUUID), apiPort)
+	jujuGroup, err := c.setUpGlobalGroup(ctx, c.jujuGroupName(controllerUUID), apiPort)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	var machineGroup nova.SecurityGroup
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineId), nil)
+		machineGroup, err = c.ensureGroup(ctx, c.machineGroupName(controllerUUID, machineId), nil)
 	case config.FwGlobal:
-		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), nil)
+		machineGroup, err = c.ensureGroup(ctx, c.globalGroupName(controllerUUID), nil)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	groupNames := []string{jujuGroup.Name, machineGroup.Name}
 	if c.environ.ecfg().useDefaultSecurityGroup() {
@@ -52,8 +52,8 @@ func (c *legacyNovaFirewaller) SetUpGroups(ctx context.ProviderCallContext, cont
 	return groupNames, nil
 }
 
-func (c *legacyNovaFirewaller) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
-	return c.ensureGroup(groupName,
+func (c *legacyNovaFirewaller) setUpGlobalGroup(ctx context.ProviderCallContext, groupName string, apiPort int) (nova.SecurityGroup, error) {
+	return c.ensureGroup(ctx, groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
@@ -91,7 +91,7 @@ var legacyZeroGroup nova.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
-func (c *legacyNovaFirewaller) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+func (c *legacyNovaFirewaller) ensureGroup(ctx context.ProviderCallContext, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := c.environ.nova()
 	// First attempt to look up an existing group by name.
 	group, err := novaClient.SecurityGroupByName(name)
@@ -103,6 +103,12 @@ func (c *legacyNovaFirewaller) ensureGroup(name string, rules []nova.RuleInfo) (
 		// groups (especially if they were set up under Python)
 		return *group, nil
 	}
+
+	_, denied := MaybeHandleCredentialError(err, ctx)
+	if denied {
+		return nova.SecurityGroup{}, errors.Annotate(err, "cannot get security group.")
+	}
+
 	// Doesn't exist, so try and create it.
 	group, err = novaClient.CreateSecurityGroup(name, "juju group")
 	if err != nil {
@@ -137,15 +143,16 @@ func (c *legacyNovaFirewaller) ensureGroup(name string, rules []nova.RuleInfo) (
 	return *group, nil
 }
 
-func (c *legacyNovaFirewaller) deleteSecurityGroups(match func(name string) bool) error {
+func (c *legacyNovaFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext, match func(name string) bool) error {
 	novaclient := c.environ.nova()
 	securityGroups, err := novaclient.ListSecurityGroups()
 	if err != nil {
-		return errors.Annotate(err, "cannot list security groups")
+		return HandleCredentialError(errors.Annotate(err, "cannot list security groups"), ctx)
 	}
 	for _, group := range securityGroups {
 		if match(group.Name) {
 			deleteSecurityGroup(
+				ctx,
 				novaclient.DeleteSecurityGroup,
 				group.Name,
 				group.Id,
@@ -158,17 +165,17 @@ func (c *legacyNovaFirewaller) deleteSecurityGroups(match func(name string) bool
 
 // DeleteAllControllerGroups implements Firewaller interface.
 func (c *legacyNovaFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallContext, controllerUUID string) error {
-	return deleteSecurityGroupsMatchingName(c.deleteSecurityGroups, c.jujuControllerGroupPrefix(controllerUUID))
+	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuControllerGroupPrefix(controllerUUID))
 }
 
 // DeleteAllModelGroups implements Firewaller interface.
 func (c *legacyNovaFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
-	return deleteSecurityGroupsMatchingName(c.deleteSecurityGroups, c.jujuGroupRegexp())
+	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuGroupRegexp())
 }
 
 // DeleteGroups implements Firewaller interface.
 func (c *legacyNovaFirewaller) DeleteGroups(ctx context.ProviderCallContext, names ...string) error {
-	return deleteSecurityGroupsOneOfNames(c.deleteSecurityGroups, names...)
+	return deleteSecurityGroupsOneOfNames(ctx, c.deleteSecurityGroups, names...)
 }
 
 // UpdateGroupController implements Firewaller interface.
@@ -176,11 +183,11 @@ func (c *legacyNovaFirewaller) UpdateGroupController(ctx context.ProviderCallCon
 	novaClient := c.environ.nova()
 	groups, err := novaClient.ListSecurityGroups()
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 	re, err := regexp.Compile(c.jujuGroupRegexp())
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 
 	var failed []string
@@ -188,59 +195,64 @@ func (c *legacyNovaFirewaller) UpdateGroupController(ctx context.ProviderCallCon
 		if !re.MatchString(group.Name) {
 			continue
 		}
-		err := c.updateGroupControllerUUID(&group, controllerUUID)
+		err := c.updateGroupControllerUUID(ctx, &group, controllerUUID)
 		if err != nil {
-			logger.Errorf("error updating controller for security group %s: %v", group.Id, err)
-			failed = append(failed, group.Id)
+			_, denied := MaybeHandleCredentialError(err, ctx)
+			if denied {
+				break
+			} else {
+				logger.Errorf("error updating controller for security group %s: %v", group.Id, err)
+				failed = append(failed, group.Id)
+			}
 		}
 	}
 	if len(failed) != 0 {
-		return errors.Errorf("errors updating controller for security groups: %v", failed)
+		return HandleCredentialError(errors.Annotate(err, "errors updating controller for security groups: %v"), ctx)
 	}
 	return nil
 }
 
-func (c *legacyNovaFirewaller) updateGroupControllerUUID(group *nova.SecurityGroup, controllerUUID string) error {
+func (c *legacyNovaFirewaller) updateGroupControllerUUID(ctx context.ProviderCallContext, group *nova.SecurityGroup, controllerUUID string) error {
 	newName, err := replaceControllerUUID(group.Name, controllerUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 	client := c.environ.nova()
 	_, err = client.UpdateSecurityGroup(group.Id, newName, group.Description)
-	return errors.Trace(err)
+	return HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // OpenPorts implements Firewaller interface.
 func (c *legacyNovaFirewaller) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
-	return c.openPorts(c.openPortsInGroup, rules)
+	return c.openPorts(ctx, c.openPortsInGroup, rules)
 }
 
 // ClosePorts implements Firewaller interface.
 func (c *legacyNovaFirewaller) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
-	return c.closePorts(c.closePortsInGroup, rules)
+	return c.closePorts(ctx, c.closePortsInGroup, rules)
 }
 
 // IngressRules implements Firewaller interface.
 func (c *legacyNovaFirewaller) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
-	return c.ingressRules(c.ingressRulesInGroup)
+	return c.ingressRules(ctx, c.ingressRulesInGroup)
 }
 
 // OpenInstancePorts implements Firewaller interface.
 func (c *legacyNovaFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
-	return c.openInstancePorts(c.openPortsInGroup, machineId, rules)
+	return c.openInstancePorts(ctx, c.openPortsInGroup, machineId, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
 func (c *legacyNovaFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
-	return c.closeInstancePorts(c.closePortsInGroup, machineId, rules)
+	return c.closeInstancePorts(ctx, c.closePortsInGroup, machineId, rules)
 }
 
 // InstanceIngressRules implements Firewaller interface.
 func (c *legacyNovaFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error) {
-	return c.instanceIngressRules(c.ingressRulesInGroup, machineId)
+	return c.instanceIngressRules(ctx, c.ingressRulesInGroup, machineId)
 }
 
-func (c *legacyNovaFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGroup, error) {
+func (c *legacyNovaFirewaller) matchingGroup(ctx context.ProviderCallContext, nameRegExp string) (nova.SecurityGroup, error) {
 	re, err := regexp.Compile(nameRegExp)
 	if err != nil {
 		return nova.SecurityGroup{}, err
@@ -248,7 +260,7 @@ func (c *legacyNovaFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGr
 	novaclient := c.environ.nova()
 	allGroups, err := novaclient.ListSecurityGroups()
 	if err != nil {
-		return nova.SecurityGroup{}, err
+		return nova.SecurityGroup{}, HandleCredentialError(err, ctx)
 	}
 	var matchingGroups []nova.SecurityGroup
 	for _, group := range allGroups {
@@ -265,16 +277,21 @@ func (c *legacyNovaFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGr
 	return matchingGroups[0], nil
 }
 
-func (c *legacyNovaFirewaller) openPortsInGroup(nameRegExp string, rules []network.IngressRule) error {
-	group, err := c.matchingGroup(nameRegExp)
+func (c *legacyNovaFirewaller) openPortsInGroup(ctx context.ProviderCallContext, nameRegExp string, rules []network.IngressRule) error {
+	group, err := c.matchingGroup(ctx, nameRegExp)
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 	novaclient := c.environ.nova()
 	ruleInfo := rulesToRuleInfo(group.Id, rules)
 	for _, rule := range ruleInfo {
 		_, err := novaclient.CreateSecurityGroupRule(legacyRuleInfo(rule))
 		if err != nil {
+			_, denied := MaybeHandleCredentialError(err, ctx)
+			if denied {
+				errors.Annotate(err, "cannot create security group.")
+				break
+			}
 			// TODO: if err is not rule already exists, raise?
 			logger.Debugf("error creating security group rule: %v", err.Error())
 		}
@@ -302,13 +319,13 @@ func legacyRuleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.I
 		*rule.ToPort == portRange.ToPort
 }
 
-func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, rules []network.IngressRule) error {
+func (c *legacyNovaFirewaller) closePortsInGroup(ctx context.ProviderCallContext, nameRegExp string, rules []network.IngressRule) error {
 	if len(rules) == 0 {
 		return nil
 	}
-	group, err := c.matchingGroup(nameRegExp)
+	group, err := c.matchingGroup(ctx, nameRegExp)
 	if err != nil {
-		return errors.Trace(err)
+		return HandleCredentialError(errors.Trace(err), ctx)
 	}
 	novaclient := c.environ.nova()
 	for _, portRange := range rules {
@@ -318,7 +335,7 @@ func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, rules []netw
 			}
 			err := novaclient.DeleteSecurityGroupRule(p.Id)
 			if err != nil {
-				return errors.Trace(err)
+				return HandleCredentialError(errors.Trace(err), ctx)
 			}
 			break
 		}
@@ -326,10 +343,10 @@ func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, rules []netw
 	return nil
 }
 
-func (c *legacyNovaFirewaller) ingressRulesInGroup(nameRegexp string) (rules []network.IngressRule, err error) {
-	group, err := c.matchingGroup(nameRegexp)
+func (c *legacyNovaFirewaller) ingressRulesInGroup(ctx context.ProviderCallContext, nameRegexp string) (rules []network.IngressRule, err error) {
+	group, err := c.matchingGroup(ctx, nameRegexp)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, HandleCredentialError(errors.Trace(err), ctx)
 	}
 	// Keep track of all the RemoteIPPrefixes for each port range.
 	portSourceCIDRs := make(map[network.PortRange]*[]string)

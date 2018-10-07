@@ -8,6 +8,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/goose.v2/nova"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -24,7 +25,7 @@ type LegacyNovaNetworking struct {
 }
 
 // AllocatePublicIP is part of the Networking interface.
-func (n *LegacyNovaNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
+func (n *LegacyNovaNetworking) AllocatePublicIP(ctx context.ProviderCallContext, instId instance.Id) (*string, error) {
 	fips, err := n.env.nova().ListFloatingIPs()
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (n *LegacyNovaNetworking) AllocatePublicIP(instId instance.Id) (*string, er
 		// allocate a new IP and use it
 		newfip, err = n.env.nova().AllocateFloatingIP()
 		if err != nil {
-			return nil, err
+			return nil, HandleCredentialError(err, ctx)
 		}
 		logger.Debugf("allocated new public IP: %v", newfip.IP)
 	}
@@ -54,12 +55,12 @@ func (n *LegacyNovaNetworking) AllocatePublicIP(instId instance.Id) (*string, er
 }
 
 // DefaultNetworks is part of the Networking interface.
-func (*LegacyNovaNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
+func (*LegacyNovaNetworking) DefaultNetworks(ctx context.ProviderCallContext) ([]nova.ServerNetworks, error) {
 	return []nova.ServerNetworks{}, nil
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *LegacyNovaNetworking) ResolveNetwork(name string, external bool) (string, error) {
+func (n *LegacyNovaNetworking) ResolveNetwork(ctx context.ProviderCallContext, name string, external bool) (string, error) {
 	// Ignore external, it's a Neutron concept.
 	if utils.IsValidUUIDString(name) {
 		return name, nil
@@ -80,11 +81,11 @@ func (n *LegacyNovaNetworking) ResolveNetwork(name string, external bool) (strin
 }
 
 // Subnets is part of the Networking interface.
-func (n *LegacyNovaNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *LegacyNovaNetworking) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("nova subnet")
 }
 
 // NetworkInterfaces is part of the Networking interface.
-func (n *LegacyNovaNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *LegacyNovaNetworking) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("nova network interfaces")
 }

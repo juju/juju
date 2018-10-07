@@ -6,6 +6,7 @@ package rackspace
 import (
 	"gopkg.in/goose.v2/nova"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/openstack"
 )
 
@@ -21,7 +22,7 @@ type rackspaceNetworking struct {
 }
 
 // DefaultNetworks is part of the openstack.Networking interface.
-func (rackspaceNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
+func (rackspaceNetworking) DefaultNetworks(ctx context.ProviderCallContext) ([]nova.ServerNetworks, error) {
 	// These are the default rackspace networks, see:
 	// http://docs.rackspace.com/servers/api/v2/cs-devguide/content/provision_server_with_networks.html
 	return []nova.ServerNetworks{

@@ -180,7 +180,7 @@ type localLiveSuite struct {
 func makeMockAdapter() *mockAdapter {
 	volumes := make(map[string]*cinder.Volume)
 	return &mockAdapter{
-		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+		createVolume: func(ctx context.ProviderCallContext, args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			metadata := args.Metadata.(map[string]string)
 			volume := cinder.Volume{
 				ID:               args.Name,
@@ -191,20 +191,20 @@ func makeMockAdapter() *mockAdapter {
 			volumes[volume.ID] = &volume
 			return &volume, nil
 		},
-		getVolumesDetail: func() ([]cinder.Volume, error) {
+		getVolumesDetail: func(ctx context.ProviderCallContext) ([]cinder.Volume, error) {
 			var result []cinder.Volume
 			for _, volume := range volumes {
 				result = append(result, *volume)
 			}
 			return result, nil
 		},
-		getVolume: func(volumeId string) (*cinder.Volume, error) {
+		getVolume: func(ctx context.ProviderCallContext, volumeId string) (*cinder.Volume, error) {
 			if volume, ok := volumes[volumeId]; ok {
 				return volume, nil
 			}
 			return nil, errors.New("not found")
 		},
-		setVolumeMetadata: func(volumeId string, metadata map[string]string) (map[string]string, error) {
+		setVolumeMetadata: func(ctx context.ProviderCallContext, volumeId string, metadata map[string]string) (map[string]string, error) {
 			if volume, ok := volumes[volumeId]; ok {
 				for k, v := range metadata {
 					volume.Metadata[k] = v
@@ -1467,6 +1467,7 @@ func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZonesSameZonePlacement
 }
 
 func (t *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placement string) {
+	var ctx context.ProviderCallContext
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1476,7 +1477,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 		},
 	)
 
-	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -1496,6 +1497,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C) {
+	var ctx context.ProviderCallContext
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1511,7 +1513,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 		},
 	)
 
-	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -1567,6 +1569,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
+	var ctx context.ProviderCallContext
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1582,7 +1585,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 		},
 	)
 
-	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az2",
@@ -1604,6 +1607,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
+	var ctx context.ProviderCallContext
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1619,7 +1623,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 		},
 	)
 
-	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -2108,7 +2112,8 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID, false)
+	var ctx context.ProviderCallContext
+	networkId, err := openstack.ResolveNetwork(ctx, s.env, sampleUUID, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, sampleUUID)
 }
@@ -2117,17 +2122,19 @@ func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
 	var expectNetworkId = "1"
-	networkId, err := openstack.ResolveNetwork(s.env, networkLabel, false)
+	var ctx context.ProviderCallContext
+	networkId, err := openstack.ResolveNetwork(ctx, s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, expectNetworkId)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 	var notPresentNetwork = "no-network-with-this-label"
-	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork, false)
+	var ctx context.ProviderCallContext
+	networkId, err := openstack.ResolveNetwork(ctx, s.env, notPresentNetwork, false)
 	c.Check(networkId, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
-	networkId, err = openstack.ResolveNetwork(s.env, notPresentNetwork, true)
+	networkId, err = openstack.ResolveNetwork(ctx, s.env, notPresentNetwork, true)
 	c.Check(networkId, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
 }
@@ -2275,6 +2282,7 @@ func (t *localServerSuite) testStartInstanceWithParamsDeriveAZ(
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
+	var ctx context.ProviderCallContext
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -2298,7 +2306,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err = t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az2",
@@ -2319,11 +2327,12 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(c *gc.C) {
+	var ctx context.ProviderCallContext
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, az := range []string{"az1", "az2"} {
-		_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		_, err := t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 			Size:             123,
 			Name:             "vol-" + az,
 			AvailabilityZone: az,
@@ -2346,6 +2355,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsPlacement(c *gc.C) {
+	var ctx context.ProviderCallContext
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2363,7 +2373,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 			},
 		},
 	)
-	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err = t.storageAdapter.CreateVolume(ctx, cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -2558,6 +2568,7 @@ func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expe
 }
 
 func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expectedController string) {
+	var ctx context.ProviderCallContext
 	storage, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	source := openstack.NewCinderVolumeSourceForModel(storage, env.Config().UUID())
@@ -2566,7 +2577,7 @@ func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expect
 	c.Assert(volumeIds, gc.Not(gc.HasLen), 0)
 	for _, volumeId := range volumeIds {
 		c.Logf(volumeId)
-		volume, err := storage.GetVolume(volumeId)
+		volume, err := storage.GetVolume(ctx, volumeId)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(volume.Metadata[tags.JujuController], gc.Equals, expectedController)
 	}

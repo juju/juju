@@ -12,6 +12,7 @@ import (
 	"gopkg.in/goose.v2/swift"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -62,18 +63,20 @@ func (fakeNamespace) Value(s string) string {
 
 func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	var ctx context.ProviderCallContext
 	if err := switching.initFirewaller(); err != nil {
 		return neutron.SecurityGroupV2{}, err
 	}
-	return switching.fw.(*neutronFirewaller).setUpGlobalGroup(name, apiPort)
+	return switching.fw.(*neutronFirewaller).setUpGlobalGroup(ctx, name, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	var ctx context.ProviderCallContext
 	if err := switching.initFirewaller(); err != nil {
 		return neutron.SecurityGroupV2{}, err
 	}
-	return switching.fw.(*neutronFirewaller).ensureGroup(name, rules)
+	return switching.fw.(*neutronFirewaller).ensureGroup(ctx, name, rules)
 }
 
 func MachineGroupRegexp(e environs.Environ, machineId string) string {
@@ -88,10 +91,11 @@ func MachineGroupName(e environs.Environ, controllerUUID, machineId string) stri
 
 func MatchingGroup(e environs.Environ, nameRegExp string) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	var ctx context.ProviderCallContext
 	if err := switching.initFirewaller(); err != nil {
 		return neutron.SecurityGroupV2{}, err
 	}
-	return switching.fw.(*neutronFirewaller).matchingGroup(nameRegExp)
+	return switching.fw.(*neutronFirewaller).matchingGroup(ctx, nameRegExp)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
@@ -134,8 +138,8 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 }
 
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
-func ResolveNetwork(e environs.Environ, networkName string, external bool) (string, error) {
-	return e.(*Environ).networking.ResolveNetwork(networkName, external)
+func ResolveNetwork(ctx context.ProviderCallContext, e environs.Environ, networkName string, external bool) (string, error) {
+	return e.(*Environ).networking.ResolveNetwork(ctx, networkName, external)
 }
 
 var PortsToRuleInfo = rulesToRuleInfo
