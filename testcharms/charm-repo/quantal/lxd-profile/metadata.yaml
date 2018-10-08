@@ -14,6 +14,6 @@ tags:
   - application_development
 subordinate: false
 series:
-  - quantal
-  - xenial
   - bionic
+  - xenial
+  - quantal

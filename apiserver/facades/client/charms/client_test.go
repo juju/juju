@@ -156,6 +156,11 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						"misc",
 						"application_development",
 					},
+					Series: []string{
+						"bionic",
+						"xenial",
+						"quantal",
+					},
 				},
 				Actions: &params.CharmActions{},
 				LXDProfile: &params.CharmLXDProfile{
