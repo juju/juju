@@ -5,12 +5,13 @@ package machine
 
 import (
 	"github.com/juju/cmd"
+	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/storage"
-	"gopkg.in/juju/worker.v1/catacomb"
 )
 
 var (
@@ -23,27 +24,27 @@ type AddCommand struct {
 
 // NewAddCommand returns an AddCommand with the api provided as specified.
 func NewAddCommandForTest(api AddMachineAPI, mcAPI ModelConfigAPI, mmAPI MachineManagerAPI) (cmd.Command, *AddCommand) {
-	cmd := &addCommand{
+	command := &addCommand{
 		api:               api,
 		machineManagerAPI: mmAPI,
 		modelConfigAPI:    mcAPI,
 	}
-	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(cmd), &AddCommand{cmd}
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command), &AddCommand{command}
 }
 
 // NewListCommandForTest returns a listMachineCommand with specified api
 func NewListCommandForTest(api statusAPI) cmd.Command {
-	cmd := newListMachinesCommand(api)
-	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(cmd)
+	command := newListMachinesCommand(api)
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command)
 }
 
 // NewShowCommandForTest returns a showMachineCommand with specified api
 func NewShowCommandForTest(api statusAPI) cmd.Command {
-	cmd := newShowMachineCommand(api)
-	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(cmd)
+	command := newShowMachineCommand(api)
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command)
 }
 
 type RemoveCommand struct {
@@ -52,23 +53,26 @@ type RemoveCommand struct {
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
 func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
-	cmd := &removeCommand{
+	command := &removeCommand{
 		apiRoot:    apiRoot,
 		machineAPI: machineAPI,
 	}
-	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(cmd), &RemoveCommand{cmd}
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command), &RemoveCommand{command}
 }
 
 // NewUpgradeSeriesCommand returns an upgrade series command for test
-func NewUpgradeSeriesCommandForTest(api UpgradeMachineSeriesAPI) cmd.Command {
-	cmd := &upgradeSeriesCommand{upgradeMachineSeriesClient: api}
-	cmd.plan = catacomb.Plan{
-		Site: &cmd.catacomb,
+func NewUpgradeSeriesCommandForTest(upgradeAPI UpgradeMachineSeriesAPI, leaderAPI leadership.Pinner) cmd.Command {
+	command := &upgradeSeriesCommand{
+		upgradeMachineSeriesClient: upgradeAPI,
+		leadershipClient:           leaderAPI,
+	}
+	command.plan = catacomb.Plan{
+		Site: &command.catacomb,
 		Work: func() error { return nil },
 	}
-	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(cmd)
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command)
 }
 
 func NewDisksFlag(disks *[]storage.Constraints) *disksFlag {

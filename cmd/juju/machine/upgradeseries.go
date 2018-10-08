@@ -5,20 +5,24 @@ package machine
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/facades/client/leadership"
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -62,6 +66,7 @@ type UpgradeMachineSeriesAPI interface {
 	UpgradeSeriesComplete(string) error
 	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, string, error)
 	GetUpgradeSeriesMessages(string, string) ([]string, error)
+	Applications(string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -70,6 +75,7 @@ type upgradeSeriesCommand struct {
 	modelcmd.IAASOnlyCommand
 
 	upgradeMachineSeriesClient UpgradeMachineSeriesAPI
+	leadershipClient           coreleadership.Pinner
 
 	prepCommand   string
 	force         bool
@@ -175,11 +181,11 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 	}
 
 	if c.prepCommand == PrepareCommand {
-		series, err := checkSeries(series.SupportedSeries(), args[2])
+		s, err := checkSeries(series.SupportedSeries(), args[2])
 		if err != nil {
 			return err
 		}
-		c.series = series
+		c.series = s
 	}
 
 	return nil
@@ -206,40 +212,78 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 // name. Since this function's interface will be mocked as an external test
 // dependency this function should contain minimal logic other than gathering an
 // API handle and making the API call.
-func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
-	var apiRoot api.Connection
-
-	// If the upgradeMachineSeries is nil then we collect a handle to the
-	// API. If it is not nil it is likely the client has been set elsewhere
-	// (i.e. a test mock) so we don't reset it.
-	if c.upgradeMachineSeriesClient == nil {
-		var err error
-		apiRoot, err = c.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer apiRoot.Close()
-		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
-	}
-
-	err := c.promptConfirmation(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force)
+func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error) {
+	apiRoot, err := c.ensureAPIClients()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if apiRoot != nil {
+		defer apiRoot.Close()
+	}
 
-	err = c.handleNotifications(ctx)
+	units, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.promptConfirmation(ctx, units); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Any failure during or after pinning leadership causes applications
+	// with units on the machine to be unpinned.
+	// Note that pinning and unpinning is idempotent.
+	defer func() {
+		if err != nil {
+			if unpinErr := c.unpinLeaders(ctx); unpinErr != nil {
+				err = errors.Wrap(err, unpinErr)
+			}
+		}
+	}()
+	if err = c.pinLeaders(ctx, units); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = c.handleNotifications(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
 	m := UpgradeSeriesPrepareFinishedMessage + "\n"
 	ctx.Infof(m, c.machineNumber)
 
+	return nil
+}
+
+func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnits []string) error {
+	formattedUnitNames := strings.Join(affectedUnits, "\n")
+	if c.agree {
+		return nil
+	}
+
+	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series, c.machineNumber, formattedUnitNames)
+	if err := jujucmd.UserConfirmYes(ctx); err != nil {
+		return errors.Annotate(err, "upgrade series")
+	}
+	return nil
+}
+
+// pinLeaders extracts the unique list of applications from the input unit IDs
+// and pins the leadership for them.
+func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) error {
+	applications := set.NewStrings()
+	for _, unit := range units {
+		applications.Add(strings.Split(unit, "/")[0])
+	}
+
+	for _, app := range applications.SortedValues() {
+		if err := c.leadershipClient.PinLeadership(app); err != nil {
+			return errors.Annotatef(err, "freezing leadership for %q", app)
+		}
+		ctx.Infof("leadership frozen for application %q", app)
+	}
 	return nil
 }
 
@@ -305,30 +349,28 @@ func (c *upgradeSeriesCommand) handleUpgradeSeriesChange(ctx *cmd.Context, wid s
 	return nil
 }
 
-// UpgradeSeriesComplete completes a series for a given machine, that is
-// if a machine is marked as upgrading using UpgradeSeriesPrepare, then this
-// command will complete that process and the machine will no longer be marked
-// as upgrading.
+// UpgradeSeriesComplete completes a series upgrade for a given machine,
+// that is if a machine is marked as upgrading using UpgradeSeriesPrepare,
+// then this command will complete that process and the machine will no longer
+// be marked as upgrading.
 func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
-	var apiRoot api.Connection
-	var err error
-
-	if c.upgradeMachineSeriesClient == nil {
-		apiRoot, err = c.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer apiRoot.Close()
-		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
-	}
-
-	err = c.upgradeMachineSeriesClient.UpgradeSeriesComplete(c.machineNumber)
+	apiRoot, err := c.ensureAPIClients()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if apiRoot != nil {
+		defer apiRoot.Close()
+	}
 
-	err = c.handleNotifications(ctx)
-	if err != nil {
+	if err := c.upgradeMachineSeriesClient.UpgradeSeriesComplete(c.machineNumber); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.handleNotifications(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.unpinLeaders(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -338,21 +380,44 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
-	if c.agree {
-		return nil
+// ensureAPIClients checks to see if API clients are already instantiated.
+// If not, a new api Connection is created and used to instantiate them.
+// If they have been set elsewhere (such as by a test) we leave them as is.
+func (c *upgradeSeriesCommand) ensureAPIClients() (api.Connection, error) {
+	var apiRoot api.Connection
+	if c.upgradeMachineSeriesClient == nil || c.leadershipClient == nil {
+		var err error
+		apiRoot, err = c.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
-	affectedUnits, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
+	if c.upgradeMachineSeriesClient == nil {
+		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
+	}
+	if c.leadershipClient == nil {
+		c.leadershipClient = leadership.NewClient(apiRoot)
+	}
+
+	return apiRoot, nil
+}
+
+// unpinLeaders queries the API for applications running on the machine,
+// then unpins the previously pinned leadership for each.
+func (c *upgradeSeriesCommand) unpinLeaders(ctx *cmd.Context) error {
+	applications, err := c.upgradeMachineSeriesClient.Applications(c.machineNumber)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "retrieving machine applications")
 	}
 
-	formattedUnitNames := strings.Join(affectedUnits, "\n")
-	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series, c.machineNumber, formattedUnitNames)
-
-	if err := jujucmd.UserConfirmYes(ctx); err != nil {
-		return errors.Annotate(err, "upgrade series")
+	apps := sort.StringSlice(applications)
+	apps.Sort()
+	for _, app := range apps {
+		if err := c.leadershipClient.UnpinLeadership(app); err != nil {
+			return errors.Annotatef(err, "unfreezing leadership for %q", app)
+		}
+		ctx.Infof("leadership unfrozen for application %q", app)
 	}
 	return nil
 }

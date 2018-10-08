@@ -14,11 +14,6 @@ import (
 	"github.com/juju/juju/permission"
 )
 
-// TODO (manadart 2018-10-02) This is the only usage of a mock for the
-// Pinner interface right now.
-// Should that change, it is worth locating somewhere more general.
-//go:generate mockgen -package leadership_test -destination pinner_mock_test.go github.com/juju/juju/core/leadership Pinner
-
 // API exposes leadership pinning and unpinning functionality for remote use.
 type API interface {
 	PinLeadership(params params.PinLeadershipBulkParams) (params.ErrorResults, error)

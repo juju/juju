@@ -33,6 +33,19 @@ func (m *MockUpgradeMachineSeriesAPI) EXPECT() *MockUpgradeMachineSeriesAPIMockR
 	return m.recorder
 }
 
+// Applications mocks base method
+func (m *MockUpgradeMachineSeriesAPI) Applications(arg0 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "Applications", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Applications indicates an expected call of Applications
+func (mr *MockUpgradeMachineSeriesAPIMockRecorder) Applications(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Applications", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).Applications), arg0)
+}
+
 // BestAPIVersion mocks base method
 func (m *MockUpgradeMachineSeriesAPI) BestAPIVersion() int {
 	ret := m.ctrl.Call(m, "BestAPIVersion")
