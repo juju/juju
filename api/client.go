@@ -311,9 +311,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 		return nil, errors.Trace(err)
 	}
 	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
-		if force {
-			logger.Debugf("force flag used to override validation error %v", err)
-		} else {
+		if !force {
 			return nil, errors.Trace(err)
 		}
 	}
