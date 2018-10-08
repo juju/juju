@@ -221,8 +221,11 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 		defer apiRoot.Close()
 	}
 
-	units, err := c.promptConfirmation(ctx)
+	units, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.promptConfirmation(ctx, units); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -254,22 +257,17 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 	return nil
 }
 
-func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) ([]string, error) {
-	affectedUnits, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnits []string) error {
 	formattedUnitNames := strings.Join(affectedUnits, "\n")
 	if c.agree {
-		return affectedUnits, nil
+		return nil
 	}
 
 	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series, c.machineNumber, formattedUnitNames)
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
-		return nil, errors.Annotate(err, "upgrade series")
+		return errors.Annotate(err, "upgrade series")
 	}
-	return affectedUnits, nil
+	return nil
 }
 
 // pinLeaders extracts the unique list of applications from the input unit IDs
