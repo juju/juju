@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
@@ -68,6 +69,8 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+
+	envCfg *environConfig
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -82,19 +85,21 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK8sClientFunc) (caas.Broker, error) {
-	config, err := newK8sConfig(cloudSpec)
+func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	k8sClient, apiextensionsClient, err := newClient(config)
+	k8sClient, apiextensionsClient, err := newClient(k8sConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	newCfg, err := providerInstance.newConfig(cfg)
 	return &kubernetesClient{
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           namespace,
+		namespace:           cfg.Name(),
+		envCfg:              newCfg,
 	}, nil
 }
 
@@ -119,6 +124,22 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 			CAData:   CAData,
 		},
 	}, nil
+}
+
+// Config returns environ config.
+func (k *kubernetesClient) Config() *config.Config {
+	return k.envCfg.Config
+}
+
+// DestroyController implements the Environ interface.
+func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// TODO(caas): destroy controller and all models
+	return errors.NotSupportedf("DestroyController")
+}
+
+// SetConfig is specified in the Environ interface.
+func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
+	return errors.NotSupportedf("SetConfig")
 }
 
 // Provider is part of the Broker interface.

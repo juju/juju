@@ -96,12 +96,6 @@ type ServiceParams struct {
 
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
-	// Provider returns the ContainerEnvironProvider that created this Broker.
-	Provider() ContainerEnvironProvider
-
-	// Destroy terminates all containers and other resources in this broker's namespace.
-	Destroy(context.ProviderCallContext) error
-
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
 
@@ -142,6 +136,14 @@ type Broker interface {
 	// of the specified application. Filesystems are mounted
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
+
+	environs.ConfigGetter
+
+	// Provider returns the ContainerEnvironProvider that created this Broker.
+	Provider() ContainerEnvironProvider
+
+	// Destroy terminates all containers and other resources in this broker's namespace.
+	Destroy(context.ProviderCallContext) error
 
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
