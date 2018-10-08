@@ -25,17 +25,7 @@ type k8sConfigSuite struct {
 var _ = gc.Suite(&k8sConfigSuite{})
 
 var (
-	emptyConfigYAML = `
-apiVersion: v1
-kind: Config
-clusters: []
-contexts: []
-current-context: ""
-preferences: {}
-users: []
-`
-
-	singleConfigYAML = `
+	prefixConfigYAML = `
 apiVersion: v1
 kind: Config
 clusters:
@@ -51,6 +41,18 @@ contexts:
 current-context: the-context
 preferences: {}
 users:
+`
+	emptyConfigYAML = `
+apiVersion: v1
+kind: Config
+clusters: []
+contexts: []
+current-context: ""
+preferences: {}
+users: []
+`
+
+	singleConfigYAML = prefixConfigYAML + `
 - name: the-user
   user:
     password: thepassword
@@ -102,7 +104,6 @@ users:
     client-key-data: Qg==
     username: "fifth-user"
     password: "userpasscertpass"
-
 `
 )
 
@@ -176,6 +177,58 @@ func (s *k8sConfigSuite) assertSingleConfig(c *gc.C, f *os.File) {
 		})
 }
 
+func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
+	for i, test := range []struct {
+		title          string
+		userConfigYAML string
+		errMatch       string
+	}{
+		{
+			title: "notSupportedAuthProviderTypeConfig",
+			userConfigYAML: `
+- name: the-user
+  user:
+    auth-provider:
+      config:
+        cmd-args: config config-helper --format=json
+        cmd-path: /usr/lib/google-cloud-sdk/bin/gcloud
+        expiry-key: '{.credential.token_expiry}'
+        token-key: '{.credential.access_token}'
+      name: gcp
+`,
+			errMatch: `failed to read credentials from kubernetes config: configuration for "the-user" not supported`,
+		},
+		{
+			title: "tokenWithUsernameInvalidConfig",
+			userConfigYAML: `
+- name: the-user
+  user:
+    password: defaultpassword
+    username: defaultuser
+    token: nonEmptyToken
+`,
+			errMatch: `failed to read credentials from kubernetes config: AuthInfo: "the-user" with both Token and User/Pass not valid`,
+		},
+		{
+			title: "emptyClientKeyDataInvalidConfig",
+			userConfigYAML: `
+- name: the-user
+  user:
+    client-certificate-data: QQ==
+    client-key-data:
+`,
+			errMatch: `failed to read credentials from kubernetes config: empty ClientKeyData for \"the-user\" with auth type \"certificate\" not valid`,
+		},
+	} {
+		c.Logf("test %d", i)
+		f, err := s.writeTempKubeConfig(c, test.title, prefixConfigYAML+test.userConfigYAML)
+		defer f.Close()
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = clientconfig.NewK8sClientConfig(f)
+		c.Check(err, gc.ErrorMatches, test.errMatch)
+	}
+}
+
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	f, err := s.writeTempKubeConfig(c, "multiConfig", multiConfigYAML)
 	defer f.Close()
@@ -204,7 +257,6 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	fifthCred.Label = `kubernetes credential "fifth-user"`
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
-
 			Type: "kubernetes",
 			Contexts: map[string]clientconfig.Context{
 				"default-context": {
