@@ -5,6 +5,7 @@ config:
   linux.kernel_modules: openvswitch,nbd,ip_tables,ip6_tables
   # boot.* keys are blacklisted by juju.
   boot.autostart: "true"
+  limits.memory: 256mb
 devices:
   tun:
     path: /dev/net/tun
