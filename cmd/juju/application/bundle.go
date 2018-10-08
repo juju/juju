@@ -69,7 +69,7 @@ func deployBundle(
 	ctx *cmd.Context,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
-	dryRun, force bool,
+	dryRun bool,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
@@ -135,10 +135,6 @@ func deployBundle(
 // bundleHandler provides helpers and the state required to deploy a bundle.
 type bundleHandler struct {
 	dryRun bool
-
-	// force is used to override validation errors, so that a deploy of a
-	// bundle will continue to happen.
-	force bool
 
 	// bundleDir is the path where the bundle file is located for local bundles.
 	bundleDir string
@@ -437,13 +433,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 		if err == nil {
 			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
-				if h.force {
-					logger.Debugf("force flag used to override validation error %v", err)
-				} else {
-					return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
-				}
+				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 			}
-			if curl, err = h.api.AddLocalCharm(curl, ch, h.force); err != nil {
+			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
 				return err
 			}
 			logger.Debugf("added charm %s", curl)
@@ -466,7 +458,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel, h.force)
+	url, macaroon, err = addCharmFromURL(h.api, url, channel, false)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -571,11 +563,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
-		if h.force {
-			logger.Debugf("force flag used to override validation error %v", err)
-		} else {
-			return errors.Trace(err)
-		}
+		return errors.Trace(err)
 	}
 
 	resNames2IDs, err := resourceadapters.DeployResources(
