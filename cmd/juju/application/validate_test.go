@@ -91,3 +91,63 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfile(c *gc.C) {
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains config value \"boot.autostart\"")
 }
+
+func (*ValidateLXDProfileCharmSuite) TestRunPreWithNoLXDProfileAndForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deployInfo := application.DeploymentInfo{
+		CharmInfo: &apicharms.CharmInfo{},
+		Force:     true,
+	}
+
+	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
+
+	validate := &application.ValidateLXDProfileCharm{}
+	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
+	c.Assert(err, gc.IsNil)
+}
+
+func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfileAndForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deployInfo := application.DeploymentInfo{
+		CharmInfo: &apicharms.CharmInfo{
+			LXDProfile: &charm.LXDProfile{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+			},
+		},
+		Force: true,
+	}
+
+	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
+
+	validate := &application.ValidateLXDProfileCharm{}
+	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
+	c.Assert(err, gc.IsNil)
+}
+
+func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfileAndForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deployInfo := application.DeploymentInfo{
+		CharmInfo: &apicharms.CharmInfo{
+			LXDProfile: &charm.LXDProfile{
+				Config: map[string]string{
+					"boot.autostart": "true",
+				},
+			},
+		},
+		Force: true,
+	}
+
+	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
+
+	validate := &application.ValidateLXDProfileCharm{}
+	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
+	c.Assert(err, gc.IsNil)
+}

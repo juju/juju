@@ -43,7 +43,7 @@ func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	curl := charm.MustParseURL("local:quantal/dummy")
-	charm, err := testing.PutCharm(s.State, curl, s.repo, false)
+	charm, err := testing.PutCharm(s.State, curl, s.repo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charm = charm
 }
@@ -115,7 +115,7 @@ func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Ch
 }
 
 func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL) *state.Charm {
-	wordpressCharm, err := testing.PutCharm(s.State, charmURL, s.repo, false)
+	wordpressCharm, err := testing.PutCharm(s.State, charmURL, s.repo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	return wordpressCharm
 }

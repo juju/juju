@@ -165,6 +165,7 @@ type RelationSuspendedArg struct {
 type AddCharm struct {
 	URL     string `json:"url"`
 	Channel string `json:"channel"`
+	Force   bool   `json:"force"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
@@ -172,6 +173,7 @@ type AddCharmWithAuthorization struct {
 	URL                string             `json:"url"`
 	Channel            string             `json:"channel"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	Force              bool               `json:"force"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.

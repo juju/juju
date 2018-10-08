@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -35,6 +36,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -379,6 +382,11 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+
+	err = os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *UpgradeCharmSuccessStateSuite) assertLocalRevision(c *gc.C, revision int, path string) {
@@ -461,6 +469,53 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	ch, force, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch.Revision(), gc.Equals, 2)
+	c.Check(force, gc.Equals, false)
+}
+
+func (s *UpgradeCharmSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "lxd-profile")
+	err := runDeploy(c, path, "lxd-profile")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("lxd-profile")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.Revision(), gc.Equals, 0)
+
+	// Overwrite the lxd-profile.yaml to change the supported series.
+	lxdProfilePath := filepath.Join(path, "lxd-profile.yaml")
+	file, err := os.OpenFile(lxdProfilePath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open lxd-profile.yaml for overwriting"))
+	}
+	defer file.Close()
+
+	lxdProfile := `
+description: lxd profile for testing
+config:
+  security.nesting: "true"
+  security.privileged: "true"
+  linux.kernel_modules: openvswitch,nbd,ip_tables,ip6_tables
+  environment.http_proxy: ""
+  limits.memory: "256MB"
+devices: {}
+`
+	if _, err := file.WriteString(lxdProfile); err != nil {
+		c.Fatal(errors.Annotate(err, "cannot write to lxd-profile.yaml"))
+	}
+
+	err = runUpgradeCharm(c, "lxd-profile", "--path", path)
+	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains config value "limits.memory"`)
+
+	err = runUpgradeCharm(c, "lxd-profile", "--path", path, "--force")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch, force, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch.Revision(), gc.Equals, 1)
 	c.Check(force, gc.Equals, false)
 }
 
@@ -733,8 +788,8 @@ type mockCharmAdder struct {
 	testing.Stub
 }
 
-func (m *mockCharmAdder) AddCharm(curl *charm.URL, channel csclientparams.Channel) error {
-	m.MethodCall(m, "AddCharm", curl, channel)
+func (m *mockCharmAdder) AddCharm(curl *charm.URL, channel csclientparams.Channel, force bool) error {
+	m.MethodCall(m, "AddCharm", curl, channel, force)
 	return m.NextErr()
 }
 
