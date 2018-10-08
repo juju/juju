@@ -820,6 +820,8 @@ func (c *DeployCommand) deployBundle(
 	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
+	// Deploying bundles does not allow the use force, it's expected that the
+	// bundle is correct and therefore the charms are also.
 	if _, err := deployBundle(
 		filePath,
 		data,
@@ -830,7 +832,6 @@ func (c *DeployCommand) deployBundle(
 		bundleStorage,
 		bundleDevices,
 		c.DryRun,
-		c.Force,
 		c.UseExisting,
 		c.BundleMachines,
 	); err != nil {

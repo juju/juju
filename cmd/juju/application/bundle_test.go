@@ -910,25 +910,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *gc.C) {
 	charmsPath := c.MkDir()
-	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile")
+	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile-fail")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: bionic
         services:
-            lxd-profile:
+            lxd-profile-fail:
                 charm: %s
                 num_units: 1
     `, lxdProfilePath),
 		"--force")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:bionic/lxd-profile-0")
-	lxdProfile, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-0"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"lxd-profile": {charm: "local:bionic/lxd-profile-0", config: lxdProfile.Config().DefaultSettings()},
-	})
-	s.assertUnitsCreated(c, map[string]string{
-		"lxd-profile/0": "0",
-	})
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
