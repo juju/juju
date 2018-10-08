@@ -105,12 +105,14 @@ type upgradeCharmCommand struct {
 	CharmStoreURLGetter   func(api.Connection) (string, error)
 
 	ApplicationName string
-	Force           bool
-	ForceUnits      bool
-	ForceSeries     bool
-	SwitchURL       string
-	CharmPath       string
-	Revision        int // defaults to -1 (latest)
+	// Force should be ubiquitous and we should eventually deprecate both
+	// ForceUnits and ForceSeries; instead just using "force"
+	Force       bool
+	ForceUnits  bool
+	ForceSeries bool
+	SwitchURL   string
+	CharmPath   string
+	Revision    int // defaults to -1 (latest)
 
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
@@ -199,6 +201,10 @@ would specify revision number 5 of the wordpress charm.
 Use of the --force-units flag is not generally recommended; units upgraded while in an
 error state will not have upgrade-charm hooks executed, and may cause unexpected
 behavior.
+
+--force flag for LXD Profiles is not generally recommended when upgrading an 
+application; overriding profiles on the container may cause unexpected 
+behavior. 
 `
 
 func (c *upgradeCharmCommand) Info() *cmd.Info {
@@ -212,7 +218,7 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses for LXD profile allow list")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be upgraded which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")

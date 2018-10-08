@@ -141,7 +141,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	// Validate the charm lxd profile once we've downloaded it.
 	if err := lxdprofile.ValidateCharmLXDProfile(downloadedCharm); err != nil {
 		if args.Force {
-			logger.Infof("force flag used to override validation error %v", err)
+			logger.Debugf("force flag used to override validation error %v", err)
 		} else {
 			return errors.Annotate(err, "cannot add charm")
 		}
