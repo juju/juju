@@ -1140,6 +1140,7 @@ func (task *provisionerTask) startMachine(
 		networkConfig,
 		volumes,
 		volumeNameToAttachmentInfo,
+		startInstanceParams.CharmLXDProfiles,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {

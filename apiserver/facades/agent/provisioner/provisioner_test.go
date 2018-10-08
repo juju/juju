@@ -1176,7 +1176,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
+	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{

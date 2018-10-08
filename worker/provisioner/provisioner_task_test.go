@@ -387,7 +387,7 @@ func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
 func (m *testMachine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
-	volumeAttachments map[string]params.VolumeAttachmentInfo,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
 	return nil
 }
