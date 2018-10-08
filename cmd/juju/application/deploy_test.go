@@ -83,6 +83,15 @@ type DeploySuite struct {
 
 var _ = gc.Suite(&DeploySuite{})
 
+func (s *DeploySuite) SetUpTest(c *gc.C) {
+	s.DeploySuiteBase.SetUpTest(c)
+
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
 // runDeploy executes the deploy command in order to deploy the given
 // charm or bundle. The deployment stderr output and error are returned.
 func runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
@@ -415,26 +424,16 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 }
 
 func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile")
-	err = runDeploy(c, path)
+	err := runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:bionic/lxd-profile-0")
 	s.AssertApplication(c, "lxd-profile", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile-fail")
-	err = runDeploy(c, path)
+	err := runDeploy(c, path)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 
