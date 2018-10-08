@@ -71,26 +71,24 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 func (s *NewMachineManagerSuite) TestApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	resultSource := params.StringsResults{Results: []params.StringsResult{
-		{Result: []string{"redis"}},
-	}}
+	apps := []string{"redis"}
+	resultSource := params.StringsResults{Results: []params.StringsResult{{Result: apps}}}
 	s.facade.EXPECT().FacadeCall("Applications", s.args, gomock.Any()).SetArg(2, resultSource)
 
 	result, err := s.client.Applications(s.tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []string{"redis"})
+	c.Assert(result, gc.DeepEquals, apps)
 }
 
 func (s *NewMachineManagerSuite) TestApplicationsError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	resultSource := params.StringsResults{Results: []params.StringsResult{
-		{Error: &params.Error{Message: "boom"}},
-	}}
+	msg := "boom"
+	resultSource := params.StringsResults{Results: []params.StringsResult{{Error: &params.Error{Message: msg}}}}
 	s.facade.EXPECT().FacadeCall("Applications", s.args, gomock.Any()).SetArg(2, resultSource)
 
 	_, err := s.client.Applications(s.tag.Id())
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *NewMachineManagerSuite) TestApplicationsMultiResultError(c *gc.C) {

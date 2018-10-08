@@ -212,7 +212,7 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 // name. Since this function's interface will be mocked as an external test
 // dependency this function should contain minimal logic other than gathering an
 // API handle and making the API call.
-func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
+func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error) {
 	apiRoot, err := c.ensureAPIClients()
 	if err != nil {
 		return errors.Trace(err)
@@ -226,17 +226,25 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO (manadart 2018-10-04) We need to handle a failure in the middle of
-	// this call - we can not fail and leave any leaders pinned.
-	if err := c.pinLeaders(ctx, units); err != nil {
+	// Any failure during or after pinning leadership causes applications
+	// with units on the machine to be unpinned.
+	// Note that pinning and unpinning is idempotent.
+	defer func() {
+		if err != nil {
+			if unpinErr := c.unpinLeaders(ctx); unpinErr != nil {
+				err = errors.Wrap(err, unpinErr)
+			}
+		}
+	}()
+	if err = c.pinLeaders(ctx, units); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force); err != nil {
+	if err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.handleNotifications(ctx); err != nil {
+	if err = c.handleNotifications(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -274,7 +282,7 @@ func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) erro
 
 	for _, app := range applications.SortedValues() {
 		if err := c.leadershipClient.PinLeadership(app); err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "freezing leadership for %q", app)
 		}
 		ctx.Infof("leadership frozen for application %q", app)
 	}
@@ -402,14 +410,14 @@ func (c *upgradeSeriesCommand) ensureAPIClients() (api.Connection, error) {
 func (c *upgradeSeriesCommand) unpinLeaders(ctx *cmd.Context) error {
 	applications, err := c.upgradeMachineSeriesClient.Applications(c.machineNumber)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "retrieving machine applications")
 	}
 
 	apps := sort.StringSlice(applications)
 	apps.Sort()
 	for _, app := range apps {
 		if err := c.leadershipClient.UnpinLeadership(app); err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "unfreezing leadership for %q", app)
 		}
 		ctx.Infof("leadership unfrozen for application %q", app)
 	}
