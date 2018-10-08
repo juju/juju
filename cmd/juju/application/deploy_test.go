@@ -119,9 +119,6 @@ var initErrorTests = []struct {
 		args: []string{"craziness", "burble1", "--to", "#:foo"},
 		err:  `invalid --to parameter "#:foo"`,
 	}, {
-		args: []string{"charm", "application", "--force"},
-		err:  "",
-	}, {
 		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
 	}, {
@@ -134,11 +131,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
 		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
-		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
-		}
+		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
@@ -259,6 +252,14 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/multi-series-1")
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "lxd-profile-fail")
+	err := runDeploy(c, path, "--series", "quantal", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:quantal/lxd-profile-fail-0")
+	s.AssertApplication(c, "lxd-profile-fail", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
