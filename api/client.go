@@ -312,7 +312,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 	}
 	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 		if force {
-			logger.Infof("force flag used to override validation error %v", err)
+			logger.Debugf("force flag used to override validation error %v", err)
 		} else {
 			return nil, errors.Trace(err)
 		}
@@ -468,7 +468,7 @@ func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel, force bool)
 // authorization error when retrieving the charm from the charm store,
 // an error satisfying params.IsCodeUnauthorized will be returned.
 // Force is used to overload any validation errors that could occur during
-// a
+// a deploy
 func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, force bool) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),

@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/juju/clock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -37,6 +35,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -678,6 +677,8 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 		return nil, err
 	}
 
+	// ValidateCharmLXDProfile is used here to replicate the same flow as the
+	// not testing version.
 	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil && !force {
 		return nil, err
 	}

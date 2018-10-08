@@ -438,7 +438,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if err == nil {
 			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 				if h.force {
-					logger.Infof("force flag used to override validation error %v", err)
+					logger.Debugf("force flag used to override validation error %v", err)
 				} else {
 					return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 				}
@@ -572,7 +572,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
 		if h.force {
-			logger.Infof("force flag used to override validation error %v", err)
+			logger.Debugf("force flag used to override validation error %v", err)
 		} else {
 			return errors.Trace(err)
 		}

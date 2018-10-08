@@ -217,32 +217,15 @@ func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 }
 
 func (s *clientSuite) TestAddLocalCharmWithValidLXDProfileWithForceSucceeds(c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	client := s.APIState.Client()
-
-	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
-
-	// Upload a charm directory with changed revision.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile")
-	charmDir.SetDiskRevision(42)
-	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.Revision, gc.Equals, 42)
-
-	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+	s.testAddLocalCharmWithWithForceSucceeds("lxd-profile", c)
 }
 
 func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfileWithForceSucceeds(c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
+	s.testAddLocalCharmWithWithForceSucceeds("lxd-profile-fail", c)
+}
+
+func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.C) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
@@ -254,7 +237,7 @@ func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfileWithForceSucceeds(c 
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile-fail")
+	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), name)
 	charmDir.SetDiskRevision(42)
 	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
 	c.Assert(err, jc.ErrorIsNil)
