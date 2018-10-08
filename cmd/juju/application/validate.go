@@ -34,8 +34,6 @@ func (r *ValidateLXDProfileCharm) RunPre(api DeployStepAPI, bakeryClient *httpba
 			// The force flag was provided, but we should let the user know that
 			// this could deliver some unexpected results.
 			if deployInfo.Force {
-				// TODO (stickupkid): should we consider raising this to the user
-				// so they're aware of potential pitfalls?
 				logger.Debugf("force flag used to override validation error %v", err)
 				return nil
 			}
