@@ -163,17 +163,17 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *
 
 	finishedMessage := ""
 	for _, unit := range units {
-		finishedMessage = finishedMessage + fmt.Sprintf(
-			"leadership frozen for application %q\n", strings.Split(unit, "/")[0])
+		finishedMessage += fmt.Sprintf("leadership frozen for application %q\n", strings.Split(unit, "/")[0])
 	}
 	finishedMessage = fmt.Sprintf(finishedMessage+machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, displayedMessage)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
 }
 
 type upgradeSeriesPrepareExpectation struct {
 	machineArg, seriesArg, force interface{}
 }
+
 type upgradeSeriesCompleteExpectation struct {
 	machineNumber interface{}
 }
