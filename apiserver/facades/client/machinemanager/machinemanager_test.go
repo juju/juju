@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/utils/set"
+
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	jtesting "github.com/juju/testing"
@@ -612,7 +614,19 @@ func (s *MachineManagerSuite) TestApplications(c *gc.C) {
 	}
 	results, err := apiV5.Applications(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Result, jc.SameContents, []string{"foo"})
+
+	// Check that the applications returned correspond with the machine units.
+	machine, err := s.st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := machine.Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps := set.NewStrings()
+	for _, unit := range units {
+		apps.Add(unit.ApplicationName())
+	}
+	c.Check(results.Results[0].Result, jc.SameContents, apps.Values())
 }
 
 // TestIsSeriesLessThan tests a validation method which is not very complicated
