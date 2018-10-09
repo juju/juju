@@ -141,6 +141,9 @@ type machineDoc struct {
 	// StopMongoUntilVersion holds the version that must be checked to
 	// know if mongo must be stopped.
 	StopMongoUntilVersion string `bson:",omitempty"`
+
+	// LXDProfiles holds the profiles applied to the machine
+	LXDProfiles []string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -276,6 +279,11 @@ func (m *Machine) Life() Life {
 // Jobs returns the responsibilities that must be fulfilled by m's agent.
 func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
+}
+
+// LXDProfiles returns the LXD profiles applied to the machine
+func (m *Machine) LXDProfiles() []string {
+	return m.doc.LXDProfiles
 }
 
 // SetKeepInstance sets whether the cloud machine instance
@@ -1244,7 +1252,8 @@ func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
 	if spaces == nil || len(*spaces) == 0 {
 		return nil, nil
 	}
-	return parseDelimitedValues(*spaces)
+	positive, negative := parseDelimitedValues(*spaces)
+	return positive, negative
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints

@@ -885,6 +885,8 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params
 		status.Hardware = hc.String()
 	}
 	status.Containers = make(map[string]params.MachineStatus)
+	status.LXDProfiles = machine.LXDProfiles()
+
 	return
 }
 
