@@ -28,7 +28,7 @@ github.com/joyent/gocommon	git	ade826b8b54e81a779ccb29d358a45ba24b7809c	2016-03-
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
-github.com/juju/bundlechanges	git	bc5b7e5db16683db8ddffa7eef67b53706a4618a	2018-07-18T04:39:43Z
+github.com/juju/bundlechanges	git	735c14e2335ad2d8112482794d69629c0517476c	2018-10-09T01:45:39Z
 github.com/juju/clock	git	d293bb356ca441f16b59562295cca74478966757	2018-05-24T02:22:03Z
 github.com/juju/cmd	git	e74f39857ca013cf63947ba2843806f7afdd380d	2017-11-07T07:04:56Z
 github.com/juju/collections	git	9be91dc79b7c185fa8b08e7ceceee40562055c83	2018-07-17T17:15:55Z
