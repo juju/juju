@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 
@@ -24,7 +25,7 @@ from utility import (
 __metaclass__ = type
 
 log = logging.getLogger("assess_upgrade_series")
-charm_app = 'dummy-source'
+charm_bundle = 'upgrade-series.yaml'
 
 
 def assess_juju_upgrade_series(client, args):
@@ -103,9 +104,11 @@ def assert_correct_series(client, machine, expected):
 def setup(client, start_series):
     """ Deploy charms, there are several under ./repository """
     charm_source = local_charm_path(
-        charm=charm_app, juju_ver=client.version)
-    _, deploy_complete = client.deploy(charm_source, series=start_series)
-    log.info("Deployed {} with {}".format(charm_app, start_series))
+        charm=charm_bundle,
+        repository=os.environ['JUJU_REPOSITORY'],
+        juju_ver=client.version)
+    _, deploy_complete = client.deploy(charm_source)
+    log.info("Deployed {} with {}".format(charm_bundle, start_series))
     # Wait for the deployment to finish.
     client.wait_for(deploy_complete)
 
