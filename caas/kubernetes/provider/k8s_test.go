@@ -1104,5 +1104,5 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	)
 
 	_, err := s.broker.Operator("test")
-	c.Assert(err, gc.ErrorMatches, "operator pod not found")
+	c.Assert(err, gc.ErrorMatches, "operator pod for application \"test\" not found")
 }
