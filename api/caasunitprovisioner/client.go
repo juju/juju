@@ -143,27 +143,6 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 	return w, nil
 }
 
-// UpdateOperator updates the stored details for an applications operator.
-func (c *Client) UpdateOperator(appName string, opStatus status.StatusInfo) error {
-	tag, err := applicationTag(appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var result params.ErrorResults
-	args := params.UpdateApplicationOperatorArgs{
-		Args: []params.UpdateApplicationOperatorArg{{
-			ApplicationTag: tag.String(),
-			Status:         opStatus.Status.String(),
-			Info:           opStatus.Message,
-			Data:           opStatus.Data,
-		}},
-	}
-	if err := c.facade.FacadeCall("UpdateOperator", args, &result); err != nil {
-		return errors.Trace(err)
-	}
-	return result.OneError()
-}
-
 // ProvisioningInfo holds unit provisioning info.
 type ProvisioningInfo struct {
 	PodSpec     string

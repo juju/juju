@@ -135,6 +135,7 @@ func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
 		Status: status.StatusInfo{
 			Status:  m.reportedOperatorStatus,
 			Message: "testing 1. 2. 3.",
+			Data:    map[string]interface{}{"zip": "zap"},
 		},
 	}, nil
 }
@@ -277,18 +278,6 @@ type mockUnitUpdater struct {
 
 func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	m.MethodCall(m, "UpdateUnits", arg)
-	if err := m.NextErr(); err != nil {
-		return err
-	}
-	return nil
-}
-
-type mockOperatorUpdater struct {
-	testing.Stub
-}
-
-func (m *mockOperatorUpdater) UpdateOperator(appName string, opStatus status.StatusInfo) error {
-	m.MethodCall(m, "UpdateOperator", appName, opStatus)
 	if err := m.NextErr(); err != nil {
 		return err
 	}
