@@ -797,6 +797,16 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	return p.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
+// Machine is an indirection for use in container provisioning.
+//go:generate mockgen -package provisioner_test -destination machine_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
+type Machine interface {
+	containerizer.Container
+	InstanceId() (instance.Id, error)
+	IsManual() (bool, error)
+	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
+	MachineTag() names.MachineTag
+}
+
 // perContainerHandler is the interface we need to trigger processing on
 // every container passed in as a list of things to process.
 type perContainerHandler interface {
@@ -808,7 +818,7 @@ type perContainerHandler interface {
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error
+	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container Machine) error
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
@@ -866,7 +876,7 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 }
 
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine,
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, container Machine,
 ) error {
 	containerId, err := container.InstanceId()
 	if ctx.maintain {
@@ -1046,7 +1056,9 @@ type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
-func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
+func (ctx *hostChangesContext) ProcessOneContainer(
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, container Machine,
+) error {
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
