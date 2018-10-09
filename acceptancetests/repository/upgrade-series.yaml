@@ -1,13 +1,13 @@
 # upgrade-series-machines:
 services:
   dummy-sink-a:
-    charm: ~juju-qa/dummy-sink
+    charm: local:charms/dummy-sink
     num_units: 1
     expose: false
     options:
       token: 'true'
   dummy-subordinate:
-    charm: ~juju-qa/dummy-subordinate
+    charm: local:charms/dummy-subordinate
     expose: false
     options:
       token: 'true'
