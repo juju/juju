@@ -88,13 +88,13 @@ func deployBundle(
 		if err := processBundleIncludes(ctx.Dir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.Verify(verifyConstraints, verifyStorage)
+		verifyError = data.Verify(verifyConstraints, verifyStorage, nil)
 	} else {
 		// Process includes in the bundle data.
 		if err := processBundleIncludes(bundleDir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage)
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, nil)
 	}
 	if verifyError != nil {
 		if verr, ok := verifyError.(*charm.VerificationError); ok {
@@ -601,8 +601,13 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 
 	deployedApps := func() string {
 		apps := h.applicationsForMachineChange(change.Id())
-		// Note that we always have at least one application that justifies the
-		// creation of this machine.
+		// Note that we *should* always have at least one application
+		// that justifies the creation of this machine. But just in
+		// case, check (see https://pad.lv/1773357).
+		if len(apps) == 0 {
+			h.ctx.Warningf("no applications found for machine change %q", change.Id())
+			return "nothing"
+		}
 		msg := apps[0] + " unit"
 
 		if count := len(apps); count != 1 {
