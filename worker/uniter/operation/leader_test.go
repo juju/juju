@@ -70,7 +70,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_BlankSlate(c *gc.C) 
 	c.Check(newState, gc.DeepEquals, &operation.State{
 		Kind:   operation.RunHook,
 		Step:   operation.Queued,
-		Hook:   &hook.Info{Kind: hook.LeaderElected},
+		Hook:   &hook.Info{Kind: hooks.LeaderElected},
 		Leader: true,
 	})
 }
@@ -91,7 +91,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *gc.C) {
 	c.Check(newState, gc.DeepEquals, &operation.State{
 		Kind:    operation.RunHook,
 		Step:    operation.Queued,
-		Hook:    &hook.Info{Kind: hook.LeaderElected},
+		Hook:    &hook.Info{Kind: hooks.LeaderElected},
 		Leader:  true,
 		Started: true,
 	})

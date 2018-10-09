@@ -11,13 +11,6 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// TODO(fwereade): move these definitions to juju/charm/hooks.
-const (
-	LeaderElected         hooks.Kind = "leader-elected"
-	LeaderDeposed         hooks.Kind = "leader-deposed"
-	LeaderSettingsChanged hooks.Kind = "leader-settings-changed"
-)
-
 // Info holds details required to execute a hook. Not all fields are
 // relevant to all Kind values.
 type Info struct {
@@ -48,7 +41,8 @@ func (hi Info) Validate() error {
 		}
 		fallthrough
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,
-		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus:
+		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.LeaderElected, hooks.LeaderDeposed,
+		hooks.LeaderSettingsChanged, hooks.PreSeriesUpgrade, hooks.PostSeriesUpgrade:
 		return nil
 	case hooks.Action:
 		return fmt.Errorf("hooks.Kind Action is deprecated")
@@ -56,9 +50,6 @@ func (hi Info) Validate() error {
 		if !names.IsValidStorage(hi.StorageId) {
 			return fmt.Errorf("invalid storage ID %q", hi.StorageId)
 		}
-		return nil
-	// TODO(fwereade): define these in charm/hooks...
-	case LeaderElected, LeaderDeposed, LeaderSettingsChanged:
 		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)

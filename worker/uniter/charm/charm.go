@@ -6,9 +6,9 @@ package charm
 import (
 	"errors"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 )
 

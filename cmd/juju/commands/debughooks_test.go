@@ -121,7 +121,7 @@ var debugHooksTests = []struct {
 }, {
 	info:  `invalid hook`,
 	args:  []string{"mysql/0", "invalid-hook"},
-	error: `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are [fakeaction] and valid hooks are [collect-metrics config-changed install juju-info-relation-broken juju-info-relation-changed juju-info-relation-departed juju-info-relation-joined leader-deposed leader-elected leader-settings-changed meter-status-changed server-admin-relation-broken server-admin-relation-changed server-admin-relation-departed server-admin-relation-joined server-relation-broken server-relation-changed server-relation-departed server-relation-joined start stop update-status upgrade-charm]`,
+	error: `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are [fakeaction] and valid hooks are [collect-metrics config-changed install juju-info-relation-broken juju-info-relation-changed juju-info-relation-departed juju-info-relation-joined leader-deposed leader-elected leader-settings-changed meter-status-changed post-series-upgrade pre-series-upgrade server-admin-relation-broken server-admin-relation-changed server-admin-relation-departed server-admin-relation-joined server-relation-broken server-relation-changed server-relation-departed server-relation-joined start stop update-status upgrade-charm]`,
 }, {
 	info:  `no args at all`,
 	args:  nil,
