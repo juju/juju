@@ -72,6 +72,7 @@ type machineStatus struct {
 	Constraints       string                      `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 	Hardware          string                      `json:"hardware,omitempty" yaml:"hardware,omitempty"`
 	HAStatus          string                      `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	LXDProfiles       []string                    `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
