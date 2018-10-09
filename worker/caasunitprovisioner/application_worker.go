@@ -118,6 +118,10 @@ func (aw *applicationWorker) loop() error {
 		if appOperatorWatcher == nil {
 			appOperatorWatcher, err = aw.containerBroker.WatchOperator(aw.application)
 			if err != nil {
+				if strings.Contains(err.Error(), "unexpected EOF") {
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					return nil
+				}
 				return errors.Annotatef(err, "failed to start operator watcher for %q", aw.application)
 			}
 		}
@@ -204,16 +208,24 @@ func (aw *applicationWorker) loop() error {
 			}
 		case _, ok := <-appOperatorWatcher.Changes():
 			if !ok {
-				return errors.New("operator watcher channel closed")
+				logger.Debugf("%v", appOperatorWatcher.Wait())
+				worker.Stop(appOperatorWatcher)
+				appOperatorWatcher = nil
+				continue
 			}
 			logger.Debugf("operator update for %v", aw.application)
 			operator, err := aw.containerBroker.Operator(aw.application)
-			if err != nil {
+			if errors.IsNotFound(err) {
+				logger.Debugf("pod not found for application %q", aw.application)
+				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, status.Terminated, "", nil); err != nil {
+					return errors.Trace(err)
+				}
+			} else if err != nil {
 				return errors.Trace(err)
-			}
-			err = aw.provisioningStatusSetter.SetOperatorStatus(aw.application, operator.Status.Status, operator.Status.Message, operator.Status.Data)
-			if err != nil {
-				return errors.Trace(err)
+			} else {
+				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, operator.Status.Status, operator.Status.Message, operator.Status.Data); err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 

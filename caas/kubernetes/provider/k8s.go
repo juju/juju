@@ -1423,7 +1423,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 		return nil, errors.Trace(err)
 	}
 	if len(podsList.Items) == 0 {
-		return nil, errors.NotFoundf("operator pod")
+		return nil, errors.NotFoundf("operator pod for application %q", appName)
 	}
 
 	opPod := podsList.Items[0]
@@ -1488,23 +1488,6 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 		return status.Error
 	case core.PodPending:
 		return status.Allocating
-	default:
-		return status.Unknown
-	}
-}
-
-func (k *kubernetesClient) jujuWorkloadStatus(podPhase core.PodPhase, terminated bool) status.Status {
-	if terminated {
-		return status.Terminated
-	}
-	// No comparable status for Waiting.
-	switch podPhase {
-	case core.PodRunning:
-		return status.Active
-	case core.PodPending:
-		return status.Maintenance
-	case core.PodFailed:
-		return status.Blocked
 	default:
 		return status.Unknown
 	}
