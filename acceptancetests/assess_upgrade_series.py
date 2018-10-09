@@ -31,7 +31,7 @@ charm_bundle = 'upgrade-series.yaml'
 def assess_juju_upgrade_series(client, args):
     target_machine = '0'
     upgrade_series_prepare(client, target_machine, args.to_series, True)
-    do_release_upgrade(client, target_machine)
+    # do_release_upgrade(client, target_machine)
     reboot_machine(client, target_machine)
     upgrade_series_complete(client, target_machine)
     assert_correct_series(client, target_machine, args.to_series, True)
@@ -101,16 +101,22 @@ def assert_correct_series(client, machine, expected):
             .format(machine, expected))
 
 
-def setup(client, start_series):
-    """ Deploy charms, there are several under ./repository """
-    charm_source = local_charm_path(
-        charm=charm_bundle,
-        repository=os.environ['JUJU_REPOSITORY'],
-        juju_ver=client.version)
-    _, deploy_complete = client.deploy(charm_source)
-    log.info("Deployed {} with {}".format(charm_bundle, start_series))
-    # Wait for the deployment to finish.
-    client.wait_for(deploy_complete)
+def setup(client, series):
+    dummy_sink = local_charm_path(
+        charm='charms/dummy-sink',
+        juju_ver=client.version,
+        series=series,
+        repository=os.environ['JUJU_REPOSITORY'])
+    dummy_subordinate = local_charm_path(
+        charm='charms/dummy-subordinate',
+        juju_ver=client.version,
+        series=series,
+        repository=os.environ['JUJU_REPOSITORY'])
+    _, complete_primary = client.deploy(dummy_sink, series=series)
+    _, complete_subordinate = client.deploy(dummy_subordinate, series=series)
+    client.juju('add-relation', ('dummy-sink', 'dummy-subordinate'))
+    client.wait_for(complete_primary)
+    client.wait_for(complete_subordinate)
 
 
 def parse_args(argv):
