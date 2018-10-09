@@ -135,6 +135,5 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ProvisioningStatusSetter: &s.client,
 		LifeGetter:               &s.client,
 		UnitUpdater:              &s.client,
-		OperatorUpdater:          &s.client,
 	})
 }

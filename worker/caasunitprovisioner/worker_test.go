@@ -41,7 +41,6 @@ type WorkerSuite struct {
 	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
 	unitUpdater        mockUnitUpdater
-	operatorUpdater    mockOperatorUpdater
 	statusSetter       mockProvisioningStatusSetter
 
 	applicationChanges      chan []string
@@ -132,7 +131,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.unitUpdater = mockUnitUpdater{}
-	s.operatorUpdater = mockOperatorUpdater{}
 
 	s.containerBroker = mockContainerBroker{
 		serviceDeleted:  s.serviceDeleted,
@@ -157,7 +155,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		LifeGetter:               &s.lifeGetter,
 		UnitUpdater:              &s.unitUpdater,
 		ProvisioningStatusSetter: &s.statusSetter,
-		OperatorUpdater:          &s.operatorUpdater,
 	}
 }
 
@@ -196,9 +193,6 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ProvisioningStatusSetter = nil
 	}, `missing ProvisioningStatusSetter not valid`)
-	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
-		config.OperatorUpdater = nil
-	}, `missing OperatorUpdater not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Config), expect string) {
@@ -680,12 +674,9 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	s.containerBroker.CheckCallNames(c, "Operator")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 
-	s.operatorUpdater.CheckCallNames(c, "UpdateOperator")
-	c.Assert(s.operatorUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
-		"gitlab", status.StatusInfo{
-			Message: "testing 1. 2. 3.",
-			Status:  status.Active,
-		},
+	s.statusSetter.CheckCallNames(c, "SetOperatorStatus")
+	c.Assert(s.statusSetter.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		"gitlab", status.Active, "testing 1. 2. 3.", map[string]interface{}{"zip": "zap"},
 	})
 }
 

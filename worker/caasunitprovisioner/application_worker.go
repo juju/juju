@@ -28,7 +28,6 @@ type applicationWorker struct {
 	applicationGetter        ApplicationGetter
 	applicationUpdater       ApplicationUpdater
 	unitUpdater              UnitUpdater
-	operatorUpdater          OperatorUpdater
 }
 
 func newApplicationWorker(
@@ -40,7 +39,6 @@ func newApplicationWorker(
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 	unitUpdater UnitUpdater,
-	operatorUpdater OperatorUpdater,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
 		application:              application,
@@ -51,7 +49,6 @@ func newApplicationWorker(
 		applicationGetter:        applicationGetter,
 		applicationUpdater:       applicationUpdater,
 		unitUpdater:              unitUpdater,
-		operatorUpdater:          operatorUpdater,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -214,7 +211,7 @@ func (aw *applicationWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = aw.operatorUpdater.UpdateOperator(aw.application, operator.Status)
+			err = aw.provisioningStatusSetter.SetOperatorStatus(aw.application, operator.Status.Status, operator.Status.Message, operator.Status.Data)
 			if err != nil {
 				return errors.Trace(err)
 			}

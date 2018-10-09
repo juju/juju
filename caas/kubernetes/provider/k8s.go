@@ -1297,35 +1297,9 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			}
 		}
 		terminated := p.DeletionTimestamp != nil
-		unitStatus := k.jujuStatus(p.Status.Phase, terminated)
-		statusMessage := p.Status.Message
-		since := now
-		if statusMessage == "" {
-			for _, cond := range p.Status.Conditions {
-				statusMessage = cond.Message
-				since = cond.LastProbeTime.Time
-				if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
-					unitStatus = status.Blocked
-					break
-				}
-			}
-		}
-
-		if statusMessage == "" {
-			// If there are any events for this pod we can use the
-			// most recent to set the status.
-			events := k.CoreV1().Events(k.namespace)
-			eventList, err := events.List(v1.ListOptions{
-				IncludeUninitialized: true,
-				FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", p.Name).String(),
-			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Take the most recent event.
-			if count := len(eventList.Items); count > 0 {
-				statusMessage = eventList.Items[count-1].Message
-			}
+		statusMessage, unitStatus, since, err := k.getPODStatus(p, now)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		unitInfo := caas.Unit{
 			Id:      string(p.UID),
@@ -1454,19 +1428,53 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 
 	opPod := podsList.Items[0]
 	terminated := opPod.DeletionTimestamp != nil
-	opStatus := k.jujuWorkloadStatus(opPod.Status.Phase, terminated)
-	statusMessage := opPod.Status.Message
 	now := time.Now()
-	// Split out and get condition message or event message for status if needed (i.e. as above in Units)
+	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
 	return &caas.Operator{
 		Id:    string(opPod.UID),
 		Dying: terminated,
 		Status: status.StatusInfo{
 			Status:  opStatus,
 			Message: statusMessage,
-			Since:   &now,
+			Since:   &since,
 		},
 	}, nil
+}
+
+func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, status.Status, time.Time, error) {
+	terminated := pod.DeletionTimestamp != nil
+	jujuStatus := k.jujuStatus(pod.Status.Phase, terminated)
+	statusMessage := pod.Status.Message
+	since := now
+	if statusMessage == "" {
+		for _, cond := range pod.Status.Conditions {
+			statusMessage = cond.Message
+			since = cond.LastProbeTime.Time
+			if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
+				jujuStatus = status.Blocked
+				break
+			}
+		}
+	}
+
+	if statusMessage == "" {
+		// If there are any events for this pod we can use the
+		// most recent to set the status.
+		events := k.CoreV1().Events(k.namespace)
+		eventList, err := events.List(v1.ListOptions{
+			IncludeUninitialized: true,
+			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pod.Name).String(),
+		})
+		if err != nil {
+			return "", "", time.Time{}, errors.Trace(err)
+		}
+		// Take the most recent event.
+		if count := len(eventList.Items); count > 0 {
+			statusMessage = eventList.Items[count-1].Message
+		}
+	}
+
+	return statusMessage, jujuStatus, since, nil
 }
 
 func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {
