@@ -172,14 +172,12 @@ func (s *ModelCredentialSuite) TestWatchModelCredential(c *gc.C) {
 
 	// Initial event.
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// Check the watcher reacts to credential reference changes.
 	set, err := m.SetCloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set, jc.IsTrue)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// Check the watcher does not react to other changes on this model.
 	err = m.SetDead()
