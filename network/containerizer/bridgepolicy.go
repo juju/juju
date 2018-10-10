@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+
 	// Used for some constants and things like LinkLayerDevice[Args]
 	"github.com/juju/juju/state"
 )
@@ -38,28 +39,6 @@ type BridgePolicy struct {
 	//  - local
 	ContainerNetworkingMethod string
 }
-
-// Machine describes either a host machine, or a container machine. Either way
-// *state.Machine should fulfill the interface in non-test code.
-type Machine interface {
-	Id() string
-	AllSpaces() (set.Strings, error)
-	LinkLayerDevicesForSpaces([]string) (map[string][]*state.LinkLayerDevice, error)
-}
-
-var _ Machine = (*state.Machine)(nil)
-
-// Container describes the extra attributes we need to be able to update the
-// devices for a container.
-// *state.Machine should fulfill the interface.
-type Container interface {
-	Machine
-	ContainerType() instance.ContainerType
-	DesiredSpaces() (set.Strings, error)
-	SetLinkLayerDevices(...state.LinkLayerDeviceArgs) error
-}
-
-var _ Container = (*state.Machine)(nil)
 
 // inferContainerSpaces tries to find a valid space for the container to be
 // on. This should only be used when the container itself doesn't have any
@@ -119,7 +98,7 @@ func (p *BridgePolicy) determineContainerSpaces(m Machine, containerMachine Cont
 // findSpacesAndDevicesForContainer looks up what spaces the container wants
 // to be in, and what spaces the host machine is already in, and tries to
 // find the devices on the host that are useful for the container.
-func (p *BridgePolicy) findSpacesAndDevicesForContainer(m Machine, containerMachine Container) (set.Strings, map[string][]*state.LinkLayerDevice, error) {
+func (p *BridgePolicy) findSpacesAndDevicesForContainer(m Machine, containerMachine Container) (set.Strings, map[string][]LinkLayerDevice, error) {
 	containerSpaces, err := p.determineContainerSpaces(m, containerMachine, "")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -133,7 +112,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(m Machine, containerMach
 	return containerSpaces, devicesPerSpace, nil
 }
 
-func possibleBridgeTarget(dev *state.LinkLayerDevice) (bool, error) {
+func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 	// LoopbackDevices can never be bridged
 	if dev.Type() == state.LoopbackDevice || dev.Type() == state.BridgeDevice {
 		return false, nil
@@ -164,7 +143,7 @@ func possibleBridgeTarget(dev *state.LinkLayerDevice) (bool, error) {
 	return false, nil
 }
 
-func formatDeviceMap(spacesToDevices map[string][]*state.LinkLayerDevice) string {
+func formatDeviceMap(spacesToDevices map[string][]LinkLayerDevice) string {
 	spaceNames := make([]string, len(spacesToDevices))
 	i := 0
 	for spaceName := range spacesToDevices {
@@ -223,7 +202,7 @@ func BridgeNameForDevice(device string) string {
 func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachine Container) ([]network.DeviceToBridge, int, error) {
 	reconfigureDelay := 0
 	containerSpaces, devicesPerSpace, err := b.findSpacesAndDevicesForContainer(m, containerMachine)
-	hostDeviceByName := make(map[string]*state.LinkLayerDevice, 0)
+	hostDeviceByName := make(map[string]LinkLayerDevice, 0)
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
@@ -352,7 +331,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 		instance.KVM: network.DefaultKVMBridge,
 	}
 	spacesFound := set.NewStrings()
-	devicesByName := make(map[string]*state.LinkLayerDevice)
+	devicesByName := make(map[string]LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
 
 	for spaceName, hostDevices := range devicesPerSpace {
@@ -397,7 +376,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {
 		hostBridge := devicesByName[hostBridgeName]
-		newLLD, err := state.DefineEthernetDeviceOnBridge(fmt.Sprintf("eth%d", i), hostBridge)
+		newLLD, err := hostBridge.EthernetDeviceForBridge(fmt.Sprintf("eth%d", i))
 		if err != nil {
 			return errors.Trace(err)
 		}
