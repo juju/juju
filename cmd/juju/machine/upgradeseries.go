@@ -44,7 +44,7 @@ Continue [y/N]?`[1:]
 const UpgradeSeriesPrepareFinishedMessage = `
 Juju is now ready for the series to be updated.
 Perform any manual steps required along with "do-release-upgrade".
-When ready run the following to complete the upgrade series process:
+When ready, run the following to complete the upgrade series process:
 
 juju upgrade-series complete %s`
 
