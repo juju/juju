@@ -501,3 +501,21 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 
 	return dev.st.db().RunTransaction(ops)
 }
+
+// EthernetDeviceForBridge returns LinkLayerDeviceArgs representing an ethernet
+// device with the input name and this device as its parent.
+// If the device is not a bridge, an error is returned.
+func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDeviceArgs, error) {
+	if dev.Type() != BridgeDevice {
+		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
+	}
+	return LinkLayerDeviceArgs{
+		Name:        name,
+		Type:        EthernetDevice,
+		MACAddress:  network.GenerateVirtualMACAddress(),
+		MTU:         dev.MTU(),
+		IsUp:        true,
+		IsAutoStart: true,
+		ParentName:  dev.globalKey(),
+	}, nil
+}

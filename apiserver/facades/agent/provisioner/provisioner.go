@@ -803,7 +803,6 @@ type Machine interface {
 	containerizer.Container
 	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
-	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	MachineTag() names.MachineTag
 }
 
@@ -848,17 +847,21 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, machineTag)
+		ctr, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
-		} else if !container.IsContainer() {
+		} else if !ctr.IsContainer() {
 			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
 
-		if err := handler.ProcessOneContainer(env, p.providerCallContext, i, hostMachine, container); err != nil {
+		if err := handler.ProcessOneContainer(
+			env, p.providerCallContext, i,
+			&containerizer.MachineShim{Machine: hostMachine},
+			&containerizer.MachineShim{Machine: ctr},
+		); err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
