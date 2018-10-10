@@ -642,7 +642,7 @@ func (a *Application) changeCharmOps(
 		// No old settings, start with the updated settings.
 		newSettings = updatedSettings
 	} else {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 
 	// Create or replace application settings.
@@ -652,7 +652,7 @@ func (a *Application) changeCharmOps(
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	} else {
 		// Settings exist, just replace them with the new ones.
 		settingsOp, _, err = replaceSettingsOp(a.st.db(), settingsC, newSettingsKey, newSettings)
@@ -1659,7 +1659,7 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 func (a *Application) ConfigSettings() (charm.Settings, error) {
 	settings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	return settings.Map(), nil
 }
@@ -1681,7 +1681,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// name, so the actual impact of a race is non-threatening.
 	node, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	for name, value := range changes {
 		if value == nil {
@@ -1703,9 +1703,9 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 
 	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
-		return nil, errors.NotFoundf("application")
+		return nil, errors.NotFoundf("application %q", a.doc.Name)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	result := make(map[string]string)
 	for escapedKey, interfaceValue := range doc.Settings {
@@ -1765,9 +1765,9 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// on it and prevent these settings from landing late.
 		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
 		if errors.IsNotFound(err) {
-			return nil, errors.NotFoundf("application")
+			return nil, errors.NotFoundf("application %q", a.doc.Name)
 		} else if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 		}
 		if isNullChange(doc.Settings) {
 			return nil, jujutxn.ErrNoOperations

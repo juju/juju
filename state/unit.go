@@ -123,7 +123,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	}
 	settings, err := readSettings(u.st.db(), settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "unit %q", u.Name())
 	}
 	chrm, err := u.st.Charm(u.doc.CharmURL)
 	if err != nil {

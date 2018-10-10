@@ -83,7 +83,7 @@ func (ctlr *Controller) Ping() error {
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
 	}
 	return settings.Map(), nil
 }
@@ -100,7 +100,7 @@ func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, remo
 
 	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
 	}
 	for _, r := range removeAttrs {
 		settings.Delete(r)
