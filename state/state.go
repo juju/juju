@@ -692,7 +692,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "model %q", st.modelTag.Id())
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
