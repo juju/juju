@@ -74,24 +74,42 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	logger.Debugf("application tag for token %+v is %v", change.ApplicationToken, applicationTag)
 
 	// If the remote model has destroyed the relation, do it here also.
+	forceCleanUp := change.ForceCleanup != nil && *change.ForceCleanup
 	if dyingOrDead {
-		logger.Debugf("remote side of %v died", relationTag)
+		logger.Debugf("remote consuming side of %v died", relationTag)
+		if forceCleanUp {
+			logger.Debugf("forcing cleanup of units for %v", applicationTag.Id())
+			remoteUnits, err := rel.AllRemoteUnits(applicationTag.Id())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("got %v relation units to clean", len(remoteUnits))
+			for _, ru := range remoteUnits {
+				if err := ru.LeaveScope(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+
 		if err := rel.Destroy(); err != nil {
 			return errors.Trace(err)
 		}
 		// See if we need to remove the remote application proxy - we do this
 		// on the offering side as there is 1:1 between proxy and consuming app.
-		if applicationTag != nil {
-			remoteApp, err := backend.RemoteApplication(applicationTag.Id())
-			if err != nil && !errors.IsNotFound(err) {
+		remoteApp, err := backend.RemoteApplication(applicationTag.Id())
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err == nil && remoteApp.IsConsumerProxy() {
+			logger.Debugf("destroy consuming app proxy for %v", applicationTag.Id())
+			if err := remoteApp.Destroy(); err != nil {
 				return errors.Trace(err)
 			}
-			if err == nil && remoteApp.IsConsumerProxy() {
-				logger.Debugf("destroy consuming app proxy for %v", applicationTag.Id())
-				if err := remoteApp.Destroy(); err != nil {
-					return errors.Trace(err)
-				}
-			}
+		}
+
+		// If we are forcing cleanup, we can exit early here.
+		if forceCleanUp {
+			return nil
 		}
 	}
 

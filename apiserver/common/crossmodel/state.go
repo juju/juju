@@ -177,6 +177,18 @@ func (r relationShim) RemoteUnit(unitId string) (RelationUnit, error) {
 	return relationUnitShim{ru}, nil
 }
 
+func (r relationShim) AllRemoteUnits(appName string) ([]RelationUnit, error) {
+	all, err := r.Relation.AllRemoteUnits(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]RelationUnit, len(all))
+	for i, ru := range all {
+		result[i] = relationUnitShim{ru}
+	}
+	return result, nil
+}
+
 func (r relationShim) Unit(unitId string) (RelationUnit, error) {
 	unit, err := r.st.Unit(unitId)
 	if err != nil {

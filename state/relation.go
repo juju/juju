@@ -517,6 +517,44 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	return r.unit(unitName, principal, isPrincipal, isLocalUnit)
 }
 
+// AllRemoteUnits returns all the RelationUnits for the remote
+// application units for a given application.
+func (r *Relation) AllRemoteUnits(appName string) ([]*RelationUnit, error) {
+	// Verify that the unit belongs to a remote application.
+	if _, err := r.st.RemoteApplication(appName); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	relationScopes, closer := r.st.db().GetCollection(relationScopesC)
+	defer closer()
+
+	ep, err := r.Endpoint(appName)
+	if err != nil {
+		return nil, err
+	}
+	scope := r.globalScope()
+	parts := []string{"^" + scope, string(ep.Role), appName + "/"}
+	ruRegex := strings.Join(parts, "#")
+
+	var docs []relationScopeDoc
+	if err := relationScopes.Find(bson.D{{"key", bson.D{{"$regex", ruRegex}}}}).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]*RelationUnit, len(docs))
+	for i, doc := range docs {
+		result[i] = &RelationUnit{
+			st:          r.st,
+			relation:    r,
+			unitName:    doc.unitName(),
+			isPrincipal: true,
+			isLocalUnit: false,
+			endpoint:    ep,
+			scope:       scope,
+		}
+	}
+	return result, nil
+}
+
 // IsCrossModel returns whether this relation is a cross-model
 // relation.
 func (r *Relation) IsCrossModel() (bool, error) {
