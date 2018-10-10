@@ -864,7 +864,9 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
-func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
+func (ctx *prepareOrGetContext) ProcessOneContainer(
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine,
+) error {
 	containerId, err := container.InstanceId()
 	if ctx.maintain {
 		if err == nil {
@@ -876,10 +878,9 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 	}
 	// The only error we allow is NotProvisioned
 	if err != nil && !errors.IsNotProvisioned(err) {
-		return err
+		return errors.Trace(err)
 	}
 
-	supportContainerAddresses := environs.SupportsContainerAddresses(callContext, env)
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
@@ -890,12 +891,23 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 	// into things we'd like to tell the Host machine to create, and then *it*
 	// reports back what actually exists when its done.
 	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, container); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	containerDevices, err := container.AllLinkLayerDevices()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+
+	// We do not ask the provider to allocate addresses for manually provisioned
+	// machines as we do not expect such machines to be recognised (LP:1796106).
+	askProviderForAddress := false
+	hostIsManual, err := host.IsManual()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !hostIsManual {
+		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
 	}
 
 	preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
@@ -909,7 +921,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 		}
 		parentAddrs, err := parentDevice.Addresses()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		info := network.InterfaceInfo{
@@ -926,7 +938,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 		if len(parentAddrs) > 0 {
 			logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
 			firstAddress := parentAddrs[0]
-			if supportContainerAddresses {
+			if askProviderForAddress {
 				parentDeviceSubnet, err := firstAddress.Subnet()
 				if err != nil {
 					return errors.Annotatef(err,
@@ -961,15 +973,17 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 	hostInstanceId, err := host.InstanceId()
 	if err != nil {
 		// this should have already been checked in the processEachContainer helper
-		return err
+		return errors.Trace(err)
 	}
+
 	allocatedInfo := preparedInfo
-	if supportContainerAddresses {
+	if askProviderForAddress {
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
-		allocatedInfo, err = networking.AllocateContainerAddresses(callContext, hostInstanceId, container.MachineTag(), preparedInfo)
+		allocatedInfo, err = networking.AllocateContainerAddresses(
+			callContext, hostInstanceId, container.MachineTag(), preparedInfo)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 	} else {
