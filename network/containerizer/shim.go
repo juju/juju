@@ -23,6 +23,7 @@ type LinkLayerDevice interface {
 	EthernetDeviceForBridge(name string) (state.LinkLayerDeviceArgs, error)
 	Addresses() ([]*state.Address, error)
 
+	// These are recruited in tests. See comment on Machine below.
 	MTU() uint
 	IsUp() bool
 	IsAutoStart() bool
