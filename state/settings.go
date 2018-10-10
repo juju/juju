@@ -300,7 +300,7 @@ func readSettingsDocInto(db Database, collection, key string, out interface{}) e
 
 	err := settings.FindId(key).One(out)
 	if err == mgo.ErrNotFound {
-		err = errors.NotFoundf("settings for key %q in %q", key, collection)
+		err = errors.NotFoundf("settings")
 	}
 	return err
 }
@@ -352,7 +352,7 @@ func createSettings(db Database, collection, key string, values map[string]inter
 func removeSettings(db Database, collection, key string) error {
 	err := db.RunTransaction([]txn.Op{removeSettingsOp(collection, key)})
 	if err == txn.ErrAborted {
-		return errors.NotFoundf("settings for key %q in %q", key, collection)
+		return errors.NotFoundf("settings")
 	} else if err != nil {
 		return errors.Trace(err)
 	}
