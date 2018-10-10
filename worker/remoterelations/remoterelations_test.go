@@ -338,16 +338,36 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	// goes to Dying; they're only stopped when the relation is
 	// finally removed.
 	c.Assert(unitsWatcher.killed(), jc.IsFalse)
-	mac, err := apitesting.NewMacaroon("apimac")
+	apiMac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
+	mac, err := apitesting.NewMacaroon("test")
+	c.Assert(err, jc.ErrorIsNil)
+	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
+			ApplicationToken: "token-django",
+			SourceModelTag:   "model-local-model-uuid",
+			RelationToken:    "token-db2:db django:db",
+			RemoteEndpoint: params.RemoteEndpoint{
+				Name:      "db2",
+				Role:      "requires",
+				Interface: "db2",
+			},
+			OfferUUID:         "offer-db2-uuid",
+			LocalEndpointName: "data",
+			Macaroons:         macaroon.Slice{mac},
+		}}}},
+		{"SaveMacaroon", []interface{}{relTag, apiMac}},
+		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life:             params.Dying,
 				ApplicationToken: "token-django",
 				RelationToken:    "token-db2:db django:db",
-				Macaroons:        macaroon.Slice{mac},
+				Macaroons:        macaroon.Slice{apiMac},
 			},
 		}},
 	}
@@ -471,6 +491,14 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
+	s.assertRemoteRelationsChangedError(c, false)
+}
+
+func (s *remoteRelationsSuite) TestRemoteDyingRelationsChangedError(c *gc.C) {
+	s.assertRemoteRelationsChangedError(c, true)
+}
+
+func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying bool) {
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
@@ -508,14 +536,20 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	c.Assert(s.stub.Calls(), gc.HasLen, 0)
 	s.config.Clock.(*testclock.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
-	relWatcher.changes <- []string{"db2:db django:db"}
-	relTag := names.NewRelationTag("db2:db django:db")
 	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	expected = []jujutesting.StubCall{
+		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"WatchOfferStatus", []interface{}{"offer-db2-uuid", macaroon.Slice{mac}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+	s.stub.ResetCalls()
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+	relTag := names.NewRelationTag("db2:db django:db")
+	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
@@ -537,6 +571,24 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+	}
+
+	// If a relation is dying and there's been an error, when processing resumes
+	// a cleanup is forced on the remote side.
+	if dying {
+		s.relationsFacade.updateRelationLife("db2:db django:db", params.Dying)
+		forceCleanup := true
+		expected = append(expected, jujutesting.StubCall{
+			"PublishRelationChange", []interface{}{
+				params.RemoteRelationChangeEvent{
+					ApplicationToken: "token-django",
+					RelationToken:    "token-db2:db django:db",
+					Life:             params.Dying,
+					Macaroons:        macaroon.Slice{apiMac},
+					ForceCleanup:     &forceCleanup,
+				},
+			}},
+		)
 	}
 	// After the worker resumes, normal processing happens.
 	s.waitForWorkerStubCalls(c, expected)

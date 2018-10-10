@@ -240,20 +240,10 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			// As of now, if the worker is already running, that's all we need.
 			continue
 		}
-		relationsWatcher, err := w.config.RelationsFacade.WatchRemoteApplicationRelations(name)
-		if errors.IsNotFound(err) {
-			if err := w.runner.StopWorker(name); err != nil {
-				return err
-			}
-			continue
-		} else if err != nil {
-			return errors.Annotatef(err, "watching relations for remote application %q", name)
-		}
 
 		remoteApp := *result.Result
 		startFunc := func() (worker.Worker, error) {
 			appWorker := &remoteApplicationWorker{
-				relationsWatcher:                  relationsWatcher,
 				offerUUID:                         remoteApp.OfferUUID,
 				applicationName:                   remoteApp.Name,
 				localModelUUID:                    w.config.ModelUUID,
@@ -268,7 +258,6 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			if err := catacomb.Invoke(catacomb.Plan{
 				Site: &appWorker.catacomb,
 				Work: appWorker.loop,
-				Init: []worker.Worker{relationsWatcher},
 			}); err != nil {
 				return nil, errors.Trace(err)
 			}

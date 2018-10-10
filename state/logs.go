@@ -8,6 +8,7 @@ package state
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -853,6 +854,35 @@ func initLogsSession(st ModelSessioner) (*mgo.Session, *mgo.Collection) {
 	return session, db.C(logCollectionName(st.ModelUUID()))
 }
 
+// dbCollectionSizeToInt processes the result of Database.collStats()
+func dbCollectionSizeToInt(result bson.M, collectionName string) (int, error) {
+	size, ok := result["size"]
+	if !ok {
+		logger.Warningf("mongo collStats did not return a size field for %q", collectionName)
+		// this wasn't considered an error in the past, just treat it as size 0
+		return 0, nil
+	}
+	if asint, ok := size.(int); ok {
+		if asint < 0 {
+			return 0, errors.Errorf("mongo collStats for %q returned a negative value: %v", collectionName, size)
+		}
+		return asint, nil
+	}
+	if asint64, ok := size.(int64); ok {
+		// 2billion megabytes is 2 petabytes, which is outside our range anyway.
+		if asint64 > math.MaxInt32 {
+			return math.MaxInt32, nil
+		}
+		if asint64 < 0 {
+			return 0, errors.Errorf("mongo collStats for %q returned a negative value: %v", collectionName, size)
+		}
+		return int(asint64), nil
+	}
+	return 0, errors.Errorf(
+		"mongo collStats for %q did not return an int or int64 for size, returned %T: %v",
+		collectionName, size, size)
+}
+
 // getCollectionMB returns the size of a MongoDB collection (in
 // bytes), excluding space used by indexes.
 func getCollectionMB(coll *mgo.Collection) (int, error) {
@@ -864,7 +894,7 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return result["size"].(int), nil
+	return dbCollectionSizeToInt(result, coll.Name)
 }
 
 // getCollectionTotalMB returns the total size of the log collections

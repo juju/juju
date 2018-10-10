@@ -210,6 +210,11 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
+	// Set up the errors before triggering any events to avoid racing
+	// with the worker loop. First time around the loop the
+	// application's alive, then it's gone.
+	s.lifeGetter.SetErrors(nil, errors.NotFoundf("application"))
+
 	w, err := caasfirewaller.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -220,7 +225,6 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 
-	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	select {
 	case s.applicationChanges <- []string{"gitlab"}:
 	case <-time.After(coretesting.LongWait):
