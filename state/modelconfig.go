@@ -21,13 +21,13 @@ var disallowedModelConfigAttrs = [...]string{
 
 // ModelConfig returns the complete config for the model
 func (m *Model) ModelConfig() (*config.Config, error) {
-	return getModelConfig(m.st.db())
+	return getModelConfig(m.st.db(), m.UUID())
 }
 
-func getModelConfig(db Database) (*config.Config, error) {
+func getModelConfig(db Database, uuid string) (*config.Config, error) {
 	modelSettings, err := readSettings(db, settingsC, modelGlobalKey)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "model %q", uuid)
 	}
 	return config.New(config.NoDefaults, modelSettings.Map())
 }
@@ -148,7 +148,7 @@ func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{},
 	settings, err := readSettings(model.st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "model %q", model.UUID())
 		}
 		// We haven't created settings for this region yet.
 		_, err := createSettings(model.st.db(), globalSettingsC, key, attrs)
@@ -315,7 +315,7 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 
 	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "model %q", m.UUID())
 	}
 
 	oldConfig, err := m.ModelConfig()
@@ -400,7 +400,7 @@ func (st *State) defaultInheritedConfig() (attrValues, error) {
 func (st *State) controllerInheritedConfig() (attrValues, error) {
 	settings, err := readSettings(st.db(), globalSettingsC, controllerInheritedSettingsGlobalKey)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
 	}
 	return settings.Map(), nil
 }
@@ -427,7 +427,7 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 			regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region),
 		)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "region %q on %q cloud", regionSpec.Region, regionSpec.Cloud)
 		}
 		return settings.Map(), nil
 	}

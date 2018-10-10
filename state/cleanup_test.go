@@ -301,7 +301,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	// ...but they are on cleanup.
 	s.assertCleanupCount(c, 1)
 	_, err = pr.ru1.ReadSettings("riak/0")
-	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)
 }
 
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {

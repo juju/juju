@@ -124,7 +124,7 @@ func (s *ApplicationLeaderSuite) TestReadRemoved(c *gc.C) {
 	s.destroyApplication(c)
 
 	actual, err := s.application.LeaderSettings()
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, `application "mysql" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(actual, gc.IsNil)
 }
@@ -135,7 +135,7 @@ func (s *ApplicationLeaderSuite) TestWriteRemoved(c *gc.C) {
 	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"should": "fail",
 	})
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, `application "mysql" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
