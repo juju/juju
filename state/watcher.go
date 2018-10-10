@@ -1093,7 +1093,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		docID := w.backend.docID(key)
 		revno, err := w.mergeSettings(changes, key)
 		if err != nil {
-			return err
+			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
 		w.watcher.Watch(settingsC, docID, revno, w.updates)
@@ -1163,7 +1163,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
 			if _, err := w.mergeSettings(&changes, id); err != nil {
-				return err
+				return errors.Annotatef(err, "relation scope id %q", id)
 			}
 			out = w.out
 		case out <- changes:

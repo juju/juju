@@ -720,7 +720,7 @@ func (a *Application) changeCharmOps(
 		// No old settings, start with the updated settings.
 		newSettings = updatedSettings
 	} else {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 
 	// Create or replace application settings.
@@ -730,12 +730,12 @@ func (a *Application) changeCharmOps(
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	} else {
 		// Settings exist, just replace them with the new ones.
 		settingsOp, _, err = replaceSettingsOp(a.st.db(), settingsC, newSettingsKey, newSettings)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 		}
 	}
 
@@ -1896,7 +1896,11 @@ func (a *Application) CharmConfig() (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
 	}
-	return charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
+	if err != nil {
+		return nil, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+	}
+	return s, nil
 }
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
@@ -1916,7 +1920,7 @@ func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 	// name, so the actual impact of a race is non-threatening.
 	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
 	for name, value := range changes {
 		if value == nil {
@@ -1935,7 +1939,7 @@ func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) 
 	if errors.IsNotFound(err) || len(config.Keys()) == 0 {
 		return application.ConfigAttributes(nil), nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
 	return application.ConfigAttributes(config.Map()), nil
 }
@@ -1950,9 +1954,9 @@ func (a *Application) UpdateApplicationConfig(
 ) error {
 	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
 	if errors.IsNotFound(err) {
-		return errors.Errorf("cannot update application config since no config exists")
+		return errors.Errorf("cannot update application config since no config exists for application %v", a.doc.Name)
 	} else if err != nil {
-		return err
+		return errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
 	resetKeys := set.NewStrings(reset...)
 	for name, value := range changes {
@@ -1989,9 +1993,9 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 
 	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
-		return nil, errors.NotFoundf("application")
+		return nil, errors.NotFoundf("application %q", a.doc.Name)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	result := make(map[string]string)
 	for escapedKey, interfaceValue := range doc.Settings {
@@ -2051,9 +2055,9 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// on it and prevent these settings from landing late.
 		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
 		if errors.IsNotFound(err) {
-			return nil, errors.NotFoundf("application")
+			return nil, errors.NotFoundf("application %q", a.doc.Name)
 		} else if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 		}
 		if isNullChange(doc.Settings) {
 			return nil, jujutxn.ErrNoOperations
@@ -2176,7 +2180,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	return cons, nil
 }
