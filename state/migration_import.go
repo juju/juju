@@ -525,6 +525,9 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	if az := inst.AvailabilityZone(); az != "" {
 		doc.AvailZone = &az
 	}
+	if profiles := inst.CharmProfiles(); len(profiles) > 0 {
+		doc.CharmProfiles = profiles
+	}
 
 	return txn.Op{
 		C:      instanceDataC,

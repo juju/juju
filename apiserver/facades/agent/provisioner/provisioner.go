@@ -699,7 +699,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
 			devicesArgs, devicesAddrs,
-			volumes, volumeAttachments,
+			volumes, volumeAttachments, arg.CharmProfiles,
 		)
 		if err != nil {
 			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)

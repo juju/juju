@@ -410,6 +410,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
 	instance := exMachine.Instance()
 	instanceKey := machine.globalInstanceKey()
 	statusArgs, err := e.statusArgs(instanceKey)
