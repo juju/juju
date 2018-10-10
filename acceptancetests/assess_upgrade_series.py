@@ -15,7 +15,6 @@ from deploy_stack import (
 from jujucharm import (
     local_charm_path,
 )
-from fixtures import EnvironmentVariable
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -141,8 +140,7 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         setup(bs_manager.client, args.from_series)
-        with EnvironmentVariable('JUJU_DEV_FEATURE_FLAGS', 'upgrade-series'):
-            assess_juju_upgrade_series(bs_manager.client, args)
+        assess_juju_upgrade_series(bs_manager.client, args)
     return 0
 
 
