@@ -104,6 +104,10 @@ type Relation interface {
 	// with the supplied ID.
 	RemoteUnit(unitId string) (RelationUnit, error)
 
+	// AllRemoteUnits returns all the RelationUnits for the remote
+	// application units for a given application.
+	AllRemoteUnits(appName string) ([]RelationUnit, error)
+
 	// Endpoints returns the endpoints that constitute the relation.
 	Endpoints() []state.Endpoint
 

@@ -358,6 +358,10 @@ type RemoteRelationChangeEvent struct {
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
 
+	// ForceCleanup is true if the offering side should forcibly
+	// ensure that all relation units have left scope.
+	ForceCleanup *bool `json:"force-cleanup,omitempty"`
+
 	// Suspended is the current suspended status of the relation.
 	Suspended *bool `json:"suspended,omitempty"`
 
