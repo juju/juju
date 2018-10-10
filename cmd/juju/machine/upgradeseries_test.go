@@ -163,7 +163,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *
 
 	finishedMessage := ""
 	for _, unit := range units {
-		finishedMessage += fmt.Sprintf("leadership frozen for application %q\n", strings.Split(unit, "/")[0])
+		finishedMessage += fmt.Sprintf("leadership pinned for application %q\n", strings.Split(unit, "/")[0])
 	}
 	finishedMessage = fmt.Sprintf(finishedMessage+machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
