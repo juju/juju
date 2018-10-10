@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 )
@@ -26,7 +25,6 @@ type ManifoldsSuite struct {
 var _ = gc.Suite(&ManifoldsSuite{})
 
 func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.UpgradeSeries)
 	s.BaseSuite.SetUpTest(c)
 }
 
