@@ -527,7 +527,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 	if needConfig {
 		doc, err := readSettingsDoc(st.db(), settingsC, applicationCharmConfigKey(app.Name, app.CharmURL))
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "application %q", app.Name)
 		}
 		info.Config = doc.Settings
 	}

@@ -678,7 +678,7 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	return getModelConfig(m.st.db())
+	return getModelConfig(m.st.db(), m.UUID())
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
