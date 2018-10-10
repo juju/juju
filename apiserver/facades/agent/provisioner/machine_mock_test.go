@@ -7,7 +7,9 @@ package provisioner_test
 import (
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
+	constraints "github.com/juju/juju/constraints"
 	instance "github.com/juju/juju/instance"
+	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
@@ -37,9 +39,9 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 }
 
 // AllLinkLayerDevices mocks base method
-func (m *MockMachine) AllLinkLayerDevices() ([]*state.LinkLayerDevice, error) {
+func (m *MockMachine) AllLinkLayerDevices() ([]containerizer.LinkLayerDevice, error) {
 	ret := m.ctrl.Call(m, "AllLinkLayerDevices")
-	ret0, _ := ret[0].([]*state.LinkLayerDevice)
+	ret0, _ := ret[0].([]containerizer.LinkLayerDevice)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -126,9 +128,9 @@ func (mr *MockMachineMockRecorder) IsManual() *gomock.Call {
 }
 
 // LinkLayerDevicesForSpaces mocks base method
-func (m *MockMachine) LinkLayerDevicesForSpaces(arg0 []string) (map[string][]*state.LinkLayerDevice, error) {
+func (m *MockMachine) LinkLayerDevicesForSpaces(arg0 []string) (map[string][]containerizer.LinkLayerDevice, error) {
 	ret := m.ctrl.Call(m, "LinkLayerDevicesForSpaces", arg0)
-	ret0, _ := ret[0].(map[string][]*state.LinkLayerDevice)
+	ret0, _ := ret[0].(map[string][]containerizer.LinkLayerDevice)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -150,6 +152,46 @@ func (mr *MockMachineMockRecorder) MachineTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockMachine)(nil).MachineTag))
 }
 
+// RemoveAllAddresses mocks base method
+func (m *MockMachine) RemoveAllAddresses() error {
+	ret := m.ctrl.Call(m, "RemoveAllAddresses")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveAllAddresses indicates an expected call of RemoveAllAddresses
+func (mr *MockMachineMockRecorder) RemoveAllAddresses() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllAddresses", reflect.TypeOf((*MockMachine)(nil).RemoveAllAddresses))
+}
+
+// SetConstraints mocks base method
+func (m *MockMachine) SetConstraints(arg0 constraints.Value) error {
+	ret := m.ctrl.Call(m, "SetConstraints", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetConstraints indicates an expected call of SetConstraints
+func (mr *MockMachineMockRecorder) SetConstraints(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockMachine)(nil).SetConstraints), arg0)
+}
+
+// SetDevicesAddresses mocks base method
+func (m *MockMachine) SetDevicesAddresses(arg0 ...state.LinkLayerDeviceAddress) error {
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SetDevicesAddresses", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDevicesAddresses indicates an expected call of SetDevicesAddresses
+func (mr *MockMachineMockRecorder) SetDevicesAddresses(arg0 ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDevicesAddresses", reflect.TypeOf((*MockMachine)(nil).SetDevicesAddresses), arg0...)
+}
+
 // SetLinkLayerDevices mocks base method
 func (m *MockMachine) SetLinkLayerDevices(arg0 ...state.LinkLayerDeviceArgs) error {
 	varargs := []interface{}{}
@@ -164,4 +206,28 @@ func (m *MockMachine) SetLinkLayerDevices(arg0 ...state.LinkLayerDeviceArgs) err
 // SetLinkLayerDevices indicates an expected call of SetLinkLayerDevices
 func (mr *MockMachineMockRecorder) SetLinkLayerDevices(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLinkLayerDevices", reflect.TypeOf((*MockMachine)(nil).SetLinkLayerDevices), arg0...)
+}
+
+// SetParentLinkLayerDevicesBeforeTheirChildren mocks base method
+func (m *MockMachine) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 []state.LinkLayerDeviceArgs) error {
+	ret := m.ctrl.Call(m, "SetParentLinkLayerDevicesBeforeTheirChildren", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetParentLinkLayerDevicesBeforeTheirChildren indicates an expected call of SetParentLinkLayerDevicesBeforeTheirChildren
+func (mr *MockMachineMockRecorder) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParentLinkLayerDevicesBeforeTheirChildren", reflect.TypeOf((*MockMachine)(nil).SetParentLinkLayerDevicesBeforeTheirChildren), arg0)
+}
+
+// Wrapped mocks base method
+func (m *MockMachine) Wrapped() *state.Machine {
+	ret := m.ctrl.Call(m, "Wrapped")
+	ret0, _ := ret[0].(*state.Machine)
+	return ret0
+}
+
+// Wrapped indicates an expected call of Wrapped
+func (mr *MockMachineMockRecorder) Wrapped() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wrapped", reflect.TypeOf((*MockMachine)(nil).Wrapped))
 }
