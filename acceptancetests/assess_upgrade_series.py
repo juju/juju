@@ -31,10 +31,10 @@ charm_bundle = 'upgrade-series.yaml'
 def assess_juju_upgrade_series(client, args):
     target_machine = '0'
     upgrade_series_prepare(client, target_machine, args.to_series, True)
-    # do_release_upgrade(client, target_machine)
+    do_release_upgrade(client, target_machine)
     reboot_machine(client, target_machine)
     upgrade_series_complete(client, target_machine)
-    assert_correct_series(client, target_machine, args.to_series, True)
+    assert_correct_series(client, target_machine, args.to_series)
 
 
 def upgrade_series_prepare(client, machine, series, agree=False):
@@ -85,20 +85,19 @@ def build_ssh_cmd(client, machine, command):
     ]
 
     status = client.get_status()
-    machine_status = status.get_machine(machine)
-    cmd = ["ssh"] + ssh_opts + [machine_status['public-address']] + [command]
+    machine_name = status.get_machine_dns_name(machine)
+    cmd = ["ssh"] + ssh_opts + [machine_name] + [command]
     return cmd
 
 
 def assert_correct_series(client, machine, expected):
     """Verify that juju knows the correct series for the machine"""
     status = client.get_status()
-    status = status.get_machine(machine)
-    machine_series = status['series']
-    if machine_series is not expected:
+    machine_series = status.status['machines'][machine]['series']
+    if machine_series != expected:
         raise JujuAssertionError(
-            "Machine {} series doesn't match the expected series: {}"
-            .format(machine, expected))
+            "Machine {} series of {} doesn't match the expected series: {}"
+            .format(machine, machine_series, expected))
 
 
 def setup(client, series):
@@ -115,6 +114,7 @@ def setup(client, series):
     _, complete_primary = client.deploy(dummy_sink, series=series)
     _, complete_subordinate = client.deploy(dummy_subordinate, series=series)
     client.juju('add-relation', ('dummy-sink', 'dummy-subordinate'))
+    client.set_config('dummy-subordinate', {'token': 'Canonical'})
     client.wait_for(complete_primary)
     client.wait_for(complete_subordinate)
 
