@@ -282,7 +282,7 @@ func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) erro
 		if err := c.leadershipClient.PinLeadership(app); err != nil {
 			return errors.Annotatef(err, "freezing leadership for %q", app)
 		}
-		ctx.Infof("leadership frozen for application %q", app)
+		ctx.Infof("leadership pinned for application %q", app)
 	}
 	return nil
 }
@@ -417,7 +417,7 @@ func (c *upgradeSeriesCommand) unpinLeaders(ctx *cmd.Context) error {
 		if err := c.leadershipClient.UnpinLeadership(app); err != nil {
 			return errors.Annotatef(err, "unfreezing leadership for %q", app)
 		}
-		ctx.Infof("leadership unfrozen for application %q", app)
+		ctx.Infof("leadership unpinned for application %q", app)
 	}
 	return nil
 }
