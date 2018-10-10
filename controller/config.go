@@ -31,6 +31,20 @@ const (
 	// APIPort is the port used for api connections.
 	APIPort = "api-port"
 
+	// ControllerAPIPort is an optional port that may be set for controllers
+	// that have a very heavy load. If this port is set, this port is used by
+	// the controllers to talk to each other - used for the local API connection
+	// as well as the pubsub forwarders, and the raft workers. If this value is
+	// set, the api-port isn't opened until the controllers have started
+	// properly.
+	ControllerAPIPort = "controller-api-port"
+
+	// APIPortOpenDelay is a duration that the controller will wait
+	// between when the controller has been deemed to be ready to open
+	// the api-port and when the api-port is actually opened. This value
+	// is only used when a controller-api-port value is set.
+	APIPortOpenDelay = "api-port-open-delay"
+
 	// AuditingEnabled determines whether the controller will record
 	// auditing information.
 	AuditingEnabled = "auditing-enabled"
@@ -150,6 +164,10 @@ const (
 	// DefaultAPIPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
+	// DefaultAPIPortOpenDelay is the default value for api-port-open-delay.
+	// It is a string representation of a time.Duration.
+	DefaultAPIPortOpenDelay = "2s"
+
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfLow
 
@@ -191,9 +209,11 @@ var (
 	ControllerOnlyConfigAttributes = []string{
 		AllowModelAccessKey,
 		APIPort,
+		APIPortOpenDelay,
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
+		ControllerAPIPort,
 		ControllerUUIDKey,
 		IdentityPublicKey,
 		IdentityURL,
@@ -220,9 +240,13 @@ var (
 	// config attributes that are allowed to be updated after the
 	// controller has been created.
 	AllowedUpdateConfigAttributes = set.NewStrings(
+		APIPortOpenDelay,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
 		AuditLogExcludeMethods,
+		// TODO Juju 3.0: ControllerAPIPort should be required and treated
+		// more like api-port.
+		ControllerAPIPort,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
 		JujuHASpace,
@@ -327,6 +351,28 @@ func (c Config) StatePort() int {
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
 	return c.mustInt(APIPort)
+}
+
+// APIPortOpenDelay returns the duration to wait before opening
+// the APIPort once the controller has started up. Only used when
+// the ControllerAPIPort is non-zero.
+func (c Config) APIPortOpenDelay() time.Duration {
+	v := c.asString(APIPortOpenDelay)
+	// We know that v must be a parseable time.Duration for the config
+	// to be valid.
+	d, _ := time.ParseDuration(v)
+	return d
+}
+
+// ControllerAPIPort returns the optional API port to be used for
+// the controllers to talk to each other. A zero value means that
+// it is not set.
+func (c Config) ControllerAPIPort() int {
+	if value, ok := c[ControllerAPIPort].(float64); ok {
+		return int(value)
+	}
+	value, _ := c[ControllerAPIPort].(int)
+	return value
 }
 
 // AuditingEnabled returns whether or not auditing has been enabled
@@ -620,6 +666,26 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[ControllerAPIPort].(int); ok {
+		// TODO: change the validation so 0 is invalide and --reset is used.
+		// However that doesn't exist yet.
+		if v < 0 {
+			return errors.NotValidf("non-positive integer for controller-api-port")
+		}
+		if v == c.APIPort() {
+			return errors.NotValidf("controller-api-port matching api-port")
+		}
+		if v == c.StatePort() {
+			return errors.NotValidf("controller-api-port matching state-port")
+		}
+	}
+	if v, ok := c[APIPortOpenDelay].(string); ok {
+		_, err := time.ParseDuration(v)
+		if err != nil {
+			return errors.Errorf("%s value %q must be a valid duration", APIPortOpenDelay, v)
+		}
+	}
+
 	return nil
 }
 
@@ -690,6 +756,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogMaxBackups:      schema.ForceInt(),
 	AuditLogExcludeMethods:  schema.List(schema.String()),
 	APIPort:                 schema.ForceInt(),
+	APIPortOpenDelay:        schema.String(),
+	ControllerAPIPort:       schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
@@ -709,6 +777,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	Features:                schema.List(schema.String()),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
+	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
+	ControllerAPIPort:       schema.Omit,
 	AuditingEnabled:         DefaultAuditingEnabled,
 	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
 	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),

@@ -510,6 +510,12 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 				return nil
 			})
 		}
+		updateControllerAPIPort := func(port int) error {
+			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
+				setter.SetControllerAPIPort(port)
+				return nil
+			})
+		}
 
 		// statePoolReporter is an introspection.IntrospectionReporter,
 		// which is set to the current StatePool managed by the state
@@ -542,26 +548,27 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		}
 
 		manifolds := machineManifolds(machine.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			Agent:                agent.APIHostPortsSetter{Agent: a},
-			RootDir:              a.rootDir,
-			AgentConfigChanged:   a.configChangedVal,
-			UpgradeStepsLock:     a.upgradeComplete,
-			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
-			OpenController:       a.initController,
-			OpenState:            a.initState,
-			OpenStateForUpgrade:  a.openStateForUpgrade,
-			StartAPIWorkers:      a.startAPIWorkers,
-			PreUpgradeSteps:      a.preUpgradeSteps,
-			LogSource:            a.bufferedLogger.Logs(),
-			NewDeployContext:     newDeployContext,
-			Clock:                clock.WallClock,
-			ValidateMigration:    a.validateMigration,
-			PrometheusRegisterer: a.prometheusRegistry,
-			CentralHub:           a.centralHub,
-			PubSubReporter:       pubsubReporter,
-			PresenceRecorder:     presenceRecorder,
-			UpdateLoggerConfig:   updateAgentConfLogging,
+			PreviousAgentVersion:    previousAgentVersion,
+			Agent:                   agent.APIHostPortsSetter{Agent: a},
+			RootDir:                 a.rootDir,
+			AgentConfigChanged:      a.configChangedVal,
+			UpgradeStepsLock:        a.upgradeComplete,
+			UpgradeCheckLock:        a.initialUpgradeCheckComplete,
+			OpenController:          a.initController,
+			OpenState:               a.initState,
+			OpenStateForUpgrade:     a.openStateForUpgrade,
+			StartAPIWorkers:         a.startAPIWorkers,
+			PreUpgradeSteps:         a.preUpgradeSteps,
+			LogSource:               a.bufferedLogger.Logs(),
+			NewDeployContext:        newDeployContext,
+			Clock:                   clock.WallClock,
+			ValidateMigration:       a.validateMigration,
+			PrometheusRegisterer:    a.prometheusRegistry,
+			CentralHub:              a.centralHub,
+			PubSubReporter:          pubsubReporter,
+			PresenceRecorder:        presenceRecorder,
+			UpdateLoggerConfig:      updateAgentConfLogging,
+			UpdateControllerAPIPort: updateControllerAPIPort,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return a.machine(apiConn)
 			},

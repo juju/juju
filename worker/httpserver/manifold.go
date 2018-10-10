@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
+	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -24,10 +26,12 @@ import (
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName       string
-	CertWatcherName string
-	StateName       string
-	MuxName         string
+	AgentName          string
+	CertWatcherName    string
+	ClockName          string
+	ControllerPortName string
+	StateName          string
+	MuxName            string
 
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
@@ -37,6 +41,7 @@ type ManifoldConfig struct {
 	RaftEnabledName   string
 
 	PrometheusRegisterer prometheus.Registerer
+	Hub                  *pubsub.StructuredHub
 
 	NewTLSConfig func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
 	NewWorker    func(Config) (worker.Worker, error)
@@ -49,6 +54,12 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.CertWatcherName == "" {
 		return errors.NotValidf("empty CertWatcherName")
+	}
+	if config.ClockName == "" {
+		return errors.NotValidf("empty ClockName")
+	}
+	if config.ControllerPortName == "" {
+		return errors.NotValidf("empty ControllerPortName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -68,6 +79,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
+	if config.Hub == nil {
+		return errors.NotValidf("nil Hub")
+	}
 	if config.NewTLSConfig == nil {
 		return errors.NotValidf("nil NewTLSConfig")
 	}
@@ -85,6 +99,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.CertWatcherName,
+			config.ClockName,
+			config.ControllerPortName,
 			config.StateName,
 			config.MuxName,
 			config.RaftEnabledName,
@@ -116,6 +132,11 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
+	var clock clock.Clock
+	if err := context.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// We don't actually need anything from these workers, but we
 	// shouldn't start until they're available.
 	if err := context.Get(config.APIServerName, nil); err != nil {
@@ -130,6 +151,10 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		if err := context.Get(config.RaftTransportName, nil); err != nil {
 			return nil, errors.Trace(err)
 		}
+	}
+	// Ensure that the controller-port worker is running.
+	if err := context.Get(config.ControllerPortName, nil); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
@@ -150,6 +175,10 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	tlsConfig, autocertHandler, err := config.NewTLSConfig(systemState, getCertificate)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	controllerConfig, err := systemState.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 
 	var autocertListener net.Listener
@@ -173,11 +202,16 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:          agent.CurrentConfig(),
+		Clock:                clock,
 		PrometheusRegisterer: config.PrometheusRegisterer,
+		Hub:                  config.Hub,
 		TLSConfig:            tlsConfig,
 		AutocertHandler:      autocertHandler,
 		AutocertListener:     autocertListener,
 		Mux:                  mux,
+		APIPort:              controllerConfig.APIPort(),
+		APIPortOpenDelay:     controllerConfig.APIPortOpenDelay(),
+		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
