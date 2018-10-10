@@ -28,15 +28,19 @@ const maxStatusHistoryEntries = 20
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	SkipActions            bool
-	SkipAnnotations        bool
-	SkipCloudImageMetadata bool
-	SkipCredentials        bool
-	SkipIPAddresses        bool
-	SkipSettings           bool
-	SkipSSHHostKeys        bool
-	SkipStatusHistory      bool
-	SkipLinkLayerDevices   bool
+	SkipActions              bool
+	SkipAnnotations          bool
+	SkipCloudImageMetadata   bool
+	SkipCredentials          bool
+	SkipIPAddresses          bool
+	SkipSettings             bool
+	SkipSSHHostKeys          bool
+	SkipStatusHistory        bool
+	SkipLinkLayerDevices     bool
+	SkipUnitAgentBinaries    bool
+	SkipMachineAgentBinaries bool
+	SkipRelationScope        bool
+	SkipInstanceData         bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -405,20 +409,22 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// We fully expect the machine to have tools set, and that there is
 	// some instance data.
-	instData, found := instances[machine.doc.Id]
-	if !found {
-		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
-	}
-	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+	if !e.cfg.SkipInstanceData {
+		instData, found := instances[machine.doc.Id]
+		if !found {
+			return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
+		}
+		exMachine.SetInstance(e.newCloudInstanceArgs(instData))
 
-	instance := exMachine.Instance()
-	instanceKey := machine.globalInstanceKey()
-	statusArgs, err := e.statusArgs(instanceKey)
-	if err != nil {
-		return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+		instance := exMachine.Instance()
+		instanceKey := machine.globalInstanceKey()
+		statusArgs, err := e.statusArgs(instanceKey)
+		if err != nil {
+			return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+		}
+		instance.SetStatus(statusArgs)
+		instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 	}
-	instance.SetStatus(statusArgs)
-	instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -440,25 +446,27 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
-	statusArgs, err = e.statusArgs(globalKey)
+	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
 	exMachine.SetStatus(statusArgs)
 	exMachine.SetStatusHistory(e.statusHistoryArgs(globalKey))
 
-	tools, err := machine.AgentTools()
-	if err != nil {
-		// This means the tools aren't set, but they should be.
-		return nil, errors.Trace(err)
-	}
+	if !e.cfg.SkipMachineAgentBinaries {
+		tools, err := machine.AgentTools()
+		if err != nil {
+			// This means the tools aren't set, but they should be.
+			return nil, errors.Trace(err)
+		}
 
-	exMachine.SetTools(description.AgentToolsArgs{
-		Version: tools.Version,
-		URL:     tools.URL,
-		SHA256:  tools.SHA256,
-		Size:    tools.Size,
-	})
+		exMachine.SetTools(description.AgentToolsArgs{
+			Version: tools.Version,
+			URL:     tools.URL,
+			SHA256:  tools.SHA256,
+			Size:    tools.Size,
+		})
+	}
 
 	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
 		exMachine.AddOpenedPorts(args)
@@ -815,7 +823,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		if e.dbModel.Type() != ModelTypeCAAS {
+		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
 			tools, err := unit.AgentTools()
 			if err != nil {
 				// This means the tools aren't set, but they should be.
@@ -966,9 +974,12 @@ func (e *exporter) relations() error {
 	}
 	e.logger.Debugf("read %d relations", len(rels))
 
-	relationScopes, err := e.readAllRelationScopes()
-	if err != nil {
-		return errors.Trace(err)
+	relationScopes := set.NewStrings()
+	if !e.cfg.SkipRelationScope {
+		relationScopes, err = e.readAllRelationScopes()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	remoteApps := make(set.Strings)
@@ -1029,7 +1040,7 @@ func (e *exporter) relations() error {
 					continue
 				}
 				key := ru.key()
-				if !relationScopes.Contains(key) {
+				if !e.cfg.SkipRelationScope && !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
@@ -1660,11 +1671,15 @@ func (e *exporter) checkUnexportedValues() error {
 	}
 
 	for key := range e.status {
-		missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
+			missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+		}
 	}
 
 	for key := range e.statusHistory {
-		missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
+			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+		}
 	}
 
 	if len(missing) > 0 {

@@ -179,6 +179,11 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 		if productInfo.Tenancy != "Shared" {
 			continue
 		}
+		if productInfo.PreInstalledSW != "NA" {
+			// We don't care about instances with pre-installed
+			// software.
+			continue
+		}
 		fmt.Fprintf(os.Stderr, "- Processing %q\n", sku)
 
 		// Some instance types support both 32-bit and 64-bit, some
@@ -386,6 +391,7 @@ type ProductAttributes struct {
 	OperatingSystem       string `json:"operatingSystem"`       // Windows|RHEL|SUSE|Linux
 	Tenancy               string `json:"tenancy"`               // Dedicated|Host|Shared
 	ProcessorArchitecture string `json:"processorArchitecture"` // (32-bit or )?64-bit
+	PreInstalledSW        string `json:"preInstalledSw"`        // e.g. NA|SQL Web|SQL Std
 }
 
 type terms struct {
