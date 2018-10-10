@@ -88,7 +88,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life, suspendedReason string) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life, suspendedReason string, forceCleanup bool) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -117,6 +117,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Life:             life,
+				ForceCleanup:     &forceCleanup,
 				Suspended:        &suspended,
 				SuspendedReason:  suspendedReason,
 				ApplicationToken: "token-db2",
@@ -153,25 +154,35 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 		})
 	}
 	s.st.CheckCalls(c, expected)
-	ru1.CheckCalls(c, []testing.StubCall{
-		{"InScope", []interface{}{}},
-		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
-	})
+	if forceCleanup {
+		ru1.CheckCalls(c, []testing.StubCall{
+			{"LeaveScope", []interface{}{}},
+		})
+	} else {
+		ru1.CheckCalls(c, []testing.StubCall{
+			{"InScope", []interface{}{}},
+			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+		})
+	}
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Alive, "")
+	s.assertPublishRelationsChanges(c, params.Alive, "", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Alive, "reason")
+	s.assertPublishRelationsChanges(c, params.Alive, "reason", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Dying, "")
+	s.assertPublishRelationsChanges(c, params.Dying, "", false)
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Dying, "", true)
 }
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
