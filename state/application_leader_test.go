@@ -124,7 +124,7 @@ func (s *ServiceLeaderSuite) TestReadRemoved(c *gc.C) {
 	s.destroyService(c)
 
 	actual, err := s.service.LeaderSettings()
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, `application "mysql" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(actual, gc.IsNil)
 }
@@ -135,7 +135,7 @@ func (s *ServiceLeaderSuite) TestWriteRemoved(c *gc.C) {
 	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"should": "fail",
 	})
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, `application "mysql" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
