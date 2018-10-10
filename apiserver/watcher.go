@@ -101,6 +101,8 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
