@@ -16,6 +16,7 @@ package machinemanager_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -101,6 +102,26 @@ func (s *NewMachineManagerSuite) TestApplicationsMultiResultError(c *gc.C) {
 
 	_, err := s.client.Applications(s.tag.Id())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	arg := params.UpdateSeriesArg{
+		Entity: params.Entity{Tag: s.tag.String()},
+		Series: "xenial",
+		Force:  true,
+	}
+	resultSource := params.ErrorResult{
+		Error: &params.Error{
+			Message: "lock already exists",
+			Code:    params.CodeAlreadyExists,
+		},
+	}
+	s.facade.EXPECT().FacadeCall("UpgradeSeriesPrepare", arg, gomock.Any()).SetArg(2, resultSource)
+
+	err := s.client.UpgradeSeriesPrepare(s.tag.Id(), "xenial", true)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
 
 func (s *NewMachineManagerSuite) setup(c *gc.C) *gomock.Controller {

@@ -158,14 +158,20 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 		Force:  force,
 	}
 	result := params.ErrorResult{}
-	err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result)
-	if err != nil {
+	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
 		return errors.Trace(err)
 	}
-	if result.Error != nil {
-		return result.Error
-	}
 
+	err := result.Error
+	if err != nil {
+		// This error is raised server-side when an upgrade-series lock already
+		// exists for the machine. This indicates that a series upgrade has
+		// already been commenced and is not yet completed.
+		if params.IsCodeAlreadyExists(err) {
+			return errors.NewAlreadyExists(err, "")
+		}
+		return errors.Trace(err)
+	}
 	return nil
 }
 
