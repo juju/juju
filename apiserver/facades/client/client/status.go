@@ -885,7 +885,13 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params
 		status.Hardware = hc.String()
 	}
 	status.Containers = make(map[string]params.MachineStatus)
-	status.LXDProfiles = machine.LXDProfiles()
+
+	charmProfiles, err := machine.CharmProfiles()
+	if err != nil {
+		logger.Debugf("error fetching lxd profiles: %q", err)
+	} else {
+		status.LXDProfiles = charmProfiles
+	}
 
 	return
 }

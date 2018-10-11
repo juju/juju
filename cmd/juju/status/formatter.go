@@ -143,6 +143,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		Containers:        make(map[string]machineStatus),
 		Constraints:       machine.Constraints,
 		Hardware:          machine.Hardware,
+		LXDProfiles:       machine.LXDProfiles,
 	}
 
 	for k, d := range machine.NetworkInterfaces {
