@@ -48,8 +48,8 @@ type ContainerSpec struct {
 	Args       []string `yaml:"args,omitempty"`
 	WorkingDir string   `yaml:"workingDir,omitempty"`
 
-	Config map[string]string `yaml:"config,omitempty"`
-	Files  []FileSet         `yaml:"files,omitempty"`
+	Config map[string]interface{} `yaml:"config,omitempty"`
+	Files  []FileSet              `yaml:"files,omitempty"`
 
 	// ProviderContainer defines config which is specific to a substrate, eg k8s
 	ProviderContainer `yaml:"-"`

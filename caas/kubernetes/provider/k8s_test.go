@@ -90,8 +90,11 @@ var basicPodspec = &caas.PodSpec{
 		Command:    []string{"sh", "-c"},
 		Args:       []string{"doIt", "--debug"},
 		WorkingDir: "/path/to/here",
-		Config: map[string]string{
-			"foo": "bar",
+		Config: map[string]interface{}{
+			"foo":        "bar",
+			"restricted": "'yes'",
+			"bar":        true,
+			"switch":     "on",
 		},
 	}, {
 		Name:  "test2",
@@ -162,7 +165,10 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 				Args:       []string{"doIt", "--debug"},
 				WorkingDir: "/path/to/here",
 				Env: []core.EnvVar{
+					{Name: "bar", Value: "true"},
 					{Name: "foo", Value: "bar"},
+					{Name: "restricted", Value: "yes"},
+					{Name: "switch", Value: "true"},
 				},
 			}, {
 				Name:  "test2",
