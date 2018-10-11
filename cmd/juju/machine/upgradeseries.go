@@ -279,7 +279,11 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnit
 func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) error {
 	applications := set.NewStrings()
 	for _, unit := range units {
-		applications.Add(strings.Split(unit, "/")[0])
+		app, err := names.UnitApplication(unit)
+		if err != nil {
+			return errors.Annotatef(err, "deriving application for unit %q", unit)
+		}
+		applications.Add(app)
 	}
 
 	for _, app := range applications.SortedValues() {
