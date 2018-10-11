@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	// "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -137,8 +138,6 @@ type Broker interface {
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
 
-	environs.ConfigGetter
-
 	// Provider returns the ContainerEnvironProvider that created this Broker.
 	Provider() ContainerEnvironProvider
 
@@ -148,12 +147,11 @@ type Broker interface {
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
 
-	// ConstraintsChecker provides a means to check that constraints are valid.
-	environs.ConstraintsChecker
-
 	// InstancePrechecker provides a means of "prechecking" placement
 	// arguments before recording them in state.
 	environs.InstancePrechecker
+
+	environs.BootstrapEnviron
 }
 
 // Service represents information about the status of a caas service entity.

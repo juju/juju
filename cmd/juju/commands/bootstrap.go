@@ -96,11 +96,11 @@ address.
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 
-By default, the Juju version of the agent binary that is downloaded and 
-installed on all models for the new controller will be the same as that 
+By default, the Juju version of the agent binary that is downloaded and
+installed on all models for the new controller will be the same as that
 of the Juju client used to perform the bootstrap.
-However, a user can specify a different agent version via '--agent-version' 
-option to bootstrap command. Juju will use this version for models' agents 
+However, a user can specify a different agent version via '--agent-version'
+option to bootstrap command. Juju will use this version for models' agents
 as long as the client's version is from the same Juju release series.
 In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
 bootstrap any 2.0.x or 2.1.x agents.
@@ -111,7 +111,7 @@ agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
     * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
     * 2.3.1 controller by running '... bootstrap ...';
     * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
-However, if this client has a copy of codebase, then a local copy of Juju 
+However, if this client has a copy of codebase, then a local copy of Juju
 will be built and bootstrapped - 2.3.1.1.
 
 Examples:
@@ -283,7 +283,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
 	// if the provider supports it.
@@ -300,7 +300,7 @@ type BootstrapInterface interface {
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, callCtx, args)
 }
 
@@ -324,7 +324,8 @@ var getBootstrapFuncs = func() BootstrapInterface {
 }
 
 var (
-	bootstrapPrepare           = bootstrap.Prepare
+	bootstrapPrepareIAAS       = bootstrap.PrepareIAAS
+	bootstrapPrepareCAAS       = bootstrap.PrepareCAAS
 	environsDestroy            = environs.Destroy
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
@@ -398,6 +399,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Criticalf("cloud -> %#v, provider -> %#v, err -> %#v", cloud, provider, err)
 
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
@@ -415,6 +417,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		return errors.Trace(err)
 	}
+
+	if credentials.name == "" {
+		// credentialName will be empty if the credential was detected.
+		// We must supply a name for the credential in the database,
+		// so choose one.
+		credentials.name = credentials.detectedName
+	}
+
 	cloudCallCtx := context.NewCloudCallContext()
 	// At this stage, the credential we intend to use is not yet stored
 	// server-side. So, if the credential is not accepted by the provider,
@@ -431,6 +441,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
 	}
+
 	// set a Region so it's config can be found below.
 	if c.Region == "" {
 		c.Region = region.Name
@@ -471,52 +482,119 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}()
 
-	environ, err := bootstrapPrepare(
-		modelcmd.BootstrapContext(ctx), store,
-		bootstrap.PrepareParams{
-			ModelConfig:      config.bootstrapModel,
-			ControllerConfig: config.controller,
-			ControllerName:   c.controllerName,
-			Cloud: environs.CloudSpec{
-				Type:             cloud.Type,
-				Name:             cloud.Name,
-				Region:           region.Name,
-				Endpoint:         region.Endpoint,
-				IdentityEndpoint: region.IdentityEndpoint,
-				StorageEndpoint:  region.StorageEndpoint,
-				Credential:       credentials.credential,
-				CACertificates:   cloud.CACertificates,
-			},
-			CredentialName: credentials.name,
-			AdminSecret:    config.bootstrap.AdminSecret,
+	bootstrapCtx := modelcmd.BootstrapContext(ctx)
+	bootstrapPrepareParams := bootstrap.PrepareParams{
+		ModelConfig:      config.bootstrapModel,
+		ControllerConfig: config.controller,
+		ControllerName:   c.controllerName,
+		Cloud: environs.CloudSpec{
+			Type:             cloud.Type,
+			Name:             cloud.Name,
+			Region:           region.Name,
+			Endpoint:         region.Endpoint,
+			IdentityEndpoint: region.IdentityEndpoint,
+			StorageEndpoint:  region.StorageEndpoint,
+			Credential:       credentials.credential,
+			CACertificates:   cloud.CACertificates,
 		},
-	)
+		CredentialName: credentials.name,
+		AdminSecret:    config.bootstrap.AdminSecret,
+	}
+	bootstrapParams := bootstrap.BootstrapParams{
+		BootstrapSeries:           c.BootstrapSeries,
+		BootstrapImage:            c.BootstrapImage,
+		Placement:                 c.Placement,
+		BuildAgent:                c.BuildAgent,
+		BuildAgentTarball:         sync.BuildAgentTarball,
+		AgentVersion:              c.AgentVersion,
+		Cloud:                     cloud,
+		CloudRegion:               region.Name,
+		CloudCredential:           credentials.credential,
+		CloudCredentialName:       credentials.name,
+		ControllerConfig:          config.controller,
+		ControllerInheritedConfig: config.inheritedControllerAttrs,
+		RegionInheritedConfig:     cloud.RegionConfig,
+		AdminSecret:               config.bootstrap.AdminSecret,
+		CAPrivateKey:              config.bootstrap.CAPrivateKey,
+		DialOpts: environs.BootstrapDialOpts{
+			Timeout:        config.bootstrap.BootstrapTimeout,
+			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
+			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
+		},
+	}
+
+	var environ environs.BootstrapEnviron
+	if jujucloud.CloudIsCAAS(cloud) {
+		// bootstrap to k8s cluster
+		environ, err = bootstrapPrepareCAAS(
+			bootstrapCtx, store, bootstrapPrepareParams,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !c.noSwitch {
+			if err := store.SetCurrentController(c.controllerName); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	} else {
+		// Bootstrap controller in IAAS mode.
+		environ, err = bootstrapPrepareIAAS(
+			bootstrapCtx, store, bootstrapPrepareParams,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// only IAAS has hosted model.
+		hostedModelUUID, err := utils.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Set the current model to the initial hosted model.
+		if err := store.UpdateModel(
+			c.controllerName,
+			c.hostedModelName,
+			jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
+		); err != nil {
+			return errors.Trace(err)
+		}
+
+		if !c.noSwitch {
+			if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+				return errors.Trace(err)
+			}
+			if err := store.SetCurrentController(c.controllerName); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		bootstrapParams.HostedModelConfig = c.hostedModelConfig(
+			hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
+		)
+	}
+
+	constraintsValidator, err := environ.ConstraintsValidator(cloudCallCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	hostedModelUUID, err := utils.NewUUID()
+	// Merge in any space constraints that should be implied from controller
+	// space config.
+	// Do it before calling merge, because the constraints will be validated
+	// there.
+	constraints := c.Constraints
+	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
+
+	// Merge environ and bootstrap-specific constraints.
+	bootstrapParams.BootstrapConstraints, err = constraintsValidator.Merge(constraints, c.BootstrapConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Infof("combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
 
-	// Set the current model to the initial hosted model.
-	if err := store.UpdateModel(
-		c.controllerName,
-		c.hostedModelName,
-		jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
-	); err != nil {
-		return errors.Trace(err)
-	}
-
-	if !c.noSwitch {
-		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-			return errors.Trace(err)
-		}
-		if err := store.SetCurrentController(c.controllerName); err != nil {
-			return errors.Trace(err)
-		}
-	}
+	bootstrapParams.ModelConstraints = c.Constraints
 
 	cloudRegion := c.Cloud
 	if region.Name != "" {
@@ -532,13 +610,13 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
 				ctx.Infof(`
-bootstrap failed but --keep-broken was specified. 
-This means that cloud resources are left behind, but not registered to 
-your local client, as the controller was not successfully created. 
-However, you should be able to ssh into the machine using the user "ubuntu" and 
+bootstrap failed but --keep-broken was specified.
+This means that cloud resources are left behind, but not registered to
+your local client, as the controller was not successfully created.
+However, you should be able to ssh into the machine using the user "ubuntu" and
 their IP address for diagnosis and investigation.
-When you are ready to clean up the failed controller, use your cloud console or 
-equivalent CLI tools to terminate the instances and remove remaining resources. 
+When you are ready to clean up the failed controller, use your cloud console or
+equivalent CLI tools to terminate the instances and remove remaining resources.
 
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
@@ -570,84 +648,33 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
-	var metadataDir string
 	if c.MetadataSource != "" {
-		metadataDir = ctx.AbsPath(c.MetadataSource)
+		bootstrapParams.MetadataDir = ctx.AbsPath(c.MetadataSource)
 	}
-
-	constraintsValidator, err := environ.ConstraintsValidator(cloudCallCtx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Merge in any space constraints that should be implied from controller
-	// space config.
-	// Do it before calling merge, because the constraints will be validated
-	// there.
-	constraints := c.Constraints
-	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
-
-	// Merge environ and bootstrap-specific constraints.
-	bootstrapConstraints, err := constraintsValidator.Merge(constraints, c.BootstrapConstraints)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
-
-	hostedModelConfig := c.hostedModelConfig(
-		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ)
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
-	var guiDataSourceBaseURL string
 	if !c.noGUI {
-		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
-	}
-
-	if credentials.name == "" {
-		// credentialName will be empty if the credential was detected.
-		// We must supply a name for the credential in the database,
-		// so choose one.
-		credentials.name = credentials.detectedName
+		bootstrapParams.GUIDataSourceBaseURL = common.GUIDataSourceBaseURL()
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
-	err = bootstrapFuncs.Bootstrap(
+	if err = bootstrapFuncs.Bootstrap(
 		modelcmd.BootstrapContext(ctx),
 		environ,
 		cloudCallCtx,
-		bootstrap.BootstrapParams{
-			ModelConstraints:          c.Constraints,
-			BootstrapConstraints:      bootstrapConstraints,
-			BootstrapSeries:           c.BootstrapSeries,
-			BootstrapImage:            c.BootstrapImage,
-			Placement:                 c.Placement,
-			BuildAgent:                c.BuildAgent,
-			BuildAgentTarball:         sync.BuildAgentTarball,
-			AgentVersion:              c.AgentVersion,
-			MetadataDir:               metadataDir,
-			Cloud:                     cloud,
-			CloudRegion:               region.Name,
-			CloudCredential:           credentials.credential,
-			CloudCredentialName:       credentials.name,
-			ControllerConfig:          config.controller,
-			ControllerInheritedConfig: config.inheritedControllerAttrs,
-			RegionInheritedConfig:     cloud.RegionConfig,
-			HostedModelConfig:         hostedModelConfig,
-			GUIDataSourceBaseURL:      guiDataSourceBaseURL,
-			AdminSecret:               config.bootstrap.AdminSecret,
-			CAPrivateKey:              config.bootstrap.CAPrivateKey,
-			DialOpts: environs.BootstrapDialOpts{
-				Timeout:        config.bootstrap.BootstrapTimeout,
-				RetryDelay:     config.bootstrap.BootstrapRetryDelay,
-				AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
-			},
-		})
-	if err != nil {
+		bootstrapParams,
+	); err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
+	// TODO: how to organise post bootstrap for IAAS/CAAS !!!
+	if jujucloud.CloudIsCAAS(cloud) {
+		// wait and fetch controller public endpoint then update juju home
+		return nil
+	}
+
+	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -655,7 +682,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	addrs, err := common.BootstrapEndpointAddresses(environ, cloudCallCtx)
+	var addrs []network.Address
+	if env, ok := environ.(environs.Environ); ok {
+		// TODO!!!
+		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1068,7 +1099,7 @@ func (c *bootstrapCommand) hostedModelConfig(
 	hostedModelUUID utils.UUID,
 	inheritedControllerAttrs,
 	userConfigAttrs map[string]interface{},
-	environ environs.Environ,
+	environ environs.ConfigGetter,
 ) map[string]interface{} {
 
 	hostedModelConfig := map[string]interface{}{

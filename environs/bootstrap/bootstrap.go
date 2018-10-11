@@ -181,7 +181,7 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx context.ProviderCallContext, args BootstrapParams) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args BootstrapParams) error {
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
@@ -454,10 +454,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
+	var environVersion int
+	if e, ok := environ.(environs.Environ); ok {
+		environVersion = e.Provider().Version()
+	}
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	cfg = environ.Config()
-	environVersion := environ.Provider().Version()
 	if err := finalizeInstanceBootstrapConfig(
 		ctx, instanceConfig, args, cfg, environVersion, customImageMetadata,
 	); err != nil {
@@ -559,7 +562,7 @@ func userPublicSigningKey() (string, error) {
 // initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
-	environ environs.Environ,
+	environ environs.BootstrapEnviron,
 	bootstrapSeries *string,
 	bootstrapArch string,
 	bootstrapImageId string,
@@ -669,7 +672,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 }
 
 // setBootstrapToolsVersion updates the agent-version configuration attribute.
-func setBootstrapToolsVersion(environ environs.Environ, toolsVersion version.Number) error {
+func setBootstrapToolsVersion(environ environs.BootstrapEnviron, toolsVersion version.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{

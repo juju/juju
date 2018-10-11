@@ -257,6 +257,46 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
+// ConfigSetter implements access to an environment's configuration.
+type ConfigSetter interface {
+	// SetConfig updates the Environ's configuration.
+	//
+	// Calls to SetConfig do not affect the configuration of
+	// values previously obtained from Storage.
+	SetConfig(cfg *config.Config) error
+}
+
+// Bootstraper provides the way for bootstrapping controller.
+type Bootstraper interface {
+	// This will be called very early in the bootstrap procedure, to
+	// give an Environ a chance to perform interactive operations that
+	// are required for bootstrapping.
+	PrepareForBootstrap(ctx BootstrapContext) error
+
+	// Bootstrap creates a new environment, and an instance to host the
+	// controller for that environment. The instance will have the
+	// series and architecture of the Environ's choice, constrained to
+	// those of the available tools. Bootstrap will return the instance's
+	// architecture, series, and a function that must be called to finalize
+	// the bootstrap process by transferring the tools and installing the
+	// initial Juju controller.
+	//
+	// It is possible to direct Bootstrap to use a specific architecture
+	// (or fail if it cannot start an instance of that architecture) by
+	// using an architecture constraint; this will have the effect of
+	// limiting the available tools to just those matching the specified
+	// architecture.
+	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
+}
+
+type BootstrapEnviron interface {
+	ConfigGetter
+	ConfigSetter
+	Bootstraper
+	ConstraintsChecker
+	ControllerDestroyer
+}
+
 // CloudDestroyer provides the API to cleanup cloud resources.
 type CloudDestroyer interface {
 	// Destroy shuts down all known machines and destroys the
@@ -292,27 +332,8 @@ type Environ interface {
 	// CloudDestroyer provides the API to cleanup cloud resources.
 	CloudDestroyer
 
-	// PrepareForBootstrap prepares an environment for bootstrapping.
-	//
-	// This will be called very early in the bootstrap procedure, to
-	// give an Environ a chance to perform interactive operations that
-	// are required for bootstrapping.
-	PrepareForBootstrap(ctx BootstrapContext) error
-
-	// Bootstrap creates a new environment, and an instance to host the
-	// controller for that environment. The instnace will have have the
-	// series and architecture of the Environ's choice, constrained to
-	// those of the available tools. Bootstrap will return the instance's
-	// architecture, series, and a function that must be called to finalize
-	// the bootstrap process by transferring the tools and installing the
-	// initial Juju controller.
-	//
-	// It is possible to direct Bootstrap to use a specific architecture
-	// (or fail if it cannot start an instance of that architecture) by
-	// using an architecture constraint; this will have the effect of
-	// limiting the available tools to just those matching the specified
-	// architecture.
-	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
+	// Bootstraper prepares an environment for bootstrapping.
+	Bootstraper
 
 	// Create creates the environment for a new hosted model.
 	//
@@ -344,14 +365,10 @@ type Environ interface {
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
+	ConfigSetter
+
 	// ConstraintsChecker provides a means to check that constraints are valid.
 	ConstraintsChecker
-
-	// SetConfig updates the Environ's configuration.
-	//
-	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage.
-	SetConfig(cfg *config.Config) error
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
@@ -368,15 +385,6 @@ type Environ interface {
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
 
-	// DestroyController is similar to Destroy() in that it destroys
-	// the model, which in this case will be the controller model.
-	//
-	// In addition, this method also destroys any resources relating
-	// to hosted models on the controller on which it is invoked.
-	// This ensures that "kill-controller" can clean up hosted models
-	// when the Juju controller process is unavailable.
-	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
-
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
@@ -385,6 +393,21 @@ type Environ interface {
 	// InstanceTypesFetcher represents an environment that can return
 	// information about the available instance types.
 	InstanceTypesFetcher
+
+	// ControllerDestroyer is similar to Destroy() in that it destroys
+	// the model, which in this case will be the controller model.
+	ControllerDestroyer
+}
+
+// ControllerDestroyer is similar to Destroy() in that it destroys
+// the model, which in this case will be the controller model.
+//
+// In addition, this method also destroys any resources relating
+// to hosted models on the controller on which it is invoked.
+// This ensures that "kill-controller" can clean up hosted models
+// when the Juju controller process is unavailable.
+type ControllerDestroyer interface {
+	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
 }
 
 // ConstraintsChecker provides a means to check that constraints are valid.

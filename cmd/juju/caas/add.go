@@ -206,23 +206,23 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	cloudClient, err := c.apiFunc()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer cloudClient.Close()
+	// cloudClient, err := c.apiFunc()
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
+	// defer cloudClient.Close()
 
-	if err := addCloudToController(cloudClient, newCloud); err != nil {
-		return errors.Trace(err)
-	}
+	// if err := addCloudToController(cloudClient, newCloud); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	if err := c.addCredentialToLocal(c.caasName, credential, context.CredentialName); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.addCredentialToController(cloudClient, credential, context.CredentialName); err != nil {
-		return errors.Trace(err)
-	}
+	// if err := c.addCredentialToController(cloudClient, credential, context.CredentialName); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	return nil
 }

@@ -34,6 +34,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
@@ -129,6 +130,25 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 // Config returns environ config.
 func (k *kubernetesClient) Config() *config.Config {
 	return k.envCfg.Config
+}
+
+// PrepareForBootstrap returns environ config.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	logger.Criticalf("kubernetesClient PrepareForBootstrap -> %#v", ctx)
+	return nil
+}
+
+// Bootstrap deploys controller with mongoDB together into k8s cluster.
+func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
+	return &environs.BootstrapResult{
+		Arch:   "Arch",
+		Series: "series",
+		Finalize: func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+			logger.Criticalf("kubernetesClient Finalizer")
+			return nil
+		},
+	}, nil
 }
 
 // DestroyController implements the Environ interface.

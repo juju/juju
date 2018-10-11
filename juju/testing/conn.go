@@ -423,7 +423,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		s.ControllerConfig[key] = value
 	}
 	cloudSpec := dummy.SampleCloudSpec()
-	environ, err := bootstrap.Prepare(
+	environ, err := bootstrap.PrepareIAAS(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
 		bootstrap.PrepareParams{

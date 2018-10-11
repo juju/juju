@@ -67,7 +67,7 @@ func UnregisterToolsDataSourceFunc(id string) {
 
 // GetMetadataSources returns the sources to use when looking for
 // simplestreams tools metadata for the given stream.
-func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error) {
+func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSource, error) {
 	config := env.Config()
 
 	// Add configured and environment-specific datasources.
@@ -101,10 +101,16 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 // environmentDataSources returns simplestreams datasources for the environment
 // by calling the functions registered in RegisterToolsDataSourceFunc.
 // The datasources returned will be in the same order the functions were registered.
-func environmentDataSources(env environs.Environ) ([]simplestreams.DataSource, error) {
+func environmentDataSources(bootstrapEnviron environs.BootstrapEnviron) ([]simplestreams.DataSource, error) {
 	toolsDatasourceFuncsMu.RLock()
 	defer toolsDatasourceFuncsMu.RUnlock()
+
 	var datasources []simplestreams.DataSource
+
+	env, ok := bootstrapEnviron.(environs.Environ)
+	if !ok {
+		return datasources, errors.NotValidf("environ %#v is not Environ", bootstrapEnviron)
+	}
 	for _, f := range toolsDatasourceFuncs {
 		logger.Debugf("trying datasource %q", f.id)
 		datasource, err := f.f(env)

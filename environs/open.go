@@ -35,7 +35,7 @@ func Open(p EnvironProvider, args OpenParams) (Environ, error) {
 // its associated configuration data from the given store.
 func Destroy(
 	controllerName string,
-	env Environ,
+	env ControllerDestroyer,
 	ctx context.ProviderCallContext,
 	store jujuclient.ControllerStore,
 ) error {

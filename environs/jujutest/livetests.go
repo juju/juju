@@ -150,7 +150,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	args := t.prepareForBootstrapParams(c)
-	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareIAAS(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -958,7 +958,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
-	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	dummyenv, err := bootstrap.PrepareIAAS(envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		args,
 	)
@@ -972,7 +972,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": other.Series,
 	})
 	args.ModelConfig = attrs
-	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareIAAS(envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)

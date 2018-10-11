@@ -97,7 +97,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 
 // PrepareWithParams prepares an instance of the testing environment.
 func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
-	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
+	e, err := bootstrap.PrepareIAAS(envtesting.BootstrapContext(c), t.ControllerStore, params)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -107,7 +107,7 @@ func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attr
 	args := t.PrepareParams(c)
 	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(badConfig)
 
-	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareIAAS(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 	c.Assert(e, gc.IsNil)
 	return err
