@@ -61,6 +61,7 @@ var (
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
 	UpgradeInProgressError               = errUpgradeInProgress
+	DBCollectionSizeToInt                = dbCollectionSizeToInt
 )
 
 type (

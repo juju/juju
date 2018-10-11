@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -34,12 +36,21 @@ func NewStatusCommand() cmd.Command {
 	})
 }
 
+// Clock defines the methods needed for the status command.
+type Clock interface {
+	After(time.Duration) <-chan time.Time
+}
+
 type statusCommand struct {
 	modelcmd.ModelCommandBase
 	out      cmd.Output
 	patterns []string
 	isoTime  bool
 	api      statusAPI
+	clock    Clock
+
+	retryCount int
+	retryDelay time.Duration
 
 	color bool
 
@@ -119,6 +130,9 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section")
 
+	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
+	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
+
 	c.relationsFlagProvidedF = func() bool {
 		provided := false
 		f.Visit(func(flag *gnuflag.Flag) {
@@ -155,21 +169,43 @@ func (c *statusCommand) Init(args []string) error {
 			}
 		}
 	}
+	if c.clock == nil {
+		c.clock = clock.WallClock
+	}
 	return nil
 }
 
 var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	return c.NewAPIClient()
 }
 
-func (c *statusCommand) Run(ctx *cmd.Context) error {
+func (c *statusCommand) getStatus() (*params.FullStatus, error) {
 	apiclient, err := newAPIClientForStatus(c)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	defer apiclient.Close()
 
-	status, err := apiclient.Status(c.patterns)
+	return apiclient.Status(c.patterns)
+}
+
+func (c *statusCommand) Run(ctx *cmd.Context) error {
+	// Always attempt to get the status at least once, and retry if it fails.
+	status, err := c.getStatus()
+	if err != nil {
+		for i := 0; i < c.retryCount; i++ {
+			// Wait for a bit before retries.
+			<-c.clock.After(c.retryDelay)
+			status, err = c.getStatus()
+			if err == nil {
+				break
+			}
+		}
+	}
+
 	if err != nil {
 		if status == nil {
 			// Status call completely failed, there is nothing to report

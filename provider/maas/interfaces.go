@@ -86,17 +86,17 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (environ *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
-	inst, err := environ.getInstance(ctx, instId)
+func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+	inst, err := env.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnetsMap, err := environ.subnetToSpaceIds(ctx)
+	subnetsMap, err := env.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if environ.usingMAAS2() {
-		dnsSearchDomains, err := environ.Domains(ctx)
+	if env.usingMAAS2() {
+		dnsSearchDomains, err := env.Domains(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

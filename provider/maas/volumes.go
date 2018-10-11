@@ -11,6 +11,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
 
@@ -359,28 +360,38 @@ func (mi *maas2Instance) volumes(
 		const devDiskByIdPrefix = "/dev/disk/by-id/"
 		const devPrefix = "/dev/"
 
-		idPath := device.IDPath()
-		if idPath == devPrefix+device.Name() {
-			// On vMAAS (i.e. with virtio), the device name
-			// will be stable, and is what is used to form
-			// id_path.
-			deviceName := idPath[len(devPrefix):]
-			attachment.DeviceName = deviceName
-		} else if strings.HasPrefix(idPath, devDiskByIdPrefix) {
-			const wwnPrefix = "wwn-"
-			id := idPath[len(devDiskByIdPrefix):]
-			if strings.HasPrefix(id, wwnPrefix) {
-				vol.WWN = id[len(wwnPrefix):]
+		if blockDev, ok := device.(gomaasapi.BlockDevice); ok {
+			// Handle a block device specifically that way the path used
+			// by Juju will always be a persistent path.
+			idPath := blockDev.IDPath()
+			if idPath == devPrefix+blockDev.Name() {
+				// On vMAAS (i.e. with virtio), the device name
+				// will be stable, and is what is used to form
+				// id_path.
+				deviceName := idPath[len(devPrefix):]
+				attachment.DeviceName = deviceName
+			} else if strings.HasPrefix(idPath, devDiskByIdPrefix) {
+				const wwnPrefix = "wwn-"
+				id := idPath[len(devDiskByIdPrefix):]
+				if strings.HasPrefix(id, wwnPrefix) {
+					vol.WWN = id[len(wwnPrefix):]
+				} else {
+					vol.HardwareId = id
+				}
 			} else {
-				vol.HardwareId = id
+				// It's neither /dev/<name> nor /dev/disk/by-id/<hardware-id>,
+				// so set it as the device link and hope for
+				// the best. At worst, the path won't exist
+				// and the storage will remain pending.
+				attachment.DeviceLink = idPath
 			}
 		} else {
-			// It's neither /dev/<name> nor /dev/disk/by-id/<hardware-id>,
-			// so set it as the device link and hope for
-			// the best. At worst, the path won't exist
-			// and the storage will remain pending.
-			attachment.DeviceLink = idPath
+			// Handle all other storage devices using the path MAAS provided.
+			// In the case of partitions the path is always stable because its
+			// based on the GUID of the partition using the dname path.
+			attachment.DeviceLink = device.Path()
 		}
+
 		volumes = append(volumes, vol)
 		attachments = append(attachments, attachment)
 	}

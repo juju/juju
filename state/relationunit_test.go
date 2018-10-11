@@ -193,6 +193,51 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "mysql1" is not a member of "wordpress:db mysql:server"`)
 }
 
+func (s *RelationUnitSuite) TestAllRemoteUnits(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "another",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru1 := addRemoteRU(c, rel, "mysql/0")
+	err = ru1.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ru2 := addRemoteRU(c, rel, "mysql/1")
+	err = ru2.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = rel.AllRemoteUnits("wordpress")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = rel.AllRemoteUnits("another")
+	c.Assert(err, gc.ErrorMatches, `application "another" is not a member of "wordpress:db mysql:server"`)
+	all, err := rel.AllRemoteUnits("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 2)
+	c.Assert(all, jc.SameContents, []*state.RelationUnit{ru1, ru2})
+}
+
 func (s *RelationUnitSuite) TestProReqSettings(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	s.testProReqSettings(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
