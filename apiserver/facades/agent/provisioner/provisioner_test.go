@@ -8,6 +8,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
@@ -22,9 +24,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/config"
+	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -1714,3 +1718,132 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 // 3) Provider could allocate DHCP based addresses on the host device, which would let us
 //    use a bridge on the device and DHCP. (Currently not supported, but desirable for
 //    vSphere and Manual and probably LXD providers.)
+// Addition (manadart 2018-10-09): To begin accommodating the deficiencies noted
+// above, the new suite below uses mocks for tests ill-suited to the dummy
+// provider. We could reasonably re-write the tests above over time to use the
+// new suite.
+
+type provisionerMockSuite struct {
+	coretesting.BaseSuite
+
+	environ      *environtesting.MockNetworkingEnviron
+	host         *MockMachine
+	container    *MockMachine
+	device       *MockLinkLayerDevice
+	parentDevice *MockLinkLayerDevice
+}
+
+var _ = gc.Suite(&provisionerMockSuite{})
+
+// Even when the provider supports container addresses, manually provisioned
+// machines should fall back to DHCP.
+func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectManuallyProvisionedHostsUseDHCPForContainers()
+
+	res := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{}},
+	}
+	ctx := provisioner.NewPrepareOrGetContext(res, false)
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results[0].Config, gc.HasLen, 1)
+
+	cfg := res.Results[0].Config[0]
+	c.Check(cfg.ConfigType, gc.Equals, "dhcp")
+	c.Check(cfg.ProviderSubnetId, gc.Equals, "")
+	c.Check(cfg.VLANTag, gc.Equals, 0)
+}
+
+func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
+	s.expectNetworkingEnviron()
+	s.expectLinkLayerDevices()
+
+	emptySpace := ""
+
+	cExp := s.container.EXPECT()
+	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
+	cExp.DesiredSpaces().Return(set.NewStrings(emptySpace), nil)
+	cExp.Id().Return("lxd/0").AnyTimes()
+	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
+	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
+
+	hExp := s.host.EXPECT()
+	hExp.Id().Return("0").AnyTimes()
+	hExp.LinkLayerDevicesForSpaces(gomock.Any()).Return(
+		map[string][]containerizer.LinkLayerDevice{emptySpace: {s.device}}, nil)
+	// Crucial behavioural trait. Set false to test failure.
+	hExp.IsManual().Return(true, nil)
+	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
+
+}
+
+// expectNetworkingEnviron stubs an environ that supports container networking.
+func (s *provisionerMockSuite) expectNetworkingEnviron() {
+	eExp := s.environ.EXPECT()
+	eExp.Config().Return(&config.Config{}).AnyTimes()
+	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
+}
+
+// expectLinkLayerDevices mocks a link-layer device and its parent,
+// suitable for use as a bridge network for containers.
+func (s *provisionerMockSuite) expectLinkLayerDevices() {
+	devName := "eth0"
+	mtu := uint(1500)
+	mac := network.GenerateVirtualMACAddress()
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name:       devName,
+		Type:       state.EthernetDevice,
+		MACAddress: mac,
+		MTU:        mtu,
+	}
+
+	dExp := s.device.EXPECT()
+	dExp.Name().Return(devName).AnyTimes()
+	dExp.Type().Return(state.BridgeDevice).AnyTimes()
+	dExp.MTU().Return(mtu).AnyTimes()
+	dExp.EthernetDeviceForBridge(devName).Return(deviceArgs, nil).MinTimes(1)
+	dExp.ParentDevice().Return(s.parentDevice, nil)
+	dExp.MACAddress().Return(mac)
+	dExp.IsAutoStart().Return(true)
+	dExp.IsUp().Return(true)
+
+	pExp := s.parentDevice.EXPECT()
+	// The address itself is unimportant, so we can use an empty one.
+	// What is important is that there is one there to flex the path we are
+	// testing.
+	pExp.Addresses().Return([]*state.Address{{}}, nil)
+	pExp.Name().Return(devName).MinTimes(1)
+}
+
+func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	exp := s.container.EXPECT()
+	exp.InstanceId().Return(instance.Id("juju-8ebd6c-0"), nil)
+	exp.Id().Return("0/lxd/0")
+
+	res := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{}},
+	}
+	ctx := provisioner.NewPrepareOrGetContext(res, true)
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
+}
+
+func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
+	s.host = NewMockMachine(ctrl)
+	s.container = NewMockMachine(ctrl)
+	s.device = NewMockLinkLayerDevice(ctrl)
+	s.parentDevice = NewMockLinkLayerDevice(ctrl)
+
+	return ctrl
+}

@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,NetworkingEnviron
+
 // A EnvironProvider represents a computing and storage provider
 // for either a traditional cloud or a container substrate like k8s.
 type EnvironProvider interface {
