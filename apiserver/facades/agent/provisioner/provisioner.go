@@ -754,12 +754,12 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, tag)
+		guest, err := p.getMachine(canAccess, tag)
 		if err != nil {
 			logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		} else if !container.IsContainer() {
+		} else if !guest.IsContainer() {
 			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -767,7 +767,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 		// TODO(dimitern): Release those via the provider once we have
 		// Environ.ReleaseContainerAddresses. See LP bug http://pad.lv/1585878
-		err = container.RemoveAllAddresses()
+		err = guest.RemoveAllAddresses()
 		if err != nil {
 			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
@@ -817,7 +817,7 @@ type perContainerHandler interface {
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container Machine) error
+	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine) error
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
@@ -847,11 +847,11 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		ctr, err := p.getMachine(canAccess, machineTag)
+		guest, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
-		} else if !ctr.IsContainer() {
+		} else if !guest.IsContainer() {
 			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
 			handler.SetError(i, common.ServerError(err))
 			continue
@@ -860,7 +860,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		if err := handler.ProcessOneContainer(
 			env, p.providerCallContext, i,
 			&containerizer.MachineShim{Machine: hostMachine},
-			&containerizer.MachineShim{Machine: ctr},
+			&containerizer.MachineShim{Machine: guest},
 		); err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
@@ -879,15 +879,15 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 }
 
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, idx int, host, container Machine,
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
-	containerId, err := container.InstanceId()
+	containerId, err := guest.InstanceId()
 	if ctx.maintain {
 		if err == nil {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
 			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", container, containerId)
+			return errors.Errorf("container %q already provisioned as %q", guest, containerId)
 		}
 	}
 	// The only error we allow is NotProvisioned
@@ -904,11 +904,11 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 	// just be returning the ones we'd like to exist, and then we turn those
 	// into things we'd like to tell the Host machine to create, and then *it*
 	// reports back what actually exists when its done.
-	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, container); err != nil {
+	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, guest); err != nil {
 		return errors.Trace(err)
 	}
 
-	containerDevices, err := container.AllLinkLayerDevices()
+	containerDevices, err := guest.AllLinkLayerDevices()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -995,7 +995,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
 		allocatedInfo, err = networking.AllocateContainerAddresses(
-			callContext, hostInstanceId, container.MachineTag(), preparedInfo)
+			callContext, hostInstanceId, guest.MachineTag(), preparedInfo)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1060,13 +1060,13 @@ type hostChangesContext struct {
 }
 
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, idx int, host, container Machine,
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
 	}
-	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
+	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
 		return err
 	}
