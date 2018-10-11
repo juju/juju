@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
@@ -23,6 +24,7 @@ var _ = gc.Suite(&ContainersSuite{})
 func (s *ContainersSuite) TestParse(c *gc.C) {
 
 	specStr := `
+omitServiceFrontend: true
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -49,6 +51,8 @@ containers:
     config:
       attr: foo=bar; fred=blogs
       foo: bar
+      restricted: 'yes'
+      switch: on
     files:
       - name: configuration
         mountPath: /var/lib/foo
@@ -69,6 +73,31 @@ containers:
   - name: just-image-details
     imageDetails:
         imagePath: testing/no-secrets-needed@sha256:deed-beef
+customResourceDefinition:
+  - group: kubeflow.org
+    version: v1alpha2
+    scope: Namespaced
+    kind: TFJob
+    validation:
+      properties:
+        tfReplicaSpecs:
+          properties:
+            Worker:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+            PS:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+            Chief:
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+                  maximum: 1
 `[1:]
 
 	expectedFileContent := `
@@ -79,6 +108,7 @@ foo: bar
 	spec, err := provider.ParseK8sPodSpec(specStr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, jc.DeepEquals, &caas.PodSpec{
+		OmitServiceFrontend: true,
 		Containers: []caas.ContainerSpec{{
 			Name:       "gitlab",
 			Image:      "gitlab/latest",
@@ -89,9 +119,11 @@ foo: bar
 				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 				{ContainerPort: 443, Name: "mary"},
 			},
-			Config: map[string]string{
-				"attr": "foo=bar; fred=blogs",
-				"foo":  "bar",
+			Config: map[string]interface{}{
+				"attr":       "foo=bar; fred=blogs",
+				"foo":        "bar",
+				"restricted": "'yes'",
+				"switch":     true,
 			},
 			Files: []caas.FileSet{
 				{
@@ -141,5 +173,125 @@ foo: bar
 			ImageDetails: caas.ImageDetails{
 				ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
 			},
-		}}})
+		}},
+		CustomResourceDefinitions: []caas.CustomResourceDefinition{
+			{
+				Kind:    "TFJob",
+				Group:   "kubeflow.org",
+				Version: "v1alpha2",
+				Scope:   "Namespaced",
+				Validation: caas.CustomResourceDefinitionValidation{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
+									},
+								},
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func (s *ContainersSuite) TestValidateMissingContainers(c *gc.C) {
+
+	specStr := `
+containers:
+`[1:]
+
+	_, err := provider.ParseK8sPodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
+}
+
+func (s *ContainersSuite) TestValidateMissingName(c *gc.C) {
+
+	specStr := `
+containers:
+  - image: gitlab/latest
+`[1:]
+
+	spec, err := provider.ParseK8sPodSpec(specStr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = spec.Validate()
+	c.Assert(err, gc.ErrorMatches, "spec name is missing")
+}
+
+func (s *ContainersSuite) TestValidateMissingImage(c *gc.C) {
+
+	specStr := `
+containers:
+  - name: gitlab
+`[1:]
+
+	spec, err := provider.ParseK8sPodSpec(specStr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = spec.Validate()
+	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
+}
+
+func (s *ContainersSuite) TestValidateFileSetPath(c *gc.C) {
+
+	specStr := `
+containers:
+  - name: gitlab
+    image: gitlab/latest
+    files:
+      - files:
+          file1: |-
+            [config]
+            foo: bar
+`[1:]
+
+	spec, err := provider.ParseK8sPodSpec(specStr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = spec.Validate()
+	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
+}
+
+func (s *ContainersSuite) TestValidateMissingMountPath(c *gc.C) {
+
+	specStr := `
+containers:
+  - name: gitlab
+    image: gitlab/latest
+    files:
+      - name: configuration
+        files:
+          file1: |-
+            [config]
+            foo: bar
+`[1:]
+
+	spec, err := provider.ParseK8sPodSpec(specStr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = spec.Validate()
+	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
