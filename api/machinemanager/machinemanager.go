@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 )
@@ -164,13 +165,7 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 
 	err := result.Error
 	if err != nil {
-		// This error is raised server-side when an upgrade-series lock already
-		// exists for the machine. This indicates that a series upgrade has
-		// already been commenced and is not yet completed.
-		if params.IsCodeAlreadyExists(err) {
-			return errors.NewAlreadyExists(err, "")
-		}
-		return errors.Trace(err)
+		return common.RestoreError(err)
 	}
 	return nil
 }
