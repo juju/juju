@@ -229,11 +229,13 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 		return errors.Trace(err)
 	}
 
-	// Any failure during or after pinning leadership causes applications
-	// with units on the machine to be unpinned *except* for when the lock
-	// already exists. This indicates that the command is being run multiple
-	// times and we don't want to unpin applications for machines still in the
-	// upgrade workflow. Note that pinning and unpinning is idempotent.
+	// Any failure during or after pinning leadership, causes applications
+	// with units on the machine to be unpinned *except* for when an
+	// upgrade-series lock already exists for the machine. This indicates that
+	// the prepare command is being run multiple times prior to the completion
+	// step, and we don't want to unpin applications for machines still in the
+	// upgrade workflow.
+	// Note that pinning and unpinning are idempotent.
 	defer func() {
 		if err != nil && !errors.IsAlreadyExists(err) {
 			if unpinErr := c.unpinLeaders(ctx); unpinErr != nil {
