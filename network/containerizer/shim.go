@@ -56,6 +56,7 @@ type Machine interface {
 	AllSpaces() (set.Strings, error)
 	LinkLayerDevicesForSpaces([]string) (map[string][]LinkLayerDevice, error)
 	SetLinkLayerDevices(devicesArgs ...state.LinkLayerDeviceArgs) (err error)
+	AllLinkLayerDevices() ([]LinkLayerDevice, error)
 
 	// TODO (manadart 2018-10-10) These methods are used in tests, which rely
 	// on the StateSuite. Some of them are recruited via the Container
@@ -64,10 +65,9 @@ type Machine interface {
 	// presence here.
 	SetDevicesAddresses(devicesAddresses ...state.LinkLayerDeviceAddress) (err error)
 	SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []state.LinkLayerDeviceArgs) error
-	AllLinkLayerDevices() ([]LinkLayerDevice, error)
 	SetConstraints(cons constraints.Value) (err error)
 	RemoveAllAddresses() error
-	Wrapped() *state.Machine
+	Raw() *state.Machine
 }
 
 // MachineShim implements Machine.
@@ -113,8 +113,8 @@ func (m *MachineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 	return wrapped, nil
 }
 
-// Wrapped returns the inner state.Machine reference.
-func (m *MachineShim) Wrapped() *state.Machine {
+// Raw returns the inner state.Machine reference.
+func (m *MachineShim) Raw() *state.Machine {
 	return m.Machine
 }
 
