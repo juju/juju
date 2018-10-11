@@ -1836,46 +1836,52 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 }
 
 func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
-	emptySpace := ""
+	s.expectNetworkingEnviron()
+	s.expectLinkLayerDevices()
 
-	devName := "eth0"
-	mtu := uint(1500)
-	mac := network.GenerateVirtualMACAddress()
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name:        devName,
-		Type:        state.EthernetDevice,
-		MACAddress:  mac,
-		MTU:         mtu,
-		IsUp:        true,
-		IsAutoStart: true,
-		ParentName:  "m#0#d#eth0",
-	}
+	emptySpace := ""
 
 	cExp := s.container.EXPECT()
 	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
 	cExp.DesiredSpaces().Return(set.NewStrings(emptySpace), nil)
-	cExp.Id().Return("lxd/0").MinTimes(1)
-	cExp.SetLinkLayerDevices(deviceArgs).Return(nil)
+	cExp.Id().Return("lxd/0").AnyTimes()
+	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
 	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
 
-	eExp := s.environ.EXPECT()
-	eExp.Config().Return(&config.Config{}).MinTimes(1)
-	// This call is not expected for the success case,
-	// but is invoked when testing a failure scenario; hence AnyTimes.
-	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
-
 	hExp := s.host.EXPECT()
-	hExp.Id().Return("0").MinTimes(1)
+	hExp.Id().Return("0").AnyTimes()
 	hExp.LinkLayerDevicesForSpaces(gomock.Any()).Return(
 		map[string][]containerizer.LinkLayerDevice{emptySpace: {s.device}}, nil)
 	// Crucial behavioural trait. Set false to test failure.
 	hExp.IsManual().Return(true, nil)
 	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
 
+}
+
+// expectNetworkingEnviron stubs an environ that supports container networking.
+func (s *provisionerMockSuite) expectNetworkingEnviron() {
+	eExp := s.environ.EXPECT()
+	eExp.Config().Return(&config.Config{}).AnyTimes()
+	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
+}
+
+// expectLinkLayerDevices mocks a link-layer device and its parent,
+// suitable for use as a bridge network for containers.
+func (s *provisionerMockSuite) expectLinkLayerDevices() {
+	devName := "eth0"
+	mtu := uint(1500)
+	mac := network.GenerateVirtualMACAddress()
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name:       devName,
+		Type:       state.EthernetDevice,
+		MACAddress: mac,
+		MTU:        mtu,
+	}
+
 	dExp := s.device.EXPECT()
-	dExp.Name().Return(devName).MinTimes(1)
-	dExp.Type().Return(state.BridgeDevice).MinTimes(1)
-	dExp.MTU().Return(mtu).MinTimes(1)
+	dExp.Name().Return(devName).AnyTimes()
+	dExp.Type().Return(state.BridgeDevice).AnyTimes()
+	dExp.MTU().Return(mtu).AnyTimes()
 	dExp.EthernetDeviceForBridge(devName).Return(deviceArgs, nil).MinTimes(1)
 	dExp.ParentDevice().Return(s.parentDevice, nil)
 	dExp.MACAddress().Return(mac)
