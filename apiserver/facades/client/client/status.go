@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
@@ -436,6 +438,9 @@ type applicationStatusInfo struct {
 
 	// endpointpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
+
+	// lxdProfiles: lxd profile name -> lxd profile
+	lxdProfiles map[string]*charm.LXDProfile
 }
 
 type statusContext struct {
@@ -621,19 +626,30 @@ func fetchAllApplicationsAndUnits(
 		allBindingsByApp[bindings.AppName] = bindings.Bindings
 	}
 
+	charmProfileNames := make(map[charm.URL]func(int) string)
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
+		charmURL, _ := app.CharmURL()
+
 		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
-			charmURL, _ := app.CharmURL()
 			if charmURL.Schema == "cs" {
 				latestCharms[*charmURL.WithRevision(-1)] = nil
 			}
 		}
+
+		// Create some lazy mapping between charm urls and serialised lxd
+		// profile names
+		charmProfileNames[*charmURL] = func(revision int) string {
+			name := lxdprofile.Name(model.Name(), app.Name(), revision)
+			return name
+		}
 	}
+
+	lxdProfiles := make(map[string]*charm.LXDProfile)
 	for baseURL := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
 		if errors.IsNotFound(err) {
@@ -645,11 +661,24 @@ func fetchAllApplicationsAndUnits(
 		latestCharms[baseURL] = ch
 	}
 
+	for baseURL, charmProfileName := range charmProfileNames {
+		ch, err := st.Charm(&baseURL)
+		if err != nil {
+			continue
+		}
+
+		// make sure that we have a profile that isn't nil
+		if profile := ch.LXDProfile(); profile != nil {
+			lxdProfiles[charmProfileName(ch.Revision())] = profile
+		}
+	}
+
 	return applicationStatusInfo{
 		applications:     appMap,
 		units:            unitMap,
 		latestCharms:     latestCharms,
 		endpointBindings: allBindingsByApp,
+		lxdProfiles:      lxdProfiles,
 	}, nil
 }
 
@@ -754,7 +783,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(tlMachine)
+		hostStatus := c.makeMachineStatus(tlMachine, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 
@@ -765,7 +794,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 				continue
 			}
 
-			status := c.makeMachineStatus(machine)
+			status := c.makeMachineStatus(machine, c.allAppsUnitsCharmBindings)
 			parent.Containers[machine.Id()] = status
 			cache[machine.Id()] = status
 		}
@@ -773,7 +802,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 	return machinesMap
 }
 
-func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
+func (c *statusContext) makeMachineStatus(machine *state.Machine, applicationStatusInfo applicationStatusInfo) (status params.MachineStatus) {
 	machineID := machine.Id()
 	ipAddresses := c.ipAddresses[machineID]
 	spaces := c.spaces[machineID]
@@ -886,12 +915,23 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params
 	}
 	status.Containers = make(map[string]params.MachineStatus)
 
+	lxdProfiles := make(map[string]params.LXDProfile)
 	charmProfiles, err := machine.CharmProfiles()
-	if err != nil {
-		logger.Debugf("error fetching lxd profiles: %q", err)
+	if err == nil {
+		for _, v := range charmProfiles {
+			// how do we get the charmProfile
+			if profile, ok := applicationStatusInfo.lxdProfiles[v]; ok {
+				lxdProfiles[v] = params.LXDProfile{
+					Config:      profile.Config,
+					Description: profile.Description,
+					Devices:     profile.Devices,
+				}
+			}
+		}
 	} else {
-		status.LXDProfiles = charmProfiles
+		logger.Debugf("error fetching lxd profiles: %q", err)
 	}
+	status.LXDProfiles = lxdProfiles
 
 	return
 }

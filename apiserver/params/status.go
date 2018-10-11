@@ -116,7 +116,14 @@ type MachineStatus struct {
 
 	// LXDProfiles holds all the machines current LXD profiles that have
 	// been applied to the machine
-	LXDProfiles []string `json:"lxd-profiles,omitempty"`
+	LXDProfiles map[string]LXDProfile `json:"lxd-profiles,omitempty"`
+}
+
+// LXDProfile holds status info about a LXDProfile
+type LXDProfile struct {
+	Config      map[string]string            `json:"config"`
+	Description string                       `json:"description"`
+	Devices     map[string]map[string]string `json:"devices"`
 }
 
 // ApplicationStatus holds status info about an application.
