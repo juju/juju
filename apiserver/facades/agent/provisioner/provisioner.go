@@ -881,13 +881,13 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 func (ctx *prepareOrGetContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
-	containerId, err := guest.InstanceId()
+	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
 		if err == nil {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
 			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", guest, containerId)
+			return errors.Errorf("container %q already provisioned as %q", guest.Id(), instanceId)
 		}
 	}
 	// The only error we allow is NotProvisioned
