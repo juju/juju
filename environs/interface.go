@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs EnvironProvider,ProviderCredentials,ProviderCredentialsRegister,RequestFinalizeCredential
+//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
 
 // A EnvironProvider represents a computing and storage provider
 // for either a traditional cloud or a container substrate like k8s.
@@ -182,7 +182,6 @@ type FinalizeCredentialParams struct {
 // FinalizeCloudContext is an interface passed into FinalizeCloud
 // to provide a means of interacting with the user when finalizing
 // a cloud definition.
-//go:generate mockgen -package testing -destination testing/cloud_context_mock.go github.com/juju/juju/environs FinalizeCloudContext
 type FinalizeCloudContext interface {
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.
