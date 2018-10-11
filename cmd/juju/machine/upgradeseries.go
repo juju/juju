@@ -137,7 +137,7 @@ See also:
 func (c *upgradeSeriesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-series",
-		Args:    "<action> [args]",
+		Args:    "<command> [args]",
 		Purpose: "Upgrade a machine's series.",
 		Doc:     upgradeSeriesDoc,
 	}
