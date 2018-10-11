@@ -104,7 +104,7 @@ func (s *NewMachineManagerSuite) TestApplicationsMultiResultError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyExists(c *gc.C) {
+func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	arg := params.UpdateSeriesArg{
