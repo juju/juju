@@ -152,6 +152,18 @@ func (mr *MockMachineMockRecorder) MachineTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockMachine)(nil).MachineTag))
 }
 
+// Raw mocks base method
+func (m *MockMachine) Raw() *state.Machine {
+	ret := m.ctrl.Call(m, "Raw")
+	ret0, _ := ret[0].(*state.Machine)
+	return ret0
+}
+
+// Raw indicates an expected call of Raw
+func (mr *MockMachineMockRecorder) Raw() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Raw", reflect.TypeOf((*MockMachine)(nil).Raw))
+}
+
 // RemoveAllAddresses mocks base method
 func (m *MockMachine) RemoveAllAddresses() error {
 	ret := m.ctrl.Call(m, "RemoveAllAddresses")
@@ -218,16 +230,4 @@ func (m *MockMachine) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 []state.
 // SetParentLinkLayerDevicesBeforeTheirChildren indicates an expected call of SetParentLinkLayerDevicesBeforeTheirChildren
 func (mr *MockMachineMockRecorder) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParentLinkLayerDevicesBeforeTheirChildren", reflect.TypeOf((*MockMachine)(nil).SetParentLinkLayerDevicesBeforeTheirChildren), arg0)
-}
-
-// Wrapped mocks base method
-func (m *MockMachine) Wrapped() *state.Machine {
-	ret := m.ctrl.Call(m, "Wrapped")
-	ret0, _ := ret[0].(*state.Machine)
-	return ret0
-}
-
-// Wrapped indicates an expected call of Wrapped
-func (mr *MockMachineMockRecorder) Wrapped() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wrapped", reflect.TypeOf((*MockMachine)(nil).Wrapped))
 }

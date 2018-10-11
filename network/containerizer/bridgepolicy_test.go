@@ -352,7 +352,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUnitBindin
 		addCharm(c, s.State, "quantal", "mysql"), map[string]string{"server": "default"})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(s.containerMachine.Wrapped())
+	err = unit.AssignToMachine(s.containerMachine.Raw())
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.containerMachine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)
