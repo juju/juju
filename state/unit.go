@@ -1196,7 +1196,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 			}
 		}
 
-		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, u.st.clock())
+		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, caasUnitDisplayStatus, u.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

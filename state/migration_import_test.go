@@ -455,6 +455,9 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
 	err = model.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	if model.Type() == state.ModelTypeCAAS {
+		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+	}
 	s.primeStatusHistory(c, application, status.Active, 5)
 	return charm, application, pwd
 }
