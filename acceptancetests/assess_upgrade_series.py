@@ -27,6 +27,9 @@ __metaclass__ = type
 log = logging.getLogger("assess_upgrade_series")
 
 
+DEFAULT_FROM_SERIES = 'xenial'
+DEFAULT_TO_SERIES = 'bionic'
+
 def assess_juju_upgrade_series(client, args):
     target_machine = '0'
     upgrade_series_prepare(client, target_machine, args.to_series, True)
@@ -121,9 +124,9 @@ def setup(client, series):
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test juju update series.")
     add_basic_testing_arguments(parser)
-    parser.add_argument('--from-series', default='xenial', dest='from_series',
+    parser.add_argument('--from-series', default=DEFAULT_FROM_SERIES, dest='from_series',
                         help='Series to start machine and units with')
-    parser.add_argument('--to-series', default='bionic', dest='to_series',
+    parser.add_argument('--to-series', default=DEFAULT_TO_SERIES, dest='to_series',
                         help='Series to upgrade machine and units to')
     return parser.parse_args(argv)
 
