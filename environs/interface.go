@@ -182,7 +182,6 @@ type FinalizeCredentialParams struct {
 // FinalizeCloudContext is an interface passed into FinalizeCloud
 // to provide a means of interacting with the user when finalizing
 // a cloud definition.
-//go:generate mockgen -package testing -destination testing/cloud_context_mock.go github.com/juju/juju/environs FinalizeCloudContext
 type FinalizeCloudContext interface {
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.
