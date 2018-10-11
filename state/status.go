@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/mongo/utils"
 )
 
+type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
+
 // ModelStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
 type ModelStatus struct {
@@ -77,12 +79,14 @@ func (m *ModelStatus) Model() (status.StatusInfo, error) {
 // Application returns the status of the model.
 // The unitNames are needed due to the current weird implementation of
 // application status.
+// Considers the operator pods status (for caas models)
 func (m *ModelStatus) Application(appName string, unitNames []string) (status.StatusInfo, error) {
-	// This is kinda terrible, see notes in applcation.go for *Application.Status().
+	// This is kinda terrible, see notes in application.go for *Application.Status().
 	doc, err := m.getDoc(applicationGlobalKey(appName), "application")
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
+	appStatus := doc.asStatusInfo()
 	if doc.NeverSet {
 		// Get the status for the agents, and derive a status from that.
 		var unitStatuses []status.StatusInfo
@@ -90,15 +94,24 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 			unitStatus, err := m.UnitWorkload(name)
 			if err != nil {
 				errors.Annotatef(err, "deriving application status from %q", name)
+				continue
 			}
 			unitStatuses = append(unitStatuses, unitStatus)
 		}
 		if len(unitStatuses) > 0 {
-			return deriveApplicationStatus(unitStatuses), nil
+			appStatus = deriveApplicationStatus(unitStatuses)
 		}
 
 	}
-	return doc.asStatusInfo(), nil
+	if m.model.Type() == ModelTypeIAAS {
+		return appStatus, nil
+	}
+
+	operatorStatusDoc, err := m.getDoc(applicationGlobalOperatorKey(appName), "operator")
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+	return caasApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo()), nil
 }
 
 // MachineAgent returns the status of the machine agent.
@@ -118,7 +131,7 @@ func (m *ModelStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInf
 	return m.getStatus(globalWorkloadVersionKey(unitName), "workload")
 }
 
-// UnitWorkload returns the status of the machine instance.
+// UnitWorkloadVersion returns workload version for the unit
 func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
 	info, err := m.getStatus(globalWorkloadVersionKey(unitName), "workload")
 	if err != nil {
@@ -127,7 +140,7 @@ func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
 	return info.Message, nil
 }
 
-// UnitWorkload returns the status of the machine instance.
+// UnitAgent returns the status of the Units agent.
 func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unitagent.go.
@@ -146,7 +159,7 @@ func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 	return info, nil
 }
 
-// UnitWorkload returns the status of the machine instance.
+// UnitWorkload returns the status of the unit's workload.
 func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unit.go.
@@ -217,10 +230,24 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 	return unitStatus
 }
 
+// caasApplicationDisplayStatus determines which of the two statuses to use when displaying workload status in a CAAS model.
+func caasApplicationDisplayStatus(workloadStatus, operatorStatus status.StatusInfo) status.StatusInfo {
+	// Only interested in the operator status if it's not running
+	if workloadStatus.Status == status.Terminated {
+		return workloadStatus
+	}
+
+	if operatorStatus.Status != status.Running {
+		return operatorStatus
+	}
+
+	return workloadStatus
+}
+
 // caasHistoryRewriteDoc determines which status should be stored as history.
-func caasHistoryRewriteDoc(unitStatus, cloudContainerStatus status.StatusInfo, clock clock.Clock) (*statusDoc, error) {
-	modifiedStatus := caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
-	if modifiedStatus.Status == unitStatus.Status && modifiedStatus.Message == unitStatus.Message {
+func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
+	modifiedStatus := displayStatus(jujuStatus, caasStatus)
+	if modifiedStatus.Status == jujuStatus.Status && modifiedStatus.Message == jujuStatus.Message {
 		return nil, nil
 	}
 	return &statusDoc{

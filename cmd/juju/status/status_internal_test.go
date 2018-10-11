@@ -4708,6 +4708,84 @@ foo/1  active    running     10.0.0.1  80/TCP
 `[1:])
 }
 
+func (s *StatusSuite) TestFormatTabularStatusNotes(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Address: "54.32.1.2",
+				StatusInfo: statusInfoContents{
+					Message: "Error: ImagePullBackOff",
+				},
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Running,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Charm version  Notes
+foo                       1                  0      54.32.1.2                 Error: ImagePullBackOff
+
+Unit   Workload  Agent    Address   Ports   Message
+foo/0  active    running  10.0.0.1  80/TCP  
+`[1:])
+
+	// Must not show the status message in notes for iaas.
+	fStatus = formattedStatus{
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Address: "54.32.1.2",
+				StatusInfo: statusInfoContents{
+					Message: "Error: ImagePullBackOff",
+				},
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Running,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+		},
+	}
+	out.Reset()
+	err = FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Charm version  Notes
+foo                       1                  0                     
+
+Unit   Workload  Agent    Machine  Public address  Ports   Message
+foo/0  active    running                           80/TCP  
+`[1:])
+}
+
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)

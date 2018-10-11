@@ -429,9 +429,10 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
+		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+
 		caasModel, err := dbModel.CAASModel()
 		c.Assert(err, jc.ErrorIsNil)
 		err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
@@ -440,6 +441,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		err = application.UpdateCloudService("provider-id", []network.Address{addr})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)

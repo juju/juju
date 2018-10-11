@@ -420,3 +420,84 @@ func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
 		c.Assert(state.CaasUnitDisplayStatus(check.unitStatus, check.cloudContainerStatus).Message, gc.Equals, check.messageCheck)
 	}
 }
+
+func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
+
+	var checks = []struct {
+		operatorStatus status.StatusInfo
+		appStatus      status.StatusInfo
+		messageCheck   string
+	}{
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Terminated,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "operator",
+		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Error,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "operator",
+		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Allocating,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "operator",
+		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Unknown,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "operator",
+		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Running,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "unit",
+		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Terminated,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Terminated,
+				Message: "unit",
+			},
+			messageCheck: "unit",
+		},
+	}
+
+	for i, check := range checks {
+		c.Logf("Check %d", i)
+		c.Assert(state.CaasApplicationDisplayStatus(check.appStatus, check.operatorStatus).Message, gc.Equals, check.messageCheck)
+	}
+}
