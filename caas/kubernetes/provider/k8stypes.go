@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
@@ -38,6 +40,8 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
+var boolRegexp = regexp.MustCompile("y|Y|yes|Yes|YES|n|N|no|No|NO |true|True|TRUE|false|False|FALSE |on|On|ON|off|Off|OFF")
+
 // parseK8sPodSpec parses a YAML file which defines how to
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
@@ -57,6 +61,19 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 
 	if len(containers.Containers) == 0 {
 		return nil, errors.New("require at least one container spec")
+	}
+
+	// Any string config values that could be interpreted as bools need to be quoted.
+	for _, container := range containers.Containers {
+		for k, v := range container.Config {
+			strValue, ok := v.(string)
+			if !ok {
+				continue
+			}
+			if boolRegexp.MatchString(strValue) {
+				container.Config[k] = fmt.Sprintf("'%s'", strValue)
+			}
+		}
 	}
 
 	// Compose the result.
