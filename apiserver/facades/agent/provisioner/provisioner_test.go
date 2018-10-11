@@ -1896,6 +1896,23 @@ func (s *provisionerMockSuite) expectLinkLayerDevices() {
 	pExp.Name().Return(devName).MinTimes(1)
 }
 
+func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	exp := s.container.EXPECT()
+	exp.InstanceId().Return(instance.Id("juju-8ebd6c-0"), nil)
+	exp.Id().Return("0/lxd/0")
+
+	res := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{}},
+	}
+	ctx := provisioner.NewPrepareOrGetContext(res, true)
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
+}
+
 func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
