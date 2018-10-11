@@ -25,7 +25,6 @@ from utility import (
 __metaclass__ = type
 
 log = logging.getLogger("assess_upgrade_series")
-charm_bundle = 'upgrade-series.yaml'
 
 
 def assess_juju_upgrade_series(client, args):
