@@ -260,8 +260,33 @@ var (
 				"is-up":        true,
 			},
 		},
-		"hardware":     "arch=amd64 cores=1 mem=1024M root-disk=8192M",
-		"lxd-profiles": []string{"lxd-profile"},
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+		"lxd-profiles": M{
+			"juju-controller-lxd-profile-1": M{
+				"config": M{
+					"environment.http_proxy": "",
+					"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+					"security.nesting":       "true",
+					"security.privileged":    "true",
+				},
+				"description": "lxd profile for testing, black list items grouped commented out",
+				"devices": M{
+					"bdisk": M{
+						"source": "/dev/loop0",
+						"type":   "unix-block",
+					},
+					"sony": M{
+						"productid": "51da",
+						"type":      "usb",
+						"vendorid":  "0fce",
+					},
+					"tun": M{
+						"path": "/dev/net/tun",
+						"type": "unix-char",
+					},
+				},
+			},
+		},
 	}
 	machine2 = M{
 		"juju-status": M{
@@ -3372,7 +3397,7 @@ var statusTests = []testCase{
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
-		setCharmProfiles{"1", []string{"lxd-profile"}},
+		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
 		addCharm{"lxd-profile"},
 		addApplication{name: "lxd-profile", charm: "lxd-profile"},
 		setApplicationExposed{"lxd-profile", true},
@@ -5525,6 +5550,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5572,6 +5598,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5618,6 +5645,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
