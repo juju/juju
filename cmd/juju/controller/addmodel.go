@@ -220,11 +220,13 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Upload the credential if it was found locally.
-	if credential != nil {
+	// Upload the credential if it was explicitly set and we have found it locally.
+	if c.CredentialName != "" && credential != nil {
 		ctx.Infof("Uploading credential '%s' to controller", credentialTag.Id())
-		if _, err := cloudClient.UpdateCredentialsCheckModels(credentialTag, *credential); err != nil {
-			return errors.Trace(err)
+		if all, err := cloudClient.UpdateCredentialsCheckModels(credentialTag, *credential); err != nil {
+			ctx.Infof("Failed to upload credential: %v", err)
+			common.OutputUpdateCredentialModelResult(ctx, all, false)
+			return cmd.ErrSilent
 		}
 	}
 
