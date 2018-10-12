@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1178,8 +1178,7 @@ func (p *ProvisionerAPI) containerProfiles(m *state.Machine) (params.ContainerPr
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			// juju-<model>-<application>-<charm-revision>
-			Name: fmt.Sprintf("juju-%s-%s-%d", p.m.Name(), app.Name(), ch.Revision()),
+			Name: lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision()),
 		}
 		result.LXDProfiles[i] = paramProfile
 	}

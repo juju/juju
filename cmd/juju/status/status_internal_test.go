@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -78,6 +80,11 @@ func (s *StatusSuite) SetUpTest(c *gc.C) {
 		"agent-version": currentVersion.String(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
+
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 type M map[string]interface{}
@@ -232,6 +239,54 @@ var (
 			},
 		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+	}
+	machine1WithLXDProfile = M{
+		"juju-status": M{
+			"current": "started",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"dns-name":     "10.0.1.1",
+		"ip-addresses": []string{"10.0.1.1"},
+		"instance-id":  "controller-1",
+		"machine-status": M{
+			"current": "pending",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.1.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
+		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+		"lxd-profiles": M{
+			"juju-controller-lxd-profile-1": M{
+				"config": M{
+					"environment.http_proxy": "",
+					"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+					"security.nesting":       "true",
+					"security.privileged":    "true",
+				},
+				"description": "lxd profile for testing, black list items grouped commented out",
+				"devices": M{
+					"bdisk": M{
+						"source": "/dev/loop0",
+						"type":   "unix-block",
+					},
+					"sony": M{
+						"productid": "51da",
+						"type":      "usb",
+						"vendorid":  "0fce",
+					},
+					"tun": M{
+						"path": "/dev/net/tun",
+						"type": "unix-char",
+					},
+				},
+			},
+		},
 	}
 	machine2 = M{
 		"juju-status": M{
@@ -3332,6 +3387,69 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test( // 27
+		"application with local charm and lxd profiles",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.Started, ""},
+		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
+		addCharm{"lxd-profile"},
+		addApplication{name: "lxd-profile", charm: "lxd-profile"},
+		setApplicationExposed{"lxd-profile", true},
+		addAliveUnit{"lxd-profile", "1"},
+		setUnitCharmURL{"lxd-profile/0", "cs:quantal/lxd-profile-0"},
+		addCharmWithRevision{addCharm{"lxd-profile"}, "local", 1},
+		setApplicationCharm{"lxd-profile", "local:quantal/lxd-profile-1"},
+		addCharmPlaceholder{"lxd-profile", 23},
+		expect{
+			what: "applications and units with correct charm status",
+			output: M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1WithLXDProfile,
+				},
+				"applications": M{
+					"lxd-profile": lxdProfileCharm(M{
+						"charm":        "local:quantal/lxd-profile-1",
+						"charm-origin": "local",
+						"exposed":      true,
+						"application-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"lxd-profile/0": M{
+								"machine": "1",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"upgrading-from": "cs:quantal/lxd-profile-0",
+								"public-address": "10.0.1.1",
+							},
+						},
+						"endpoint-bindings": M{
+							"another": "",
+							"ubuntu":  "",
+						},
+					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
+			},
+		},
+	),
 }
 
 func mysqlCharm(extras M) M {
@@ -3339,6 +3457,22 @@ func mysqlCharm(extras M) M {
 		"charm":        "cs:quantal/mysql-1",
 		"charm-origin": "jujucharms",
 		"charm-name":   "mysql",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func lxdProfileCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/lxd-profile-0",
+		"charm-origin": "jujucharms",
+		"charm-name":   "lxd-profile",
 		"charm-rev":    1,
 		"series":       "quantal",
 		"os":           "ubuntu",
@@ -4070,6 +4204,18 @@ func (as addSubordinate) step(c *gc.C, ctx *context) {
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setCharmProfiles struct {
+	machineId string
+	profiles  []string
+}
+
+func (s setCharmProfiles) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(s.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetCharmProfiles(s.profiles)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -5404,6 +5550,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5451,6 +5598,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5497,6 +5645,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
+				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},

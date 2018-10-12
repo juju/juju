@@ -1244,7 +1244,8 @@ func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
 	if spaces == nil || len(*spaces) == 0 {
 		return nil, nil
 	}
-	return parseDelimitedValues(*spaces)
+	positive, negative := parseDelimitedValues(*spaces)
+	return positive, negative
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints
