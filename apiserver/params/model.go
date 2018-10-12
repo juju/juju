@@ -420,5 +420,5 @@ type ChangeModelCredentialParams struct {
 // ChangeModelCredentialsParams holds the arguments for changing
 // cloud credentials on models.
 type ChangeModelCredentialsParams struct {
-	Models []ChangeModelCredentialParams `json:"models"`
+	Models []ChangeModelCredentialParams `json:"model-credentials"`
 }
