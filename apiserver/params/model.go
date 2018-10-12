@@ -406,3 +406,19 @@ type ModelCredential struct {
 	// machines can be accessed with this credential.
 	Valid bool `json:"valid,omitempty"`
 }
+
+// ChangeModelCredentialParams holds the argument to replace cloud credential
+// used by a model.
+type ChangeModelCredentialParams struct {
+	// ModelTag is a tag for the model where cloud credential change takes place.
+	ModelTag string `json:"model-tag"`
+
+	// CloudCredentialTag is the tag for the new cloud credential.
+	CloudCredentialTag string `json:"credential-tag"`
+}
+
+// ChangeModelCredentialsParams holds the arguments for changing
+// cloud credentials on models.
+type ChangeModelCredentialsParams struct {
+	Models []ChangeModelCredentialParams `json:"model-credentials"`
+}
