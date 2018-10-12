@@ -643,7 +643,11 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 
 func (s *modelManagerSuite) TestDumpModelV2(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV2{
-		&modelmanager.ModelManagerAPIV3{s.api},
+		&modelmanager.ModelManagerAPIV3{
+			&modelmanager.ModelManagerAPIV4{
+				s.api,
+			},
+		},
 	}
 
 	results := api.DumpModels(params.Entities{[]params.Entity{{
@@ -801,7 +805,11 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV3{s.api}
+	api := &modelmanager.ModelManagerAPIV3{
+		&modelmanager.ModelManagerAPIV4{
+			s.api,
+		},
+	}
 	results, err := api.DestroyModels(params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
@@ -1566,7 +1574,11 @@ func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 
 func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV2{
-		&modelmanager.ModelManagerAPIV3{s.api},
+		&modelmanager.ModelManagerAPIV3{
+			&modelmanager.ModelManagerAPIV4{
+				s.api,
+			},
+		},
 	}
 	// Check that we err out immediately if a model errs.
 	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
@@ -1595,7 +1607,11 @@ func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestModelStatusV3(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV3{s.api}
+	api := &modelmanager.ModelManagerAPIV3{
+		&modelmanager.ModelManagerAPIV4{
+			s.api,
+		},
+	}
 
 	// Check that we err out immediately if a model errs.
 	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
@@ -1650,6 +1666,90 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *modelManagerSuite) TestChangeModelCredential(c *gc.C) {
+	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
+	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) {
+	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
+	// Check that we don't err out immediately if a model errs.
+	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: "bad-model-tag"},
+			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-model-tag" is not a valid tag`)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+
+	// Check that we don't err out if a model errs even if some firsts in collection pass.
+	results, err = s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: s.st.ModelTag().String()},
+			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: "bad-credential-tag"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-credential-tag" is not a valid tag`)
+}
+
+func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *gc.C) {
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
+	apiUser := names.NewUserTag("bob@remote")
+	s.setAPIUser(c, apiUser)
+
+	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `permission denied`)
+}
+
+func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
+	s.st.SetErrors(errors.New("getting model"))
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
+
+	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `getting model`)
+	s.st.CheckCallNames(c, "ControllerTag", "ModelUUID", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
+}
+
+func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
+	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return false, nil }
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
+	results, err := s.api.ChangeModelCredential(params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: s.st.ModelTag().String(), CloudCredentialTag: credentialTag},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `did not update credential on model deadbeef-0bad-400d-8000-4b1d0d06f00d to foo/bob/bar`)
 }
 
 type fakeProvider struct {

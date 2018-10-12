@@ -39,7 +39,21 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
-// ModelManagerV4 defines the methods on the version 2 facade for the
+// ModelManagerV5 defines the methods on the version 5 facade for the
+// modelmanager API endpoint.
+type ModelManagerV5 interface {
+	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
+	DumpModels(args params.DumpModelRequest) params.StringResults
+	DumpModelsDB(args params.Entities) params.MapResults
+	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
+	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
+	ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error)
+}
+
+// ModelManagerV4 defines the methods on the version 4 facade for the
 // modelmanager API endpoint.
 type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
@@ -52,7 +66,7 @@ type ModelManagerV4 interface {
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
-// ModelManagerV3 defines the methods on the version 2 facade for the
+// ModelManagerV3 defines the methods on the version 3 facade for the
 // modelmanager API endpoint.
 type ModelManagerV3 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
@@ -90,10 +104,16 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
-// ModelManagerAPIV2 provides a way to wrap the different calls between
+// ModelManagerAPIV4 provides a way to wrap the different calls between
+// version 4 and version 5 of the model manager API
+type ModelManagerAPIV4 struct {
+	*ModelManagerAPI
+}
+
+// ModelManagerAPIV3 provides a way to wrap the different calls between
 // version 3 and version 4 of the model manager API
 type ModelManagerAPIV3 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV4
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
@@ -103,13 +123,14 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV4 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV5 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
 	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV4 is used for API registration.
-func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV5 is used for API registration.
+func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -136,6 +157,15 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 		model,
 		state.CallContext(st),
 	)
+}
+
+// NewFacadeV4 is used for API registration.
+func NewFacadeV4(ctx facade.Context) (*ModelManagerAPIV4, error) {
+	v5, err := NewFacadeV5(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV4{v5}, nil
 }
 
 // NewFacadeV3 is used for API registration.
@@ -1367,3 +1397,70 @@ func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatu
 	}
 	return results, nil
 }
+
+// ChangeModelCredentials changes cloud credential reference for models.
+// These new cloud credentials must already exist on the controller.
+func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
+	if err := m.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	controllerAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	// Only controller or model admin can change cloud credential on a model.
+	checkModelAccess := func(tag names.ModelTag) error {
+		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !controllerAdmin && !modelAdmin {
+			return common.ErrPerm
+		}
+		return nil
+	}
+
+	replaceModelCredential := func(arg params.ChangeModelCredentialParams) error {
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := checkModelAccess(modelTag); err != nil {
+			return errors.Trace(err)
+		}
+		credentialTag, err := names.ParseCloudCredentialTag(arg.CloudCredentialTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		model, releaser, err := m.state.GetModel(modelTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer releaser()
+
+		updated, err := model.SetCloudCredential(credentialTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !updated {
+			return errors.Errorf("did not update credential on model %v to %v", modelTag.Id(), credentialTag.Id())
+		}
+		return nil
+	}
+
+	results := make([]params.ErrorResult, len(args.Models))
+	for i, arg := range args.Models {
+		if err := replaceModelCredential(arg); err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+	}
+	return params.ErrorResults{results}, nil
+}
+
+// Mask out new methods from the old API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// ChangeModelCredential did not exist prior to v5.
+func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}
