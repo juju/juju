@@ -1411,14 +1411,17 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 	}
 	// Only controller or model admin can change cloud credential on a model.
 	checkModelAccess := func(tag names.ModelTag) error {
+		if controllerAdmin {
+			return nil
+		}
 		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !controllerAdmin && !modelAdmin {
-			return common.ErrPerm
+		if modelAdmin {
+			return nil
 		}
-		return nil
+		return common.ErrPerm
 	}
 
 	replaceModelCredential := func(arg params.ChangeModelCredentialParams) error {
@@ -1444,7 +1447,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 			return errors.Trace(err)
 		}
 		if !updated {
-			return errors.Errorf("did not update credential on model %v to %v", modelTag.Id(), credentialTag.Id())
+			return errors.Errorf("model %v already uses credential %v", modelTag.Id(), credentialTag.Id())
 		}
 		return nil
 	}

@@ -579,7 +579,7 @@ func (s *modelmanagerSuite) TestChangeModelCredentialManyResults(c *gc.C) {
 
 	client := modelmanager.NewClient(apiCaller)
 	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
-	c.Assert(err, gc.ErrorMatches, `unexpected result count: expected 1 but got 2`)
+	c.Assert(err, gc.ErrorMatches, `expected 1 result, got 2`)
 	c.Assert(called, jc.IsTrue)
 }
 

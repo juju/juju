@@ -548,12 +548,5 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if count := len(out.Results); count != 1 {
-		return errors.Errorf("unexpected result count: expected 1 but got %d", count)
-	}
-	result := out.Results[0]
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
+	return out.OneError()
 }
