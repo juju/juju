@@ -5,6 +5,7 @@ package common
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"sort"
 )
 
 // ErrMultipleDetectedCredentials is the error returned by
