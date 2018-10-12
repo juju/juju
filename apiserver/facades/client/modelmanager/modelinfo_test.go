@@ -591,10 +591,12 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 }
 
 func (st *mockState) Export() (description.Model, error) {
+	st.MethodCall(st, "Export")
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
-func (st *mockState) ExportPartial(state.ExportConfig) (description.Model, error) {
+func (st *mockState) ExportPartial(cfg state.ExportConfig) (description.Model, error) {
+	st.MethodCall(st, "ExportPartial", cfg)
 	return st.Export()
 }
 
@@ -923,15 +925,16 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner           names.UserTag
-	life            state.Life
-	tag             names.ModelTag
-	status          status.StatusInfo
-	cfg             *config.Config
-	users           []*mockModelUser
-	migrationStatus state.MigrationMode
-	controllerUUID  string
-	cfgDefaults     config.ModelDefaultAttributes
+	owner               names.UserTag
+	life                state.Life
+	tag                 names.ModelTag
+	status              status.StatusInfo
+	cfg                 *config.Config
+	users               []*mockModelUser
+	migrationStatus     state.MigrationMode
+	controllerUUID      string
+	cfgDefaults         config.ModelDefaultAttributes
+	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -1067,6 +1070,11 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 		CloudRegion:        m.CloudRegion(),
 		CloudCredentialTag: cred.String(),
 	}
+}
+
+func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
+	m.MethodCall(m, "SetCloudCredential", tag)
+	return m.setCloudCredentialF(tag)
 }
 
 type mockModelUser struct {

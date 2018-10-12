@@ -232,6 +232,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
+	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)

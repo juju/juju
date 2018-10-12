@@ -536,6 +536,106 @@ func (s *modelmanagerSuite) TestListModelSummariesServerError(c *gc.C) {
 	c.Assert(out, gc.IsNil)
 }
 
+func (s *modelmanagerSuite) TestChangeModelCredential(c *gc.C) {
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 5,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ChangeModelCredential")
+			c.Check(arg, jc.DeepEquals, params.ChangeModelCredentialsParams{
+				[]params.ChangeModelCredentialParams{
+					{ModelTag: coretesting.ModelTag.String(), CloudCredentialTag: credentialTag.String()},
+				},
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ErrorResults{})
+			called = true
+			out := result.(*params.ErrorResults)
+			out.Results = []params.ErrorResult{{}}
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestChangeModelCredentialManyResults(c *gc.C) {
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 5,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			called = true
+			out := result.(*params.ErrorResults)
+			out.Results = []params.ErrorResult{{}, {}}
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
+	c.Assert(err, gc.ErrorMatches, `unexpected result count: expected 1 but got 2`)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestChangeModelCredentialCallFailed(c *gc.C) {
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 5,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			called = true
+			return errors.New("failed call")
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
+	c.Assert(err, gc.ErrorMatches, `failed call`)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestChangeModelCredentialUpdateFailed(c *gc.C) {
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 5,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			called = true
+			out := result.(*params.ErrorResults)
+			out.Results = []params.ErrorResult{{Error: common.ServerError(errors.New("update error"))}}
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
+	c.Assert(err, gc.ErrorMatches, `update error`)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestChangeModelCredentialV4(c *gc.C) {
+	credentialTag := names.NewCloudCredentialTag("foo/bob/bar")
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			called = true
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
+	c.Assert(err, gc.ErrorMatches, `ChangeModelCredential not implemented`)
+	c.Assert(called, jc.IsFalse)
+}
+
 type dumpModelSuite struct {
 	coretesting.BaseSuite
 }
