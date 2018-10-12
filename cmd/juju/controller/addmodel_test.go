@@ -273,7 +273,7 @@ func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
-func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
+func (s *AddModelSuite) TestControllerCredentialsDetected(c *gc.C) {
 	// Disable empty auth and clear the local credentials,
 	// forcing a check for credentials in the controller.
 	// There are multiple credentials in the controller,
@@ -293,11 +293,10 @@ func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
 	credential.Label = "finalized"
 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
-	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials", "UpdateCredentialsCheckModels")
-	s.fakeCloudAPI.CheckCall(c, 3, "UpdateCredentialsCheckModels", credentialTag, credential)
+	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials")
 }
 
-func (s *AddModelSuite) TestCredentialsDetectedAmbiguous(c *gc.C) {
+func (s *AddModelSuite) TestControllerCredentialsDetectedAmbiguous(c *gc.C) {
 	// Disable empty auth and clear the local credentials,
 	// forcing a check for credentials in the controller.
 	// There are multiple credentials in the controller,
