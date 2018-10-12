@@ -289,9 +289,13 @@ type Bootstraper interface {
 	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
 }
 
-type BootstrapEnviron interface {
+type Configer interface {
 	ConfigGetter
 	ConfigSetter
+}
+
+type BootstrapEnviron interface {
+	Configer
 	Bootstraper
 	ConstraintsChecker
 	ControllerDestroyer

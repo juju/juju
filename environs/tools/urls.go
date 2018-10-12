@@ -106,10 +106,11 @@ func environmentDataSources(bootstrapEnviron environs.BootstrapEnviron) ([]simpl
 	defer toolsDatasourceFuncsMu.RUnlock()
 
 	var datasources []simplestreams.DataSource
-
 	env, ok := bootstrapEnviron.(environs.Environ)
 	if !ok {
-		return datasources, errors.NotValidf("environ %#v is not Environ", bootstrapEnviron)
+		logger.Debugf("environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
+		// ignore for CAAS
+		return datasources, nil
 	}
 	for _, f := range toolsDatasourceFuncs {
 		logger.Debugf("trying datasource %q", f.id)

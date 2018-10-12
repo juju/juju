@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -141,6 +142,9 @@ type BootstrapParams struct {
 
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
+
+	// IsCAASController indicates if controller bootstraps to k8s cluster.
+	IsCAASController bool
 }
 
 // Validate validates the bootstrap parameters.
@@ -181,293 +185,314 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args BootstrapParams) error {
+func Bootstrap(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	callCtx context.ProviderCallContext,
+	args BootstrapParams,
+) error {
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
-
-	cfg := environ.Config()
-	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
-		// Apparently this can never happen, so it's not tested. But, one day,
-		// Config will act differently (it's pretty crazy that, AFAICT, the
-		// authorized-keys are optional config settings... but it's impossible
-		// to actually *create* a config without them)... and when it does,
-		// we'll be here to catch this problem early.
-		return errors.Errorf("model configuration has no authorized-keys")
+	bootstrapParams := environs.BootstrapParams{
+		CloudName:        args.Cloud.Name,
+		CloudRegion:      args.CloudRegion,
+		ControllerConfig: args.ControllerConfig,
+		ModelConstraints: args.ModelConstraints,
+		BootstrapSeries:  args.BootstrapSeries,
+		Placement:        args.Placement,
 	}
 
-	_, supportsNetworking := environs.SupportsNetworking(environ)
-	logger.Debugf("model %q supports application/machine networks: %v", cfg.Name(), supportsNetworking)
-	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
-	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
-
-	// Set default tools metadata source, add image metadata source,
-	// then verify constraints. Providers may rely on image metadata
-	// for constraint validation.
 	var customImageMetadata []*imagemetadata.ImageMetadata
-	if args.MetadataDir != "" {
-		var err error
-		customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
-		if err != nil {
-			return err
-		}
-	}
+	if !args.IsCAASController {
+		// bootstraping in IAAS mode.
 
-	var bootstrapSeries *string
-	if args.BootstrapSeries != "" {
-		bootstrapSeries = &args.BootstrapSeries
-	}
+		cfg := environ.Config()
+		if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
+			// Apparently this can never happen, so it's not tested. But, one day,
+			// Config will act differently (it's pretty crazy that, AFAICT, the
+			// authorized-keys are optional config settings... but it's impossible
+			// to actually *create* a config without them)... and when it does,
+			// we'll be here to catch this problem early.
+			return errors.Errorf("model configuration has no authorized-keys")
+		}
 
-	var bootstrapArchForImageSearch string
-	if args.BootstrapConstraints.Arch != nil {
-		bootstrapArchForImageSearch = *args.BootstrapConstraints.Arch
-	} else if args.ModelConstraints.Arch != nil {
-		bootstrapArchForImageSearch = *args.ModelConstraints.Arch
-	} else {
-		bootstrapArchForImageSearch = arch.HostArch()
-		// We no longer support i386.
-		if bootstrapArchForImageSearch == arch.I386 {
-			bootstrapArchForImageSearch = arch.AMD64
-		}
-	}
+		_, supportsNetworking := environs.SupportsNetworking(environ)
+		logger.Debugf("model %q supports application/machine networks: %v", cfg.Name(), supportsNetworking)
+		disableNetworkManagement, _ := cfg.DisableNetworkManagement()
+		logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 
-	ctx.Verbosef("Loading image metadata")
-	imageMetadata, err := bootstrapImageMetadata(environ,
-		bootstrapSeries,
-		bootstrapArchForImageSearch,
-		args.BootstrapImage,
-		&customImageMetadata,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
+		// Set default tools metadata source, add image metadata source,
+		// then verify constraints. Providers may rely on image metadata
+		// for constraint validation.
+		if args.MetadataDir != "" {
+			var err error
+			customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
 
-	// We want to determine a list of valid architectures for which to pick tools and images.
-	// This includes architectures from custom and other available image metadata.
-	architectures := set.NewStrings()
-	if len(customImageMetadata) > 0 {
-		for _, customMetadata := range customImageMetadata {
-			architectures.Add(customMetadata.Arch)
+		var bootstrapSeries *string
+		if args.BootstrapSeries != "" {
+			bootstrapSeries = &args.BootstrapSeries
 		}
-	}
-	if len(imageMetadata) > 0 {
-		for _, iMetadata := range imageMetadata {
-			architectures.Add(iMetadata.Arch)
-		}
-	}
 
-	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
-	if err != nil {
-		return err
-	}
-	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
-
-	bootstrapConstraints, err := constraintsValidator.Merge(
-		args.ModelConstraints, args.BootstrapConstraints,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// The follow is used to determine if we should apply the default
-	// constraints when we bootstrap. Generally speaking this should always be
-	// applied, but there are exceptions to the rule e.g. local LXD
-	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints() {
-		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
-	}
-
-	// The arch we use to find tools isn't the boostrapConstraints arch.
-	// We copy the constraints arch to a separate variable and
-	// update it from the host arch if not specified.
-	// (axw) This is still not quite right:
-	// For e.g. if there is a MAAS with only ARM64 machines,
-	// on an AMD64 client, we're going to look for only AMD64 tools,
-	// limiting what the provider can bootstrap anyway.
-	var bootstrapArch string
-	if bootstrapConstraints.Arch != nil {
-		bootstrapArch = *bootstrapConstraints.Arch
-	} else {
-		// If no arch is specified as a constraint, we'll bootstrap
-		// on the same arch as the client used to bootstrap.
-		bootstrapArch = arch.HostArch()
-		// We no longer support controllers on i386.
-		// If we are bootstrapping from an i386 client,
-		// we'll look for amd64 tools.
-		if bootstrapArch == arch.I386 {
-			bootstrapArch = arch.AMD64
-		}
-	}
-
-	agentVersion := jujuversion.Current
-	var availableTools coretools.List
-	if !args.BuildAgent {
-		latestPatchTxt := ""
-		versionTxt := fmt.Sprintf("%v", args.AgentVersion)
-		if args.AgentVersion == nil {
-			latestPatchTxt = "latest patch of "
-			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
-		}
-		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
-		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
-		if err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-		if len(availableTools) != 0 && args.AgentVersion == nil {
-			// If agent version was not specified in the arguments,
-			// we always want the latest/newest available.
-			agentVersion, availableTools = availableTools.Newest()
-		}
-	}
-	// If there are no prepackaged tools and a specific version has not been
-	// requested, look for or build a local binary.
-	var builtTools *sync.BuiltAgent
-	if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
-		if args.BuildAgentTarball == nil {
-			return errors.New("cannot build agent binary to upload")
-		}
-		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
-			return err
-		}
-		if args.BuildAgent {
-			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+		var bootstrapArchForImageSearch string
+		if args.BootstrapConstraints.Arch != nil {
+			bootstrapArchForImageSearch = *args.BootstrapConstraints.Arch
+		} else if args.ModelConstraints.Arch != nil {
+			bootstrapArchForImageSearch = *args.ModelConstraints.Arch
 		} else {
-			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
+			bootstrapArchForImageSearch = arch.HostArch()
+			// We no longer support i386.
+			if bootstrapArchForImageSearch == arch.I386 {
+				bootstrapArchForImageSearch = arch.AMD64
+			}
 		}
-		var forceVersion version.Number
-		availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
-		builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
+
+		ctx.Verbosef("Loading image metadata")
+		imageMetadata, err := bootstrapImageMetadata(environ,
+			bootstrapSeries,
+			bootstrapArchForImageSearch,
+			args.BootstrapImage,
+			&customImageMetadata,
+		)
 		if err != nil {
-			return errors.Annotate(err, "cannot package bootstrap agent binary")
+			return errors.Trace(err)
 		}
-		defer os.RemoveAll(builtTools.Dir)
-		// Combine the built agent information with the list of
-		// available tools.
-		for i, tool := range availableTools {
-			if tool.URL != "" {
-				continue
-			}
-			filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
-			tool.URL = fmt.Sprintf("file://%s", filename)
-			tool.Size = builtTools.Size
-			tool.SHA256 = builtTools.Sha256Hash
 
-			// Use the version from the built tools but with the
-			// corrected series and arch - this ensures the build
-			// number is right if we found a valid official build.
-			version := builtTools.Version
-			version.Series = tool.Version.Series
-			version.Arch = tool.Version.Arch
-			// But if not an official build, use the forced version.
-			if !builtTools.Official {
-				version.Number = forceVersion
+		// We want to determine a list of valid architectures for which to pick tools and images.
+		// This includes architectures from custom and other available image metadata.
+		architectures := set.NewStrings()
+		if len(customImageMetadata) > 0 {
+			for _, customMetadata := range customImageMetadata {
+				architectures.Add(customMetadata.Arch)
 			}
-			tool.Version = version
-			availableTools[i] = tool
 		}
-	}
-	if len(availableTools) == 0 {
-		return errors.New(noToolsMessage)
-	}
-	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
-	// of available tools (agent binaries) but they should all be the same
-	// version. Need to do check here, otherwise the provider.Bootstrap call
-	// may fail. This also means that compatibility check, currently done
-	// after provider.Bootstrap call in getBootstrapToolsVersion,
-	// should be done here.
+		if len(imageMetadata) > 0 {
+			for _, iMetadata := range imageMetadata {
+				architectures.Add(iMetadata.Arch)
+			}
+		}
+		bootstrapParams.ImageMetadata = imageMetadata
 
-	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
-	// of available tools (agent binaries) but they should all be the same
-	// version. Need to do check here, otherwise the provider.Bootstrap call
-	// may fail. This also means that compatibility check, currently done
-	// after provider.Bootstrap call in getBootstrapToolsVersion,
-	// should be done here.
+		constraintsValidator, err := environ.ConstraintsValidator(callCtx)
+		if err != nil {
+			return err
+		}
+		constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
 
-	// If we're uploading, we must override agent-version;
-	// if we're not uploading, we want to ensure we have an
-	// agent-version set anyway, to appease FinishInstanceConfig.
-	// In the latter case, setBootstrapTools will later set
-	// agent-version to the correct thing.
-	if args.AgentVersion != nil {
-		agentVersion = *args.AgentVersion
-	}
-	if cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": agentVersion.String(),
-	}); err != nil {
-		return err
-	}
-	if err = environ.SetConfig(cfg); err != nil {
-		return err
+		bootstrapConstraints, err := constraintsValidator.Merge(
+			args.ModelConstraints, args.BootstrapConstraints,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// The follow is used to determine if we should apply the default
+		// constraints when we bootstrap. Generally speaking this should always be
+		// applied, but there are exceptions to the rule e.g. local LXD
+		if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints() {
+			bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
+		}
+		bootstrapParams.BootstrapConstraints = bootstrapConstraints
+
+		// The arch we use to find tools isn't the boostrapConstraints arch.
+		// We copy the constraints arch to a separate variable and
+		// update it from the host arch if not specified.
+		// (axw) This is still not quite right:
+		// For e.g. if there is a MAAS with only ARM64 machines,
+		// on an AMD64 client, we're going to look for only AMD64 tools,
+		// limiting what the provider can bootstrap anyway.
+		var bootstrapArch string
+		if bootstrapConstraints.Arch != nil {
+			bootstrapArch = *bootstrapConstraints.Arch
+		} else {
+			// If no arch is specified as a constraint, we'll bootstrap
+			// on the same arch as the client used to bootstrap.
+			bootstrapArch = arch.HostArch()
+			// We no longer support controllers on i386.
+			// If we are bootstrapping from an i386 client,
+			// we'll look for amd64 tools.
+			if bootstrapArch == arch.I386 {
+				bootstrapArch = arch.AMD64
+			}
+		}
+
+		agentVersion := jujuversion.Current
+		var availableTools coretools.List
+		if !args.BuildAgent {
+			latestPatchTxt := ""
+			versionTxt := fmt.Sprintf("%v", args.AgentVersion)
+			if args.AgentVersion == nil {
+				latestPatchTxt = "latest patch of "
+				versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
+			}
+			ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
+			availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+			if len(availableTools) != 0 && args.AgentVersion == nil {
+				// If agent version was not specified in the arguments,
+				// we always want the latest/newest available.
+				agentVersion, availableTools = availableTools.Newest()
+			}
+		}
+		// If there are no prepackaged tools and a specific version has not been
+		// requested, look for or build a local binary.
+		var builtTools *sync.BuiltAgent
+		if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
+			if args.BuildAgentTarball == nil {
+				return errors.New("cannot build agent binary to upload")
+			}
+			if err = validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
+				return err
+			}
+			if args.BuildAgent {
+				ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			} else {
+				ctx.Infof("No packaged binary found, preparing local Juju agent binary")
+			}
+			var forceVersion version.Number
+			availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
+			builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
+			if err != nil {
+				return errors.Annotate(err, "cannot package bootstrap agent binary")
+			}
+			defer os.RemoveAll(builtTools.Dir)
+			// Combine the built agent information with the list of
+			// available tools.
+			for i, tool := range availableTools {
+				if tool.URL != "" {
+					continue
+				}
+				filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
+				tool.URL = fmt.Sprintf("file://%s", filename)
+				tool.Size = builtTools.Size
+				tool.SHA256 = builtTools.Sha256Hash
+
+				// Use the version from the built tools but with the
+				// corrected series and arch - this ensures the build
+				// number is right if we found a valid official build.
+				version := builtTools.Version
+				version.Series = tool.Version.Series
+				version.Arch = tool.Version.Arch
+				// But if not an official build, use the forced version.
+				if !builtTools.Official {
+					version.Number = forceVersion
+				}
+				tool.Version = version
+				availableTools[i] = tool
+			}
+		}
+		if len(availableTools) == 0 {
+			return errors.New(noToolsMessage)
+		}
+		bootstrapParams.AvailableTools = availableTools
+
+		// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
+		// of available tools (agent binaries) but they should all be the same
+		// version. Need to do check here, otherwise the provider.Bootstrap call
+		// may fail. This also means that compatibility check, currently done
+		// after provider.Bootstrap call in getBootstrapToolsVersion,
+		// should be done here.
+
+		// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
+		// of available tools (agent binaries) but they should all be the same
+		// version. Need to do check here, otherwise the provider.Bootstrap call
+		// may fail. This also means that compatibility check, currently done
+		// after provider.Bootstrap call in getBootstrapToolsVersion,
+		// should be done here.
+
+		// If we're uploading, we must override agent-version;
+		// if we're not uploading, we want to ensure we have an
+		// agent-version set anyway, to appease FinishInstanceConfig.
+		// In the latter case, setBootstrapTools will later set
+		// agent-version to the correct thing.
+		if args.AgentVersion != nil {
+			agentVersion = *args.AgentVersion
+		}
+		if cfg, err = cfg.Apply(map[string]interface{}{
+			"agent-version": agentVersion.String(),
+		}); err != nil {
+			return errors.Trace(err)
+		}
+		if err = environ.SetConfig(cfg); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	ctx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx,
-		callCtx,
-		environs.BootstrapParams{
-			CloudName:            args.Cloud.Name,
-			CloudRegion:          args.CloudRegion,
-			ControllerConfig:     args.ControllerConfig,
-			ModelConstraints:     args.ModelConstraints,
-			BootstrapConstraints: bootstrapConstraints,
-			BootstrapSeries:      args.BootstrapSeries,
-			Placement:            args.Placement,
-			AvailableTools:       availableTools,
-			ImageMetadata:        imageMetadata,
-		})
+	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	matchingTools, err := availableTools.Match(coretools.Filter{
-		Arch:   result.Arch,
-		Series: result.Series,
-	})
-	if err != nil {
-		return err
-	}
-	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
-	if err != nil {
-		return err
-	}
-	// We set agent-version to the newest version, so the agent will immediately upgrade itself.
-	// Note that this only is relevant if a specific agent version has not been requested, since
-	// in that case the specific version will be the only version available.
-	newestVersion, _ := matchingTools.Newest()
-	if err := setBootstrapToolsVersion(environ, newestVersion); err != nil {
-		return err
-	}
-
-	ctx.Infof("Installing Juju agent on bootstrap instance")
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig,
-		bootstrapConstraints,
+		bootstrapParams.BootstrapConstraints,
 		args.ModelConstraints,
 		result.Series,
 		publicKey,
 	)
 	if err != nil {
-		return err
-	}
-	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
+	var newestToolVersion version.Number
+	if !args.IsCAASController {
+
+		matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
+			Arch:   result.Arch,
+			Series: result.Series,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// We set agent-version to the newest version, so the agent will immediately upgrade itself.
+		// Note that this only is relevant if a specific agent version has not been requested, since
+		// in that case the specific version will be the only version available.
+		newestToolVersion, _ = matchingTools.Newest()
+
+		ctx.Infof("Installing Juju agent on bootstrap instance")
+		if err := instanceConfig.SetTools(selectedToolsList); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		// CAAS only has JobManageModel.
+		instanceConfig.Jobs = []multiwatcher.MachineJob{
+			multiwatcher.JobManageModel,
+		}
+		// TODO: ..... how to find the best/newest jujud docker image to use
+		newestToolVersion = version.MustParseBinary("2.5-beta1-bionic-amd64").Number
+	}
+
+	if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
+		return errors.Trace(err)
+	}
+
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
 		environVersion = e.Provider().Version()
 	}
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
-	cfg = environ.Config()
 	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, cfg, environVersion, customImageMetadata,
+		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
 	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
 	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	ctx.Infof("Bootstrap agent now started")
 	return nil
@@ -672,7 +697,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 }
 
 // setBootstrapToolsVersion updates the agent-version configuration attribute.
-func setBootstrapToolsVersion(environ environs.BootstrapEnviron, toolsVersion version.Number) error {
+func setBootstrapToolsVersion(environ environs.Configer, toolsVersion version.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{

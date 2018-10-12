@@ -45,6 +45,7 @@ func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *st
 	}
 	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
 	if _, err := validator.Validate(constraints.Value{Arch: &hostArch}); err != nil {
+		logger.Criticalf("validator -> %#v", validator)
 		return errors.Errorf(
 			"model %q of type %s does not support instances running on %q",
 			env.Config().Name(), env.Config().Type(), hostArch,

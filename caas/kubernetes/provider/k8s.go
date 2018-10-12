@@ -10,11 +10,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
@@ -71,6 +73,7 @@ type kubernetesClient struct {
 	// creating k8s resources.
 	namespace string
 
+	lock   sync.Mutex
 	envCfg *environConfig
 }
 
@@ -96,6 +99,9 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient Ne
 		return nil, errors.Trace(err)
 	}
 	newCfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &kubernetesClient{
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
@@ -132,6 +138,18 @@ func (k *kubernetesClient) Config() *config.Config {
 	return k.envCfg.Config
 }
 
+// SetConfig is specified in the Environ interface.
+func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	newCfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	k.envCfg = newCfg
+	return nil
+}
+
 // PrepareForBootstrap returns environ config.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	logger.Criticalf("kubernetesClient PrepareForBootstrap -> %#v", ctx)
@@ -142,10 +160,29 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
 	return &environs.BootstrapResult{
-		Arch:   "Arch",
-		Series: "series",
+		Arch:   arch.AMD64,
+		Series: "bionic",
 		Finalize: func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
-			logger.Criticalf("kubernetesClient Finalizer")
+
+			if err := icfg.VerifyConfig(); err != nil {
+				return errors.Trace(err)
+			}
+
+			// No need to start instance for CAAS, so do everything for bootstraping controller here.
+			logger.Criticalf("kubernetesClient Finalizer, \nctx -> %#v, \nicfg -> %#v, \nopts -> %#v", ctx, icfg, opts)
+
+			// prepare bootstrapParamsFile
+			bootstrapParamsFileContent, err := icfg.Bootstrap.StateInitializationParams.Marshal()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Criticalf("bootstrapParamsFileContent -> \n%#v", bootstrapParamsFileContent)
+
+			machineTag := names.NewMachineTag(icfg.MachineId)
+			_, err := w.addAgentInfo(machineTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			return nil
 		},
 	}, nil
@@ -154,12 +191,8 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 // DestroyController implements the Environ interface.
 func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	// TODO(caas): destroy controller and all models
-	return errors.NotSupportedf("DestroyController")
-}
-
-// SetConfig is specified in the Environ interface.
-func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
-	return errors.NotSupportedf("SetConfig")
+	logger.Warningf("DestroyController is not supported yet on CAAS.")
+	return nil
 }
 
 // Provider is part of the Broker interface.

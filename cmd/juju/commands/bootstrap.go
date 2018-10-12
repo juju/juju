@@ -501,6 +501,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		AdminSecret:    config.bootstrap.AdminSecret,
 	}
 	bootstrapParams := bootstrap.BootstrapParams{
+		IsCAASController:          jujucloud.CloudIsCAAS(cloud),
 		BootstrapSeries:           c.BootstrapSeries,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
@@ -524,14 +525,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	var environ environs.BootstrapEnviron
-	if jujucloud.CloudIsCAAS(cloud) {
+	if bootstrapParams.IsCAASController {
 		// bootstrap to k8s cluster
-		environ, err = bootstrapPrepareCAAS(
+		if environ, err = bootstrapPrepareCAAS(
 			bootstrapCtx, store, bootstrapPrepareParams,
-		)
-		if err != nil {
+		); err != nil {
 			return errors.Trace(err)
 		}
+
 		if !c.noSwitch {
 			if err := store.SetCurrentController(c.controllerName); err != nil {
 				return errors.Trace(err)
@@ -539,10 +540,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	} else {
 		// Bootstrap controller in IAAS mode.
-		environ, err = bootstrapPrepareIAAS(
+		if environ, err = bootstrapPrepareIAAS(
 			bootstrapCtx, store, bootstrapPrepareParams,
-		)
-		if err != nil {
+		); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -669,8 +669,9 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	// TODO: how to organise post bootstrap for IAAS/CAAS !!!
-	if jujucloud.CloudIsCAAS(cloud) {
-		// wait and fetch controller public endpoint then update juju home
+	if bootstrapParams.IsCAASController {
+		// !!! no need do some of the following steps, so ... !!!
+		// TODO: wait and fetch controller public endpoint then update juju home
 		return nil
 	}
 
@@ -683,7 +684,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		agentVersion = *c.AgentVersion
 	}
 	var addrs []network.Address
-	if env, ok := environ.(environs.Environ); ok {
+	if env, ok := environ.(environs.InstanceBroker); ok {
 		// TODO!!!
 		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
 	}
