@@ -438,7 +438,7 @@ func setCloudContainerStatus(c *gc.C, unit *state.Unit, statusCode status.Status
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *CAASModelSuite) TestApplicationOperatorStatusOverwrite(c *gc.C) {
+func (s *CAASModelSuite) TestApplicationOperatorStatusOverwriteError(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
 	f.MakeUnit(c, &factory.UnitParams{})
@@ -461,14 +461,29 @@ func (s *CAASModelSuite) TestApplicationOperatorStatusOverwrite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appStatus.Message, gc.Equals, "operator error")
 	c.Check(appStatus.Status, gc.Equals, status.Error)
+}
+
+func (s *CAASModelSuite) TestApplicationOperatorStatusOverwriteRunning(c *gc.C) {
+	m, st := s.newCAASModel(c)
+	f := factory.NewFactory(st, s.StatePool)
+	f.MakeUnit(c, &factory.UnitParams{})
+	ch := f.MakeCharm(c, &factory.CharmParams{
+		Name:   "gitlab",
+		Series: "kubernetes",
+	})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: "operator running",
 	})
-	ms, err = m.LoadModelStatus()
+	app.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "app active",
+	})
+	ms, err := m.LoadModelStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	appStatus, err = ms.Application("gitlab", []string{"gitlab/0"})
+	appStatus, err := ms.Application("gitlab", []string{"gitlab/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appStatus.Message, gc.Equals, "app active")
 	c.Check(appStatus.Status, gc.Equals, status.Active)

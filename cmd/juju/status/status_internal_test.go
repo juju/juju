@@ -4724,10 +4724,10 @@ func (s *StatusSuite) TestFormatTabularStatusNotes(c *gc.C) {
 						Address:     "10.0.0.1",
 						OpenedPorts: []string{"80/TCP"},
 						JujuStatusInfo: statusInfoContents{
-							Current: status.Running,
+							Current: status.Allocating,
 						},
 						WorkloadStatusInfo: statusInfoContents{
-							Current: status.Active,
+							Current: status.Waiting,
 						},
 					},
 				},
@@ -4742,14 +4742,15 @@ Model  Controller  Cloud/Region  Version
                                  
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Charm version  Notes
-foo                       1                  0      54.32.1.2                 Error: ImagePullBackOff
+foo                     0/1                  0      54.32.1.2                 Error: ImagePullBackOff
 
-Unit   Workload  Agent    Address   Ports   Message
-foo/0  active    running  10.0.0.1  80/TCP  
+Unit   Workload  Agent       Address   Ports   Message
+foo/0  waiting   allocating  10.0.0.1  80/TCP  
 `[1:])
+}
 
-	// Must not show the status message in notes for iaas.
-	fStatus = formattedStatus{
+func (s *StatusSuite) TestFormatTabularStatusNotesIAAS(c *gc.C) {
+	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
 				Address: "54.32.1.2",
@@ -4761,18 +4762,18 @@ foo/0  active    running  10.0.0.1  80/TCP
 						Address:     "10.0.0.1",
 						OpenedPorts: []string{"80/TCP"},
 						JujuStatusInfo: statusInfoContents{
-							Current: status.Running,
+							Current: status.Idle,
 						},
 						WorkloadStatusInfo: statusInfoContents{
-							Current: status.Active,
+							Current: status.Waiting,
 						},
 					},
 				},
 			},
 		},
 	}
-	out.Reset()
-	err = FormatTabular(out, false, fStatus)
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, `
 Model  Controller  Cloud/Region  Version
@@ -4781,8 +4782,8 @@ Model  Controller  Cloud/Region  Version
 App  Version  Status  Scale  Charm  Store  Rev  OS  Charm version  Notes
 foo                       1                  0                     
 
-Unit   Workload  Agent    Machine  Public address  Ports   Message
-foo/0  active    running                           80/TCP  
+Unit   Workload  Agent  Machine  Public address  Ports   Message
+foo/0  waiting   idle                            80/TCP  
 `[1:])
 }
 

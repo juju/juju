@@ -140,7 +140,7 @@ func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
 	return info.Message, nil
 }
 
-// UnitAgent returns the status of the Units agent.
+// UnitAgent returns the status of the Unit's agent.
 func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unitagent.go.
@@ -230,18 +230,17 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 	return unitStatus
 }
 
-// caasApplicationDisplayStatus determines which of the two statuses to use when displaying workload status in a CAAS model.
-func caasApplicationDisplayStatus(workloadStatus, operatorStatus status.StatusInfo) status.StatusInfo {
-	// Only interested in the operator status if it's not running
-	if workloadStatus.Status == status.Terminated {
-		return workloadStatus
+// caasApplicationDisplayStatus determines which of the two statuses to use when displaying application status in a CAAS model.
+func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.StatusInfo) status.StatusInfo {
+	if applicationStatus.Status == status.Terminated {
+		return applicationStatus
 	}
-
+	// Only interested in the operator status if it's not running
 	if operatorStatus.Status != status.Running {
 		return operatorStatus
 	}
 
-	return workloadStatus
+	return applicationStatus
 }
 
 // caasHistoryRewriteDoc determines which status should be stored as history.

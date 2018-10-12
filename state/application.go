@@ -2253,14 +2253,12 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
 		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
-		if err != nil {
-			if !errors.IsNotFound(err) {
+		if err == nil {
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, caasApplicationDisplayStatus, a.st.clock())
+			if err != nil {
 				return errors.Trace(err)
 			}
-		}
-
-		newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, caasApplicationDisplayStatus, a.st.clock())
-		if err != nil {
+		} else if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 	}
@@ -2284,7 +2282,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 		return errors.Trace(err)
 	}
 	if model.Type() != ModelTypeCAAS {
-		return errors.New("caas operation on non-caas model")
+		return errors.NotSupportedf("caas operation on non-caas model")
 	}
 
 	err = setStatus(a.st.db(), setStatusParams{

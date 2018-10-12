@@ -3722,18 +3722,6 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[0].Status, gc.Equals, status.Waiting)
 	c.Assert(history[0].Message, gc.Equals, "waiting for container")
 
-	// History will use operator status (and not written again.)
-	err = app.SetStatus(status.StatusInfo{
-		Status:  status.Maintenance,
-		Message: "app message",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(history, gc.HasLen, 1)
-	c.Assert(history[0].Status, gc.Equals, status.Waiting)
-	c.Assert(history[0].Message, gc.Equals, "waiting for container")
-
 	// Must overwrite the history
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Allocating,
