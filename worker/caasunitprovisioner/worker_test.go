@@ -46,6 +46,7 @@ type WorkerSuite struct {
 	applicationChanges      chan []string
 	applicationScaleChanges chan struct{}
 	caasUnitsChanges        chan struct{}
+	caasOperatorChanges     chan struct{}
 	containerSpecChanges    chan struct{}
 	serviceDeleted          chan struct{}
 	serviceEnsured          chan struct{}
@@ -101,6 +102,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.applicationChanges = make(chan []string)
 	s.applicationScaleChanges = make(chan struct{})
 	s.caasUnitsChanges = make(chan struct{})
+	s.caasOperatorChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{}, 1)
 	s.serviceDeleted = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
@@ -131,9 +133,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.unitUpdater = mockUnitUpdater{}
 
 	s.containerBroker = mockContainerBroker{
-		serviceDeleted: s.serviceDeleted,
-		unitsWatcher:   watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
-		podSpec:        &parsedSpec,
+		serviceDeleted:  s.serviceDeleted,
+		unitsWatcher:    watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
+		operatorWatcher: watchertest.NewMockNotifyWatcher(s.caasOperatorChanges),
+		podSpec:         &parsedSpec,
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
@@ -632,10 +635,49 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 			break
 		}
 	}
-	s.containerBroker.CheckCallNames(c, "WatchUnits")
+	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 
 	s.assertUnitChange(c, status.Allocating, status.Allocating)
 	s.assertUnitChange(c, status.Allocating, status.Unknown)
+}
+
+func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
+	s.containerBroker.ResetCalls()
+
+	select {
+	case s.caasOperatorChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+	s.containerBroker.reportedOperatorStatus = status.Active
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "Operator")
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+
+	s.statusSetter.CheckCallNames(c, "SetOperatorStatus")
+	c.Assert(s.statusSetter.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		"gitlab", status.Active, "testing 1. 2. 3.", map[string]interface{}{"zip": "zap"},
+	})
 }
 
 func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status) {

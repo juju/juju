@@ -83,13 +83,19 @@ func (aw *applicationWorker) loop() error {
 	}
 	aw.catacomb.Add(deploymentWorker)
 
-	var brokerUnitsWatcher watcher.NotifyWatcher
+	var (
+		brokerUnitsWatcher watcher.NotifyWatcher
+		appOperatorWatcher watcher.NotifyWatcher
+	)
 	// The caas watcher can just die from underneath us hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
 	// workers unbounded, use use a defer to stop the running worker.
 	defer func() {
 		if brokerUnitsWatcher != nil {
 			worker.Stop(brokerUnitsWatcher)
+		}
+		if appOperatorWatcher != nil {
+			worker.Stop(appOperatorWatcher)
 		}
 	}()
 
@@ -109,6 +115,17 @@ func (aw *applicationWorker) loop() error {
 				return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
 			}
 		}
+		if appOperatorWatcher == nil {
+			appOperatorWatcher, err = aw.containerBroker.WatchOperator(aw.application)
+			if err != nil {
+				if strings.Contains(err.Error(), "unexpected EOF") {
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					return nil
+				}
+				return errors.Annotatef(err, "failed to start operator watcher for %q", aw.application)
+			}
+		}
+
 		select {
 		// We must handle any processing due to application being removed prior
 		// to shutdown so that we don't leave stuff running in the cloud.
@@ -189,6 +206,28 @@ func (aw *applicationWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
+		case _, ok := <-appOperatorWatcher.Changes():
+			if !ok {
+				logger.Debugf("%v", appOperatorWatcher.Wait())
+				worker.Stop(appOperatorWatcher)
+				appOperatorWatcher = nil
+				continue
+			}
+			logger.Debugf("operator update for %v", aw.application)
+			operator, err := aw.containerBroker.Operator(aw.application)
+			if errors.IsNotFound(err) {
+				logger.Debugf("pod not found for application %q", aw.application)
+				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, status.Terminated, "", nil); err != nil {
+					return errors.Trace(err)
+				}
+			} else if err != nil {
+				return errors.Trace(err)
+			} else {
+				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, operator.Status.Status, operator.Status.Message, operator.Status.Data); err != nil {
+					return errors.Trace(err)
+				}
+			}
 		}
+
 	}
 }

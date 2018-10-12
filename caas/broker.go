@@ -143,6 +143,13 @@ type Broker interface {
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
 
+	// WatchOperator returns a watcher which notifies when there
+	// are changes to the operator of the specified application.
+	WatchOperator(string) (watcher.NotifyWatcher, error)
+
+	// Operator returns an Operator with current status and life details.
+	Operator(string) (*Operator, error)
+
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
 
@@ -189,6 +196,13 @@ type Unit struct {
 	Dying          bool
 	Status         status.StatusInfo
 	FilesystemInfo []FilesystemInfo
+}
+
+// Operator represents information about the status of an "operator pod".
+type Operator struct {
+	Id     string
+	Dying  bool
+	Status status.StatusInfo
 }
 
 // CharmStorageParams defines parameters used to create storage
