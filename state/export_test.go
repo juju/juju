@@ -850,6 +850,10 @@ func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus st
 	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
 }
 
+func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus status.StatusInfo) status.StatusInfo {
+	return caasApplicationDisplayStatus(appStatus, operatorStatus)
+}
+
 func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
 	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
 }

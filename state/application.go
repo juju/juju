@@ -2242,20 +2242,50 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
+
+	var newHistory *statusDoc
+	model, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if model.Type() == ModelTypeCAAS {
+		// Application status for a caas model needs to consider status
+		// info coming from the operator pod as well; It may need to
+		// override what is set here.
+		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
+		if err == nil {
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, caasApplicationDisplayStatus, a.st.clock())
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+
 	return setStatus(a.st.db(), setStatusParams{
-		badge:     "application",
-		globalKey: a.globalKey(),
-		status:    statusInfo.Status,
-		message:   statusInfo.Message,
-		rawData:   statusInfo.Data,
-		updated:   timeOrNow(statusInfo.Since, a.st.clock()),
+		badge:            "application",
+		globalKey:        a.globalKey(),
+		status:           statusInfo.Status,
+		message:          statusInfo.Message,
+		rawData:          statusInfo.Data,
+		updated:          timeOrNow(statusInfo.Since, a.st.clock()),
+		historyOverwrite: newHistory,
 	})
 }
 
 // SetOperatorStatus sets the operator status for an application.
 // This is used on CAAS models.
 func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
-	return setStatus(a.st.db(), setStatusParams{
+	model, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if model.Type() != ModelTypeCAAS {
+		return errors.NotSupportedf("caas operation on non-caas model")
+	}
+
+	err = setStatus(a.st.db(), setStatusParams{
 		badge:     "operator",
 		globalKey: applicationGlobalOperatorKey(a.Name()),
 		status:    sInfo.Status,
@@ -2263,6 +2293,25 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 		rawData:   sInfo.Data,
 		updated:   timeOrNow(sInfo.Since, a.st.clock()),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appStatus, err := a.Status()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, caasApplicationDisplayStatus, a.st.clock())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if historyDoc != nil {
+		// rewriting application status history
+		_, err = probablyUpdateStatusHistory(a.st.db(), a.globalKey(), *historyDoc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
@@ -2591,7 +2640,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, op.application.st.clock())
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, caasUnitDisplayStatus, op.application.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}
