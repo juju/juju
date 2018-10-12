@@ -590,19 +590,6 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 	return ipAddresses, spaces, linkLayerDevices, nil
 }
 
-// lxdProfileName is used to lazily evaluate the lxd profile name, until we
-// know what the revision of the charm is.
-type lxdProfileName struct {
-	modelName string
-	appName   string
-}
-
-// Name returns the lxdprofile name using the revision
-func (n lxdProfileName) Name(revision int) string {
-	name := lxdprofile.Name(n.modelName, n.appName, revision)
-	return name
-}
-
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
@@ -639,7 +626,7 @@ func fetchAllApplicationsAndUnits(
 		allBindingsByApp[bindings.AppName] = bindings.Bindings
 	}
 
-	charmProfileNames := make(map[charm.URL]lxdProfileName)
+	lxdProfiles := make(map[string]*charm.LXDProfile)
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
@@ -654,15 +641,14 @@ func fetchAllApplicationsAndUnits(
 			}
 		}
 
-		// Create some lazy mapping between charm urls and serialised lxd
-		// profile names
-		charmProfileNames[*charmURL] = lxdProfileName{
-			modelName: model.Name(),
-			appName:   app.Name(),
+		ch, _, err := app.Charm()
+		if err != nil {
+			continue
 		}
+		chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
+		lxdProfiles[chName] = ch.LXDProfile()
 	}
 
-	lxdProfiles := make(map[string]*charm.LXDProfile)
 	for baseURL := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
 		if errors.IsNotFound(err) {
@@ -672,18 +658,6 @@ func fetchAllApplicationsAndUnits(
 			return applicationStatusInfo{}, err
 		}
 		latestCharms[baseURL] = ch
-	}
-
-	for baseURL, charmProfileName := range charmProfileNames {
-		ch, err := st.Charm(&baseURL)
-		if err != nil {
-			continue
-		}
-
-		// make sure that we have a profile that isn't nil
-		if profile := ch.LXDProfile(); profile != nil {
-			lxdProfiles[charmProfileName.Name(ch.Revision())] = profile
-		}
 	}
 
 	return applicationStatusInfo{
@@ -815,7 +789,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 	return machinesMap
 }
 
-func (c *statusContext) makeMachineStatus(machine *state.Machine, applicationStatusInfo applicationStatusInfo) (status params.MachineStatus) {
+func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo applicationStatusInfo) (status params.MachineStatus) {
 	machineID := machine.Id()
 	ipAddresses := c.ipAddresses[machineID]
 	spaces := c.spaces[machineID]
@@ -932,8 +906,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, applicationSta
 	charmProfiles, err := machine.CharmProfiles()
 	if err == nil {
 		for _, v := range charmProfiles {
-			// how do we get the charmProfile
-			if profile, ok := applicationStatusInfo.lxdProfiles[v]; ok {
+			if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
 				lxdProfiles[v] = params.LXDProfile{
 					Config:      profile.Config,
 					Description: profile.Description,
