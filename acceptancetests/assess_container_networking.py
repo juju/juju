@@ -58,8 +58,8 @@ def parse_args(argv=None):
         help='Which virtual machine/container type to test. Defaults to all.',
         choices=[KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
     parser.add_argument(
-        '--bind-space',
-        help='The network space to bind containers to. Default is no binding.',
+        '--space-constraint',
+        help='The network space to constrain containers to. Default is no space constraints.',
         default=None,
         dest='space')
     args = parser.parse_args(argv)
@@ -120,7 +120,7 @@ def make_machines(client, container_types, space):
     # Start any new containers we need
     sargs = []
     if space:
-        sargs = ['--bind', space]
+        sargs = ['--constraints', 'spaces=' + space]
          
     for host, containers in required.iteritems():
         for container in containers:
