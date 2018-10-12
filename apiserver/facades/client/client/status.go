@@ -590,6 +590,19 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 	return ipAddresses, spaces, linkLayerDevices, nil
 }
 
+// lxdProfileName is used to lazily evaluate the lxd profile name, until we
+// know what the revision of the charm is.
+type lxdProfileName struct {
+	modelName string
+	appName   string
+}
+
+// Name returns the lxdprofile name using the revision
+func (n lxdProfileName) Name(revision int) string {
+	name := lxdprofile.Name(n.modelName, n.appName, revision)
+	return name
+}
+
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
@@ -626,7 +639,7 @@ func fetchAllApplicationsAndUnits(
 		allBindingsByApp[bindings.AppName] = bindings.Bindings
 	}
 
-	charmProfileNames := make(map[charm.URL]func(int) string)
+	charmProfileNames := make(map[charm.URL]lxdProfileName)
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
@@ -643,9 +656,9 @@ func fetchAllApplicationsAndUnits(
 
 		// Create some lazy mapping between charm urls and serialised lxd
 		// profile names
-		charmProfileNames[*charmURL] = func(revision int) string {
-			name := lxdprofile.Name(model.Name(), app.Name(), revision)
-			return name
+		charmProfileNames[*charmURL] = lxdProfileName{
+			modelName: model.Name(),
+			appName:   app.Name(),
 		}
 	}
 
@@ -669,7 +682,7 @@ func fetchAllApplicationsAndUnits(
 
 		// make sure that we have a profile that isn't nil
 		if profile := ch.LXDProfile(); profile != nil {
-			lxdProfiles[charmProfileName(ch.Revision())] = profile
+			lxdProfiles[charmProfileName.Name(ch.Revision())] = profile
 		}
 	}
 
