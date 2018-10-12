@@ -1,2 +1,0 @@
-#!/bin/sh
-status-set active "$(uptime | grep -oe 'average: .*' | sed -e 's/average:/load:/')"
