@@ -1383,3 +1383,32 @@ type UpgradeSeriesUnitsResult struct {
 	Error     *Error   `json:"error,omitempty"`
 	UnitNames []string `json:"unit-names"`
 }
+
+type ProfileChangeResult struct {
+	OldProfileName string           `json:"old-profile-name,omitempty"`
+	NewProfileName string           `json:"new-profile-name,omitempty"`
+	Profile        *CharmLXDProfile `json:"profile,omitempty"`
+	Error          *Error           `json:"error,omitempty"`
+}
+
+type ProfileChangeResults struct {
+	Results []ProfileChangeResult `json:"results"`
+}
+
+type SetProfileArgs struct {
+	Args []SetProfileArg `json:"args"`
+}
+
+type SetProfileArg struct {
+	Entity   Entity   `json:"entity"`
+	Profiles []string `json:"profiles"`
+}
+
+type SetProfileUpgradeCompleteArgs struct {
+	Args []SetProfileUpgradeCompleteArg `json:"args"`
+}
+
+type SetProfileUpgradeCompleteArg struct {
+	Entity  Entity `json:"entity"`
+	Message string `json:"message"`
+}

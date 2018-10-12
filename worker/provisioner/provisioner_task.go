@@ -331,10 +331,81 @@ func (task *provisionerTask) processMachines(ids []string) error {
 }
 
 func (task *provisionerTask) processProfileChanges(ids []string) error {
-	// TODO hml 2018-10-10
-	// Change to Tracef when function implemented
-	logger.Debugf("processProfileChanges(%v)", ids)
+	logger.Tracef("processProfileChanges(%v)", ids)
+
+	machineTags := make([]names.MachineTag, len(ids))
+	for i, id := range ids {
+		machineTags[i] = names.NewMachineTag(id)
+	}
+	machines, err := task.machineGetter.Machines(machineTags...)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get machines %v", ids)
+	}
+	profileBroker, ok := task.broker.(environs.LXDProfiler)
+	if !ok {
+		logger.Debugf("Attempting to update the profile of a machine that doesn't support profiles")
+		profileUpgradeNotRequired(machines)
+		return nil
+	}
+	for i, mResult := range machines {
+		if mResult.Err != nil {
+			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
+		}
+		m := mResult.Machine
+		if err = task.processOneMachineProfileChange(m, profileBroker); err != nil {
+			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
+			m.SetUpgradeCharmProfileComplete(err.Error())
+		} else {
+			m.SetUpgradeCharmProfileComplete("Success")
+		}
+	}
 	return nil
+}
+
+func profileUpgradeNotRequired(machines []apiprovisioner.MachineResult) {
+	for _, mResult := range machines {
+		if err := mResult.Machine.SetUpgradeCharmProfileComplete("Not Required"); err != nil {
+			logger.Errorf("cannot set charm profile upgrade not required: %s", err.Error())
+		}
+	}
+}
+
+func (task *provisionerTask) processOneMachineProfileChange(
+	m apiprovisioner.MachineProvisioner,
+	profileBroker environs.LXDProfiler,
+) error {
+	logger.Debugf("processOneMachineProfileChange(%s)", m.Id())
+	info, err := m.CharmProfileChangeInfo()
+	if err != nil {
+		logger.Debugf("processOneMachineProfileChange(%s) CharmProfileChangeInfo failed with %v", m.Id(), err)
+		return err
+	}
+	logger.Debugf("processOneMachineProfileChange(%s) CharmProfileChangeInfo results(%#v)", m.Id(), info)
+	instId, err := m.InstanceId()
+	if err != nil {
+		return err
+	}
+	newProfiles, err := profileBroker.ReplaceOrAddInstanceProfile(string(instId), info.OldProfileName, info.NewProfileName, info.LXDProfile)
+	if err != nil {
+		logger.Debugf("processOneMachineProfileChange(%s) profileBroker.ReplaceOrAddInstanceProfile failed with %v", m.Id(), err)
+		return err
+	}
+	logger.Debugf("processOneMachineProfileChange(%s) profileBroker.ReplaceOrAddInstanceProfile results(%#v)", m.Id(), newProfiles)
+	// newProfiles:
+	//   default
+	//   juju-<model>      <-- not included on containers
+	//   juju-<model>-<application>-<charm-revision>
+	if len(newProfiles) > 1 && newProfiles[0] == "default" {
+		newProfiles = newProfiles[1:]
+	}
+	if len(newProfiles) > 1 {
+		// Remove if not juju-<model>-<application>-<charm-revision>
+		if _, err = lxdprofile.ProfileRevision(newProfiles[0]); err != nil {
+			newProfiles = newProfiles[1:]
+		}
+	}
+
+	return m.SetCharmProfiles(newProfiles)
 }
 
 func instanceIds(instances []instance.Instance) []string {
@@ -1181,7 +1252,7 @@ func (task *provisionerTask) startMachine(
 	}
 
 	logger.Infof(
-		"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v",
+		"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
 		result.Instance.Id(),
 		result.Hardware,
@@ -1189,6 +1260,7 @@ func (task *provisionerTask) startMachine(
 		volumes,
 		volumeNameToAttachmentInfo,
 		startInstanceParams.SubnetsToZones,
+		startInstanceParams.CharmLXDProfiles,
 	)
 	return nil
 }

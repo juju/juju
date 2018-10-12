@@ -413,6 +413,47 @@ func (s *provisionerSuite) TestSetInstanceInfoProfiles(c *gc.C) {
 	c.Assert(profiles, jc.SameContents, obtainedProfiles)
 }
 
+func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
+	err := apiMachine.SetCharmProfiles(profiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mach, err := s.State.Machine(apiMachine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedProfiles, err := mach.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(profiles, jc.SameContents, obtainedProfiles)
+}
+
+func (s *provisionerSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	err := apiMachine.SetUpgradeCharmProfileComplete("testme")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mach, err := s.State.Machine(apiMachine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mach.UpgradeCharmProfileComplete(), gc.Equals, "testme")
+}
+
+func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	info, err := apiMachine.CharmProfileChangeInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
+		OldProfileName: "",
+		NewProfileName: "juju-controller-lxd-profile-0",
+		LXDProfile:     nil,
+	})
+}
+
 func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
 	err := s.machine.SetKeepInstance(true)
 	c.Assert(err, jc.ErrorIsNil)

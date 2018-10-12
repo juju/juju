@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
@@ -93,6 +94,9 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	net := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
 
 	pNames, err := broker.writeProfiles(containerMachineID)
+	if err != nil {
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot write charm profile"))
+	}
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -186,6 +190,7 @@ func (broker *lxdBroker) MaintainInstance(ctx context.ProviderCallContext, args 
 
 // LXDProfileNames returns all the profiles for a container that the broker
 // currently is aware of.
+// LXDProfileNames implements environs.LXDProfiler.
 func (broker *lxdBroker) LXDProfileNames(containerName string) ([]string, error) {
 	nameRetriever, ok := broker.manager.(container.LXDProfileNameRetriever)
 	if !ok {
@@ -202,7 +207,7 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 	}
 	names := make([]string, len(profileInfo))
 	for i, profile := range profileInfo {
-		err := broker.maybeWriteLXDProfile(profile.Name, &charm.LXDProfile{
+		err := broker.MaybeWriteLXDProfile(profile.Name, &charm.LXDProfile{
 			Config:      profile.Config,
 			Description: profile.Description,
 			Devices:     profile.Devices,
@@ -215,10 +220,20 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 	return names, nil
 }
 
-func (broker *lxdBroker) maybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (broker *lxdBroker) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
 	profileMgr, ok := broker.manager.(container.LXDProfileManager)
 	if !ok {
 		return nil
 	}
 	return profileMgr.MaybeWriteLXDProfile(pName, put)
+}
+
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (broker *lxdBroker) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
+	profileMgr, ok := broker.manager.(container.LXDProfileManager)
+	if !ok {
+		return []string{}, nil
+	}
+	return profileMgr.ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile, put)
 }

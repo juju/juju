@@ -150,6 +150,10 @@ type machineDoc struct {
 	// upgrade event with a charm profile.  This is used before the application
 	// contains the new charm URL during a charm upgrade.
 	UpgradeCharmProfileCharmURL string `bson:",omitempty"`
+
+	// UpgradeCharmProfileComplete holds the outcome of charm upgrade event
+	// with a charm profile in play.  Success, Not Required or the Error.
+	UpgradeCharmProfileComplete string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -182,6 +186,29 @@ func (m *Machine) Series() string {
 // ContainerType returns the type of container hosting this machine.
 func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.doc.ContainerType)
+}
+
+// UpgradeCharmProfileApplication returns the replacement profile application name for the machine.
+func (m *Machine) UpgradeCharmProfileApplication() string {
+	return m.doc.UpgradeCharmProfileApplication
+}
+
+// UpgradeCharmProfileCharmURL returns the charm url for the replacement profile for the machine.
+func (m *Machine) UpgradeCharmProfileCharmURL() string {
+	return m.doc.UpgradeCharmProfileCharmURL
+}
+
+// UpgradeCharmProfileComplete returns the charm upgrade with profile completion message
+func (m *Machine) UpgradeCharmProfileComplete() string {
+	return m.doc.UpgradeCharmProfileComplete
+}
+
+func (m *Machine) ModelName() string {
+	name, err := m.st.modelName()
+	if err != nil {
+		logger.Errorf(err.Error())
+	}
+	return name
 }
 
 // machineGlobalKey returns the global database key for the identified machine.
@@ -2151,6 +2178,35 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 	}
 	m.doc.UpgradeCharmProfileApplication = appName
 	m.doc.UpgradeCharmProfileCharmURL = chURL
+	return nil
+}
+
+func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		life := m.Life()
+		if life == Dead || life == Dying {
+			return nil, ErrDead
+		}
+
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"life", Alive}},
+			Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
+		}}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return err
+	}
+	m.doc.UpgradeCharmProfileComplete = msg
 	return nil
 }
 

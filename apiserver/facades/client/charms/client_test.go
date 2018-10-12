@@ -165,7 +165,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				},
 				Actions: &params.CharmActions{},
 				LXDProfile: &params.CharmLXDProfile{
-					Description: "lxd profile for testing, black list items grouped commented out",
+					Description: "lxd profile for testing, will pass validation",
 					Config: map[string]string{
 						"security.nesting":       "true",
 						"security.privileged":    "true",
@@ -183,8 +183,11 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 							"productid": "51da",
 						},
 						"bdisk": {
-							"type":   "unix-block",
 							"source": "/dev/loop0",
+							"type":   "unix-block",
+						},
+						"gpu": {
+							"type": "gpu",
 						},
 					},
 				},

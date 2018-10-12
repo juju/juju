@@ -43,6 +43,14 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
+// TODO (hml) lxd-profile 24-oct-2018
+// create mocks to write tests for:
+// WatchModelMachinesCharmProfiles
+// GetContainerProfileInfo
+// CharmProfileChangeInfo
+// SetCharmProfiles
+// SetUpgradeCharmProfileComplete
+
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
@@ -1807,10 +1815,6 @@ func (s *withControllerSuite) TestGetContainerProfileInfo(c *gc.C) {
 							"type":      "usb",
 							"vendorid":  "0fce",
 							"productid": "51da",
-						},
-						"bdisk": {
-							"source": "/dev/loop0",
-							"type":   "unix-block",
 						},
 					},
 				},

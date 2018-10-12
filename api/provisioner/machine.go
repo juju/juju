@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -123,6 +124,17 @@ type MachineProvisioner interface {
 	// changes to the upgrade charm profile charm url for all
 	// containers of the specified type  on the machine.
 	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
+
+	// CharmProfileChangeInfo retrieves the info necessary to change a charm
+	// profile used by a machine.
+	CharmProfileChangeInfo() (CharmProfileChangeInfo, error)
+
+	// SetCharmProfiles records the given slice of charm profile names.
+	SetCharmProfiles([]string) error
+
+	// SetUpgradeCharmProfileComplete recorded that the result of updating
+	// the machine's charm profile(s)
+	SetUpgradeCharmProfileComplete(string) error
 }
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -572,4 +584,89 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 // SupportsNoContainers implements MachineProvisioner.SupportsNoContainers.
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
+}
+
+type CharmProfileChangeInfo struct {
+	OldProfileName string
+	NewProfileName string
+	LXDProfile     *charm.LXDProfile
+}
+
+// CharmProfileChangeInfo implements MachineProvisioner.CharmProfileChangeInfo.
+func (m *Machine) CharmProfileChangeInfo() (CharmProfileChangeInfo, error) {
+	var results params.ProfileChangeResults
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: m.tag.String()},
+	}}
+	err := m.st.facade.FacadeCall("CharmProfileChangeInfo", args, &results)
+	if err != nil {
+		return CharmProfileChangeInfo{}, err
+	}
+	if len(results.Results) != 1 {
+		return CharmProfileChangeInfo{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return CharmProfileChangeInfo{}, result.Error
+	}
+	var profile *charm.LXDProfile
+	if result.Profile != nil {
+		p := charm.LXDProfile(*result.Profile)
+		profile = &p
+	}
+	return CharmProfileChangeInfo{
+		OldProfileName: result.OldProfileName,
+		NewProfileName: result.NewProfileName,
+		LXDProfile:     profile,
+	}, nil
+}
+
+// SetCharmProfiles implements MachineProvisioner.SetCharmProfiles.
+func (m *Machine) SetCharmProfiles(profiles []string) error {
+	var results params.ErrorResults
+	args := params.SetProfileArgs{
+		Args: []params.SetProfileArg{
+			{
+				Entity:   params.Entity{Tag: m.tag.String()},
+				Profiles: profiles,
+			},
+		},
+	}
+	err := m.st.facade.FacadeCall("SetCharmProfiles", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// SetUpgradeCharmProfileComplete implements MachineProvisioner.SetUpgradeCharmProfileComplete.
+func (m *Machine) SetUpgradeCharmProfileComplete(message string) error {
+	var results params.ErrorResults
+	args := params.SetProfileUpgradeCompleteArgs{
+		Args: []params.SetProfileUpgradeCompleteArg{
+			{
+				Entity:  params.Entity{Tag: m.tag.String()},
+				Message: message,
+			},
+		},
+	}
+	err := m.st.facade.FacadeCall("SetUpgradeCharmProfileComplete", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

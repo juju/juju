@@ -275,11 +275,14 @@ var (
 					"security.nesting":       "true",
 					"security.privileged":    "true",
 				},
-				"description": "lxd profile for testing, black list items grouped commented out",
+				"description": "lxd profile for testing, will pass validation",
 				"devices": M{
 					"bdisk": M{
 						"source": "/dev/loop0",
 						"type":   "unix-block",
+					},
+					"gpu": M{
+						"type": "gpu",
 					},
 					"sony": M{
 						"productid": "51da",

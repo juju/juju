@@ -144,3 +144,30 @@ func (s *serverSuite) TestGetServerNameReturnsEmptyIfServerNameIsEmptyAndCluster
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jujuSvr.Name(), gc.Equals, "")
 }
+
+func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	updateOp := lxdtesting.NewMockOperation(ctrl)
+	updateOp.EXPECT().Wait().Return(nil)
+	updateOp.EXPECT().Get().Return(api.Operation{Description: "Updating ontainer"})
+
+	instId := "testme"
+	old := "old-profile"
+	oldProfiles := []string{"default", "juju-default", old}
+	new := "new-profile"
+	cSvr.EXPECT().GetContainer(instId).Return(
+		&api.Container{
+			ContainerPut: api.ContainerPut{
+				Profiles: oldProfiles,
+			},
+		}, "", nil)
+	cSvr.EXPECT().UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+	err = jujuSvr.ReplaceOrAddContainerProfile(instId, old, new)
+	c.Assert(err, jc.ErrorIsNil)
+}

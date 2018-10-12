@@ -54,6 +54,8 @@ type Server interface {
 	GetContainerProfiles(string) ([]string, error)
 	HasProfile(string) (bool, error)
 	CreateProfile(post lxdapi.ProfilesPost) (err error)
+	DeleteProfile(string) (err error)
+	ReplaceOrAddContainerProfile(string, string, string) error
 	VerifyNetworkDevice(*lxdapi.Profile, string) error
 	EnsureDefaultStorage(*lxdapi.Profile, string) error
 	StorageSupported() bool

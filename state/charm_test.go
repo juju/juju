@@ -843,7 +843,7 @@ func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
 			"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
 			"environment.http_proxy": "",
 		},
-		Description: "lxd profile for testing, black list items grouped commented out",
+		Description: "lxd profile for testing, will pass validation",
 		Devices: map[string]map[string]string{
 			"tun": {
 				"path": "/dev/net/tun",
@@ -857,6 +857,9 @@ func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
 			"bdisk": {
 				"source": "/dev/loop0",
 				"type":   "unix-block",
+			},
+			"gpu": {
+				"type": "gpu",
 			},
 		},
 	})

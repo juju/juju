@@ -890,9 +890,10 @@ func (w *modelCharmProfileChangeWatcher) merge(machineIds set.Strings, change wa
 	if err := newMachines.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
-	profileApplication, _ := w.known[machineId]
+	charmProfileURL, isKnown := w.known[machineId]
 	w.known[machineId] = doc.UpgradeCharmProfileCharmURL
-	if doc.UpgradeCharmProfileCharmURL != profileApplication {
+	// only report changes, not new machines
+	if isKnown && doc.UpgradeCharmProfileCharmURL != charmProfileURL {
 		machineIds.Add(machineId)
 	}
 	return nil

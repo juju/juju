@@ -373,11 +373,11 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 	err := runDeploy(c, s.path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	s.riak, err = s.State.Application("riak")
+	curl := charm.MustParseURL("local:quantal/riak-7")
+	s.riak, _ = s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
+
+	_, forced, err := s.riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	ch, forced, err := s.riak.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
 
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
@@ -435,6 +435,15 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 1)
+
+	units, err := application.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 
 	// Overwrite the metadata.yaml to change the supported series.
 	metadataPath := filepath.Join(path, "metadata.yaml")
@@ -675,6 +684,21 @@ var upgradeCharmAuthorizationTests = []struct {
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
+
+	riak, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, forced, err := riak.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.Revision(), gc.Equals, 0)
+	c.Assert(forced, jc.IsFalse)
+
+	unit, err := s.State.Unit("wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
@@ -704,6 +728,13 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 0)
 	c.Assert(forced, jc.IsFalse)
 
+	unit, err := s.State.Unit("riak/0")
+	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, riak, 7, false)
@@ -725,6 +756,13 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
 	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := s.State.Unit("wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
 
 	// Upload a new revision of the charm, but publish it
 	// only to the beta channel.
