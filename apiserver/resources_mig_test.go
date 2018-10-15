@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -129,6 +130,17 @@ func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
 const content = "stuff"
 
 func (s *resourcesUploadSuite) makeUploadArgs(c *gc.C) url.Values {
+	return s.makeResourceUploadArgs(c, "file")
+}
+
+func (s *resourcesUploadSuite) makeDockerUploadArgs(c *gc.C) url.Values {
+	result := s.makeResourceUploadArgs(c, "oci-image")
+	result.Del("path")
+	result.Del("fingerprint")
+	return result
+}
+
+func (s *resourcesUploadSuite) makeResourceUploadArgs(c *gc.C, resType string) url.Values {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 	q := make(url.Values)
@@ -137,7 +149,7 @@ func (s *resourcesUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 	q.Add("name", "bin")
 	q.Add("path", "blob.zip")
 	q.Add("description", "hmm")
-	q.Add("type", "file")
+	q.Add("type", resType)
 	q.Add("origin", "store")
 	q.Add("revision", "3")
 	q.Add("size", fmt.Sprint(len(content)))
@@ -260,6 +272,21 @@ func (s *resourcesUploadSuite) TestArgValidation(c *gc.C) {
 	q = s.makeUploadArgs(c)
 	q.Set("fingerprint", "zzz")
 	checkBadRequest(q, "invalid fingerprint")
+}
+
+func (s *resourcesUploadSuite) TestArgValidationCAASModel(c *gc.C) {
+	content := `{"ImageName": "image-name", "Username": "fred", "Password":"secret"}`
+	checkRequest := func(q url.Values) {
+		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+			Method: "POST",
+			URL:    s.resourcesURI(q.Encode()),
+			Body:   bytes.NewReader([]byte(content)),
+		})
+		s.assertResponse(c, resp, http.StatusOK)
+	}
+
+	q := s.makeDockerUploadArgs(c)
+	checkRequest(q)
 }
 
 func (s *resourcesUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {

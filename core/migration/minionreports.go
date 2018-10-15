@@ -28,6 +28,10 @@ type MinionReports struct {
 	// have not yet reported in.
 	SomeUnknownUnits []string
 
+	// SomeUnknownApplications holds the names of some of the applications which
+	// have not yet reported in.
+	SomeUnknownApplications []string
+
 	// FailedMachines holds the ids of machines which have failed to
 	// complete the migration phase.
 	FailedMachines []string
@@ -35,6 +39,10 @@ type MinionReports struct {
 	// FailedUnits holds the names of units which have failed to
 	// complete the migration phase.
 	FailedUnits []string
+
+	// FailedApplications holds the names of applications which have failed to
+	// complete the migration phase.
+	FailedApplications []string
 }
 
 // IsZero returns true if the MinionReports instance hasn't been set.
