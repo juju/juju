@@ -6,39 +6,50 @@ package state
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/names.v2"
 )
 
-// UpgradeSeriesLockApplicationIntersect returns application names represented
-// by the input machine's units that also have units on other machines that are
+// UpgradeSeriesApplicationIntersect returns application names represented by
+// the input machine's units that also have units on other machines that are
 // locked for upgrade.
-func (st *State) UpgradeSeriesLockApplicationIntersect(machineId string) ([]string, error) {
+func (st *State) UpgradeSeriesApplicationIntersect(machineId string) ([]string, error) {
 	locks, err := st.getAllUpgradeSeriesLocks()
 	if err != nil {
 		return nil, errors.Annotatef(err,
 			"retrieving intersecting upgrade series applications for machine %v", machineId)
 	}
 
-	machineApps := set.NewStrings()
+	var machineApps set.Strings
 	otherApps := set.NewStrings()
 
-	// Use the lock's unit record map to accrue sets for the input machine,
+	// Use the lock's unit map to accrue sets for the input machine,
 	// and for all others that are currently locked.
 	for _, lock := range locks {
 		apps := set.NewStrings()
-		for unit := range lock.UnitStatuses {
-			app, err := names.UnitApplication(unit)
-			if err != nil {
-				return nil, errors.Trace(err)
+
+		// This is a conservative guard.
+		// Upgrade-series commands are synchronous. We do not expect to see a
+		// completed lock, as removal on completion is part of the workflow.
+		if lock.MachineStatus != model.UpgradeSeriesCompleted {
+			for unit := range lock.UnitStatuses {
+				app, err := names.UnitApplication(unit)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				apps.Add(app)
 			}
-			apps.Add(app)
 		}
 
 		if machineId == lock.Id {
-			machineApps = machineApps.Union(apps)
+			machineApps = apps
 		} else {
 			otherApps = otherApps.Union(apps)
 		}
+	}
+
+	if machineApps == nil {
+		return nil, errors.NotFoundf("upgrade lock for machine %q", machineId)
 	}
 	return machineApps.Intersection(otherApps).Values(), nil
 }
