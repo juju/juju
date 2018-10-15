@@ -192,6 +192,7 @@ func (s *SourcePrecheckSuite) TestWithPendingMinUnits(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 	backend := &fakeBackend{
+		model: fakeModel{modelType: state.ModelTypeIAAS},
 		apps: []migration.PrecheckApplication{
 			&fakeApp{
 				name:  "foo",
@@ -208,6 +209,20 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 	}
 	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "unit bar/1 agent binaries don't match model (1.2.4 != 1.2.3)")
+}
+
+func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
+	backend := &fakeBackend{
+		model: fakeModel{modelType: state.ModelTypeCAAS},
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name:  "foo",
+				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0", noTools: true}},
+			},
+		},
+	}
+	err := sourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
@@ -577,9 +592,10 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 	pool := &fakePool{
 		models: []migration.PrecheckModel{
 			&fakeModel{
-				uuid:  "uuid",
-				name:  modelName,
-				owner: modelOwner,
+				uuid:      "uuid",
+				name:      modelName,
+				modelType: state.ModelTypeIAAS,
+				owner:     modelOwner,
 			},
 		},
 	}
@@ -592,7 +608,11 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 	pool := &fakePool{
 		models: []migration.PrecheckModel{
-			&fakeModel{name: modelName, owner: names.NewUserTag("someone.else")},
+			&fakeModel{
+				name:      modelName,
+				modelType: state.ModelTypeIAAS,
+				owner:     names.NewUserTag("someone.else"),
+			},
 		},
 	}
 	backend := newFakeBackend()
@@ -604,7 +624,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
 	pool := &fakePool{
 		models: []migration.PrecheckModel{
-			&fakeModel{uuid: modelUUID},
+			&fakeModel{uuid: modelUUID, modelType: state.ModelTypeIAAS},
 		},
 	}
 	backend := newFakeBackend()
@@ -618,6 +638,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 		models: []migration.PrecheckModel{
 			&fakeModel{
 				uuid:          modelUUID,
+				modelType:     state.ModelTypeIAAS,
 				migrationMode: state.MigrationModeImporting,
 			},
 		},
@@ -843,8 +864,13 @@ type fakeModel struct {
 	name          string
 	owner         names.UserTag
 	life          state.Life
+	modelType     state.ModelType
 	migrationMode state.MigrationMode
 	credential    string
+}
+
+func (m *fakeModel) Type() state.ModelType {
+	return m.modelType
 }
 
 func (m *fakeModel) UUID() string {
@@ -968,6 +994,7 @@ func (a *fakeApp) MinUnits() int {
 type fakeUnit struct {
 	name        string
 	version     version.Binary
+	noTools     bool
 	life        state.Life
 	charmURL    string
 	agentStatus status.Status
@@ -979,6 +1006,9 @@ func (u *fakeUnit) Name() string {
 }
 
 func (u *fakeUnit) AgentTools() (*tools.Tools, error) {
+	if u.noTools {
+		return nil, errors.NotFoundf("tools")
+	}
 	// Avoid having to specify the version when it's supposed to match
 	// the model config.
 	v := u.version
