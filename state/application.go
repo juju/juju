@@ -1114,7 +1114,10 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		return errors.Annotate(err, "validating config settings")
 	}
 
-	// TODO validate lxd profile?
+	// TODO (hml) lxd-profile 15-oct-2018
+	// Do we need to validate the lxd profile here?
+	// Need force threaded thru in state.SetCharmConfig &
+	// params.ApplicationSetCharm
 
 	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)

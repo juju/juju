@@ -864,7 +864,7 @@ func (w *modelMachinesProfileWatcher) merge(machineIds set.Strings, change watch
 	return nil
 }
 
-func (w *modelMachinesProfileWatcher) loop() (err error) {
+func (w *modelMachinesProfileWatcher) loop() error {
 	ch := make(chan watcher.Change)
 	w.watcher.WatchCollectionWithFilter(machinesC, ch, isLocalID(w.backend))
 	defer w.watcher.UnwatchCollection(machinesC, ch)

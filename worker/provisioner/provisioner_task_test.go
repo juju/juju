@@ -69,8 +69,8 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	s.machineErrorRetryChanges = make(chan struct{})
 	s.machineErrorRetryWatcher = watchertest.NewMockNotifyWatcher(s.machineErrorRetryChanges)
 
-	s.modelMachinesChanges = make(chan []string)
-	s.modelMachinesWatcher = watchertest.NewMockStringsWatcher(s.modelMachinesProfileChanges)
+	s.modelMachinesProfileChanges = make(chan []string)
+	s.modelMachinesProfileWatcher = watchertest.NewMockStringsWatcher(s.modelMachinesProfileChanges)
 
 	s.machinesResults = []apiprovisioner.MachineResult{}
 	s.machineStatusResults = []apiprovisioner.MachineStatusResult{}
