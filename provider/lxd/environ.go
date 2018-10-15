@@ -314,3 +314,8 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 	logger.Debugf("wrote lxd profile %q", pName)
 	return nil
 }
+
+// MaybeWriteLXDProfile implements environs.LXDProfiler.
+func (env *environ) LXDProfileNames() ([]string, error) {
+	return env.server.GetProfileNames()
+}

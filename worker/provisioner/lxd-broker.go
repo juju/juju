@@ -205,6 +205,14 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 	return names, nil
 }
 
+func (broker *lxdBroker) LXDProfileNames() ([]string, error) {
+	nameRetriever, ok := broker.manager.(container.LXDProfileNameRetriever)
+	if !ok {
+		return nil, nil
+	}
+	return nameRetriever.LXDProfileNames()
+}
+
 func (broker *lxdBroker) maybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
 	profileMgr, ok := broker.manager.(container.LXDProfileManager)
 	if !ok {

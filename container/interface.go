@@ -81,6 +81,15 @@ func (m ManagerConfig) WarnAboutUnused() {
 // LXDProfileManager defines an interface for dealing with lxd profiles used to
 // deploy juju containers.
 type LXDProfileManager interface {
-	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already there.
+	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already
+	// there.
 	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
+}
+
+// LXDProfileNameRetriever defines an interface for dealing with lxd profile
+// names used to deploy juju containers.
+type LXDProfileNameRetriever interface {
+	// LXDProfileNames returns the list of available LXDProfile names from the
+	// manager.
+	LXDProfileNames() ([]string, error)
 }

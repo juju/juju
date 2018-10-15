@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -1133,6 +1136,10 @@ func (task *provisionerTask) startMachine(
 	volumes := volumesToAPIserver(result.Volumes)
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIserver(result.VolumeAttachments)
 
+	// gather the charm LXD profile names, including the lxd profile names from
+	// the container brokers.
+	charmLXDProfiles := task.gatherCharmLXDProfiles(startInstanceParams.CharmLXDProfiles)
+
 	if err := machine.SetInstanceInfo(
 		result.Instance.Id(),
 		startInstanceParams.InstanceConfig.MachineNonce,
@@ -1140,7 +1147,7 @@ func (task *provisionerTask) startMachine(
 		networkConfig,
 		volumes,
 		volumeNameToAttachmentInfo,
-		startInstanceParams.CharmLXDProfiles,
+		charmLXDProfiles,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
@@ -1163,6 +1170,20 @@ func (task *provisionerTask) startMachine(
 		startInstanceParams.SubnetsToZones,
 	)
 	return nil
+}
+
+// gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
+// sources. This includes getting the information from the broker.
+func (task *provisionerTask) gatherCharmLXDProfiles(machineProfiles []string) []string {
+	if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
+		if names, err := manager.LXDProfileNames(); err == nil {
+			machineProfiles = append(machineProfiles, names...)
+		}
+	}
+
+	logger.Criticalf("machine profiles %v", machineProfiles)
+
+	return lxdprofile.LXDProfilesNames(machineProfiles)
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
