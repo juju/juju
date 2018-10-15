@@ -112,6 +112,17 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestCloudNotFound(c *gc.C) {
+	s.backend.SetErrors(errors.NotFoundf("cloud \"no-dice\""))
+	s.setTestAPIForUser(c, names.NewUserTag("admin"))
+	results, err := s.api.Cloud(params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "cloud \"no-dice\" not found")
+}
+
 func (s *cloudSuite) TestClouds(c *gc.C) {
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	s.ctlrBackend.cloudAccess = permission.AddModelAccess
