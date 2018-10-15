@@ -91,5 +91,5 @@ type LXDProfileManager interface {
 type LXDProfileNameRetriever interface {
 	// LXDProfileNames returns the list of available LXDProfile names from the
 	// manager.
-	LXDProfileNames() ([]string, error)
+	LXDProfileNames(string) ([]string, error)
 }

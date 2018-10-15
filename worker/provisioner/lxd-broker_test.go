@@ -6,6 +6,8 @@ package provisioner_test
 import (
 	"runtime"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -280,4 +283,29 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.startInstance(c, broker, machineId)
+}
+
+func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	containerTag := names.NewMachineTag("1-lxd-0")
+
+	mockApi := mocks.NewMockAPICalls(ctrl)
+	mockManager := testing.NewMockTestLXDManager(ctrl)
+	mockManager.EXPECT().LXDProfileNames(containerTag.Id()).Return([]string{
+		lxdprofile.Name("foo", "bar", 1),
+	}, nil)
+
+	broker, err := provisioner.NewLXDBroker(
+		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
+		mockApi, mockManager, s.agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nameRetriever := broker.(container.LXDProfileNameRetriever)
+	profileNames, err := nameRetriever.LXDProfileNames(containerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(profileNames, jc.DeepEquals, []string{
+		lxdprofile.Name("foo", "bar", 1),
+	})
 }

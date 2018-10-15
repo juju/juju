@@ -9,4 +9,5 @@ package container
 type TestLXDManager interface {
 	Manager
 	LXDProfileManager
+	LXDProfileNameRetriever
 }

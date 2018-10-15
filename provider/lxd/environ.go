@@ -316,6 +316,6 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 }
 
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
-func (env *environ) LXDProfileNames() ([]string, error) {
-	return env.server.GetProfileNames()
+func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
+	return env.server.GetContainerProfiles(containerName)
 }

@@ -22,7 +22,7 @@ var defaultLXDProfileNames = []string{
 // "default" profile name will be removed.
 //
 // The function aims to preserve the order from which it got the results from.
-func LXDProfilesNames(names []string) []string {
+func LXDProfileNames(names []string) []string {
 	// ensure that the ones we have are unique
 	unique := make(map[string]int)
 	for k, v := range names {

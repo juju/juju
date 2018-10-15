@@ -205,12 +205,12 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 	return names, nil
 }
 
-func (broker *lxdBroker) LXDProfileNames() ([]string, error) {
+func (broker *lxdBroker) LXDProfileNames(containerName string) ([]string, error) {
 	nameRetriever, ok := broker.manager.(container.LXDProfileNameRetriever)
 	if !ok {
-		return nil, nil
+		return make([]string, 0), nil
 	}
-	return nameRetriever.LXDProfileNames()
+	return nameRetriever.LXDProfileNames(containerName)
 }
 
 func (broker *lxdBroker) maybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {

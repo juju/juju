@@ -76,6 +76,19 @@ func (mr *MockTestLXDManagerMockRecorder) IsInitialized() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsInitialized", reflect.TypeOf((*MockTestLXDManager)(nil).IsInitialized))
 }
 
+// LXDProfileNames mocks base method
+func (m *MockTestLXDManager) LXDProfileNames(arg0 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "LXDProfileNames", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LXDProfileNames indicates an expected call of LXDProfileNames
+func (mr *MockTestLXDManagerMockRecorder) LXDProfileNames(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileNames", reflect.TypeOf((*MockTestLXDManager)(nil).LXDProfileNames), arg0)
+}
+
 // ListContainers mocks base method
 func (m *MockTestLXDManager) ListContainers() ([]instance.Instance, error) {
 	ret := m.ctrl.Call(m, "ListContainers")

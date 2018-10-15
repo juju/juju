@@ -167,4 +167,7 @@ type InstanceBroker interface {
 type LXDProfiler interface {
 	// MaybeWriteLXDProfile, write given LXDProfile to if not already there.
 	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
+
+	// LXDProfileNames returns all the profiles associated to a container name
+	LXDProfileNames(containerName string) ([]string, error)
 }

@@ -309,6 +309,6 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProf
 }
 
 // LXDProfileNames implements container.LXDProfileManager
-func (m *containerManager) LXDProfileNames() ([]string, error) {
-	return m.server.GetProfileNames()
+func (m *containerManager) LXDProfileNames(containerName string) ([]string, error) {
+	return m.server.GetContainerProfiles(containerName)
 }
