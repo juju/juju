@@ -6,8 +6,9 @@ package state
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/core/model"
 )
 
 // UpgradeSeriesApplicationIntersect returns application names represented by
