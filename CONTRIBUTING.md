@@ -413,12 +413,10 @@ Take a look at the community page:
 
  https://jujucharms.com/community/
 
-juju has two channels on IRC (freenode.net):
+juju has a channel on IRC (freenode.net):
 
 * `#juju`
-* `#juju-dev`
 
-There are also two mailing lists:
+Juju Discourse:
 
-* [juju@lists.ubuntu.com](https://lists.ubuntu.com/mailman/listinfo/juju)
-* [juju-dev@lists.ubuntu.com](https://lists.ubuntu.com/mailman/listinfo/juju-dev)
+* [https://discourse.jujucharms.com/](https://discourse.jujucharms.com/)
