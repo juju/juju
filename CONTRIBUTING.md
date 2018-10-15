@@ -350,6 +350,14 @@ Be sure to have a look at:
 
 https://help.github.com/articles/using-pull-requests
 
+Sanity checking PRs and unit tests
+----------------------
+
+All PRs run pre-merge check - unit tests and small but representative sample of functional tests.
+This check is re-run anytime the PR changes, for example a new commit is added.
+
+You can also initiate this check by using !!build!! comment on PR.
+
 Code review
 -----------
 
