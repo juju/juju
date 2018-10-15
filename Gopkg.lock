@@ -394,11 +394,11 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:897190ff1d32412aa4e298f4f04d4ae6d5d1f18df16bb4f2bedb347a97d085bd"
+  digest = "1:835cd5922cfd2ed22a4540785e435c844699f96ca5c34b70dbf79ba2c45a3d4f"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "40b9e213be66cd7fcd4eba2448a73188e405a1c8"
+  revision = "f78aa97b9713ee80ce5be42c50ca283357ba2c5e"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
@@ -1822,6 +1822,7 @@
     "gopkg.in/goose.v2/testservices/neutronservice",
     "gopkg.in/goose.v2/testservices/novaservice",
     "gopkg.in/goose.v2/testservices/openstackservice",
+    "gopkg.in/httprequest.v1",
     "gopkg.in/ini.v1",
     "gopkg.in/juju/blobstore.v2",
     "gopkg.in/juju/charm.v6",

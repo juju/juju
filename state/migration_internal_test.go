@@ -386,9 +386,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
-		// TODO(caas)
-		"DesiredScale",
-		"Placement",
 	)
 	migrated := set.NewStrings(
 		"Name",
@@ -403,6 +400,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"MetricCredentials",
 		"PasswordHash",
 		"Tools",
+		"DesiredScale",
+		"Placement",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }

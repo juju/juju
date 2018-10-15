@@ -190,11 +190,8 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.ipaddresses(); err != nil {
 		return nil, nil, errors.Annotate(err, "ipaddresses")
 	}
-
-	if dbModel.Type() == ModelTypeIAAS {
-		if err := restore.storage(); err != nil {
-			return nil, nil, errors.Annotate(err, "storage")
-		}
+	if err := restore.storage(); err != nil {
+		return nil, nil, errors.Annotate(err, "storage")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -591,7 +588,7 @@ func (i *importer) machineVolumes(tag names.MachineTag) []string {
 	var result []string
 	for _, volume := range i.model.Volumes() {
 		for _, attachment := range volume.Attachments() {
-			if attachment.Machine() == tag {
+			if attachment.Host() == tag {
 				result = append(result, volume.Tag().Id())
 			}
 		}
@@ -603,7 +600,7 @@ func (i *importer) machineFilesystems(tag names.MachineTag) []string {
 	var result []string
 	for _, filesystem := range i.model.Filesystems() {
 		for _, attachment := range filesystem.Attachments() {
-			if attachment.Machine() == tag {
+			if attachment.Host() == tag {
 				result = append(result, filesystem.Tag().Id())
 			}
 		}
@@ -1047,6 +1044,8 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		MinUnits:             a.MinUnits(),
 		Tools:                i.makeTools(a.Tools()),
 		MetricCredentials:    a.MetricsCredentials(),
+		DesiredScale:         a.DesiredScale(),
+		Placement:            a.Placement(),
 	}, nil
 }
 
@@ -1730,7 +1729,7 @@ func (i *importer) volumes() error {
 	i.logger.Debugf("importing volumes")
 	sb, err := NewStorageBackend(i.st)
 	if err != nil {
-		return errors.NewNotSupported(err, "adding volumes to CAAS model")
+		return errors.Trace(err)
 	}
 	for _, volume := range i.model.Volumes() {
 		err := i.addVolume(volume, sb)
@@ -1776,7 +1775,7 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 	if detachable, err := isDetachableVolumePool(sb, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.HostId = attachments[0].Machine().Id()
+		doc.HostId = attachments[0].Host().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
 	ops := sb.newVolumeOps(doc, status)
@@ -1870,14 +1869,14 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 		}
 	}
 
-	machineId := attachment.Machine().Id()
+	hostId := attachment.Host().Id()
 	return txn.Op{
 		C:      volumeAttachmentsC,
-		Id:     volumeAttachmentId(machineId, volID),
+		Id:     volumeAttachmentId(hostId, volID),
 		Assert: txn.DocMissing,
 		Insert: &volumeAttachmentDoc{
 			Volume: volID,
-			Host:   machineId,
+			Host:   hostId,
 			Params: params,
 			Info:   info,
 		},
@@ -1888,7 +1887,7 @@ func (i *importer) filesystems() error {
 	i.logger.Debugf("importing filesystems")
 	sb, err := NewStorageBackend(i.st)
 	if err != nil {
-		return errors.NewNotSupported(err, "adding filesystems to CAAS model")
+		return errors.Trace(err)
 	}
 	for _, fs := range i.model.Filesystems() {
 		err := i.addFilesystem(fs, sb)
@@ -1931,7 +1930,7 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageB
 	if detachable, err := isDetachableFilesystemPool(sb, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.HostId = attachments[0].Machine().Id()
+		doc.HostId = attachments[0].Host().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
 	ops := sb.newFilesystemOps(doc, status)
@@ -1965,14 +1964,14 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 		}
 	}
 
-	machineId := attachment.Machine().Id()
+	hostId := attachment.Host().Id()
 	return txn.Op{
 		C:      filesystemAttachmentsC,
-		Id:     filesystemAttachmentId(machineId, fsID),
+		Id:     filesystemAttachmentId(hostId, fsID),
 		Assert: txn.DocMissing,
 		Insert: &filesystemAttachmentDoc{
 			Filesystem: fsID,
-			Host:       machineId,
+			Host:       hostId,
 			// Life: ..., // TODO: import life, default is Alive
 			Params: params,
 			Info:   info,

@@ -657,6 +657,30 @@ func (s *MigrationSuite) TestMinionReports(c *gc.C) {
 	c.Check(reports.Unknown, jc.SameContents, []names.Tag{m2.Tag()})
 }
 
+func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
+	// Create some machines and units to report with.
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	factory2 := factory.NewFactory(st, s.StatePool)
+	ch := factory2.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	a0 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a0", Charm: ch})
+	a1 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a1", Charm: ch})
+	a2 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a2", Charm: ch})
+
+	mig, err := st.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	const phase = migration.QUIESCE
+	c.Assert(mig.SubmitMinionReport(a0.Tag(), phase, true), jc.ErrorIsNil)
+	c.Assert(mig.SubmitMinionReport(a1.Tag(), phase, false), jc.ErrorIsNil)
+
+	reports, err := mig.MinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{a0.Tag()})
+	c.Check(reports.Failed, jc.SameContents, []names.Tag{a1.Tag()})
+	c.Check(reports.Unknown, jc.SameContents, []names.Tag{a2.Tag()})
+}
+
 func (s *MigrationSuite) TestDuplicateMinionReportsSameSuccess(c *gc.C) {
 	// It should be OK for a minion report to arrive more than once
 	// for the same migration, agent and phase as long as the value of

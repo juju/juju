@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/juju/instance"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -419,7 +420,9 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		},
 		ApplicationConfigFields: environschema.Fields{
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
-		Constraints: cons,
+		Constraints:  cons,
+		DesiredScale: 3,
+		Placement:    []*instance.Placement{{Scope: st.ModelUUID(), Directive: "foo=bar"}},
 	})
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -483,6 +486,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	if dbModel.Type() == state.ModelTypeCAAS {
 		c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
 		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
+		c.Assert(exported.DesiredScale(), gc.Equals, 3)
+		c.Assert(exported.Placement(), gc.Equals, "foo=bar")
 		addresses := exported.CloudService().Addresses()
 		addr := addresses[0]
 		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")
@@ -1306,7 +1311,7 @@ func (s *MigrationExportSuite) TestVolumeAttachmentPlansLocalDisk(c *gc.C) {
 	attachments := volume.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
@@ -1420,7 +1425,7 @@ func (s *MigrationExportSuite) TestVolumeAttachmentPlansISCSIDisk(c *gc.C) {
 	attachments := volume.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
@@ -1502,7 +1507,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	attachments := provisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
@@ -1522,7 +1527,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	attachments = notProvisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.DeviceName(), gc.Equals, "")
@@ -1580,7 +1585,7 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	attachments := provisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.MountPoint(), gc.Equals, "/mnt/foo")
@@ -1595,7 +1600,7 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	attachments = notProvisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.MountPoint(), gc.Equals, "")
