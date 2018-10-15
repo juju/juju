@@ -46,6 +46,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.model = description.NewModel(description.ModelArgs{
+		Type:               "iaas",
 		Config:             map[string]interface{}{"uuid": modelUUID},
 		Owner:              names.NewUserTag("admin"),
 		LatestToolsVersion: jujuversion.Current,
@@ -188,7 +189,22 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 
-func (s *Suite) TestExport(c *gc.C) {
+func (s *Suite) TestExportIAAS(c *gc.C) {
+	s.assertExport(c, "iaas")
+}
+
+func (s *Suite) TestExportCAAS(c *gc.C) {
+	s.model = description.NewModel(description.ModelArgs{
+		Type:               "caas",
+		Config:             map[string]interface{}{"uuid": modelUUID},
+		Owner:              names.NewUserTag("admin"),
+		LatestToolsVersion: jujuversion.Current,
+	})
+	s.backend.model = s.model
+	s.assertExport(c, "caas")
+}
+
+func (s *Suite) assertExport(c *gc.C, modelType string) {
 	app := s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
 		CharmURL: "cs:foo-0",
@@ -257,10 +273,14 @@ func (s *Suite) TestExport(c *gc.C) {
 	c.Check(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
 
 	c.Check(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
-	c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
-		{tools0, "/tools/" + tools0},
-		{tools1, "/tools/" + tools1},
-	})
+	if modelType == "caas" {
+		c.Check(serialized.Tools, gc.HasLen, 0)
+	} else {
+		c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
+			{tools0, "/tools/" + tools0},
+			{tools1, "/tools/" + tools1},
+		})
+	}
 	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
 		Application: "foo",
 		Name:        "bin",
