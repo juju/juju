@@ -1229,7 +1229,6 @@ func (s *applicationSuite) TestSetCharmProfileError(c *gc.C) {
 			return errors.New("boom")
 		},
 	)
-	//client := application.NewClient(apiCaller)
 	client := newClient(apiCaller)
 	err := client.SetCharmProfile("foo", charmstore.CharmID{
 		URL: charm.MustParseURL("local:testing-1"),

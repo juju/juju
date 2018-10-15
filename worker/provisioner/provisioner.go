@@ -403,3 +403,7 @@ func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, erro
 func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
 }
+
+func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	return p.st.WatchModelMachinesCharmProfiles()
+}
