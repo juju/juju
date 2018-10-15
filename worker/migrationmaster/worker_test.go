@@ -660,9 +660,10 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 	// See note for TestMinionWaitFailedMachine above.
 	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.facade.queueMinionReports(coremigration.MinionReports{
-		MigrationId: "model-uuid:2",
-		Phase:       coremigration.SUCCESS,
-		FailedUnits: []string{"foo/2"},
+		MigrationId:        "model-uuid:2",
+		Phase:              coremigration.SUCCESS,
+		FailedUnits:        []string{"foo/2"},
+		FailedApplications: []string{"bar"},
 	})
 
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
