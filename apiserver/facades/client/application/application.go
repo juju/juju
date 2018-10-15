@@ -707,6 +707,48 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
+// SetCharmProfile a new charm's url on deployed machines for changing the profile used
+// on those machine.
+func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
+	// TODO (hml) 3-oct-2018
+	// We should do this....
+	// when forced units in error, don't block
+	//if !args.ForceUnits {
+	//	if err := api.check.ChangeAllowed(); err != nil {
+	//		return errors.Trace(err)
+	//	}
+	//}
+
+	curl, err := charm.ParseURL(args.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, err := api.backend.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	lxdCharm, ok := ch.(charm.LXDProfiler)
+	if !ok {
+		return nil
+	}
+	profile := lxdCharm.LXDProfile()
+	if profile == nil || profile.Empty() {
+		// TODO (hml) 3-oct-2018
+		// handle case of charm did have a profile and doesn't any longer.
+		return nil
+	}
+
+	application, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return application.SetCharmProfile(args.CharmURL)
+}
+
 // GetConfig returns the charm config for each of the
 // applications asked for.
 func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {

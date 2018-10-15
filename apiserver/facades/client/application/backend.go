@@ -74,6 +74,7 @@ type Application interface {
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
 	SetExposed() error
+	SetCharmProfile(string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error

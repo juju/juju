@@ -1221,3 +1221,17 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
+
+func (s *applicationSuite) TestSetCharmProfileError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "SetCharmProfile")
+			return errors.New("boom")
+		},
+	)
+	client := newClient(apiCaller)
+	err := client.SetCharmProfile("foo", charmstore.CharmID{
+		URL: charm.MustParseURL("local:testing-1"),
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
