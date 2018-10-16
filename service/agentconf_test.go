@@ -195,7 +195,7 @@ func (s *agentConfSuite) TestFindAgentsUnexpectedTagType(c *gc.C) {
 	c.Assert(unexpectedAgents, gc.DeepEquals, []string{unexpectedAgent})
 }
 
-func (s *agentConfSuite) TestCreateAgentConf(c *gc.C) {
+func (s *agentConfSuite) TestCreateAgentConfDesc(c *gc.C) {
 	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	// Spot check Conf
