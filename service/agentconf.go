@@ -207,7 +207,7 @@ func (s *systemdServiceManager) CreateAgentConf(agentName string, dataDir string
 		kind,
 		name,
 		dataDir,
-		paths.MustSucceed(srvPath, fmt.Errorf("path %s does not exist", srvPath)))
+		srvPath)
 	return AgentConf(info, renderer), nil
 }
 
@@ -315,7 +315,7 @@ func startAgent(name string, kind AgentKind, dataDir string, series string) (err
 		kind,
 		name,
 		dataDir,
-		paths.MustSucceed(srvPath, fmt.Errorf("path %s does not exist", srvPath)),
+		srvPath,
 	)
 	conf := AgentConf(info, renderer)
 	svcName := serviceName(name)

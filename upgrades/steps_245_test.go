@@ -20,7 +20,7 @@ type steps245Suite struct {
 
 var _ = gc.Suite(&steps245Suite{})
 
-func (s *steps245Suite) TestCorrectServiceFileLogPath(c *gc.C) {
-	step := findStep(c, v245, "update exec.start.sh log path if not correct")
+func (s *steps245Suite) TestCorrectServiceLogFilePath(c *gc.C) {
+	step := findStep(c, v245, "update exec.start.sh log path if incorrect")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.AllMachines})
 }
