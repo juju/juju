@@ -36,7 +36,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
@@ -156,35 +156,105 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 	return nil
 }
 
+// func (k *kubernetesClient) prepareAgentConfig(series string, args bootstrap.BootstrapParams) (agent.ConfigSetterWriter, error) {
+// 	const machineID = "0"
+// 	cfg := k.Config()
+// 	agentVersion, _ := cfg.AgentVersion()
+
+// 	controllerCfg := args.ControllerConfig
+// 	caCert, hasCACert := controllerCfg.CACert()
+// 	if !hasCACert {
+// 		return nil, errors.New("controller configuration has no ca-cert")
+// 	}
+
+// 	dataDir, err := paths.DataDir(series)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	logDir, err := paths.LogDir(series)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
+// 	if err != nil {
+// 		return ni, errors.Annotate(err, "cannot generate controller certificate")
+// 	}
+// 	configParams := agent.AgentConfigParams{
+// 		Paths: agent.Paths{
+// 			DataDir:         dataDir,
+// 			LogDir:          path.Join(logDir, "juju"),
+// 			MetricsSpoolDir: metricsSpoolDir,
+// 		},
+// 		Jobs:              []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+// 		Tag:               names.NewUnitTag(machineID),
+// 		UpgradedToVersion: agentVersion,
+// 		Password:          args.AdminSecret,
+// 		Nonce:             agent.BootstrapNonce,
+// 		APIAddresses: []string{
+// 			net.JoinHostPort("localhost", strconv.Itoa(controllerCfg.APIPort())),
+// 		},
+// 		CACert: caCert,
+// 		Values: map[string]string{
+// 			agent.ProviderType: cfg.Type(),
+// 		},
+// 		Controller: names.NewControllerTag(controllerCfg.ControllerUUID()),
+// 		Model:      names.NewModelTag(cfg.UUID()),
+// 	}
+// 	return agent.NewStateMachineConfig(configParams, params.StateServingInfo{
+// 		StatePort:    controllerCfg.StatePort(),
+// 		APIPort:      controllerCfg.APIPort(),
+// 		Cert:         cert,
+// 		PrivateKey:   key,
+// 		CAPrivateKey: args.CAPrivateKey,
+// 	})
+// }
+
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
-	return &environs.BootstrapResult{
-		Arch:   arch.AMD64,
-		Series: "bionic",
-		Finalize: func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+	const (
+		Series = "bionic"
+		Arch   = arch.AMD64
+	)
 
-			if err := icfg.VerifyConfig(); err != nil {
+	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
+	getFinalizer := func(pcfg *podcfg.PodConfig) environs.BootstrapFinalizer {
+		return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) error {
+
+			if err := pcfg.VerifyConfig(); err != nil {
 				return errors.Trace(err)
 			}
 
 			// No need to start instance for CAAS, so do everything for bootstraping controller here.
-			logger.Criticalf("kubernetesClient Finalizer, \nctx -> %#v, \nicfg -> %#v, \nopts -> %#v", ctx, icfg, opts)
+			logger.Criticalf("kubernetesClient Finalizer, \nctx -> %#v, \npcfg -> %#v, \nopts -> %#v", ctx, pcfg, opts)
 
 			// prepare bootstrapParamsFile
-			bootstrapParamsFileContent, err := icfg.Bootstrap.StateInitializationParams.Marshal()
+			bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
 			if err != nil {
 				return errors.Trace(err)
 			}
 			logger.Criticalf("bootstrapParamsFileContent -> \n%#v", bootstrapParamsFileContent)
 
-			machineTag := names.NewMachineTag(icfg.MachineId)
-			_, err := w.addAgentInfo(machineTag)
+			machineTag := names.NewMachineTag(pcfg.MachineId)
+			acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
 			if err != nil {
 				return errors.Trace(err)
 			}
+			agentConfigFileContent, err := acfg.Render()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Criticalf("agentConfigFileContent -> \n%#v", agentConfigFileContent)
 			return nil
-		},
+		}
+	}
+	return &environs.BootstrapResult{
+		Arch:             Arch,
+		Series:           Series,
+		GetCaasFinalizer: getFinalizer,
 	}, nil
 }
 

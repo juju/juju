@@ -50,15 +50,15 @@ func Bootstrap(
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := BootstrapInstance(ctx, env, callCtx, args)
+	result, series, getFinalizer, err := BootstrapInstance(ctx, env, callCtx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:     *result.Hardware.Arch,
-		Series:   series,
-		Finalize: finalizer,
+		Arch:              *result.Hardware.Arch,
+		Series:            series,
+		GetCloudFinalizer: getFinalizer,
 	}
 	return bsResult, nil
 }
@@ -75,7 +75,12 @@ func BootstrapInstance(
 	env environs.Environ,
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
-) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
+) (
+	_ *environs.StartInstanceResult,
+	selectedSeries string,
+	_ func(*instancecfg.InstanceConfig) environs.BootstrapFinalizer,
+	err error,
+) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
@@ -233,25 +238,27 @@ func BootstrapInstance(
 	}
 	ctx.Infof(msg)
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
-		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
-		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
-		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
-		envConfig := env.Config()
-		if result.Config != nil {
-			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
-			if err != nil {
-				return errors.Trace(err)
+	getFinalizer := func(icfg *instancecfg.InstanceConfig) environs.BootstrapFinalizer {
+		return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) error {
+			icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+			icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
+			icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
+			envConfig := env.Config()
+			if result.Config != nil {
+				updated, err := envConfig.Apply(result.Config.UnknownAttrs())
+				if err != nil {
+					return errors.Trace(err)
+				}
+				envConfig = updated
 			}
-			envConfig = updated
+			if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
+				return err
+			}
+			maybeSetBridge(icfg)
+			return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 		}
-		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
-			return err
-		}
-		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 	}
-	return result, selectedSeries, finalize, nil
+	return result, selectedSeries, getFinalizer, nil
 }
 
 func startInstanceZones(env environs.Environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {

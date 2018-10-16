@@ -162,7 +162,7 @@ func (env *maasEnviron) Create(ctx context.ProviderCallContext, p environs.Creat
 
 // Bootstrap is part of the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := common.BootstrapInstance(ctx, env, callCtx, args)
+	result, series, getFinalizer, err := common.BootstrapInstance(ctx, env, callCtx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -176,22 +176,20 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 		}
 	}()
 
-	waitingFinalizer := func(
-		ctx environs.BootstrapContext,
-		icfg *instancecfg.InstanceConfig,
-		dialOpts environs.BootstrapDialOpts,
-	) error {
-		// Wait for bootstrap instance to change to deployed state.
-		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
-			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+	waitingFinalizer := func(icfg *instancecfg.InstanceConfig) environs.BootstrapFinalizer {
+		return func(ctx environs.BootstrapContext, dialOpts environs.BootstrapDialOpts) error {
+			// Wait for bootstrap instance to change to deployed state.
+			if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
+				return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+			}
+			return getFinalizer(icfg)(ctx, dialOpts)
 		}
-		return finalizer(ctx, icfg, dialOpts)
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:     *result.Hardware.Arch,
-		Series:   series,
-		Finalize: waitingFinalizer,
+		Arch:              *result.Hardware.Arch,
+		Series:            series,
+		GetCloudFinalizer: waitingFinalizer,
 	}
 	return bsResult, nil
 }

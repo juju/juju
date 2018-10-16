@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -430,22 +430,23 @@ func Bootstrap(
 		return errors.Trace(err)
 	}
 
-	publicKey, err := userPublicSigningKey()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.ControllerConfig,
-		bootstrapParams.BootstrapConstraints,
-		args.ModelConstraints,
-		result.Series,
-		publicKey,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	var newestToolVersion version.Number
+	var finalizer environs.BootstrapFinalizer
 	if !args.IsCAASController {
+		publicKey, err := userPublicSigningKey()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+			args.ControllerConfig,
+			bootstrapParams.BootstrapConstraints,
+			args.ModelConstraints,
+			result.Series,
+			publicKey,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 			Arch:   result.Arch,
@@ -467,33 +468,43 @@ func Bootstrap(
 		if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 			return errors.Trace(err)
 		}
-	} else {
-		// CAAS only has JobManageModel.
-		instanceConfig.Jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
+		var environVersion int
+		if e, ok := environ.(environs.Environ); ok {
+			environVersion = e.Provider().Version()
 		}
+		// Make sure we have the most recent environ config as the specified
+		// tools version has been updated there.
+		if err := finalizeInstanceBootstrapConfig(
+			ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
+		); err != nil {
+			return errors.Annotate(err, "finalizing bootstrap instance config")
+		}
+		finalizer = result.GetCloudFinalizer(instanceConfig)
+	} else {
+		// // CAAS only has JobManageModel.
+		// instanceConfig.Jobs = []multiwatcher.MachineJob{
+		// 	multiwatcher.JobManageModel,
+		// }
 		// TODO: ..... how to find the best/newest jujud docker image to use
-		newestToolVersion = version.MustParseBinary("2.5-beta1-bionic-amd64").Number
-	}
 
+		podConfig, err := podcfg.NewBootstrapPodConfig(
+			args.ControllerConfig,
+			result.Series,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		newestToolVersion = version.MustParseBinary("2.5-beta1-bionic-amd64").Number
+
+		finalizer = result.GetCaasFinalizer(podConfig)
+	}
 	if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
 		return errors.Trace(err)
 	}
-
-	var environVersion int
-	if e, ok := environ.(environs.Environ); ok {
-		environVersion = e.Provider().Version()
-	}
-	// Make sure we have the most recent environ config as the specified
-	// tools version has been updated there.
-	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
-	); err != nil {
-		return errors.Annotate(err, "finalizing bootstrap instance config")
-	}
-	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
+	if err := finalizer(ctx, args.DialOpts); err != nil {
 		return errors.Trace(err)
 	}
+
 	ctx.Infof("Bootstrap agent now started")
 	return nil
 }
@@ -558,6 +569,65 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
+	return nil
+}
+
+func finalizePodBootstrapConfig(
+	ctx environs.BootstrapContext,
+	pcfg *podcfg.PodConfig,
+	args BootstrapParams,
+	cfg *config.Config,
+	environVersion int,
+) error {
+	if pcfg.APIInfo != nil || pcfg.Controller.MongoInfo != nil {
+		return errors.New("machine configuration already has api/state info")
+	}
+	controllerCfg := pcfg.Controller.Config
+	caCert, hasCACert := controllerCfg.CACert()
+	if !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	pcfg.APIInfo = &api.Info{
+		Password: args.AdminSecret,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(cfg.UUID()),
+	}
+	pcfg.Controller.MongoInfo = &mongo.MongoInfo{
+		Password: args.AdminSecret,
+		Info:     mongo.Info{CACert: caCert},
+	}
+
+	// These really are directly relevant to running a controller.
+	// Initially, generate a controller certificate with no host IP
+	// addresses in the SAN field. Once the controller is up and the
+	// NIC addresses become known, the certificate can be regenerated.
+	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot generate controller certificate")
+	}
+	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+		StatePort:    controllerCfg.StatePort(),
+		APIPort:      controllerCfg.APIPort(),
+		Cert:         cert,
+		PrivateKey:   key,
+		CAPrivateKey: args.CAPrivateKey,
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return errors.New("controller model configuration has no agent-version")
+	}
+
+	pcfg.Bootstrap.ControllerModelConfig = cfg
+	pcfg.Bootstrap.ControllerModelEnvironVersion = environVersion
+	pcfg.Bootstrap.ControllerCloud = args.Cloud
+	pcfg.Bootstrap.ControllerCloudCredential = args.CloudCredential
+	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
+	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
+	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
+	// pcfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
+	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
+	// pcfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
+	// 	ctx.Infof(msg)
+	// })
 	return nil
 }
 

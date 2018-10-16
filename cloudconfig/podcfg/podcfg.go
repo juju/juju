@@ -1,0 +1,674 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package podcfg
+
+import (
+	"fmt"
+	"net"
+	"path"
+	"strconv"
+	"time"
+
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/shell"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/state/multiwatcher"
+	coretools "github.com/juju/juju/tools"
+)
+
+var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
+
+// PodConfig represents initialization information for a new juju caas unit.
+type PodConfig struct {
+	// Tags is a set of tags to set on the instance, if supported. This
+	// should be populated using the InstanceTags method in this package.
+	Tags map[string]string
+
+	// Bootstrap contains bootstrap-specific configuration. If this is set,
+	// Controller must also be set.
+	Bootstrap *BootstrapConfig
+
+	// Controller contains controller-specific configuration. If this is
+	// set, then the instance will be configured as a controller machine.
+	Controller *ControllerConfig
+
+	// APIInfo holds the means for the new instance to communicate with the
+	// juju state API. Unless the new instance is running a controller (Controller is
+	// set), there must be at least one controller address supplied.
+	// The entity name must match that of the instance being started,
+	// or be empty when starting a controller.
+	APIInfo *api.Info
+
+	// ControllerTag identifies the controller.
+	ControllerTag names.ControllerTag
+
+	// MachineNonce is set at provisioning/bootstrap time and used to
+	// ensure the agent is running on the correct instance.
+	MachineNonce string
+
+	// tools is the list of juju tools used to install the Juju agent
+	// on the new instance. Each of the entries in the list must have
+	// identical versions and hashes, but may have different URLs.
+	tools coretools.List // ???
+
+	// DataDir holds the directory that juju state will be put in the new
+	// instance.
+	DataDir string
+
+	// LogDir holds the directory that juju logs will be written to.
+	LogDir string
+
+	// MetricsSpoolDir represents the spool directory path, where all
+	// metrics are stored.
+	MetricsSpoolDir string
+
+	// Jobs holds what machine jobs to run.
+	Jobs []multiwatcher.MachineJob
+
+	// MachineId identifies the new machine.
+	MachineId string
+
+	// AgentEnvironment defines additional configuration variables to set in
+	// the instance agent config.
+	AgentEnvironment map[string]string
+
+	// Series represents the instance series.
+	Series string
+
+	// MachineAgentServiceName is the init service name for the Juju machine agent.
+	MachineAgentServiceName string
+}
+
+// ControllerConfig represents controller-specific initialization information
+// for a new juju instance. This is only relevant for controller machines.
+type ControllerConfig struct {
+	// MongoInfo holds the means for the new instance to communicate with the
+	// juju state database. Unless the new instance is running a controller
+	// (Controller is set), there must be at least one controller address supplied.
+	// The entity name must match that of the instance being started,
+	// or be empty when starting a controller.
+	MongoInfo *mongo.MongoInfo
+
+	// Config contains controller config attributes.
+	Config controller.Config
+
+	// // The public key used to sign Juju simplestreams image metadata.
+	// PublicImageSigningKey string
+}
+
+// BootstrapConfig represents bootstrap-specific initialization information
+// for a new juju instance. This is only relevant for the bootstrap machine.
+type BootstrapConfig struct {
+	StateInitializationParams
+
+	// // GUI is the Juju GUI archive to be installed in the new instance.
+	// GUI *coretools.GUIArchive  // juju OCI has GUI baked in
+
+	// Timeout is the amount of time to wait for bootstrap to complete.
+	Timeout time.Duration
+
+	// // InitialSSHHostKeys contains the initial SSH host keys to configure
+	// // on the bootstrap machine, indexed by algorithm. These will only be
+	// // valid for the initial SSH connection. The first thing we do upon
+	// // making the initial SSH connection is to replace each of these host
+	// // keys, to avoid the host keys being extracted from the metadata
+	// // service by a bad actor post-bootstrap.
+	// //
+	// // Any existing host keys on the machine with algorithms not specified
+	// // in the map will be left alone. This is important so that we do not
+	// // trample on the host keys of manually provisioned machines.
+	// InitialSSHHostKeys SSHHostKeys
+
+	// StateServingInfo holds the information for serving the state.
+	// This is only specified for bootstrap; controllers started
+	// subsequently will acquire their serving info from another
+	// server.
+	StateServingInfo params.StateServingInfo
+}
+
+// // SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
+// type SSHHostKeys struct {
+// 	// RSA, if non-nil, contains the RSA key to configure as the initial
+// 	// SSH host key.
+// 	RSA *SSHKeyPair
+// }
+
+// // SSHKeyPair is an SSH host key pair.
+// type SSHKeyPair struct {
+// 	// Private contains the private key, PEM-encoded.
+// 	Private string
+
+// 	// Public contains the public key in authorized_keys format.
+// 	Public string
+// }
+
+// StateInitializationParams contains parameters for initializing the
+// state database.
+//
+// This structure will be passed to the bootstrap agent. To do so, the
+// Marshal and Unmarshal methods must be used.
+type StateInitializationParams struct {
+	// ControllerModelConfig holds the initial controller model configuration.
+	ControllerModelConfig *config.Config
+
+	// ControllerModelEnvironVersion holds the initial controller model
+	// environ version.
+	ControllerModelEnvironVersion int
+
+	// ControllerCloud contains the properties of the cloud that Juju will
+	// be bootstrapped in.
+	ControllerCloud cloud.Cloud
+
+	// // ControllerCloudRegion is the name of the cloud region that Juju will be
+	// // bootstrapped in.
+	// ControllerCloudRegion string
+
+	// ControllerCloudCredentialName is the name of the cloud credential that
+	// Juju will be bootstrapped with.
+	ControllerCloudCredentialName string
+
+	// ControllerCloudCredential contains the cloud credential that Juju will
+	// be bootstrapped with.
+	ControllerCloudCredential *cloud.Credential
+
+	// ControllerConfig is the set of config attributes relevant
+	// to a controller.
+	ControllerConfig controller.Config
+
+	// ControllerInheritedConfig is a set of config attributes to be shared by all
+	// models managed by this controller.
+	ControllerInheritedConfig map[string]interface{}
+
+	// // RegionInheritedConfig holds region specific configuration attributes to
+	// // be shared across all models in the same controller on a particular
+	// // cloud.
+	// RegionInheritedConfig cloud.RegionConfig
+
+	// // HostedModelConfig is a set of config attributes to be overlaid
+	// // on the controller model config (Config, above) to construct the
+	// // initial hosted model config.
+	// HostedModelConfig map[string]interface{}
+
+	// // BootstrapMachineInstanceId is the instance ID of the bootstrap
+	// // machine instance being initialized.
+	// BootstrapMachineInstanceId instance.Id
+
+	// // BootstrapMachineConstraints holds the constraints for the bootstrap
+	// // machine.
+	// BootstrapMachineConstraints constraints.Value
+
+	// // BootstrapMachineHardwareCharacteristics contains the harrdware
+	// // characteristics of the bootstrap machine instance being initialized.
+	// BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics
+
+	// ModelConstraints holds the initial model constraints.
+	ModelConstraints constraints.Value
+
+	// // CustomImageMetadata is optional custom simplestreams image metadata
+	// // to store in environment storage at bootstrap time. This is ignored
+	// // in non-bootstrap instances.
+	// CustomImageMetadata []*imagemetadata.ImageMetadata
+}
+
+type stateInitializationParamsInternal struct {
+	ControllerConfig              map[string]interface{} `yaml:"controller-config"`
+	ControllerModelConfig         map[string]interface{} `yaml:"controller-model-config"`
+	ControllerModelEnvironVersion int                    `yaml:"controller-model-version"`
+	ControllerInheritedConfig     map[string]interface{} `yaml:"controller-config-defaults,omitempty"`
+	// RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
+	// HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	// BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
+	// BootstrapMachineConstraints constraints.Value `yaml:"bootstrap-machine-constraints"`
+	// BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
+	ModelConstraints constraints.Value `yaml:"model-constraints"`
+	// CustomImageMetadataJSON string            `yaml:"custom-image-metadata,omitempty"`
+	ControllerCloud string `yaml:"controller-cloud"`
+	// ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
+	ControllerCloudCredentialName string            `yaml:"controller-cloud-credential-name,omitempty"`
+	ControllerCloudCredential     *cloud.Credential `yaml:"controller-cloud-credential,omitempty"`
+}
+
+// Marshal marshals StateInitializationParams to an opaque byte array.
+func (p *StateInitializationParams) Marshal() ([]byte, error) {
+	controllerCloud, err := cloud.MarshalCloud(p.ControllerCloud)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling cloud definition")
+	}
+	internal := stateInitializationParamsInternal{
+		ControllerConfig:              p.ControllerConfig,
+		ControllerModelConfig:         p.ControllerModelConfig.AllAttrs(),
+		ControllerModelEnvironVersion: p.ControllerModelEnvironVersion,
+		ControllerInheritedConfig:     p.ControllerInheritedConfig,
+		ModelConstraints:              p.ModelConstraints,
+		ControllerCloud:               string(controllerCloud),
+		ControllerCloudCredentialName: p.ControllerCloudCredentialName,
+		ControllerCloudCredential:     p.ControllerCloudCredential,
+		// p.RegionInheritedConfig,
+		// p.HostedModelConfig,
+		// p.BootstrapMachineInstanceId,
+		// p.BootstrapMachineConstraints,
+		// p.BootstrapMachineHardwareCharacteristics,
+		// string(customImageMetadataJSON),
+		// p.ControllerCloudRegion,
+	}
+	return yaml.Marshal(&internal)
+}
+
+// Unmarshal unmarshals StateInitializationParams from a byte array that
+// was generated with StateInitializationParams.Marshal.
+func (p *StateInitializationParams) Unmarshal(data []byte) error {
+	var internal stateInitializationParamsInternal
+	if err := yaml.Unmarshal(data, &internal); err != nil {
+		return errors.Annotate(err, "unmarshalling state initialization params")
+	}
+	// var imageMetadata []*imagemetadata.ImageMetadata
+	// if err := json.Unmarshal([]byte(internal.CustomImageMetadataJSON), &imageMetadata); err != nil {
+	// 	return errors.Trace(err)
+	// }
+	cfg, err := config.New(config.NoDefaults, internal.ControllerModelConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerCloud, err := cloud.UnmarshalCloud([]byte(internal.ControllerCloud))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	*p = StateInitializationParams{
+		ControllerConfig:              internal.ControllerConfig,
+		ControllerModelConfig:         cfg,
+		ControllerModelEnvironVersion: internal.ControllerModelEnvironVersion,
+		ControllerInheritedConfig:     internal.ControllerInheritedConfig,
+		// RegionInheritedConfig:                   internal.RegionInheritedConfig,
+		// HostedModelConfig:                       internal.HostedModelConfig,
+		// BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
+		// BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
+		// BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
+		ModelConstraints: internal.ModelConstraints,
+		// CustomImageMetadata:                     imageMetadata,
+		ControllerCloud: controllerCloud,
+		// ControllerCloudRegion:                   internal.ControllerCloudRegion,
+		ControllerCloudCredentialName: internal.ControllerCloudCredentialName,
+		ControllerCloudCredential:     internal.ControllerCloudCredential,
+	}
+	return nil
+}
+
+func (cfg *PodConfig) agentInfo() service.AgentInfo {
+	return service.NewMachineAgentInfo(
+		cfg.MachineId,
+		cfg.DataDir,
+		cfg.LogDir,
+	)
+}
+
+func (cfg *PodConfig) ToolsDir(renderer shell.Renderer) string {
+	return cfg.agentInfo().ToolsDir(renderer)
+}
+
+func (cfg *PodConfig) AgentConfig(
+	tag names.Tag,
+	toolsVersion version.Number,
+) (agent.ConfigSetterWriter, error) {
+	var password, cacert string
+	if cfg.Controller == nil {
+		password = cfg.APIInfo.Password
+		cacert = cfg.APIInfo.CACert
+	} else {
+		password = cfg.Controller.MongoInfo.Password
+		cacert = cfg.Controller.MongoInfo.CACert
+	}
+	configParams := agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir:         cfg.DataDir,
+			LogDir:          cfg.LogDir,
+			MetricsSpoolDir: cfg.MetricsSpoolDir,
+		},
+		Jobs:              cfg.Jobs,
+		Tag:               tag,
+		UpgradedToVersion: toolsVersion,
+		Password:          password,
+		Nonce:             cfg.MachineNonce,
+		APIAddresses:      cfg.APIHostAddrs(),
+		CACert:            cacert,
+		Values:            cfg.AgentEnvironment,
+		Controller:        cfg.ControllerTag,
+		Model:             cfg.APIInfo.ModelTag,
+	}
+	// always controller
+	// if cfg.Bootstrap == nil {
+	// 	return agent.NewAgentConfig(configParams)
+	// }
+	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
+}
+
+// JujuTools returns the directory where Juju tools are stored.
+func (cfg *PodConfig) JujuTools() string {
+	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
+}
+
+// // GUITools returns the directory where the Juju GUI release is stored.
+// func (cfg *PodConfig) GUITools() string {
+// 	return agenttools.SharedGUIDir(cfg.DataDir)
+// }
+
+func (cfg *PodConfig) stateHostAddrs() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, net.JoinHostPort(
+			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
+		)
+	}
+	if cfg.Controller != nil {
+		hosts = append(hosts, cfg.Controller.MongoInfo.Addrs...)
+	}
+	return hosts
+}
+
+func (cfg *PodConfig) APIHostAddrs() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, net.JoinHostPort(
+			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort)),
+		)
+	}
+	if cfg.APIInfo != nil {
+		hosts = append(hosts, cfg.APIInfo.Addrs...)
+	}
+	return hosts
+}
+
+func (cfg *PodConfig) APIHosts() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, "localhost")
+	}
+	if cfg.APIInfo != nil {
+		for _, addr := range cfg.APIInfo.Addrs {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				logger.Errorf("Can't split API address %q to host:port - %q", host, err)
+				continue
+			}
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
+}
+
+// AgentVersion returns the version of the Juju agent that will be configured
+// on the instance. The zero value will be returned if there are no tools set.
+func (cfg *PodConfig) AgentVersion() version.Binary {
+	if len(cfg.tools) == 0 {
+		return version.Binary{}
+	}
+	return cfg.tools[0].Version
+}
+
+type requiresError string
+
+func (e requiresError) Error() string {
+	return "invalid machine configuration: missing " + string(e)
+}
+
+// VerifyConfig verifies that the PodConfig is valid.
+func (cfg *PodConfig) VerifyConfig() (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
+	if !names.IsValidMachine(cfg.MachineId) {
+		return errors.New("invalid machine id")
+	}
+	if cfg.DataDir == "" {
+		return errors.New("missing var directory")
+	}
+	if cfg.LogDir == "" {
+		return errors.New("missing log directory")
+	}
+	if cfg.MetricsSpoolDir == "" {
+		return errors.New("missing metrics spool directory")
+	}
+	if len(cfg.Jobs) == 0 {
+		return errors.New("missing machine jobs")
+	}
+	if cfg.tools == nil {
+		// SetTools() has never been called successfully.
+		return errors.New("missing agent binaries")
+	}
+	// We don't need to check cfg.toolsURLs since SetTools() does.
+	if cfg.APIInfo == nil {
+		return errors.New("missing API info")
+	}
+	if cfg.APIInfo.ModelTag.Id() == "" {
+		return errors.New("missing model tag")
+	}
+	if len(cfg.APIInfo.CACert) == 0 {
+		return errors.New("missing API CA certificate")
+	}
+	if cfg.MachineAgentServiceName == "" {
+		return errors.New("missing machine agent service name")
+	}
+	if cfg.MachineNonce == "" {
+		return errors.New("missing machine nonce")
+	}
+	if cfg.Controller != nil {
+		if err := cfg.verifyControllerConfig(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if cfg.Bootstrap != nil {
+		if err := cfg.verifyBootstrapConfig(); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
+			return errors.New("API entity tag must match started machine")
+		}
+		if len(cfg.APIInfo.Addrs) == 0 {
+			return errors.New("missing API hosts")
+		}
+	}
+	return nil
+}
+
+func (cfg *PodConfig) verifyBootstrapConfig() (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid bootstrap configuration")
+	if cfg.Controller == nil {
+		return errors.New("bootstrap config supplied without controller config")
+	}
+	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
+		return errors.Trace(err)
+	}
+	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
+		return errors.New("entity tag must be nil when bootstrapping")
+	}
+	return nil
+}
+
+func (cfg *PodConfig) verifyControllerConfig() (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid controller configuration")
+	if err := cfg.Controller.VerifyConfig(); err != nil {
+		return errors.Trace(err)
+	}
+	if cfg.Bootstrap == nil {
+		if len(cfg.Controller.MongoInfo.Addrs) == 0 {
+			return errors.New("missing state hosts")
+		}
+		if cfg.Controller.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
+			return errors.New("entity tag must match started machine")
+		}
+	}
+	return nil
+}
+
+// VerifyConfig verifies that the BootstrapConfig is valid.
+func (cfg *BootstrapConfig) VerifyConfig() (err error) {
+	if cfg.ControllerModelConfig == nil {
+		return errors.New("missing model configuration")
+	}
+	if len(cfg.StateServingInfo.Cert) == 0 {
+		return errors.New("missing controller certificate")
+	}
+	if len(cfg.StateServingInfo.PrivateKey) == 0 {
+		return errors.New("missing controller private key")
+	}
+	if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
+		return errors.New("missing ca cert private key")
+	}
+	if cfg.StateServingInfo.StatePort == 0 {
+		return errors.New("missing state port")
+	}
+	if cfg.StateServingInfo.APIPort == 0 {
+		return errors.New("missing API port")
+	}
+	return nil
+}
+
+// VerifyConfig verifies that the ControllerConfig is valid.
+func (cfg *ControllerConfig) VerifyConfig() error {
+	if cfg.MongoInfo == nil {
+		return errors.New("missing state info")
+	}
+	if len(cfg.MongoInfo.CACert) == 0 {
+		return errors.New("missing CA certificate")
+	}
+	return nil
+}
+
+// DefaultBridgeName is the network bridge device name used for LXC and KVM
+// containers
+const DefaultBridgeName = "br-eth0"
+
+// NewPodConfig sets up a basic machine configuration, for a
+// non-bootstrap node. You'll still need to supply more information,
+// but this takes care of the fixed entries and the ones that are
+// always needed.
+func NewPodConfig(
+	controllerTag names.ControllerTag,
+	machineID,
+	machineNonce,
+	imageStream,
+	series string,
+	apiInfo *api.Info,
+) (*PodConfig, error) {
+	dataDir, err := paths.DataDir(series)
+	if err != nil {
+		return nil, err
+	}
+	logDir, err := paths.LogDir(series)
+	if err != nil {
+		return nil, err
+	}
+	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
+	if err != nil {
+		return nil, err
+	}
+	pcfg := &PodConfig{
+		// Fixed entries.
+		DataDir:         dataDir,
+		LogDir:          path.Join(logDir, "juju"),
+		MetricsSpoolDir: metricsSpoolDir,
+		// CAAS only has JobManageModel.
+		Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
+		Series:                  series,
+		Tags:                    map[string]string{},
+
+		// Parameter entries.
+		ControllerTag: controllerTag,
+		MachineId:     machineID,
+		MachineNonce:  machineNonce,
+		APIInfo:       apiInfo,
+	}
+	return pcfg, nil
+}
+
+// NewBootstrapPodConfig sets up a basic machine configuration for a
+// bootstrap node.  You'll still need to supply more information, but this
+// takes care of the fixed entries and the ones that are always needed.
+func NewBootstrapPodConfig(
+	config controller.Config,
+	series string,
+) (*PodConfig, error) {
+	// For a bootstrap instance, the caller must provide the state.Info
+	// and the api.Info. The machine id must *always* be "0".
+	pcfg, err := NewPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, "", series, nil)
+	if err != nil {
+		return nil, err
+	}
+	pcfg.Controller = &ControllerConfig{}
+	pcfg.Controller.Config = make(map[string]interface{})
+	for k, v := range config {
+		pcfg.Controller.Config[k] = v
+	}
+	pcfg.Jobs = []multiwatcher.MachineJob{
+		multiwatcher.JobManageModel,
+	}
+	return pcfg, nil
+}
+
+// PopulatePodConfig is called both from the FinishPodConfig below,
+// which does have access to the environment config, and from the container
+// provisioners, which don't have access to the environment config. Everything
+// that is needed to provision a container needs to be returned to the
+// provisioner in the ContainerConfig structure. Those values are then used to
+// call this function.
+func PopulatePodConfig(pcfg *PodConfig, providerType string) error {
+	if pcfg.AgentEnvironment == nil {
+		pcfg.AgentEnvironment = make(map[string]string)
+	}
+	pcfg.AgentEnvironment[agent.ProviderType] = providerType
+	return nil
+}
+
+// FinishPodConfig sets fields on a PodConfig that can be determined by
+// inspecting a plain config.Config and the machine constraints at the last
+// moment before creating the user-data. It assumes that the supplied Config comes
+// from an environment that has passed through all the validation checks in the
+// Bootstrap func, and that has set an agent-version (via finding the tools to,
+// use for bootstrap, or otherwise).
+// TODO(fwereade) This function is not meant to be "good" in any serious way:
+// it is better that this functionality be collected in one place here than
+// that it be spread out across 3 or 4 providers, but this is its only
+// redeeming feature.
+func FinishPodConfig(pcfg *PodConfig, cfg *config.Config) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
+	if err := PopulatePodConfig(pcfg, cfg.Type()); err != nil {
+		return errors.Trace(err)
+	}
+	if pcfg.Controller != nil {
+		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
+		// Only makes sense for controller
+		logger.Debugf("Setting numa ctl preference to %v", pcfg.Controller.Config.NUMACtlPreference())
+		// Unfortunately, AgentEnvironment can only take strings as values
+		pcfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", pcfg.Controller.Config.NUMACtlPreference())
+	}
+	return nil
+}
+
+// // InstanceTags returns the minimum set of tags that should be set on a
+// // machine instance, if the provider supports them.
+// func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
+// 	instanceTags := tags.ResourceTags(
+// 		names.NewModelTag(modelUUID),
+// 		names.NewControllerTag(controllerUUID),
+// 		tagger,
+// 	)
+// 	if multiwatcher.AnyJobNeedsState(jobs...) {
+// 		instanceTags[tags.JujuIsController] = "true"
+// 	}
+// 	return instanceTags
+// }

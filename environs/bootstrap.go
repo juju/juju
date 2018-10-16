@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -64,7 +65,7 @@ type BootstrapParams struct {
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
 // The caller must pass a InstanceConfig with the Tools field set.
-type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig, BootstrapDialOpts) error
+type BootstrapFinalizer func(BootstrapContext, BootstrapDialOpts) error
 
 // BootstrapDialOpts contains the options for the synchronous part of the
 // bootstrap procedure, where the CLI connects to the bootstrap machine
@@ -91,10 +92,13 @@ type BootstrapResult struct {
 	// Series is the instance's series.
 	Series string
 
-	// Finalize is a function that must be called to finalize the
+	// GetCloudFinalizer is a function that must be called to get the finalizer function to finalize the
 	// bootstrap process by transferring the tools and installing the
 	// initial Juju controller.
-	Finalize BootstrapFinalizer
+	GetCloudFinalizer func(*instancecfg.InstanceConfig) BootstrapFinalizer
+
+	// GetCaasFinalizer is the finalizer getter for caas.
+	GetCaasFinalizer func(*podcfg.PodConfig) BootstrapFinalizer
 }
 
 // BootstrapContext is an interface that is passed to
