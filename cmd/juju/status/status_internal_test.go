@@ -3395,6 +3395,8 @@ var statusTests = []testCase{
 	),
 	test( // 27
 		"application with lxd profiles",
+		// TODO (simon): remove skipTestOnWindows when we remove the feature
+		// flag for lxd profile - featureflag.LXDProfile
 		skipTestOnWindows{},
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
