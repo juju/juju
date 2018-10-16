@@ -368,7 +368,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewShowCommand())
 
 	r.Register(newMigrateCommand())
-    r.Register(model.NewExportBundleCommand())
+	r.Register(model.NewExportBundleCommand())
 
 	if featureflag.Enabled(feature.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
