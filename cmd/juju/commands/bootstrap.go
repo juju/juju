@@ -526,6 +526,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	var environ environs.BootstrapEnviron
 	if bootstrapParams.IsCAASController {
+		if !featureflag.Enabled(feature.DeveloperMode) {
+			return errors.NotSupportedf("bootstrap to kubernetes cluster")
+		}
+
 		// bootstrap to k8s cluster
 		if environ, err = bootstrapPrepareCAAS(
 			bootstrapCtx, store, bootstrapPrepareParams,
