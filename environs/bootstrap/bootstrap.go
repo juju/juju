@@ -463,6 +463,10 @@ func Bootstrap(
 		// Note that this only is relevant if a specific agent version has not been requested, since
 		// in that case the specific version will be the only version available.
 		newestToolVersion, _ = matchingTools.Newest()
+		// set agent version before finalizing bootstrap config
+		if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
+			return errors.Trace(err)
+		}
 
 		ctx.Infof("Installing Juju agent on bootstrap instance")
 		if err := instanceConfig.SetTools(selectedToolsList); err != nil {
@@ -494,13 +498,26 @@ func Bootstrap(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newestToolVersion = version.MustParseBinary("2.5-beta1-bionic-amd64").Number
-
+		newestTool := version.MustParseBinary("2.5-beta1-bionic-amd64")
+		// set agent version before finalizing bootstrap config
+		if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {
+			return errors.Trace(err)
+		}
+		if err := podConfig.SetTools(
+			coretools.List{
+				&coretools.Tools{
+					Version: newestTool,
+					URL:     "",
+					Size:    0,
+				}}); err != nil {
+			return errors.Trace(err)
+		}
+		if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
+			return errors.Annotate(err, "finalizing bootstrap instance config")
+		}
 		finalizer = result.GetCaasFinalizer(podConfig)
 	}
-	if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
-		return errors.Trace(err)
-	}
+
 	if err := finalizer(ctx, args.DialOpts); err != nil {
 		return errors.Trace(err)
 	}
@@ -577,7 +594,6 @@ func finalizePodBootstrapConfig(
 	pcfg *podcfg.PodConfig,
 	args BootstrapParams,
 	cfg *config.Config,
-	environVersion int,
 ) error {
 	if pcfg.APIInfo != nil || pcfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
@@ -617,7 +633,6 @@ func finalizePodBootstrapConfig(
 	}
 
 	pcfg.Bootstrap.ControllerModelConfig = cfg
-	pcfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	pcfg.Bootstrap.ControllerCloud = args.Cloud
 	pcfg.Bootstrap.ControllerCloudCredential = args.CloudCredential
 	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName

@@ -223,6 +223,10 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
 	getFinalizer := func(pcfg *podcfg.PodConfig) environs.BootstrapFinalizer {
 		return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) error {
+			envConfig := k.Config()
+			if err := podcfg.FinishPodConfig(pcfg, envConfig); err != nil {
+				return errors.Trace(err)
+			}
 
 			if err := pcfg.VerifyConfig(); err != nil {
 				return errors.Trace(err)
@@ -236,7 +240,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Criticalf("bootstrapParamsFileContent -> \n%#v", bootstrapParamsFileContent)
+			logger.Criticalf("bootstrapParamsFileContent -> \n%s", string(bootstrapParamsFileContent))
 
 			machineTag := names.NewMachineTag(pcfg.MachineId)
 			acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
@@ -247,7 +251,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Criticalf("agentConfigFileContent -> \n%#v", agentConfigFileContent)
+			logger.Criticalf("agentConfigFileContent -> \n%s", string(agentConfigFileContent))
 			return nil
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -167,9 +168,9 @@ type StateInitializationParams struct {
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
-	// ControllerModelEnvironVersion holds the initial controller model
-	// environ version.
-	ControllerModelEnvironVersion int
+	// // ControllerModelEnvironVersion holds the initial controller model
+	// // environ version.
+	// ControllerModelEnvironVersion int
 
 	// ControllerCloud contains the properties of the cloud that Juju will
 	// be bootstrapped in.
@@ -227,10 +228,10 @@ type StateInitializationParams struct {
 }
 
 type stateInitializationParamsInternal struct {
-	ControllerConfig              map[string]interface{} `yaml:"controller-config"`
-	ControllerModelConfig         map[string]interface{} `yaml:"controller-model-config"`
-	ControllerModelEnvironVersion int                    `yaml:"controller-model-version"`
-	ControllerInheritedConfig     map[string]interface{} `yaml:"controller-config-defaults,omitempty"`
+	ControllerConfig      map[string]interface{} `yaml:"controller-config"`
+	ControllerModelConfig map[string]interface{} `yaml:"controller-model-config"`
+	// ControllerModelEnvironVersion int                    `yaml:"controller-model-version"`
+	ControllerInheritedConfig map[string]interface{} `yaml:"controller-config-defaults,omitempty"`
 	// RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	// HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
 	// BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
@@ -251,9 +252,9 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
 	internal := stateInitializationParamsInternal{
-		ControllerConfig:              p.ControllerConfig,
-		ControllerModelConfig:         p.ControllerModelConfig.AllAttrs(),
-		ControllerModelEnvironVersion: p.ControllerModelEnvironVersion,
+		ControllerConfig:      p.ControllerConfig,
+		ControllerModelConfig: p.ControllerModelConfig.AllAttrs(),
+		// ControllerModelEnvironVersion: p.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:     p.ControllerInheritedConfig,
 		ModelConstraints:              p.ModelConstraints,
 		ControllerCloud:               string(controllerCloud),
@@ -290,10 +291,10 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		return errors.Trace(err)
 	}
 	*p = StateInitializationParams{
-		ControllerConfig:              internal.ControllerConfig,
-		ControllerModelConfig:         cfg,
-		ControllerModelEnvironVersion: internal.ControllerModelEnvironVersion,
-		ControllerInheritedConfig:     internal.ControllerInheritedConfig,
+		ControllerConfig:      internal.ControllerConfig,
+		ControllerModelConfig: cfg,
+		// ControllerModelEnvironVersion: internal.ControllerModelEnvironVersion,
+		ControllerInheritedConfig: internal.ControllerInheritedConfig,
 		// RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		// HostedModelConfig:                       internal.HostedModelConfig,
 		// BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
@@ -412,12 +413,44 @@ func (cfg *PodConfig) APIHosts() []string {
 }
 
 // AgentVersion returns the version of the Juju agent that will be configured
-// on the instance. The zero value will be returned if there are no tools set.
+// on the instance.
 func (cfg *PodConfig) AgentVersion() version.Binary {
 	if len(cfg.tools) == 0 {
 		return version.Binary{}
 	}
 	return cfg.tools[0].Version
+}
+
+func (cfg *PodConfig) SetTools(toolsList coretools.List) error {
+	if len(toolsList) == 0 {
+		return errors.New("need at least 1 agent binary")
+	}
+	var tools *coretools.Tools
+	for _, listed := range toolsList {
+		if listed == nil {
+			return errors.New("nil entry in agent binaries list")
+		}
+		info := *listed
+		info.URL = ""
+		if tools == nil {
+			tools = &info
+			continue
+		}
+		if !reflect.DeepEqual(info, *tools) {
+			return errors.Errorf("agent binary info mismatch (%v, %v)", *tools, info)
+		}
+	}
+	cfg.tools = copyToolsList(toolsList)
+	return nil
+}
+
+func copyToolsList(in coretools.List) coretools.List {
+	out := make(coretools.List, len(in))
+	for i, tools := range in {
+		copied := *tools
+		out[i] = &copied
+	}
+	return out
 }
 
 type requiresError string
@@ -613,6 +646,9 @@ func NewBootstrapPodConfig(
 	pcfg.Controller.Config = make(map[string]interface{})
 	for k, v := range config {
 		pcfg.Controller.Config[k] = v
+	}
+	pcfg.Bootstrap = &BootstrapConfig{
+		StateInitializationParams: StateInitializationParams{},
 	}
 	pcfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
