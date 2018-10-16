@@ -679,7 +679,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying application")
 	repoDir := c.MkDir()
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)
+	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)

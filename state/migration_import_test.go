@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -443,7 +444,9 @@ func (s *MigrationImportSuite) setupSourceApplications(
 		},
 		ApplicationConfigFields: environschema.Fields{
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
-		Constraints: cons,
+		Constraints:  cons,
+		DesiredScale: 3,
+		Placement:    []*instance.Placement{{Scope: st.ModelUUID(), Directive: "foo=bar"}},
 	})
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -455,6 +458,9 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
 	err = model.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	if model.Type() == state.ModelTypeCAAS {
+		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+	}
 	s.primeStatusHistory(c, application, status.Active, 5)
 	return charm, application, pwd
 }
@@ -582,6 +588,8 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudService.ProviderId(), gc.Equals, "provider-id")
 	c.Assert(cloudService.Addresses(), jc.DeepEquals, []network.Address{addr})
+	c.Assert(newApp.GetScale(), gc.Equals, 3)
+	c.Assert(newApp.GetPlacement(), gc.Equals, "foo=bar")
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {

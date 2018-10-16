@@ -78,6 +78,7 @@ func NewProvisionerTask(
 	toolsFinder ToolsFinder,
 	machineWatcher watcher.StringsWatcher,
 	retryWatcher watcher.NotifyWatcher,
+	profileWatcher watcher.StringsWatcher,
 	broker environs.InstanceBroker,
 	auth authentication.AuthenticationProvider,
 	imageStream string,
@@ -91,6 +92,7 @@ func NewProvisionerTask(
 		retryChanges = retryWatcher.Changes()
 		workers = append(workers, retryWatcher)
 	}
+	profileChanges := profileWatcher.Changes()
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
 		machineTag:                 machineTag,
@@ -99,6 +101,7 @@ func NewProvisionerTask(
 		toolsFinder:                toolsFinder,
 		machineChanges:             machineChanges,
 		retryChanges:               retryChanges,
+		profileChanges:             profileChanges,
 		broker:                     broker,
 		auth:                       auth,
 		harvestMode:                harvestMode,
@@ -134,6 +137,7 @@ type provisionerTask struct {
 	toolsFinder                ToolsFinder
 	machineChanges             watcher.StringsChannel
 	retryChanges               watcher.NotifyChannel
+	profileChanges             watcher.StringsChannel
 	broker                     environs.InstanceBroker
 	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider
@@ -201,6 +205,13 @@ func (task *provisionerTask) loop() error {
 		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return errors.Annotate(err, "failed to process machines with transient errors")
+			}
+		case ids, ok := <-task.profileChanges:
+			if !ok {
+				return errors.New("profile watcher closed channel")
+			}
+			if err := task.processProfileChanges(ids); err != nil {
+				return errors.Annotate(err, "failed to process updated charm profiles")
 			}
 		}
 	}
@@ -315,6 +326,13 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
+}
+
+func (task *provisionerTask) processProfileChanges(ids []string) error {
+	// TODO hml 2018-10-10
+	// Change to Tracef when function implemented
+	logger.Debugf("processProfileChanges(%v)", ids)
+	return nil
 }
 
 func instanceIds(instances []instance.Instance) []string {
@@ -1140,6 +1158,7 @@ func (task *provisionerTask) startMachine(
 		networkConfig,
 		volumes,
 		volumeNameToAttachmentInfo,
+		startInstanceParams.CharmLXDProfiles,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {

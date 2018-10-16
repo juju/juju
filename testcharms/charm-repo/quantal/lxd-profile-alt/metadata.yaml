@@ -1,0 +1,19 @@
+name: lxd-profile-alt
+summary: start a juju machine with a lxd profile
+maintainer: Juju QA
+description: |
+  Run an Ubuntu system, with the given lxd-profile
+provides:
+  ubuntu:
+    interface: ubuntu
+extra-bindings:
+  another:
+tags:
+  # https://jujucharms.com/docs/stable/authors-charm-metadata
+  - misc
+  - application_development
+subordinate: false
+series:
+  - bionic
+  - xenial
+  - quantal

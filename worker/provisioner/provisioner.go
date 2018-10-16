@@ -40,6 +40,7 @@ type Provisioner interface {
 	worker.Worker
 	getMachineWatcher() (watcher.StringsWatcher, error)
 	getRetryWatcher() (watcher.NotifyWatcher, error)
+	getProfileWatcher() (watcher.StringsWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -150,6 +151,10 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
+	profileWatcher, err := p.getProfileWatcher()
+	if err != nil && !errors.IsNotImplemented(err) {
+		return nil, err
+	}
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
@@ -175,6 +180,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		p.toolsFinder,
 		machineWatcher,
 		retryWatcher,
+		profileWatcher,
 		p.broker,
 		auth,
 		modelCfg.ImageStream(),
@@ -271,6 +277,10 @@ func (p *environProvisioner) getMachineWatcher() (watcher.StringsWatcher, error)
 
 func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return p.st.WatchMachineErrorRetry()
+}
+
+func (p *environProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	return p.st.WatchModelMachinesCharmProfiles()
 }
 
 // setConfig updates the environment configuration and notifies
@@ -392,4 +402,8 @@ func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, erro
 
 func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
+}
+
+func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	return p.st.WatchModelMachinesCharmProfiles()
 }

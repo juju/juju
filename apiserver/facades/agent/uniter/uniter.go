@@ -2565,7 +2565,7 @@ func (u *UniterAPI) goalStateResult(application *state.Application) (*params.Goa
 		return nil, err
 	}
 	if allRelations != nil {
-		gs.Relations, err = u.goalStateRelations(allRelations)
+		gs.Relations, err = u.goalStateRelations(application.Name(), allRelations)
 		if err != nil {
 			return nil, err
 		}
@@ -2574,11 +2574,15 @@ func (u *UniterAPI) goalStateResult(application *state.Application) (*params.Goa
 }
 
 // goalStateRelations creates the structure with all the relations between endpoints in an application.
-func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateRelations(appName string, allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
 
 	result := map[string]params.UnitsGoalState{}
 
 	for _, r := range allRelations {
+		statusInfo, err := r.Status()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting relation status")
+		}
 		endPoints := r.Endpoints()
 		for _, e := range endPoints {
 			if e.Relation.Role == "peer" {
@@ -2604,11 +2608,13 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 			} else {
 				return nil, err
 			}
-			goalState := params.GoalStateStatus{}
-			statusInfo, err := r.Status()
-			if err != nil {
-				return nil, errors.Annotate(err, "getting relation status")
+
+			// We don't show units for the same application as we are currently processing.
+			if key == appName {
+				continue
 			}
+
+			goalState := params.GoalStateStatus{}
 			goalState.Status = statusInfo.Status.String()
 			goalState.Since = statusInfo.Since
 			relationGoalState := result[e.Name]
@@ -2616,6 +2622,18 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 				relationGoalState = params.UnitsGoalState{}
 			}
 			relationGoalState[key] = goalState
+
+			// For local applications, add in the status of units as well.
+			if application != nil {
+				units, err := u.goalStateUnits(application)
+				if err != nil {
+					return nil, err
+				}
+				for unitName, unitGS := range units {
+					relationGoalState[unitName] = unitGS
+				}
+			}
+
 			result[e.Name] = relationGoalState
 		}
 	}

@@ -141,6 +141,15 @@ type machineDoc struct {
 	// StopMongoUntilVersion holds the version that must be checked to
 	// know if mongo must be stopped.
 	StopMongoUntilVersion string `bson:",omitempty"`
+
+	// UpgradeCharmProfileApplication holds the name of the application where there
+	// is an charm upgrade event and a charm profile.
+	UpgradeCharmProfileApplication string `bson:",omitempty"`
+
+	// UpgradeCharmProfileCharmURL holds the charm URL when there is an charm
+	// upgrade event with a charm profile.  This is used before the application
+	// contains the new charm URL during a charm upgrade.
+	UpgradeCharmProfileCharmURL string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -212,6 +221,10 @@ type instanceData struct {
 	// KeepInstance is set to true if, on machine removal from Juju,
 	// the cloud instance should be retained.
 	KeepInstance bool `bson:"keep-instance,omitempty"`
+
+	// CharmProfiles contains the names of LXD profiles used by this machine.
+	// Profiles would have been defined in the charm deployed to this machine.
+	CharmProfiles []string `bson:"charm-profiles,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -300,6 +313,54 @@ func (m *Machine) KeepInstance() (bool, error) {
 		return false, err
 	}
 	return instData.KeepInstance, nil
+}
+
+// CharmProfiles returns the names of any LXD profiles used by the machine,
+// which were defined in the charm deployed to that machine.
+func (m *Machine) CharmProfiles() ([]string, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if errors.IsNotFound(err) {
+		err = errors.NotProvisionedf("machine %v", m.Id())
+	}
+	if err != nil {
+		return nil, err
+	}
+	return instData.CharmProfiles, nil
+}
+
+// SetCharmProfiles sets the names of the charm profiles used on a machine
+// in its instanceData.
+func (m *Machine) SetCharmProfiles(profiles []string) error {
+	if len(profiles) == 0 {
+		return nil
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Exit early if the Machine profiles doesn't need to change.
+		mProfiles, err := m.CharmProfiles()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		mProfilesSet := set.NewStrings(mProfiles...)
+		if mProfilesSet.Union(set.NewStrings(profiles...)).Size() == mProfilesSet.Size() {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		ops := []txn.Op{{
+			C:      instanceDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"charm-profiles", profiles}}}},
+		}}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
 }
 
 // WantsVote reports whether the machine is a controller
@@ -1194,7 +1255,8 @@ func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
 	if spaces == nil || len(*spaces) == 0 {
 		return nil, nil
 	}
-	return parseDelimitedValues(*spaces)
+	positive, negative := parseDelimitedValues(*spaces)
+	return positive, negative
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints
@@ -1327,14 +1389,15 @@ func (m *Machine) SetProvisioned(
 	return fmt.Errorf("already set")
 }
 
-// SetInstanceInfo is used to provision a machine and in one steps set it's
+// SetInstanceInfo is used to provision a machine and in one step sets it's
 // instance id, nonce, hardware characteristics, add link-layer devices and set
-// their addresses as needed.
+// their addresses as needed.  After, set charm profiles if needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
+	charmProfiles []string,
 ) error {
 	logger.Tracef(
 		"setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v",
@@ -1381,7 +1444,10 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 
-	return m.SetProvisioned(id, nonce, characteristics)
+	if err := m.SetProvisioned(id, nonce, characteristics); err != nil {
+		return errors.Trace(err)
+	}
+	return m.SetCharmProfiles(charmProfiles)
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
@@ -2053,6 +2119,39 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 		results = append(results, subUnits...)
 	}
 	return results, nil
+}
+
+// SetUpgradeCharmProfile sets a application name and a charm url for
+// machine's needing a charm profile change.  For a container only.
+func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		life := m.Life()
+		if life == Dead || life == Dying {
+			return nil, ErrDead
+		}
+
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"life", Alive}},
+			Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecharmurl", chURL},
+				{"upgradecharmprofileapplication", appName}}}},
+		}}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return err
+	}
+	m.doc.UpgradeCharmProfileApplication = appName
+	m.doc.UpgradeCharmProfileCharmURL = chURL
+	return nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.

@@ -80,7 +80,7 @@ func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spac
 		allocateMachineArgsCheck: check,
 		allocateMachine:          newFakeMachine("Bruce Sterling", arch.HostArch(), ""),
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string][]gomaasapi.BlockDevice{},
+			Storage: map[string][]gomaasapi.StorageDevice{},
 		},
 		spaces: spaces,
 	}
@@ -374,7 +374,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 		},
 		allocateMachine: newFakeMachine("Bruce Sterling", arch.HostArch(), ""),
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string][]gomaasapi.BlockDevice{},
+			Storage: map[string][]gomaasapi.StorageDevice{},
 		},
 		zones: []gomaasapi.Zone{&fakeZone{name: "foo"}},
 	})
@@ -705,7 +705,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
-		Storage: map[string][]gomaasapi.BlockDevice{},
+		Storage: map[string][]gomaasapi.StorageDevice{},
 	}
 	controller.machines = []gomaasapi.Machine{machine}
 	suite.injectController(controller)
@@ -725,7 +725,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
-		Storage: map[string][]gomaasapi.BlockDevice{},
+		Storage: map[string][]gomaasapi.StorageDevice{},
 	}
 	controller.machines = []gomaasapi.Machine{}
 	suite.injectController(controller)
@@ -745,7 +745,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
-		Storage: map[string][]gomaasapi.BlockDevice{},
+		Storage: map[string][]gomaasapi.StorageDevice{},
 	}
 	controller.machines = []gomaasapi.Machine{machine}
 	suite.injectController(controller)
@@ -929,7 +929,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	controller := &fakeController{
 		allocateMachine: machine,
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string][]gomaasapi.BlockDevice{},
+			Storage: map[string][]gomaasapi.StorageDevice{},
 		},
 	}
 	suite.injectController(controller)
@@ -2184,7 +2184,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	controller.machines = []gomaasapi.Machine{machine}
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
-		Storage: make(map[string][]gomaasapi.BlockDevice),
+		Storage: make(map[string][]gomaasapi.StorageDevice),
 	}
 
 	env := suite.makeEnviron(c, controller)

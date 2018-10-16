@@ -145,7 +145,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	return charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
+	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
+	if err != nil {
+		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
+	}
+	return s, nil
 }
 
 // ApplicationName returns the application name.
@@ -1192,7 +1196,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 			}
 		}
 
-		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, u.st.clock())
+		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, caasUnitDisplayStatus, u.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

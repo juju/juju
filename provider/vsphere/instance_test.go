@@ -108,3 +108,34 @@ func (s *InstanceSuite) TestControllerInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, jc.DeepEquals, []instance.Id{"inst-1"})
 }
+
+func (s *InstanceSuite) TestOpenPortNoExternalNetwork(c *gc.C) {
+	s.client.virtualMachines = []*mo.VirtualMachine{
+		buildVM("inst-0").vm(),
+	}
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+	inst0 := instances[0]
+	firewaller, ok := inst0.(instance.InstanceFirewaller)
+	c.Assert(ok, jc.IsTrue)
+	// machineID is ignored in per-instance firewallers
+	err = firewaller.OpenPorts(s.callCtx, "", []network.IngressRule{{
+		PortRange: network.PortRange{
+			Protocol: "tcp",
+			FromPort: 10,
+			ToPort:   10,
+		},
+		SourceCIDRs: []string{"0.0.0.0/0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	err = firewaller.ClosePorts(s.callCtx, "", []network.IngressRule{{
+		PortRange: network.PortRange{
+			Protocol: "tcp",
+			FromPort: 10,
+			ToPort:   10,
+		},
+		SourceCIDRs: []string{"0.0.0.0/0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+}

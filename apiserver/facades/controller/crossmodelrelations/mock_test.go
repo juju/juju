@@ -16,7 +16,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/authentication"
-	common "github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
@@ -374,6 +374,18 @@ func (r *mockRelation) RemoteUnit(unitId string) (commoncrossmodel.RelationUnit,
 		return nil, errors.NotFoundf("unit %q", unitId)
 	}
 	return u, nil
+}
+
+func (r *mockRelation) AllRemoteUnits(appName string) ([]commoncrossmodel.RelationUnit, error) {
+	r.MethodCall(r, "AllRemoteUnits", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	var result []commoncrossmodel.RelationUnit
+	for _, ru := range r.units {
+		result = append(result, ru)
+	}
+	return result, nil
 }
 
 func (r *mockRelation) Unit(unitId string) (commoncrossmodel.RelationUnit, error) {

@@ -46,9 +46,9 @@ import (
 )
 
 type CharmAdder interface {
-	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
-	AddCharm(*charm.URL, params.Channel) error
-	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon) error
+	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
+	AddCharm(*charm.URL, params.Channel, bool) error
+	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
 	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
 }
 
@@ -420,6 +420,15 @@ unless '--force' is used.
 
   juju deploy /path/to/charm --series wily --force
 
+Charms can also utilise LXD Profiles when deploying a charm. LXD Profiles can
+be used to override configurations or devices when creating the containers for
+LXD. LXD Profiles are validated against a allow/deny list, using '--force' flag
+can bypass the validation.
+
+Using the '--force' flag for LXD Profiles is not generally recommended when 
+deploying an application; overriding profiles on the container may cause 
+unexpected behavior. 
+
 Local bundles are specified with a direct path to a bundle.yaml file.
 For example:
 
@@ -601,6 +610,7 @@ type DeploymentInfo struct {
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
 	ApplicationPlan string
+	Force           bool
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -648,7 +658,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
@@ -662,9 +672,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	if c.Force && c.Series == "" && c.PlacementSpec == "" {
-		return errors.New("--force is only used with --series")
-	}
 	modelType, err := c.ModelType()
 	if err != nil {
 		return err
@@ -794,6 +801,7 @@ func (c *DeployCommand) deployBundle(
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       modelUUID,
+					Force:           c.Force,
 				}
 
 				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
@@ -812,6 +820,8 @@ func (c *DeployCommand) deployBundle(
 	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
+	// Deploying bundles does not allow the use force, it's expected that the
+	// bundle is correct and therefore the charms are also.
 	if _, err := deployBundle(
 		filePath,
 		data,
@@ -950,6 +960,7 @@ func (c *DeployCommand) deployCharm(
 		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
+		Force:           c.Force,
 	}
 
 	for _, step := range c.Steps {
@@ -1292,7 +1303,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 			return errors.Trace(err)
 		}
 
-		if curl, err = apiRoot.AddLocalCharm(curl, ch); err != nil {
+		if curl, err = apiRoot.AddLocalCharm(curl, ch, c.Force); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1435,7 +1446,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel)
+		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())

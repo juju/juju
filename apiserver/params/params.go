@@ -165,6 +165,7 @@ type RelationSuspendedArg struct {
 type AddCharm struct {
 	URL     string `json:"url"`
 	Channel string `json:"channel"`
+	Force   bool   `json:"force"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
@@ -172,6 +173,7 @@ type AddCharmWithAuthorization struct {
 	URL                string             `json:"url"`
 	Channel            string             `json:"channel"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	Force              bool               `json:"force"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
@@ -385,6 +387,16 @@ type ApplicationSetCharm struct {
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
 	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
+}
+
+// ApplicationSetCharmProfile holds the parameters for making the
+// application SetCharmProfile call.
+type ApplicationSetCharmProfile struct {
+	// ApplicationName is the name of the application to set the profile on.
+	ApplicationName string `json:"application"`
+
+	// CharmURL is the new charm's url.
+	CharmURL string `json:"charm-url"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.

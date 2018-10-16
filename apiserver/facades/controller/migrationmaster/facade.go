@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/watcher"
 )
@@ -204,8 +205,10 @@ func (api *API) Export() (params.SerializedModel, error) {
 	}
 	serialized.Bytes = bytes
 	serialized.Charms = getUsedCharms(model)
-	serialized.Tools = getUsedTools(model)
 	serialized.Resources = getUsedResources(model)
+	if model.Type() == string(coremodel.IAAS) {
+		serialized.Tools = getUsedTools(model)
+	}
 	return serialized, nil
 }
 

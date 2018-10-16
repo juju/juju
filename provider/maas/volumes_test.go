@@ -79,7 +79,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	instance := maas2Instance{
 		machine: &fakeMachine{},
 		constraintMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string][]gomaasapi.BlockDevice{
+			Storage: map[string][]gomaasapi.StorageDevice{
 				"root": {&fakeBlockDevice{name: "sda", idPath: "/dev/disk/by-dname/sda", size: 250059350016}},
 				"1":    {&fakeBlockDevice{name: "sdb", idPath: "/dev/sdb", size: 500059350016}},
 				"2":    {&fakeBlockDevice{name: "sdc", idPath: "/dev/disk/by-id/foo", size: 250362438230}},
@@ -91,6 +91,9 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 					&fakeBlockDevice{name: "sdf", idPath: "/dev/disk/by-id/wwn-drbr", size: 280362438231},
 				},
 				"5": {
+					&fakePartition{name: "sde-part1", path: "/dev/disk/by-dname/sde-part1", size: 280362438231},
+				},
+				"6": {
 					&fakeBlockDevice{name: "sdg", idPath: "/dev/disk/by-dname/sdg", size: 280362438231},
 				},
 			},
@@ -102,12 +105,13 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		names.NewVolumeTag("2"),
 		names.NewVolumeTag("3"),
 		names.NewVolumeTag("4"),
+		names.NewVolumeTag("5"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Expect 4 volumes - root volume is ignored, as are volumes
 	// with tags we did not request.
-	c.Assert(volumes, gc.HasLen, 4)
-	c.Assert(attachments, gc.HasLen, 4)
+	c.Assert(volumes, gc.HasLen, 5)
+	c.Assert(attachments, gc.HasLen, 5)
 	c.Check(volumes, jc.SameContents, []storage.Volume{{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
@@ -134,6 +138,12 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 			Size:     267374,
 			WWN:      "drbr",
 		},
+	}, {
+		names.NewVolumeTag("5"),
+		storage.VolumeInfo{
+			VolumeId: "volume-5",
+			Size:     267374,
+		},
 	}})
 	c.Assert(attachments, jc.SameContents, []storage.VolumeAttachment{{
 		names.NewVolumeTag("1"),
@@ -155,6 +165,12 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		names.NewVolumeTag("4"),
 		mTag,
 		storage.VolumeAttachmentInfo{},
+	}, {
+		names.NewVolumeTag("5"),
+		mTag,
+		storage.VolumeAttachmentInfo{
+			DeviceLink: "/dev/disk/by-dname/sde-part1",
+		},
 	}})
 }
 
@@ -304,14 +320,23 @@ var validVolumeJson = `
             "model": "Samsung_SSD_850_EVO_250GB",
             "block_size": 4096,
             "serial": "S21NNSAFC388888L",
-            "size": 250362438230
-        }
+			"size": 250362438230,
+			"partitions": [
+				{
+					"id": 1,
+					"name": "sde-part1",
+					"path": "/dev/disk/by-dname/sde-part1",
+					"size": 280362438231
+				}
+			]
+		}
     ],
     "constraint_map": {
         "1": "root",
         "2": "1",
         "3": "2",
-        "4": "3"
+		"4": "3",
+		"5": "partition:1"
     }
 }
 `[1:]

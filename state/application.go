@@ -720,7 +720,7 @@ func (a *Application) changeCharmOps(
 		// No old settings, start with the updated settings.
 		newSettings = updatedSettings
 	} else {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 
 	// Create or replace application settings.
@@ -730,12 +730,12 @@ func (a *Application) changeCharmOps(
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	} else {
 		// Settings exist, just replace them with the new ones.
 		settingsOp, _, err = replaceSettingsOp(a.st.db(), settingsC, newSettingsKey, newSettings)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 		}
 	}
 
@@ -866,6 +866,26 @@ func (a *Application) changeCharmOps(
 
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
+}
+
+// SetCharmProfile updates each machine the application is deployed
+// on with the name and charm url for a profile update of that machine.
+func (a *Application) SetCharmProfile(charmURL string) error {
+	units, err := a.AllUnits()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, u := range units {
+		m, err := u.machine()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = m.SetUpgradeCharmProfile(a.Name(), charmURL)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (a *Application) newCharmStorageOps(
@@ -1093,6 +1113,11 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "validating config settings")
 	}
+
+	// TODO (hml) lxd-profile 15-oct-2018
+	// Do we need to validate the lxd profile here?
+	// Need force threaded thru in state.SetCharmConfig &
+	// params.ApplicationSetCharm
 
 	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)
@@ -1896,7 +1921,11 @@ func (a *Application) CharmConfig() (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
 	}
-	return charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
+	s, err := charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
+	if err != nil {
+		return nil, errors.Annotatef(err, "charm config for application %q", a.doc.Name)
+	}
+	return s, nil
 }
 
 // UpdateCharmConfig changes a application's charm config settings. Values set
@@ -1916,7 +1945,7 @@ func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 	// name, so the actual impact of a race is non-threatening.
 	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
 	for name, value := range changes {
 		if value == nil {
@@ -1935,7 +1964,7 @@ func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) 
 	if errors.IsNotFound(err) || len(config.Keys()) == 0 {
 		return application.ConfigAttributes(nil), nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
 	return application.ConfigAttributes(config.Map()), nil
 }
@@ -1950,9 +1979,9 @@ func (a *Application) UpdateApplicationConfig(
 ) error {
 	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
 	if errors.IsNotFound(err) {
-		return errors.Errorf("cannot update application config since no config exists")
+		return errors.Errorf("cannot update application config since no config exists for application %v", a.doc.Name)
 	} else if err != nil {
-		return err
+		return errors.Annotatef(err, "application config for application %q", a.doc.Name)
 	}
 	resetKeys := set.NewStrings(reset...)
 	for name, value := range changes {
@@ -1989,9 +2018,9 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 
 	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
-		return nil, errors.NotFoundf("application")
+		return nil, errors.NotFoundf("application %q", a.doc.Name)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	result := make(map[string]string)
 	for escapedKey, interfaceValue := range doc.Settings {
@@ -2051,9 +2080,9 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// on it and prevent these settings from landing late.
 		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
 		if errors.IsNotFound(err) {
-			return nil, errors.NotFoundf("application")
+			return nil, errors.NotFoundf("application %q", a.doc.Name)
 		} else if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 		}
 		if isNullChange(doc.Settings) {
 			return nil, jujutxn.ErrNoOperations
@@ -2176,7 +2205,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	return cons, nil
 }
@@ -2238,20 +2267,50 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
+
+	var newHistory *statusDoc
+	model, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if model.Type() == ModelTypeCAAS {
+		// Application status for a caas model needs to consider status
+		// info coming from the operator pod as well; It may need to
+		// override what is set here.
+		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
+		if err == nil {
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, caasApplicationDisplayStatus, a.st.clock())
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+
 	return setStatus(a.st.db(), setStatusParams{
-		badge:     "application",
-		globalKey: a.globalKey(),
-		status:    statusInfo.Status,
-		message:   statusInfo.Message,
-		rawData:   statusInfo.Data,
-		updated:   timeOrNow(statusInfo.Since, a.st.clock()),
+		badge:            "application",
+		globalKey:        a.globalKey(),
+		status:           statusInfo.Status,
+		message:          statusInfo.Message,
+		rawData:          statusInfo.Data,
+		updated:          timeOrNow(statusInfo.Since, a.st.clock()),
+		historyOverwrite: newHistory,
 	})
 }
 
 // SetOperatorStatus sets the operator status for an application.
 // This is used on CAAS models.
 func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
-	return setStatus(a.st.db(), setStatusParams{
+	model, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if model.Type() != ModelTypeCAAS {
+		return errors.NotSupportedf("caas operation on non-caas model")
+	}
+
+	err = setStatus(a.st.db(), setStatusParams{
 		badge:     "operator",
 		globalKey: applicationGlobalOperatorKey(a.Name()),
 		status:    sInfo.Status,
@@ -2259,6 +2318,25 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 		rawData:   sInfo.Data,
 		updated:   timeOrNow(sInfo.Since, a.st.clock()),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appStatus, err := a.Status()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, caasApplicationDisplayStatus, a.st.clock())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if historyDoc != nil {
+		// rewriting application status history
+		_, err = probablyUpdateStatusHistory(a.st.db(), a.globalKey(), *historyDoc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
@@ -2587,7 +2665,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, op.application.st.clock())
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, caasUnitDisplayStatus, op.application.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

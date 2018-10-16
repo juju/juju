@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -90,8 +91,11 @@ var basicPodspec = &caas.PodSpec{
 		Command:    []string{"sh", "-c"},
 		Args:       []string{"doIt", "--debug"},
 		WorkingDir: "/path/to/here",
-		Config: map[string]string{
-			"foo": "bar",
+		Config: map[string]interface{}{
+			"foo":        "bar",
+			"restricted": "'yes'",
+			"bar":        true,
+			"switch":     "on",
 		},
 	}, {
 		Name:  "test2",
@@ -162,7 +166,10 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 				Args:       []string{"doIt", "--debug"},
 				WorkingDir: "/path/to/here",
 				Env: []core.EnvVar{
+					{Name: "bar", Value: "true"},
 					{Name: "foo", Value: "bar"},
+					{Name: "restricted", Value: "yes"},
+					{Name: "switch", Value: "true"},
 				},
 			}, {
 				Name:  "test2",
@@ -1060,4 +1067,42 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 		"kubernetes-service-externalname":    "ext-name",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	opPod := core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "juju-operator-test",
+		},
+		Status: core.PodStatus{
+			Phase:   core.PodPending,
+			Message: "test message.",
+		},
+	}
+	gomock.InOrder(
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{opPod}}, nil),
+	)
+
+	operator, err := s.broker.Operator("test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(operator.Status.Status, gc.Equals, status.Allocating)
+	c.Assert(operator.Status.Message, gc.Equals, "test message.")
+}
+
+func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{}}, nil),
+	)
+
+	_, err := s.broker.Operator("test")
+	c.Assert(err, gc.ErrorMatches, "operator pod for application \"test\" not found")
 }

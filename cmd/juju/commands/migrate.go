@@ -24,7 +24,6 @@ func newMigrateCommand() modelcmd.ModelCommand {
 // migrateCommand initiates a model migration.
 type migrateCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	newAPIRoot       func(jujuclient.ClientStore, string, string) (api.Connection, error)
 	api              migrateAPI
 	targetController string

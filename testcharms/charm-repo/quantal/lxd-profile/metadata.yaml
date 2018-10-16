@@ -13,3 +13,7 @@ tags:
   - misc
   - application_development
 subordinate: false
+series:
+  - bionic
+  - xenial
+  - quantal

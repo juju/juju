@@ -134,9 +134,6 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 	if res.Name == "" {
 		return empty, errors.BadRequestf("missing name")
 	}
-	if res.Path == "" {
-		return empty, errors.BadRequestf("missing path")
-	}
 	if res.Description == "" {
 		return empty, errors.BadRequestf("missing description")
 	}
@@ -156,9 +153,17 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 	if err != nil {
 		return empty, errors.BadRequestf("invalid size")
 	}
-	res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid fingerprint")
+	switch res.Type {
+	case charmresource.TypeFile:
+		if res.Path == "" {
+			return empty, errors.BadRequestf("missing path")
+		}
+		res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+		if err != nil {
+			return empty, errors.BadRequestf("invalid fingerprint")
+		}
+	case charmresource.TypeContainerImage:
+		res.Fingerprint = charmresource.Fingerprint{}
 	}
 	return res, nil
 }

@@ -670,6 +670,7 @@ func (c *Client) AddCharm(args params.AddCharm) error {
 	return application.AddCharmWithAuthorization(shim, params.AddCharmWithAuthorization{
 		URL:     args.URL,
 		Channel: args.Channel,
+		Force:   args.Force,
 	})
 }
 

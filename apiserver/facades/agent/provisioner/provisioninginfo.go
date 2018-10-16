@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -339,8 +340,7 @@ func (p *ProvisionerAPI) machineLXDProfiles(m *state.Machine, env environs.Envir
 		if profile == nil || (profile != nil && profile.Empty()) {
 			continue
 		}
-		// juju-<model>-<application>-<charm-revision>
-		pName := fmt.Sprintf("juju-%s-%s-%d", p.m.Name(), app.Name(), ch.Revision())
+		pName := lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision())
 		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
 			return nil, errors.Trace(err)
 		}

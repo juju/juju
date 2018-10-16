@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -26,38 +27,44 @@ import (
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state       *state.State
-	pool        *state.StatePool
-	authorizer  facade.Authorizer
-	resources   facade.Resources
-	presence    facade.Presence
-	getClaimer  migration.ClaimerFunc
-	getEnviron  stateenvirons.NewEnvironFunc
-	callContext context.ProviderCallContext
+	state         *state.State
+	pool          *state.StatePool
+	authorizer    facade.Authorizer
+	resources     facade.Resources
+	presence      facade.Presence
+	getClaimer    migration.ClaimerFunc
+	getEnviron    stateenvirons.NewEnvironFunc
+	getCAASBroker stateenvirons.NewCAASBrokerFunc
+	callContext   context.ProviderCallContext
 }
 
 // NewFacade is used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New), state.CallContext(ctx.State()))
+	return NewAPI(
+		ctx,
+		stateenvirons.GetNewEnvironFunc(environs.New),
+		stateenvirons.GetNewCAASBrokerFunc(caas.New),
+		state.CallContext(ctx.State()))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, callCtx context.ProviderCallContext) (*API, error) {
+func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc, callCtx context.ProviderCallContext) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &API{
-		state:       st,
-		pool:        ctx.StatePool(),
-		authorizer:  auth,
-		resources:   ctx.Resources(),
-		presence:    ctx.Presence(),
-		getClaimer:  ctx.LeadershipClaimer,
-		getEnviron:  getEnviron,
-		callContext: callCtx,
+		state:         st,
+		pool:          ctx.StatePool(),
+		authorizer:    auth,
+		resources:     ctx.Resources(),
+		presence:      ctx.Presence(),
+		getClaimer:    ctx.LeadershipClaimer,
+		getEnviron:    getEnviron,
+		getCAASBroker: getCAASBroker,
+		callContext:   callCtx,
 	}, nil
 }
 
@@ -228,11 +235,23 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 	defer st.Release()
-	env, err := api.getEnviron(st.State)
+
+	m, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.AdoptResources(api.callContext, st.ControllerUUID(), args.SourceControllerVersion))
+
+	var ra environs.ResourceAdopter
+	if m.Type() == state.ModelTypeCAAS {
+		ra, err = api.getCAASBroker(st.State)
+	} else {
+		ra, err = api.getEnviron(st.State)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(ra.AdoptResources(api.callContext, st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -252,11 +271,16 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	}
 	defer st.Release()
 
-	env, err := api.getEnviron(st.State)
+	// CAAS models don't have machines.
+	m, err := st.Model()
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
+	if m.Type() == state.ModelTypeCAAS {
+		return params.ErrorResults{}, nil
+	}
 
+	env, err := api.getEnviron(st.State)
 	return credentialcommon.ValidateModelCredential(
 		credentialcommon.NewCloudEntitiesBackend(st.State),
 		env,

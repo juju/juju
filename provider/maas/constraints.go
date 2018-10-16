@@ -24,10 +24,10 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (environ *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (env *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := environ.getSupportedArchitectures(ctx)
+	supportedArches, err := env.getSupportedArchitectures(ctx)
 	if err != nil {
 		return nil, err
 	}

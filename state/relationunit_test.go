@@ -77,7 +77,7 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 	_, err = ru0.ReadSettings("riak/pressure")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/pressure" in relation "riak:ring": "riak/pressure" is not a valid unit name`)
 	_, err = ru0.ReadSettings("riak/1")
-	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/1" in relation "riak:ring": settings not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/1" in relation "riak:ring": unit "riak/1": settings not found`)
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
@@ -87,7 +87,7 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("riak/0")
-		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
+		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -193,6 +193,51 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "mysql1" is not a member of "wordpress:db mysql:server"`)
 }
 
+func (s *RelationUnitSuite) TestAllRemoteUnits(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "another",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru1 := addRemoteRU(c, rel, "mysql/0")
+	err = ru1.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ru2 := addRemoteRU(c, rel, "mysql/1")
+	err = ru2.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = rel.AllRemoteUnits("wordpress")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = rel.AllRemoteUnits("another")
+	c.Assert(err, gc.ErrorMatches, `application "another" is not a member of "wordpress:db mysql:server"`)
+	all, err := rel.AllRemoteUnits("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 2)
+	c.Assert(all, jc.SameContents, []*state.RelationUnit{ru1, ru2})
+}
+
 func (s *RelationUnitSuite) TestProReqSettings(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	s.testProReqSettings(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
@@ -209,7 +254,7 @@ func (s *RelationUnitSuite) testProReqSettings(c *gc.C, pru0, pru1, rru0, rru1 *
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("mysql/0")
-		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`)
+		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": unit "mysql/0": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -239,7 +284,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *gc.C) {
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
 		_, err := ru.ReadSettings("logging/0")
-		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "logging/0" in relation "logging:info mysql:juju-info": settings not found`)
+		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "logging/0" in relation "logging:info mysql:juju-info": unit "logging/0": settings not found`)
 	}
 
 	// Add settings for one RU.
@@ -266,7 +311,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *gc.C) {
 	rus1 := RUs{prr.pru1, prr.rru1}
 	for _, ru := range rus1 {
 		_, err := ru.ReadSettings("mysql/0")
-		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": settings not found`)
+		c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "mysql/0" in relation "logging:info mysql:juju-info": unit "mysql/0": settings not found`)
 	}
 }
 
@@ -374,7 +419,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 
 	// Check that we created no settings for the unit we failed to add.
 	_, err = pr.ru0.ReadSettings("riak/2")
-	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/2" in relation "riak:ring": settings not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/2" in relation "riak:ring": unit "riak/2": settings not found`)
 
 	// ru0 leaves the scope; check that application Destroy is still a no-op.
 	assertJoined(c, pr.ru0)
@@ -410,7 +455,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = pr.ru1.ReadSettings("riak/0")
-	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {

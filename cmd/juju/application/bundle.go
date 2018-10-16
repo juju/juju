@@ -435,7 +435,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
 				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 			}
-			if curl, err = h.api.AddLocalCharm(curl, ch); err != nil {
+			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
 				return err
 			}
 			logger.Debugf("added charm %s", curl)
@@ -458,7 +458,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel)
+	url, macaroon, err = addCharmFromURL(h.api, url, channel, false)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -643,8 +643,13 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 
 	deployedApps := func() string {
 		apps := h.applicationsForMachineChange(change.Id())
-		// Note that we always have at least one application that justifies the
-		// creation of this machine.
+		// Note that we *should* always have at least one application
+		// that justifies the creation of this machine. But just in
+		// case, check (see https://pad.lv/1773357).
+		if len(apps) == 0 {
+			h.ctx.Warningf("no applications found for machine change %q", change.Id())
+			return "nothing"
+		}
 		msg := apps[0] + " unit"
 
 		if count := len(apps); count != 1 {

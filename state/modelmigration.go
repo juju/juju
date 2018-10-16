@@ -537,6 +537,20 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 		return nil, errors.Annotate(err, "loading machine tags")
 	}
 
+	m, err := mig.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if m.Type() == ModelTypeCAAS {
+		applicationTags, err := mig.loadAgentTags(applicationsC, "name",
+			func(name string) names.Tag { return names.NewApplicationTag(name) },
+		)
+		if err != nil {
+			return nil, errors.Annotate(err, "loading application names")
+		}
+		return machineTags.Union(applicationTags), nil
+	}
+
 	unitTags, err := mig.loadAgentTags(unitsC, "name",
 		func(name string) names.Tag { return names.NewUnitTag(name) },
 	)
@@ -845,6 +859,8 @@ func agentTagToGlobalKey(tag names.Tag) (string, error) {
 		return machineGlobalKey(t.Id()), nil
 	case names.UnitTag:
 		return unitAgentGlobalKey(t.Id()), nil
+	case names.ApplicationTag:
+		return applicationGlobalKey(t.Id()), nil
 	default:
 		return "", errors.Errorf("%s is not an agent tag", tag)
 	}
@@ -861,6 +877,8 @@ func globalKeyToAgentTag(key string) (names.Tag, error) {
 		return names.NewMachineTag(keyId), nil
 	case "u":
 		return names.NewUnitTag(keyId), nil
+	case "a":
+		return names.NewApplicationTag(keyId), nil
 	default:
 		return nil, errors.NotValidf("global key type %q", keyType)
 	}

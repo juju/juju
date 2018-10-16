@@ -397,6 +397,7 @@ type InstanceInfo struct {
 	VolumeAttachments map[string]VolumeAttachmentInfo `json:"volume-attachments"`
 
 	NetworkConfig []NetworkConfig `json:"network-config"`
+	CharmProfiles []string        `json:"charm-profiles"`
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo

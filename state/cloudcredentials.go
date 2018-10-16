@@ -353,8 +353,13 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]stri
 	coll, cleanup := st.db().GetCollection(modelsC)
 	defer cleanup()
 
+	sel := bson.D{
+		{"cloud-credential", tag.Id()},
+		{"life", bson.D{{"$ne", Dead}}},
+	}
+
 	var docs []modelDoc
-	err := coll.Find(bson.D{{"cloud-credential", tag.Id()}}).All(&docs)
+	err := coll.Find(sel).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting models that use cloud credential %q", tag.Id())
 	}

@@ -42,6 +42,9 @@ type ProvisionerTaskSuite struct {
 	machineErrorRetryChanges chan struct{}
 	machineErrorRetryWatcher watcher.NotifyWatcher
 
+	modelMachinesProfileChanges chan []string
+	modelMachinesProfileWatcher watcher.StringsWatcher
+
 	machinesResults      []apiprovisioner.MachineResult
 	machineStatusResults []apiprovisioner.MachineStatusResult
 	machineGetter        *testMachineGetter
@@ -65,6 +68,9 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 
 	s.machineErrorRetryChanges = make(chan struct{})
 	s.machineErrorRetryWatcher = watchertest.NewMockNotifyWatcher(s.machineErrorRetryChanges)
+
+	s.modelMachinesProfileChanges = make(chan []string)
+	s.modelMachinesProfileWatcher = watchertest.NewMockStringsWatcher(s.modelMachinesProfileChanges)
 
 	s.machinesResults = []apiprovisioner.MachineResult{}
 	s.machineStatusResults = []apiprovisioner.MachineStatusResult{}
@@ -256,6 +262,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		toolsFinder,
 		s.modelMachinesWatcher,
 		s.machineErrorRetryWatcher,
+		s.modelMachinesProfileWatcher,
 		s.instanceBrocker,
 		s.auth,
 		imagemetadata.ReleasedStream,
@@ -387,7 +394,7 @@ func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
 func (m *testMachine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
-	volumeAttachments map[string]params.VolumeAttachmentInfo,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
 	return nil
 }

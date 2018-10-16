@@ -927,3 +927,49 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 		}
 	}
 }
+
+type DBLogSizeSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&DBLogSizeSuite{})
+
+func (*DBLogSizeSuite) TestDBLogSizeIntSize(c *gc.C) {
+	res, err := state.DBCollectionSizeToInt(bson.M{"size": int(12345)}, "coll-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.Equals, int(12345))
+}
+
+func (*DBLogSizeSuite) TestDBLogSizeNoSize(c *gc.C) {
+	res, err := state.DBCollectionSizeToInt(bson.M{}, "coll-name")
+	// Old code didn't treat this as an error, if we know it doesn't happen often, we could start changing it to be an error.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.Equals, int(0))
+}
+
+func (*DBLogSizeSuite) TestDBLogSizeInt64Size(c *gc.C) {
+	// Production results have shown that sometimes collStats can return an int64.
+	// See https://bugs.launchpad.net/juju/+bug/1790626 in case we ever figure out why
+	res, err := state.DBCollectionSizeToInt(bson.M{"size": int64(12345)}, "coll-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.Equals, int(12345))
+}
+
+func (*DBLogSizeSuite) TestDBLogSizeInt64SizeOverflow(c *gc.C) {
+	// Just in case, it is unlikely this ever actually happens
+	res, err := state.DBCollectionSizeToInt(bson.M{"size": int64(12345678901)}, "coll-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.Equals, int((1<<31)-1))
+}
+
+func (*DBLogSizeSuite) TestDBLogSizeNegativeSize(c *gc.C) {
+	_, err := state.DBCollectionSizeToInt(bson.M{"size": int(-10)}, "coll-name")
+	c.Check(err, gc.ErrorMatches, `mongo collStats for "coll-name" returned a negative value: -10`)
+	_, err = state.DBCollectionSizeToInt(bson.M{"size": int64(-10)}, "coll-name")
+	c.Check(err, gc.ErrorMatches, `mongo collStats for "coll-name" returned a negative value: -10`)
+}
+
+func (*DBLogSizeSuite) TestDBLogSizeUnknownType(c *gc.C) {
+	_, err := state.DBCollectionSizeToInt(bson.M{"size": float64(12345)}, "coll-name")
+	c.Check(err, gc.ErrorMatches, `mongo collStats for "coll-name" did not return an int or int64 for size, returned float64: 12345`)
+}

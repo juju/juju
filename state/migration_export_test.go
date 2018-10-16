@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/juju/instance"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -419,7 +420,9 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		},
 		ApplicationConfigFields: environschema.Fields{
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
-		Constraints: cons,
+		Constraints:  cons,
+		DesiredScale: 3,
+		Placement:    []*instance.Placement{{Scope: st.ModelUUID(), Directive: "foo=bar"}},
 	})
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -429,9 +432,10 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
+		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
+
 		caasModel, err := dbModel.CAASModel()
 		c.Assert(err, jc.ErrorIsNil)
 		err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
@@ -440,6 +444,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		err = application.UpdateCloudService("provider-id", []network.Address{addr})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
 	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -480,6 +486,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	if dbModel.Type() == state.ModelTypeCAAS {
 		c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
 		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
+		c.Assert(exported.DesiredScale(), gc.Equals, 3)
+		c.Assert(exported.Placement(), gc.Equals, "foo=bar")
 		addresses := exported.CloudService().Addresses()
 		addr := addresses[0]
 		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")
@@ -910,6 +918,74 @@ func (s *MigrationExportSuite) TestLinkLayerDevicesSkipped(c *gc.C) {
 	c.Assert(devices, gc.HasLen, 0)
 }
 
+func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipInstanceData: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listMachines := model.Machines()
+
+	instance := listMachines[0].Instance()
+	c.Assert(instance, gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipMachineAgentBinaries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listMachines := model.Machines()
+	tools := listMachines[0].Tools()
+	c.Assert(tools, gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
+	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
+
+	_, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipUnitAgentBinaries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listApplications := model.Applications()
+	unit := listApplications[0].Units()
+	c.Assert(unit[0].Tools(), gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipRelationScope: true,
+		SkipSettings:      true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Relations(), gc.HasLen, 1)
+}
+
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
@@ -1235,7 +1311,7 @@ func (s *MigrationExportSuite) TestVolumeAttachmentPlansLocalDisk(c *gc.C) {
 	attachments := volume.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
@@ -1349,7 +1425,7 @@ func (s *MigrationExportSuite) TestVolumeAttachmentPlansISCSIDisk(c *gc.C) {
 	attachments := volume.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
@@ -1431,7 +1507,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	attachments := provisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.DeviceName(), gc.Equals, "device name")
@@ -1451,7 +1527,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	attachments = notProvisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.DeviceName(), gc.Equals, "")
@@ -1509,7 +1585,7 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	attachments := provisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment := attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsTrue)
 	c.Check(attachment.ReadOnly(), jc.IsTrue)
 	c.Check(attachment.MountPoint(), gc.Equals, "/mnt/foo")
@@ -1524,7 +1600,7 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	attachments = notProvisioned.Attachments()
 	c.Assert(attachments, gc.HasLen, 1)
 	attachment = attachments[0]
-	c.Check(attachment.Machine(), gc.Equals, machineTag)
+	c.Check(attachment.Host(), gc.Equals, machineTag)
 	c.Check(attachment.Provisioned(), jc.IsFalse)
 	c.Check(attachment.ReadOnly(), jc.IsFalse)
 	c.Check(attachment.MountPoint(), gc.Equals, "")

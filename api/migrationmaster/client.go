@@ -247,12 +247,12 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 	out.SuccessCount = in.SuccessCount
 	out.UnknownCount = in.UnknownCount
 
-	out.SomeUnknownMachines, out.SomeUnknownUnits, err = groupTagIds(in.UnknownSample)
+	out.SomeUnknownMachines, out.SomeUnknownUnits, out.SomeUnknownApplications, err = groupTagIds(in.UnknownSample)
 	if err != nil {
 		return out, errors.Annotate(err, "processing unknown agents")
 	}
 
-	out.FailedMachines, out.FailedUnits, err = groupTagIds(in.Failed)
+	out.FailedMachines, out.FailedUnits, out.FailedApplications, err = groupTagIds(in.Failed)
 	if err != nil {
 		return out, errors.Annotate(err, "processing failed agents")
 	}
@@ -272,25 +272,28 @@ func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, erro
 	})
 }
 
-func groupTagIds(tagStrs []string) ([]string, []string, error) {
+func groupTagIds(tagStrs []string) ([]string, []string, []string, error) {
 	var machines []string
 	var units []string
+	var applications []string
 
 	for i := 0; i < len(tagStrs); i++ {
 		tag, err := names.ParseTag(tagStrs[i])
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 		switch t := tag.(type) {
 		case names.MachineTag:
 			machines = append(machines, t.Id())
 		case names.UnitTag:
 			units = append(units, t.Id())
+		case names.ApplicationTag:
+			applications = append(applications, t.Id())
 		default:
-			return nil, nil, errors.Errorf("unsupported tag: %q", tag)
+			return nil, nil, nil, errors.Errorf("unsupported tag: %q", tag)
 		}
 	}
-	return machines, units, nil
+	return machines, units, applications, nil
 }
 
 func convertResources(in []params.SerializedModelResource) ([]migration.SerializedModelResource, error) {
