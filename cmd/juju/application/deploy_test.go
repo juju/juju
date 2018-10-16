@@ -1816,8 +1816,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:mysql\n"+
 		"- deploy application mysql using cs:mysql\n"+
+		"- set annotations for mysql\n"+
 		"- upload charm cs:wordpress\n"+
 		"- deploy application wordpress using cs:wordpress\n"+
+		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1\n",

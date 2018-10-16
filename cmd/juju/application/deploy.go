@@ -425,9 +425,9 @@ be used to override configurations or devices when creating the containers for
 LXD. LXD Profiles are validated against a allow/deny list, using '--force' flag
 can bypass the validation.
 
-Using the '--force' flag for LXD Profiles is not generally recommended when 
-deploying an application; overriding profiles on the container may cause 
-unexpected behavior. 
+Using the '--force' flag for LXD Profiles is not generally recommended when
+deploying an application; overriding profiles on the container may cause
+unexpected behavior.
 
 Local bundles are specified with a direct path to a bundle.yaml file.
 For example:
