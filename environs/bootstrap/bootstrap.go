@@ -491,7 +491,7 @@ func Bootstrap(
 		// }
 		// TODO: ..... how to find the best/newest jujud docker image to use
 
-		podConfig, err := podcfg.NewBootstrapPodConfig(
+		podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 			args.ControllerConfig,
 			result.Series,
 		)
@@ -591,7 +591,7 @@ func finalizeInstanceBootstrapConfig(
 
 func finalizePodBootstrapConfig(
 	ctx environs.BootstrapContext,
-	pcfg *podcfg.PodConfig,
+	pcfg *podcfg.ControllerPodConfig,
 	args BootstrapParams,
 	cfg *config.Config,
 ) error {

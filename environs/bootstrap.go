@@ -98,7 +98,7 @@ type BootstrapResult struct {
 	GetCloudFinalizer func(*instancecfg.InstanceConfig) BootstrapFinalizer
 
 	// GetCaasFinalizer is the finalizer getter for caas.
-	GetCaasFinalizer func(*podcfg.PodConfig) BootstrapFinalizer
+	GetCaasFinalizer func(*podcfg.ControllerPodConfig) BootstrapFinalizer
 }
 
 // BootstrapContext is an interface that is passed to

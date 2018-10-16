@@ -221,10 +221,10 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 	)
 
 	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
-	getFinalizer := func(pcfg *podcfg.PodConfig) environs.BootstrapFinalizer {
+	getFinalizer := func(pcfg *podcfg.ControllerPodConfig) environs.BootstrapFinalizer {
 		return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) error {
 			envConfig := k.Config()
-			if err := podcfg.FinishPodConfig(pcfg, envConfig); err != nil {
+			if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
 				return errors.Trace(err)
 			}
 
