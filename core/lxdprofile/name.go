@@ -6,6 +6,7 @@ package lxdprofile
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/juju/juju/names"
@@ -29,7 +30,7 @@ func LXDProfileNames(names []string) []string {
 	// ensure that the ones we have are unique
 	unique := make(map[string]int)
 	for k, v := range names {
-		if !strings.HasPrefix(v, Prefix) {
+		if !IsValidName(v) {
 			continue
 		}
 		unique[v] = k
@@ -51,6 +52,24 @@ func LXDProfileNames(names []string) []string {
 		ordered[k] = v.Name
 	}
 	return ordered
+}
+
+// IsValidName returns if the name of the lxd profile looks valid.
+func IsValidName(name string) bool {
+	// doesn't contain the prefix
+	if !strings.HasPrefix(name, Prefix) {
+		return false
+	}
+	// it's required to have at least the following chars `x-x-0`
+	suffix := name[len(Prefix):]
+	if len(suffix) < 5 {
+		return false
+	}
+	// lastly check the last part is a number
+	lastHyphen := strings.LastIndex(suffix, "-")
+	revision := suffix[lastHyphen+1:]
+	_, err := strconv.Atoi(revision)
+	return err == nil
 }
 
 type nameIndex struct {

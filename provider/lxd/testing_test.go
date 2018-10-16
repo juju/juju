@@ -529,6 +529,7 @@ func (conn *StubClient) GetContainerProfiles(name string) ([]string, error) {
 	conn.AddCall("GetContainerProfiles", name)
 	return []string{
 		"default",
+		"juju-model-name",
 	}, conn.NextErr()
 }
 

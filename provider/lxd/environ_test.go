@@ -6,7 +6,6 @@ package lxd_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/core/lxdprofile"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"

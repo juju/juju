@@ -31,6 +31,13 @@ func (*LXDProfileNameSuite) TestProfileNames(c *gc.C) {
 		},
 		{
 			input: []string{
+				"default",
+				"juju-model",
+			},
+			output: []string{},
+		},
+		{
+			input: []string{
 				lxdprofile.Name("foo", "bar", 1),
 			},
 			output: []string{
@@ -66,5 +73,37 @@ func (*LXDProfileNameSuite) TestProfileNames(c *gc.C) {
 	for k, tc := range testCases {
 		c.Logf("running test %d with input %s", k, tc.input)
 		c.Assert(lxdprofile.LXDProfileNames(tc.input), gc.DeepEquals, tc.output)
+	}
+}
+
+func (*LXDProfileNameSuite) TestIsValidName(c *gc.C) {
+	testCases := []struct {
+		input  string
+		output bool
+	}{
+		{
+			input:  "",
+			output: false,
+		},
+		{
+			input:  "default",
+			output: false,
+		},
+		{
+			input:  "juju-model",
+			output: false,
+		},
+		{
+			input:  lxdprofile.Name("foo", "bar", 1),
+			output: true,
+		},
+		{
+			input:  lxdprofile.Name("aaa-zzz", "b312--?123!!bb-x__xx-012-y123yy", 100),
+			output: true,
+		},
+	}
+	for k, tc := range testCases {
+		c.Logf("running test %d with input %s", k, tc.input)
+		c.Assert(lxdprofile.IsValidName(tc.input), gc.Equals, tc.output)
 	}
 }
