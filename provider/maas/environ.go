@@ -176,20 +176,18 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 		}
 	}()
 
-	waitingFinalizer := func(icfg *instancecfg.InstanceConfig) environs.BootstrapFinalizer {
-		return func(ctx environs.BootstrapContext, dialOpts environs.BootstrapDialOpts) error {
-			// Wait for bootstrap instance to change to deployed state.
-			if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
-				return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
-			}
-			return getFinalizer(icfg)(ctx, dialOpts)
+	waitingFinalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, dialOpts environs.BootstrapDialOpts) error {
+		// Wait for bootstrap instance to change to deployed state.
+		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
+			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 		}
+		return getFinalizer(ctx, icfg, dialOpts)
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:              *result.Hardware.Arch,
-		Series:            series,
-		GetCloudFinalizer: waitingFinalizer,
+		Arch:                    *result.Hardware.Arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: waitingFinalizer,
 	}
 	return bsResult, nil
 }

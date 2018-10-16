@@ -221,44 +221,42 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 	)
 
 	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
-	getFinalizer := func(pcfg *podcfg.ControllerPodConfig) environs.BootstrapFinalizer {
-		return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) error {
-			envConfig := k.Config()
-			if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
-				return errors.Trace(err)
-			}
-
-			if err := pcfg.VerifyConfig(); err != nil {
-				return errors.Trace(err)
-			}
-
-			// No need to start instance for CAAS, so do everything for bootstraping controller here.
-			logger.Criticalf("kubernetesClient Finalizer, \nctx -> %#v, \npcfg -> %#v, \nopts -> %#v", ctx, pcfg, opts)
-
-			// prepare bootstrapParamsFile
-			bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Criticalf("bootstrapParamsFileContent -> \n%s", string(bootstrapParamsFileContent))
-
-			machineTag := names.NewMachineTag(pcfg.MachineId)
-			acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			agentConfigFileContent, err := acfg.Render()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Criticalf("agentConfigFileContent -> \n%s", string(agentConfigFileContent))
-			return nil
+	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) error {
+		envConfig := k.Config()
+		if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+			return errors.Trace(err)
 		}
+
+		if err := pcfg.VerifyConfig(); err != nil {
+			return errors.Trace(err)
+		}
+
+		// No need to start instance for CAAS, so do everything for bootstraping controller here.
+		logger.Criticalf("kubernetesClient Finalizer, \nctx -> %#v, \npcfg -> %#v, \nopts -> %#v", ctx, pcfg, opts)
+
+		// prepare bootstrapParamsFile
+		bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Criticalf("bootstrapParamsFileContent -> \n%s", string(bootstrapParamsFileContent))
+
+		machineTag := names.NewMachineTag(pcfg.MachineId)
+		acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		agentConfigFileContent, err := acfg.Render()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Criticalf("agentConfigFileContent -> \n%s", string(agentConfigFileContent))
+		return nil
 	}
 	return &environs.BootstrapResult{
-		Arch:             Arch,
-		Series:           Series,
-		GetCaasFinalizer: getFinalizer,
+		Arch:                   Arch,
+		Series:                 Series,
+		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }
 

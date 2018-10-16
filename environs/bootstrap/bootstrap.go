@@ -431,7 +431,6 @@ func Bootstrap(
 	}
 
 	var newestToolVersion version.Number
-	var finalizer environs.BootstrapFinalizer
 	if !args.IsCAASController {
 		publicKey, err := userPublicSigningKey()
 		if err != nil {
@@ -483,13 +482,10 @@ func Bootstrap(
 		); err != nil {
 			return errors.Annotate(err, "finalizing bootstrap instance config")
 		}
-		finalizer = result.GetCloudFinalizer(instanceConfig)
+		if err := result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts); err != nil {
+			return errors.Trace(err)
+		}
 	} else {
-		// // CAAS only has JobManageModel.
-		// instanceConfig.Jobs = []multiwatcher.MachineJob{
-		// 	multiwatcher.JobManageModel,
-		// }
-		// TODO: ..... how to find the best/newest jujud docker image to use
 
 		podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 			args.ControllerConfig,
@@ -498,6 +494,7 @@ func Bootstrap(
 		if err != nil {
 			return errors.Trace(err)
 		}
+		// TODO(caas-bootstrap): how to find the best/newest jujud docker image to use
 		newestTool := version.MustParseBinary("2.5-beta1-bionic-amd64")
 		// set agent version before finalizing bootstrap config
 		if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {
@@ -515,11 +512,9 @@ func Bootstrap(
 		if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 			return errors.Annotate(err, "finalizing bootstrap instance config")
 		}
-		finalizer = result.GetCaasFinalizer(podConfig)
-	}
-
-	if err := finalizer(ctx, args.DialOpts); err != nil {
-		return errors.Trace(err)
+		if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	ctx.Infof("Bootstrap agent now started")
@@ -638,11 +633,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
-	// pcfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
 	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
-	// pcfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
-	// 	ctx.Infof(msg)
-	// })
 	return nil
 }
 

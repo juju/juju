@@ -942,13 +942,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:   arch,
-		Series: series,
-		GetCloudFinalizer: func(icfg *instancecfg.InstanceConfig) environs.BootstrapFinalizer {
-			return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) (err error) {
-				return finalize(ctx, icfg, opts)
-			}
-		},
+		Arch:                    arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: finalize,
 	}
 	return bsResult, nil
 }

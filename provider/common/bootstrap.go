@@ -50,15 +50,15 @@ func Bootstrap(
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, series, getFinalizer, err := BootstrapInstance(ctx, env, callCtx, args)
+	result, series, finalizer, err := BootstrapInstance(ctx, env, callCtx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:              *result.Hardware.Arch,
-		Series:            series,
-		GetCloudFinalizer: getFinalizer,
+		Arch:                    *result.Hardware.Arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: finalizer,
 	}
 	return bsResult, nil
 }
@@ -78,7 +78,7 @@ func BootstrapInstance(
 ) (
 	_ *environs.StartInstanceResult,
 	selectedSeries string,
-	_ func(*instancecfg.InstanceConfig) environs.BootstrapFinalizer,
+	_ environs.CloudBootstrapFinalizer,
 	err error,
 ) {
 	// TODO make safe in the case of racing Bootstraps
@@ -238,27 +238,25 @@ func BootstrapInstance(
 	}
 	ctx.Infof(msg)
 
-	getFinalizer := func(icfg *instancecfg.InstanceConfig) environs.BootstrapFinalizer {
-		return func(ctx environs.BootstrapContext, opts environs.BootstrapDialOpts) error {
-			icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
-			icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
-			icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
-			envConfig := env.Config()
-			if result.Config != nil {
-				updated, err := envConfig.Apply(result.Config.UnknownAttrs())
-				if err != nil {
-					return errors.Trace(err)
-				}
-				envConfig = updated
+	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
+		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
+		envConfig := env.Config()
+		if result.Config != nil {
+			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
+			if err != nil {
+				return errors.Trace(err)
 			}
-			if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
-				return err
-			}
-			maybeSetBridge(icfg)
-			return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
+			envConfig = updated
 		}
+		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
+			return err
+		}
+		maybeSetBridge(icfg)
+		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 	}
-	return result, selectedSeries, getFinalizer, nil
+	return result, selectedSeries, finalizer, nil
 }
 
 func startInstanceZones(env environs.Environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
