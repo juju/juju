@@ -159,6 +159,9 @@ type Broker interface {
 	// InstancePrechecker provides a means of "prechecking" placement
 	// arguments before recording them in state.
 	environs.InstancePrechecker
+
+	// ResourceAdopter defines methods for adopting resources.
+	environs.ResourceAdopter
 }
 
 // Service represents information about the status of a caas service entity.
