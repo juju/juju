@@ -202,12 +202,12 @@ func (s *systemdServiceManager) CreateAgentConf(agentName string, dataDir string
 		return common.Conf{}, errors.NewNotValid(nil, fmt.Sprintf("agent %q is neither a machine nor a unit", agentName))
 	}
 
+	srvPath := path.Join(paths.NixLogDir, "juju")
 	info := NewAgentInfo(
 		kind,
 		name,
 		dataDir,
-		paths.MustSucceed(paths.LogDir(series)),
-	)
+		srvPath)
 	return AgentConf(info, renderer), nil
 }
 
@@ -310,11 +310,12 @@ func startAgent(name string, kind AgentKind, dataDir string, series string) (err
 	if err != nil {
 		return err
 	}
+	srvPath := path.Join(paths.NixLogDir, "juju")
 	info := NewAgentInfo(
 		kind,
 		name,
 		dataDir,
-		paths.MustSucceed(paths.LogDir(series)),
+		srvPath,
 	)
 	conf := AgentConf(info, renderer)
 	svcName := serviceName(name)
