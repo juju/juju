@@ -1107,6 +1107,7 @@ type BundleChangesParams struct {
 	// BundleDataYAML is the YAML-encoded charm bundle data
 	// (see "github.com/juju/charm.BundleData").
 	BundleDataYAML string `json:"yaml"`
+	BundleURL      string
 }
 
 // BundleChangesResults holds results of the Bundle.GetChanges call.
