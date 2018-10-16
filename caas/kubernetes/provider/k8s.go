@@ -149,6 +149,20 @@ func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
 	return nil
 }
 
+// Namespaces returns name names of the namespaces on the cluster.
+func (k *kubernetesClient) Namespaces() ([]string, error) {
+	namespaces := k.CoreV1().Namespaces()
+	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]string, len(ns.Items))
+	for i, n := range ns.Items {
+		result[i] = n.Name
+	}
+	return result, nil
+}
+
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}

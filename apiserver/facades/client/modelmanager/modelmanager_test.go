@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -57,6 +58,7 @@ type modelManagerSuite struct {
 	st         *mockState
 	ctlrSt     *mockState
 	caasSt     *mockState
+	caasBroker *mockCaasBroker
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
 	caasApi    *modelmanager.ModelManagerAPI
@@ -216,17 +218,25 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewCloudCallContext()
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser, s.st.model, s.callContext)
+	s.caasBroker = &mockCaasBroker{}
+	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+		return s.caasBroker, nil
+	}
+
+	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, newBroker, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
-	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, s.authoriser, s.st.model, s.callContext)
+	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, newBroker, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser, s.st.model, s.callContext)
+	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
+		return s.caasBroker, nil
+	}
+	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, newBroker, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -480,6 +490,19 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		),
 		Config: cfg,
 	})
+}
+
+func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
+	s.caasBroker.namespaces = []string{"foo"}
+	args := params.ModelCreateArgs{
+		Name:               "foo",
+		OwnerTag:           "user-admin",
+		Config:             map[string]interface{}{},
+		CloudTag:           "cloud-k8s-cloud",
+		CloudCredentialTag: "cloudcred-k8s-cloud_admin_some-credential",
+	}
+	_, err := s.caasApi.CreateModel(args)
+	c.Assert(err, gc.ErrorMatches, `namespace called "foo" already exists, would clash with model name`)
 }
 
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
@@ -869,6 +892,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		stateenvirons.EnvironConfigGetter{s.State, s.Model},
+		nil,
 		s.authoriser,
 		s.Model,
 		s.callContext,
@@ -883,7 +907,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil, anAuthoriser,
+		nil, nil, anAuthoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -897,7 +921,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil, anAuthoriser, s.Model,
+		nil, nil, anAuthoriser, s.Model,
 		s.callContext,
 	)
 	c.Assert(endPoint, gc.IsNil)
@@ -1104,7 +1128,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil, s.authoriser,
+		nil, nil, s.authoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -1142,7 +1166,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil, s.authoriser,
+		nil, nil, s.authoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -1178,7 +1202,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil, s.authoriser, s.Model,
+		nil, nil, s.authoriser, s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)

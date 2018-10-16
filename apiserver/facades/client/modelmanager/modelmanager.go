@@ -12,6 +12,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -89,6 +90,8 @@ type ModelManagerV2 interface {
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
+type newCaasBrokerFunc func(args environs.OpenParams) (caas.Broker, error)
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -101,6 +104,7 @@ type ModelManagerAPI struct {
 	apiUser     names.UserTag
 	isAdmin     bool
 	model       common.Model
+	getBroker   newCaasBrokerFunc
 	callContext context.ProviderCallContext
 }
 
@@ -153,6 +157,7 @@ func NewFacadeV5(ctx facade.Context) (*ModelManagerAPI, error) {
 		common.NewModelManagerBackend(model, pool),
 		common.NewModelManagerBackend(ctrlModel, pool),
 		configGetter,
+		caas.New,
 		auth,
 		model,
 		state.CallContext(st),
@@ -192,6 +197,7 @@ func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
 	configGetter environs.EnvironConfigGetter,
+	getBroker newCaasBrokerFunc,
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
@@ -213,6 +219,7 @@ func NewModelManagerAPI(
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
+		getBroker:      getBroker,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -499,13 +506,24 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
-	broker, err := caas.New(environs.OpenParams{
+	broker, err := m.getBroker(environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: newConfig,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
 	}
+
+	// CAAS models exist in a namespace which must be unique.
+	namespaces, err := broker.Namespaces()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to list namespaces")
+	}
+	nsSet := set.NewStrings(namespaces...)
+	if nsSet.Contains(createArgs.Name) {
+		return nil, errors.NewAlreadyExists(nil, fmt.Sprintf("namespace called %q already exists, would clash with model name", createArgs.Name))
+	}
+
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
 
 	model, st, err := m.state.NewModel(state.ModelArgs{
