@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -136,6 +137,7 @@ type context struct {
 	pingers       map[string]*presence.Pinger
 	adminUserTag  string // A string repr of the tag.
 	expectIsoTime bool
+	skipTest      bool
 }
 
 func (ctx *context) reset(c *gc.C) {
@@ -147,6 +149,10 @@ func (ctx *context) reset(c *gc.C) {
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	for i, s := range steps {
+		if ctx.skipTest {
+			c.Logf("skipping test %d", i)
+			return
+		}
 		c.Logf("step %d", i)
 		c.Logf("%#v", s)
 		s.step(c, ctx)
@@ -3388,7 +3394,10 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 27
-		"application with local charm and lxd profiles",
+		"application with lxd profiles",
+		// TODO (simon): remove skipTestOnWindows when we remove the feature
+		// flag for lxd profile - featureflag.LXDProfile
+		skipTestOnWindows{},
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
@@ -3533,6 +3542,15 @@ func wordpressCharm(extras M) M {
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
+
+// sometimes you just need to skip the tests for windows (environment variables etc)
+type skipTestOnWindows struct{}
+
+func (skipTestOnWindows) step(c *gc.C, ctx *context) {
+	if runtime.GOOS == "windows" {
+		ctx.skipTest = true
+	}
+}
 
 type setSLA struct {
 	level string

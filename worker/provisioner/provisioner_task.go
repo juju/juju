@@ -23,8 +23,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -1151,6 +1153,14 @@ func (task *provisionerTask) startMachine(
 	volumes := volumesToAPIserver(result.Volumes)
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIserver(result.VolumeAttachments)
 
+	// gather the charm LXD profile names, including the lxd profile names from
+	// the container brokers.
+	charmLXDProfiles := task.gatherCharmLXDProfiles(
+		string(result.Instance.Id()),
+		machine.Tag().Id(),
+		startInstanceParams.CharmLXDProfiles,
+	)
+
 	if err := machine.SetInstanceInfo(
 		result.Instance.Id(),
 		startInstanceParams.InstanceConfig.MachineNonce,
@@ -1158,7 +1168,7 @@ func (task *provisionerTask) startMachine(
 		networkConfig,
 		volumes,
 		volumeNameToAttachmentInfo,
-		startInstanceParams.CharmLXDProfiles,
+		charmLXDProfiles,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
@@ -1181,6 +1191,21 @@ func (task *provisionerTask) startMachine(
 		startInstanceParams.SubnetsToZones,
 	)
 	return nil
+}
+
+// gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
+// sources. This includes getting the information from the broker.
+func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag string, machineProfiles []string) []string {
+	if names.IsContainerMachine(machineTag) {
+		if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
+			if names, err := manager.LXDProfileNames(instanceId); err == nil {
+				return lxdprofile.LXDProfileNames(names)
+			}
+		} else {
+			logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
+		}
+	}
+	return machineProfiles
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds

@@ -158,6 +158,16 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 	return errors.Trace(resp.Wait())
 }
 
+// GetContainerProfiles returns the list of profiles that are assocated with a
+// container.
+func (s *Server) GetContainerProfiles(name string) ([]string, error) {
+	container, _, err := s.GetContainer(name)
+	if err != nil {
+		return []string{}, errors.Trace(err)
+	}
+	return container.Profiles, nil
+}
+
 // CreateClientCertificate adds the input certificate to the server,
 // indicating that is for use in client communication.
 func (s *Server) CreateClientCertificate(cert *Certificate) error {

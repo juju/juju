@@ -51,6 +51,7 @@ type Server interface {
 	WriteContainer(*lxd.Container) error
 	CreateProfileWithConfig(string, map[string]string) error
 	GetProfile(string) (*lxdapi.Profile, string, error)
+	GetContainerProfiles(string) ([]string, error)
 	HasProfile(string) (bool, error)
 	CreateProfile(post lxdapi.ProfilesPost) (err error)
 	VerifyNetworkDevice(*lxdapi.Profile, string) error
