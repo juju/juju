@@ -1,32 +1,35 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lxdprofile
 
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/juju/juju/names"
 )
 
+// Prefix is used to prefix all the lxd profile programmable profiles. If a
+// profile doesn't have the prefix, then it will be removed when ensuring the
+// the validity of the names (see LXDProfileNames)
+var Prefix = fmt.Sprintf("%s-", names.Juju)
+
 // Name returns a serialisable name that we can use to identify profiles
 // juju-<model>-<application>-<charm-revision>
 func Name(modelName, appName string, revision int) string {
-	return fmt.Sprintf("%s-%s-%s-%d", names.Juju, modelName, appName, revision)
+	return fmt.Sprintf("%s%s-%s-%d", Prefix, modelName, appName, revision)
 }
 
-var defaultLXDProfileNames = []string{
-	"default",
-}
-
-// LXDProfileNames ensures that the LXD profile names are unique and are sorted
-// correctly. It removes certain profile names from the list, for example
-// "default" profile name will be removed.
-//
-// The function aims to preserve the order from which it got the results from.
+// LXDProfileNames ensures that the LXD profile names are unique yet preserve
+// the same order as the input. It removes certain profile names from the list,
+// for example "default" profile name will be removed.
 func LXDProfileNames(names []string) []string {
 	// ensure that the ones we have are unique
 	unique := make(map[string]int)
 	for k, v := range names {
-		if contains(defaultLXDProfileNames, v) {
+		if !strings.HasPrefix(v, Prefix) {
 			continue
 		}
 		unique[v] = k

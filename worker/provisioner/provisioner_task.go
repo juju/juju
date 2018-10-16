@@ -10,9 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -26,8 +23,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"

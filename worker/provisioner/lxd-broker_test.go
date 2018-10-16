@@ -6,8 +6,6 @@ package provisioner_test
 import (
 	"runtime"
 
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/testing"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"

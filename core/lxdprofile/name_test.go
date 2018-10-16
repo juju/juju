@@ -1,9 +1,13 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lxdprofile_test
 
 import (
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type LXDProfileNameSuite struct {
@@ -35,6 +39,7 @@ func (*LXDProfileNameSuite) TestProfileNames(c *gc.C) {
 		},
 		{
 			input: []string{
+				"default",
 				lxdprofile.Name("foo", "bar", 1),
 				lxdprofile.Name("foo", "bar", 1),
 				lxdprofile.Name("aaa", "bbb", 100),
@@ -44,8 +49,22 @@ func (*LXDProfileNameSuite) TestProfileNames(c *gc.C) {
 				lxdprofile.Name("aaa", "bbb", 100),
 			},
 		},
+		{
+			input: []string{
+				"default",
+				lxdprofile.Name("foo", "bar", 1),
+				lxdprofile.Name("foo", "bar", 1),
+				"some-other-profile",
+				lxdprofile.Name("aaa", "bbb", 100),
+			},
+			output: []string{
+				lxdprofile.Name("foo", "bar", 1),
+				lxdprofile.Name("aaa", "bbb", 100),
+			},
+		},
 	}
-	for _, tc := range testCases {
+	for k, tc := range testCases {
+		c.Logf("running test %d with input %s", k, tc.input)
 		c.Assert(lxdprofile.LXDProfileNames(tc.input), gc.DeepEquals, tc.output)
 	}
 }
