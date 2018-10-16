@@ -286,8 +286,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n"+
+		"- set annotations for mysql\n"+
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
+		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
@@ -325,8 +327,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"Changes to deploy bundle:\n" +
 		"- upload charm cs:xenial/mysql-42 for series xenial\n" +
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
 		"- add unit wordpress/0 to new machine 1"
@@ -363,8 +367,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit wordpress/0 to new machine 1"
 

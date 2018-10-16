@@ -338,11 +338,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 }
 
 func (h *bundleHandler) getChanges() error {
+	bundleURL := ""
+	if h.bundleURL != nil {
+		bundleURL = h.bundleURL.String()
+	}
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
-			Bundle: h.data,
-			Model:  h.model,
-			Logger: logger,
+			Bundle:    h.data,
+			BundleURL: bundleURL,
+			Model:     h.model,
+			Logger:    logger,
 		})
 	if err != nil {
 		return errors.Trace(err)
@@ -618,18 +623,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 	h.writeAddedResources(resNames2IDs)
 
-	if h.bundleURL == nil {
-		return nil
-	}
-
-	tag := names.NewApplicationTag(p.Application).String()
-	result, err := h.api.SetAnnotation(map[string]map[string]string{tag: {"bundleURL": h.bundleURL.String()}})
-	if err == nil && len(result) > 0 {
-		err = result[0].Error
-	}
-	if err != nil {
-		logger.Debugf("error setting bundleURL annotation for %q: %s", p.Application, err)
-	}
 	return nil
 }
 
