@@ -227,9 +227,6 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	}
 	for i, arg := range args.Entities {
 		cloud, err := one(arg)
-		if errors.IsNotFound(err) {
-			continue
-		}
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		} else {
