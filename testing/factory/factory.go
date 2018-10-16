@@ -108,6 +108,8 @@ type ApplicationParams struct {
 	Constraints             constraints.Value
 	EndpointBindings        map[string]string
 	Password                string
+	Placement               []*instance.Placement
+	DesiredScale            int
 }
 
 // UnitParams are used to create units.
@@ -484,9 +486,12 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Constraints:       params.Constraints,
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
+		Placement:         params.Placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	application.SetPassword(params.Password)
+	err = application.SetPassword(params.Password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = application.Scale(params.DesiredScale)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {

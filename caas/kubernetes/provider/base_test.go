@@ -126,7 +126,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	}
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(cloudSpec, testNamespace, newClient)
+	s.broker, err = provider.NewK8sBroker(cloudSpec, testNamespace, testing.ModelTag.Id(), newClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

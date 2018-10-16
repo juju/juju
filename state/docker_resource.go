@@ -5,13 +5,13 @@ package state
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/resources"
 )
@@ -110,7 +110,7 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
-	data, err := yaml.Marshal(
+	data, err := json.Marshal(
 		resources.DockerImageDetails{
 			RegistryPath: doc.RegistryPath,
 			Username:     doc.Username,

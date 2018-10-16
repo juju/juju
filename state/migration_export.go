@@ -174,10 +174,8 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if dbModel.Type() == ModelTypeIAAS {
-		if err := export.storage(); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if err := export.storage(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// If we are doing a partial export, it doesn't really make sense
@@ -717,6 +715,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
 		PasswordHash:         application.doc.PasswordHash,
+		Placement:            application.doc.Placement,
+		DesiredScale:         application.doc.DesiredScale,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
 		ApplicationConfig:    applicationConfigDoc.Settings,
@@ -1852,7 +1852,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 		va := volumeAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
 		args := description.VolumeAttachmentArgs{
-			Machine: va.Host().(names.MachineTag),
+			Host: va.Host(),
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
@@ -2010,7 +2010,9 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 	for _, doc := range fsAttachments {
 		va := filesystemAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
-		var args description.FilesystemAttachmentArgs
+		args := description.FilesystemAttachmentArgs{
+			Host: va.Host(),
+		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
 			args.Provisioned = true
@@ -2021,10 +2023,6 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 			logger.Debugf("    params %#v", params)
 			args.ReadOnly = params.ReadOnly
 			args.MountPoint = params.Location
-		}
-		// TODO(caas) - handle non-machine hosts
-		if m, ok := va.Host().(names.MachineTag); ok {
-			args.Machine = m
 		}
 		exFilesystem.AddAttachment(args)
 	}

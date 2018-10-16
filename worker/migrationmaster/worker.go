@@ -729,7 +729,7 @@ func (w *Worker) waitForMinions(
 			if err := validateMinionReports(reports, status); err != nil {
 				return false, errors.Trace(err)
 			}
-			failures := len(reports.FailedMachines) + len(reports.FailedUnits)
+			failures := len(reports.FailedMachines) + len(reports.FailedUnits) + len(reports.FailedApplications)
 			if failures > 0 {
 				w.logger.Errorf(formatMinionFailure(reports, infoPrefix))
 				w.setErrorStatus("%s, some agents reported failure", infoPrefix)
@@ -788,6 +788,9 @@ func formatMinionTimeout(
 	if len(reports.SomeUnknownUnits) > 0 {
 		fails = append(fails, fmt.Sprintf("units: %s", strings.Join(reports.SomeUnknownUnits, ",")))
 	}
+	if len(reports.SomeUnknownApplications) > 0 {
+		fails = append(fails, fmt.Sprintf("applications: %s", strings.Join(reports.SomeUnknownApplications, ",")))
+	}
 	return fmt.Sprintf("%d agents failed to report in time for %q phase (including %s)",
 		reports.UnknownCount, infoPrefix, strings.Join(fails, "; "))
 }
@@ -800,12 +803,15 @@ func formatMinionFailure(reports coremigration.MinionReports, infoPrefix string)
 	if len(reports.FailedUnits) > 0 {
 		fails = append(fails, fmt.Sprintf("units: %s", strings.Join(reports.FailedUnits, ",")))
 	}
+	if len(reports.FailedApplications) > 0 {
+		fails = append(fails, fmt.Sprintf("applications: %s", strings.Join(reports.FailedApplications, ",")))
+	}
 	return fmt.Sprintf("agents failed phase %q (%s)", infoPrefix, strings.Join(fails, "; "))
 }
 
 func formatMinionWaitDone(reports coremigration.MinionReports, infoPrefix string) string {
 	return fmt.Sprintf("completed waiting for agents to report for %q, %d succeeded, %d failed",
-		infoPrefix, reports.SuccessCount, len(reports.FailedMachines)+len(reports.FailedUnits))
+		infoPrefix, reports.SuccessCount, len(reports.FailedMachines)+len(reports.FailedUnits)+len(reports.FailedApplications))
 }
 
 func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
@@ -815,7 +821,7 @@ func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 
 	msg := fmt.Sprintf("waiting for agents to report back: %d succeeded, %d still to report",
 		reports.SuccessCount, reports.UnknownCount)
-	failed := len(reports.FailedMachines) + len(reports.FailedUnits)
+	failed := len(reports.FailedMachines) + len(reports.FailedUnits) + len(reports.FailedApplications)
 	if failed > 0 {
 		msg += fmt.Sprintf(", %d failed", failed)
 	}

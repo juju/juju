@@ -88,7 +88,6 @@ type APIBase struct {
 
 	storagePoolManager    poolmanager.PoolManager
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
-	getEnviron            stateenvirons.NewEnvironFunc
 }
 
 // NewFacadeV4 provides the signature required for facade registration
