@@ -85,8 +85,8 @@ func (s *OpenedResourceSuite) TestDockerImage(c *gc.C) {
 	data, err := ioutil.ReadAll(content.Data)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
-ImageName: image-name
-Password: secret
-Username: docker-registry
+registrypath: image-name
+username: docker-registry
+password: secret
 `[1:])
 }

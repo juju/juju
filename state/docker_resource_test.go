@@ -99,7 +99,7 @@ func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 	retrieved, num, err := s.metadataStorage.Get(id)
 	c.Assert(err, jc.ErrorIsNil)
 	retrievedInfo := readerToDockerDetails(c, retrieved)
-	c.Assert(num, gc.Equals, int64(69))
+	c.Assert(num, gc.Equals, int64(76))
 	c.Assert(retrievedInfo.RegistryPath, gc.Equals, "url@sha256:abc123")
 	c.Assert(retrievedInfo.Username, gc.Equals, "testuser")
 	c.Assert(retrievedInfo.Password, gc.Equals, "hunter2")

@@ -68,6 +68,9 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+
+	// modelUUID is the UUID of the model this client acts on.
+	modelUUID string
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -82,7 +85,7 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK8sClientFunc) (caas.Broker, error) {
+func NewK8sBroker(cloudSpec environs.CloudSpec, namespace, uuid string, newClient NewK8sClientFunc) (caas.Broker, error) {
 	config, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -95,6 +98,7 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
 		namespace:           namespace,
+		modelUUID:           uuid,
 	}, nil
 }
 
