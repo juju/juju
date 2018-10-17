@@ -155,7 +155,6 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 
 // PrepareForBootstrap returns environ config.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	logger.Criticalf("kubernetesClient PrepareForBootstrap -> %#v", ctx)
 	return nil
 }
 
