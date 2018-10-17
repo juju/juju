@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -27,7 +28,13 @@ type ManifoldConfig struct {
 	CertWatcherName string
 	StateName       string
 	MuxName         string
-	StartAfter      []string
+
+	// We don't use these in the worker, but we want to prevent the
+	// httpserver from starting until they're running so that all of
+	// their handlers are registered.
+	RaftTransportName string
+	APIServerName     string
+	RaftEnabledName   string
 
 	PrometheusRegisterer prometheus.Registerer
 
@@ -49,6 +56,15 @@ func (config ManifoldConfig) Validate() error {
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
 	}
+	if config.RaftEnabledName == "" {
+		return errors.NotValidf("empty RaftEnabledName")
+	}
+	if config.RaftTransportName == "" {
+		return errors.NotValidf("empty RaftTransportName")
+	}
+	if config.APIServerName == "" {
+		return errors.NotValidf("empty APIServerName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -65,16 +81,17 @@ func (config ManifoldConfig) Validate() error {
 // worker. The manifold outputs an *apiserverhttp.Mux, for other workers
 // to register handlers against.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	allInputs := []string{
-		config.AgentName,
-		config.CertWatcherName,
-		config.StateName,
-		config.MuxName,
-	}
-	allInputs = append(allInputs, config.StartAfter...)
 	return dependency.Manifold{
-		Inputs: allInputs,
-		Start:  config.start,
+		Inputs: []string{
+			config.AgentName,
+			config.CertWatcherName,
+			config.StateName,
+			config.MuxName,
+			config.RaftEnabledName,
+			config.RaftTransportName,
+			config.APIServerName,
+		},
+		Start: config.start,
 	}
 }
 
@@ -99,10 +116,18 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	for _, name := range config.StartAfter {
-		// We don't actually need anything from these workers, but we
-		// shouldn't start until they're available.
-		if err := context.Get(name, nil); err != nil {
+	// We don't actually need anything from these workers, but we
+	// shouldn't start until they're available.
+	if err := context.Get(config.APIServerName, nil); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Only check for the raft transport if raft is enabled.
+	var raftEnabled engine.Flag
+	if err := context.Get(config.RaftEnabledName, &raftEnabled); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if raftEnabled.Check() {
+		if err := context.Get(config.RaftTransportName, nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
