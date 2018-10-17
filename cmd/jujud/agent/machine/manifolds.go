@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/identityfilewriter"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/logger"
@@ -701,23 +702,29 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
-			AgentName:             agentName,
-			CertWatcherName:       certificateWatcherName,
+		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
 			StateName:             stateName,
-			PrometheusRegisterer:  config.PrometheusRegisterer,
-			NewTLSConfig:          httpserver.NewTLSConfig,
-			NewStateAuthenticator: httpserver.NewStateAuthenticator,
-			NewWorker:             httpserver.NewWorkerShim,
+			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
+		}),
+
+		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
+			AgentName:            agentName,
+			CertWatcherName:      certificateWatcherName,
+			StateName:            stateName,
+			MuxName:              httpServerArgsName,
+			StartAfter:           []string{apiServerName, raftTransportName},
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewTLSConfig:         httpserver.NewTLSConfig,
+			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:                         agentName,
-			AuthenticatorName:                 httpServerName,
+			AuthenticatorName:                 httpServerArgsName,
 			ClockName:                         clockName,
 			StateName:                         stateName,
-			MuxName:                           httpServerName,
+			MuxName:                           httpServerArgsName,
 			LeaseManagerName:                  leaseManagerName,
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
@@ -772,25 +779,25 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// All the other raft workers hang off the raft transport, so
 		// it's the only one that needs to be gated by the enabled flag.
-		raftTransportName: ifRaftEnabled(ifFullyUpgraded(rafttransport.Manifold(rafttransport.ManifoldConfig{
+		raftTransportName: ifRaftEnabled(rafttransport.Manifold(rafttransport.ManifoldConfig{
 			ClockName:         clockName,
 			AgentName:         agentName,
-			AuthenticatorName: httpServerName,
+			AuthenticatorName: httpServerArgsName,
 			HubName:           centralHubName,
-			MuxName:           httpServerName,
+			MuxName:           httpServerArgsName,
 			DialConn:          rafttransport.DialConn,
 			NewWorker:         rafttransport.NewWorker,
 			Path:              "/raft",
-		}))),
+		})),
 
-		raftName: raft.Manifold(raft.ManifoldConfig{
+		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
 			ClockName:     clockName,
 			AgentName:     agentName,
 			TransportName: raftTransportName,
 			FSM:           leaseFSM,
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
-		}),
+		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
 			RaftName:  raftName,
@@ -971,8 +978,9 @@ const (
 	upgradeSeriesEnabledName = "upgrade-series-enabled"
 	upgradeSeriesWorkerName  = "upgrade-series"
 
-	httpServerName = "http-server"
-	apiServerName  = "api-server"
+	httpServerName     = "http-server"
+	httpServerArgsName = "http-server-args"
+	apiServerName      = "api-server"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"
