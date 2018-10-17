@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 )
 
 // Store manipulates leases directly, and is most likely to be seen set on a
@@ -45,16 +46,18 @@ type Store interface {
 	// Refresh reads all lease state from the database.
 	Refresh() error
 
-	// PinLease ensures that the holder of the input lease will not have its
-	// claim expired until UnpinLease is called for the same key.
-	// A current lease holder is not required for this operation to succeed.
-	// If there is no holder, the next claimant of the lease will hold it at
-	// least until Unpin is called.
-	PinLease(lease Key) error
+	// Pin ensures that the current holder of the lease for the input key will
+	// not lose the lease to expiry.
+	// If there is no current holder of the lease, the next claimant will be
+	// the recipient of the pin behaviour.
+	// The input entity denotes the party responsible for the
+	// pinning operation.
+	PinLease(lease Key, entity names.Tag) error
 
-	// UnpinLease removes the pin from the input lease,
-	// restoring normal expiry behaviour.
-	UnpinLease(lease Key) error
+	// Unpin reverses a Pin operation for the same key and entity.
+	// Normal expiry behaviour is restored when no entities remain with
+	// pins for the application.
+	UnpinLease(lease Key, tag names.Tag) error
 }
 
 // Key fully identifies a lease, including the namespace and
