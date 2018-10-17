@@ -287,7 +287,7 @@ func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) erro
 	}
 
 	for _, app := range applications.SortedValues() {
-		if err := c.leadershipClient.PinLeadership(app); err != nil {
+		if err := c.leadershipClient.PinLeadership(app, names.NewMachineTag(c.machineNumber)); err != nil {
 			return errors.Annotatef(err, "freezing leadership for %q", app)
 		}
 		ctx.Infof("leadership pinned for application %q", app)
@@ -422,7 +422,7 @@ func (c *upgradeSeriesCommand) unpinLeaders(ctx *cmd.Context) error {
 	apps := sort.StringSlice(applications)
 	apps.Sort()
 	for _, app := range apps {
-		if err := c.leadershipClient.UnpinLeadership(app); err != nil {
+		if err := c.leadershipClient.UnpinLeadership(app, names.NewMachineTag(c.machineNumber)); err != nil {
 			return errors.Annotatef(err, "unfreezing leadership for %q", app)
 		}
 		ctx.Infof("leadership unpinned for application %q", app)

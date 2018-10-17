@@ -32,12 +32,13 @@ var _ = gc.Suite(&LeadershipSuite{})
 func (s *LeadershipSuite) TestPinSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.pinner.EXPECT().PinLeadership("redis").Return(nil)
+	s.pinner.EXPECT().PinLeadership("redis", s.modelTag).Return(nil)
 
 	arg := params.PinLeadershipBulkParams{
-		Params: []params.PinLeadershipParams{
-			{ApplicationTag: "application-redis"},
-		},
+		Params: []params.PinLeadershipParams{{
+			ApplicationTag: "application-redis",
+			EntityTag:      s.modelTag.String(),
+		}},
 	}
 	res, err := s.api.PinLeadership(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,12 +50,13 @@ func (s *LeadershipSuite) TestPinSuccess(c *gc.C) {
 func (s *LeadershipSuite) TestPinError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.pinner.EXPECT().PinLeadership("redis").Return(errors.New("boom"))
+	s.pinner.EXPECT().PinLeadership("redis", s.modelTag).Return(errors.New("boom"))
 
 	arg := params.PinLeadershipBulkParams{
-		Params: []params.PinLeadershipParams{
-			{ApplicationTag: "application-redis"},
-		},
+		Params: []params.PinLeadershipParams{{
+			ApplicationTag: "application-redis",
+			EntityTag:      s.modelTag.String(),
+		}},
 	}
 	res, err := s.api.PinLeadership(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,12 +69,13 @@ func (s *LeadershipSuite) TestPinError(c *gc.C) {
 func (s *LeadershipSuite) TestUnpinSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.pinner.EXPECT().UnpinLeadership("redis").Return(nil)
+	s.pinner.EXPECT().UnpinLeadership("redis", s.modelTag).Return(nil)
 
 	arg := params.PinLeadershipBulkParams{
-		Params: []params.PinLeadershipParams{
-			{ApplicationTag: "application-redis"},
-		},
+		Params: []params.PinLeadershipParams{{
+			ApplicationTag: "application-redis",
+			EntityTag:      s.modelTag.String(),
+		}},
 	}
 	res, err := s.api.UnpinLeadership(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,12 +87,13 @@ func (s *LeadershipSuite) TestUnpinSuccess(c *gc.C) {
 func (s *LeadershipSuite) TestUnpinError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.pinner.EXPECT().UnpinLeadership("redis").Return(errors.New("boom"))
+	s.pinner.EXPECT().UnpinLeadership("redis", s.modelTag).Return(errors.New("boom"))
 
 	arg := params.PinLeadershipBulkParams{
-		Params: []params.PinLeadershipParams{
-			{ApplicationTag: "application-redis"},
-		},
+		Params: []params.PinLeadershipParams{{
+			ApplicationTag: "application-redis",
+			EntityTag:      s.modelTag.String(),
+		}},
 	}
 	res, err := s.api.UnpinLeadership(arg)
 	c.Assert(err, jc.ErrorIsNil)

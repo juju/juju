@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -33,25 +34,25 @@ func (m *MockPinner) EXPECT() *MockPinnerMockRecorder {
 }
 
 // PinLeadership mocks base method
-func (m *MockPinner) PinLeadership(arg0 string) error {
-	ret := m.ctrl.Call(m, "PinLeadership", arg0)
+func (m *MockPinner) PinLeadership(arg0 string, arg1 names_v2.Tag) error {
+	ret := m.ctrl.Call(m, "PinLeadership", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PinLeadership indicates an expected call of PinLeadership
-func (mr *MockPinnerMockRecorder) PinLeadership(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinLeadership", reflect.TypeOf((*MockPinner)(nil).PinLeadership), arg0)
+func (mr *MockPinnerMockRecorder) PinLeadership(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinLeadership", reflect.TypeOf((*MockPinner)(nil).PinLeadership), arg0, arg1)
 }
 
 // UnpinLeadership mocks base method
-func (m *MockPinner) UnpinLeadership(arg0 string) error {
-	ret := m.ctrl.Call(m, "UnpinLeadership", arg0)
+func (m *MockPinner) UnpinLeadership(arg0 string, arg1 names_v2.Tag) error {
+	ret := m.ctrl.Call(m, "UnpinLeadership", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UnpinLeadership indicates an expected call of UnpinLeadership
-func (mr *MockPinnerMockRecorder) UnpinLeadership(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinLeadership", reflect.TypeOf((*MockPinner)(nil).UnpinLeadership), arg0)
+func (mr *MockPinnerMockRecorder) UnpinLeadership(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinLeadership", reflect.TypeOf((*MockPinner)(nil).UnpinLeadership), arg0, arg1)
 }

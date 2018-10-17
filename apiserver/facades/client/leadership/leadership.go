@@ -69,15 +69,20 @@ func (a *api) UnpinLeadership(param params.PinLeadershipBulkParams) (params.Erro
 	return a.pinOps(param, a.pinner.UnpinLeadership), nil
 }
 
-func (a *api) pinOps(param params.PinLeadershipBulkParams, op func(string) error) params.ErrorResults {
+func (a *api) pinOps(param params.PinLeadershipBulkParams, op func(string, names.Tag) error) params.ErrorResults {
 	results := make([]params.ErrorResult, len(param.Params))
 	for i, p := range param.Params {
-		tag, err := names.ParseApplicationTag(p.ApplicationTag)
+		appTag, err := names.ParseApplicationTag(p.ApplicationTag)
 		if err != nil {
 			results[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
 		}
-		if err = op(tag.Id()); err != nil {
+		entityTag, err := names.ParseTag(p.EntityTag)
+		if err != nil {
+			results[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
+		if err = op(appTag.Id(), entityTag); err != nil {
 			results[i] = params.ErrorResult{Error: common.ServerError(err)}
 		}
 	}
