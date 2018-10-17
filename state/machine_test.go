@@ -130,6 +130,20 @@ func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
 	c.Assert(keep, jc.IsTrue)
 }
 
+func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
+	err := s.machine.SetProvisioned("1234", "nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedProfiles := []string{"juju-default-lxd-profile-0", "juju-default-lxd-sub-0"}
+	err = s.machine.SetCharmProfiles(expectedProfiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedProfiles, err := m.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expectedProfiles, jc.SameContents, obtainedProfiles)
+}
+
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -977,14 +991,14 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): {VolumeId: "vol-ume"},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	invalidVolumes = map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): {},
 	}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume ID not set`)
 	assertNotProvisioned()
 
@@ -1017,7 +1031,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 		Size:     1234,
 	}
 	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, volumes, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, volumes, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 

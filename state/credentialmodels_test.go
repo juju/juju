@@ -104,6 +104,32 @@ func (s *CredentialModelsSuite) TestCredentialModels(c *gc.C) {
 	c.Assert(out, gc.DeepEquals, map[string]string{s.abcModelTag.Id(): "abcmodel"})
 }
 
+func (s *CredentialModelsSuite) TestCredentialModelsExcludesDeadModels(c *gc.C) {
+	checkModels := func(expected ...string) {
+		out, err := s.State.CredentialModels(s.credentialTag)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var obtained []string
+		for k := range out {
+			obtained = append(obtained, k)
+		}
+		c.Assert(obtained, jc.SameContents, expected)
+	}
+
+	// Add another model with the same credential.
+	xyzModelTag := s.addModel(c, "xyzmodel", s.credentialTag)
+	checkModels(s.abcModelTag.Id(), xyzModelTag.Id())
+
+	// Set one of the models to Dead.
+	m, r, err := s.StatePool.GetModel(s.abcModelTag.Id())
+	defer r.Release()
+
+	err = m.SetDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkModels(xyzModelTag.Id())
+}
+
 func (s *CredentialModelsSuite) TestCredentialNoModels(c *gc.C) {
 	anotherCredential := s.createCloudCredential(c, "another")
 

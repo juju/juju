@@ -1087,21 +1087,6 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 	return nil
 }
 
-func DefineEthernetDeviceOnBridge(name string, hostBridge *LinkLayerDevice) (LinkLayerDeviceArgs, error) {
-	if hostBridge.Type() != BridgeDevice {
-		return LinkLayerDeviceArgs{}, errors.Errorf("hostBridge must be a Bridge Device not %q", hostBridge.Type())
-	}
-	return LinkLayerDeviceArgs{
-		Name:        name,
-		Type:        EthernetDevice,
-		MACAddress:  network.GenerateVirtualMACAddress(),
-		MTU:         hostBridge.MTU(),
-		IsUp:        true,
-		IsAutoStart: true,
-		ParentName:  hostBridge.globalKey(),
-	}, nil
-}
-
 // MachineNetworkInfoResult contains an error or a list of NetworkInfo structures for a specific space.
 type MachineNetworkInfoResult struct {
 	NetworkInfos []network.NetworkInfo

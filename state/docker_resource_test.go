@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -12,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/state"
@@ -96,11 +96,10 @@ func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 	err := s.metadataStorage.Save(id, resource)
 	c.Assert(err, jc.ErrorIsNil)
 
-	retrieved, len, err := s.metadataStorage.Get(id)
+	retrieved, num, err := s.metadataStorage.Get(id)
 	c.Assert(err, jc.ErrorIsNil)
-	retrievedInfo, err := readerToDockerDetails(retrieved)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len, gc.Equals, int64(69))
+	retrievedInfo := readerToDockerDetails(c, retrieved)
+	c.Assert(num, gc.Equals, int64(76))
 	c.Assert(retrievedInfo.RegistryPath, gc.Equals, "url@sha256:abc123")
 	c.Assert(retrievedInfo.Username, gc.Equals, "testuser")
 	c.Assert(retrievedInfo.Password, gc.Equals, "hunter2")
@@ -121,13 +120,12 @@ func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func readerToDockerDetails(r io.ReadCloser) (*resources.DockerImageDetails, error) {
+func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resources.DockerImageDetails {
 	var info resources.DockerImageDetails
 	respBuf := new(bytes.Buffer)
-	respBuf.ReadFrom(r)
-	err := yaml.Unmarshal(respBuf.Bytes(), &info)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &info, nil
+	_, err := respBuf.ReadFrom(r)
+	c.Assert(err, jc.ErrorIsNil)
+	err = json.Unmarshal(respBuf.Bytes(), &info)
+	c.Assert(err, jc.ErrorIsNil)
+	return &info
 }

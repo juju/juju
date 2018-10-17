@@ -3706,6 +3706,58 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	history, err := app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 1)
+	c.Assert(history[0].Status, gc.Equals, status.Waiting)
+	c.Assert(history[0].Message, gc.Equals, "waiting for container")
+
+	// Must overwrite the history
+	err = app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Allocating,
+		Message: "operator message",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	c.Assert(history[0].Status, gc.Equals, status.Allocating)
+	c.Assert(history[0].Message, gc.Equals, "operator message")
+	c.Assert(history[1].Status, gc.Equals, status.Waiting)
+	c.Assert(history[1].Message, gc.Equals, "waiting for container")
+
+	err = app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Running,
+		Message: "operator running",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "app active",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Log(history)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 3)
+	c.Assert(history[0].Status, gc.Equals, status.Active)
+	c.Assert(history[0].Message, gc.Equals, "app active")
+	c.Assert(history[1].Status, gc.Equals, status.Allocating)
+	c.Assert(history[1].Message, gc.Equals, "operator message")
+	c.Assert(history[2].Status, gc.Equals, status.Waiting)
+	c.Assert(history[2].Message, gc.Equals, "waiting for container")
+}
+
 func (s *ApplicationSuite) TestApplicationSetAgentPresence(c *gc.C) {
 	alive, err := s.mysql.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)

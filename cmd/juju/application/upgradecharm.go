@@ -68,6 +68,7 @@ type CharmUpgradeClient interface {
 	GetCharmURL(string) (*charm.URL, error)
 	Get(string) (*params.ApplicationGetResults, error)
 	SetCharm(application.SetCharmConfig) error
+	SetCharmProfile(string, charmstore.CharmID) error
 }
 
 // CharmClient defines a subset of the charms facade, as required
@@ -105,11 +106,14 @@ type upgradeCharmCommand struct {
 	CharmStoreURLGetter   func(api.Connection) (string, error)
 
 	ApplicationName string
-	ForceUnits      bool
-	ForceSeries     bool
-	SwitchURL       string
-	CharmPath       string
-	Revision        int // defaults to -1 (latest)
+	// Force should be ubiquitous and we should eventually deprecate both
+	// ForceUnits and ForceSeries; instead just using "force"
+	Force       bool
+	ForceUnits  bool
+	ForceSeries bool
+	SwitchURL   string
+	CharmPath   string
+	Revision    int // defaults to -1 (latest)
 
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
@@ -198,6 +202,10 @@ would specify revision number 5 of the wordpress charm.
 Use of the --force-units flag is not generally recommended; units upgraded while in an
 error state will not have upgrade-charm hooks executed, and may cause unexpected
 behavior.
+
+--force flag for LXD Profiles is not generally recommended when upgrading an 
+application; overriding profiles on the container may cause unexpected 
+behavior. 
 `
 
 func (c *upgradeCharmCommand) Info() *cmd.Info {
@@ -211,6 +219,7 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be upgraded which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")
@@ -318,7 +327,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	deployedSeries := applicationInfo.Series
 
-	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries)
+	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -334,6 +343,12 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	ids, err := c.upgradeResources(apiRoot, charmsClient, resourceLister, chID, csMac)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Next, upgrade the lxd-profile if appropriate.
+	err = charmUpgradeClient.SetCharmProfile(c.ApplicationName, chID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -526,6 +541,7 @@ func (c *upgradeCharmCommand) addCharm(
 	oldURL *charm.URL,
 	charmRef string,
 	deployedSeries string,
+	force bool,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
 	// Charm may have been supplied via a path reference. If so, build a
@@ -536,7 +552,7 @@ func (c *upgradeCharmCommand) addCharm(
 		if newName != oldURL.Name {
 			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
-		addedURL, err := charmAdder.AddLocalCharm(newURL, ch)
+		addedURL, err := charmAdder.AddLocalCharm(newURL, ch, force)
 		id.URL = addedURL
 		return id, nil, err
 	}
@@ -583,7 +599,7 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel)
+	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

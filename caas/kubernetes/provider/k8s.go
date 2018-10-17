@@ -75,6 +75,9 @@ type kubernetesClient struct {
 
 	lock   sync.Mutex
 	envCfg *environConfig
+
+	// modelUUID is the UUID of the model this client acts on.
+	modelUUID string
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -90,7 +93,6 @@ type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsc
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
-	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,6 +109,7 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient Ne
 		apiextensionsClient: apiextensionsClient,
 		namespace:           cfg.Name(),
 		envCfg:              newCfg,
+		modelUUID:           cfg.UUID(),
 	}, nil
 }
 
@@ -236,6 +239,20 @@ func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
 		return errors.Annotate(err, "deleting model storage classes")
 	}
 	return nil
+}
+
+// Namespaces returns name names of the namespaces on the cluster.
+func (k *kubernetesClient) Namespaces() ([]string, error) {
+	namespaces := k.CoreV1().Namespaces()
+	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]string, len(ns.Items))
+	for i, n := range ns.Items {
+		result[i] = n.Name
+	}
+	return result, nil
 }
 
 // EnsureNamespace ensures this broker's namespace is created.
@@ -1351,6 +1368,20 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	return newKubernetesWatcher(w, appName)
 }
 
+// WatchOperator returns a watcher which notifies when there
+// are changes to the operator of the specified application.
+func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
+	pods := k.CoreV1().Pods(k.namespace)
+	w, err := pods.Watch(v1.ListOptions{
+		LabelSelector: operatorSelector(appName),
+		Watch:         true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newKubernetesWatcher(w, appName)
+}
+
 // jujuPVNameRegexp matches how Juju labels persistent volumes.
 // The pattern is: juju-<storagename>-<digit>
 var jujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
@@ -1376,35 +1407,9 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			}
 		}
 		terminated := p.DeletionTimestamp != nil
-		unitStatus := k.jujuStatus(p.Status.Phase, terminated)
-		statusMessage := p.Status.Message
-		since := now
-		if statusMessage == "" {
-			for _, cond := range p.Status.Conditions {
-				statusMessage = cond.Message
-				since = cond.LastProbeTime.Time
-				if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
-					unitStatus = status.Blocked
-					break
-				}
-			}
-		}
-
-		if statusMessage == "" {
-			// If there are any events for this pod we can use the
-			// most recent to set the status.
-			events := k.CoreV1().Events(k.namespace)
-			eventList, err := events.List(v1.ListOptions{
-				IncludeUninitialized: true,
-				FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", p.Name).String(),
-			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Take the most recent event.
-			if count := len(eventList.Items); count > 0 {
-				statusMessage = eventList.Items[count-1].Message
-			}
+		statusMessage, unitStatus, since, err := k.getPODStatus(p, now)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		unitInfo := caas.Unit{
 			Id:      string(p.UID),
@@ -1516,6 +1521,70 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		units = append(units, unitInfo)
 	}
 	return units, nil
+}
+
+// Operator returns an Operator with current status and life details.
+func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
+	pods := k.CoreV1().Pods(k.namespace)
+	podsList, err := pods.List(v1.ListOptions{
+		LabelSelector: operatorSelector(appName),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(podsList.Items) == 0 {
+		return nil, errors.NotFoundf("operator pod for application %q", appName)
+	}
+
+	opPod := podsList.Items[0]
+	terminated := opPod.DeletionTimestamp != nil
+	now := time.Now()
+	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
+	return &caas.Operator{
+		Id:    string(opPod.UID),
+		Dying: terminated,
+		Status: status.StatusInfo{
+			Status:  opStatus,
+			Message: statusMessage,
+			Since:   &since,
+		},
+	}, nil
+}
+
+func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, status.Status, time.Time, error) {
+	terminated := pod.DeletionTimestamp != nil
+	jujuStatus := k.jujuStatus(pod.Status.Phase, terminated)
+	statusMessage := pod.Status.Message
+	since := now
+	if statusMessage == "" {
+		for _, cond := range pod.Status.Conditions {
+			statusMessage = cond.Message
+			since = cond.LastProbeTime.Time
+			if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
+				jujuStatus = status.Blocked
+				break
+			}
+		}
+	}
+
+	if statusMessage == "" {
+		// If there are any events for this pod we can use the
+		// most recent to set the status.
+		events := k.CoreV1().Events(k.namespace)
+		eventList, err := events.List(v1.ListOptions{
+			IncludeUninitialized: true,
+			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pod.Name).String(),
+		})
+		if err != nil {
+			return "", "", time.Time{}, errors.Trace(err)
+		}
+		// Take the most recent event.
+		if count := len(eventList.Items); count > 0 {
+			statusMessage = eventList.Items[count-1].Message
+		}
+	}
+
+	return statusMessage, jujuStatus, since, nil
 }
 
 func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {

@@ -46,7 +46,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
 
-	err = s.machine.SetInstanceInfo("i-foo", "FAKE_NONCE", nil, nil, nil, nil, nil)
+	err = s.machine.SetInstanceInfo("i-foo", "FAKE_NONCE", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	observedConfig := []params.NetworkConfig{{
@@ -101,7 +101,7 @@ func (s *networkConfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
 
-	err = s.machine.SetInstanceInfo("i-foo", "FAKE_NONCE", nil, nil, nil, nil, nil)
+	err = s.machine.SetInstanceInfo("i-foo", "FAKE_NONCE", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

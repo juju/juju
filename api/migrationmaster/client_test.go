@@ -449,11 +449,13 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 				names.NewMachineTag("3").String(),
 				names.NewMachineTag("4").String(),
 				names.NewUnitTag("foo/0").String(),
+				names.NewApplicationTag("bar").String(),
 			},
 			Failed: []string{
 				names.NewMachineTag("5").String(),
 				names.NewUnitTag("foo/1").String(),
 				names.NewUnitTag("foo/2").String(),
+				names.NewApplicationTag("foobar").String(),
 			},
 		}
 		return nil
@@ -465,14 +467,16 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 		{"MigrationMaster.MinionReports", []interface{}{"", nil}},
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
-		MigrationId:         "id",
-		Phase:               migration.IMPORT,
-		SuccessCount:        4,
-		UnknownCount:        3,
-		SomeUnknownMachines: []string{"3", "4"},
-		SomeUnknownUnits:    []string{"foo/0"},
-		FailedMachines:      []string{"5"},
-		FailedUnits:         []string{"foo/1", "foo/2"},
+		MigrationId:             "id",
+		Phase:                   migration.IMPORT,
+		SuccessCount:            4,
+		UnknownCount:            3,
+		SomeUnknownMachines:     []string{"3", "4"},
+		SomeUnknownUnits:        []string{"foo/0"},
+		SomeUnknownApplications: []string{"bar"},
+		FailedMachines:          []string{"5"},
+		FailedUnits:             []string{"foo/1", "foo/2"},
+		FailedApplications:      []string{"foobar"},
 	})
 }
 

@@ -49,9 +49,6 @@ const OldPresence = "old-presence"
 // (or just unwanted noise).
 const DisableRaft = "disable-raft"
 
-// UpgradeSeries is a development feature flag.
-const UpgradeSeries = "upgrade-series"
-
 // LegacyLeases will switch all lease management to be handled by the
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"

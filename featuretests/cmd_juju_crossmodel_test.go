@@ -383,7 +383,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	ch, err = jujutesting.PutCharm(otherModel, curl, repo, false)
+	ch, err = jujutesting.PutCharm(otherModel, curl, repo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
@@ -414,7 +414,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	ch, err := jujutesting.PutCharm(otherModel, curl, repo, false)
+	ch, err := jujutesting.PutCharm(otherModel, curl, repo, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",

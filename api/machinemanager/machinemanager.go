@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 )
@@ -158,14 +159,14 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 		Force:  force,
 	}
 	result := params.ErrorResult{}
-	err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result)
-	if err != nil {
+	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
 		return errors.Trace(err)
 	}
-	if result.Error != nil {
-		return result.Error
-	}
 
+	err := result.Error
+	if err != nil {
+		return common.RestoreError(err)
+	}
 	return nil
 }
 
@@ -257,6 +258,29 @@ func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([
 		},
 	}
 	err := client.facade.FacadeCall("GetUpgradeSeriesMessages", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return result.Result, nil
+}
+
+func (client *Client) Applications(machineName string) ([]string, error) {
+	if client.BestAPIVersion() < 5 {
+		return nil, errors.NotSupportedf("Applications")
+	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: names.NewMachineTag(machineName).String()},
+	}}
+	results := new(params.StringsResults)
+	err := client.facade.FacadeCall("Applications", args, results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

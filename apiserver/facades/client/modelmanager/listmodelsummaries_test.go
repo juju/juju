@@ -60,7 +60,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.callContext = context.NewCloudCallContext()
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -71,14 +71,15 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return &mockModel{
-		owner: user,
-		cfg:   cfg,
+		owner:               user,
+		cfg:                 cfg,
+		setCloudCredentialF: func(tag names.CloudCredentialTag) (bool, error) { return false, nil },
 	}
 }
 
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, s.authoriser, s.st.model, s.callContext)
+	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, nil, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = modelmanager
 }

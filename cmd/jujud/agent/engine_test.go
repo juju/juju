@@ -145,6 +145,7 @@ var (
 		"reboot-executor",
 		"ssh-authkeys-updater",
 		"storage-provisioner",
+		"upgrade-series",
 		"unconverted-api-workers",
 		"unit-agent-deployer",
 	}

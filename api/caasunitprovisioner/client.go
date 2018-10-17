@@ -79,7 +79,7 @@ func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAt
 	return application.ConfigAttributes(results.Results[0].Config), nil
 }
 
-// WatchUnits returns a StringsWatcher that notifies of
+// WatchApplicationScale returns a NotifyWatcher that notifies of
 // changes to the lifecycles of units of the specified
 // CAAS application in the current model.
 func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {

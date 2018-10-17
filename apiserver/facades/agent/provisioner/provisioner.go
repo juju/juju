@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -158,6 +158,11 @@ type ProvisionerAPIV5 struct {
 
 // ProvisionerAPIV6 provides v6 of the provisioner facade.
 type ProvisionerAPIV6 struct {
+	*ProvisionerAPIV7
+}
+
+// ProvisionerAPIV7 provides v7 of the provisioner facade.
+type ProvisionerAPIV7 struct {
 	*ProvisionerAPI
 }
 
@@ -181,11 +186,20 @@ func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV6, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV7(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV6{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV7, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV7{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -699,7 +713,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
 			devicesArgs, devicesAddrs,
-			volumes, volumeAttachments,
+			volumes, volumeAttachments, arg.CharmProfiles,
 		)
 		if err != nil {
 			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)
@@ -724,6 +738,24 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	// Consume any initial event and forward it to the result.
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = p.resources.Register(watch)
+	} else {
+		return result, watcher.EnsureErr(watch)
+	}
+	return result, nil
+}
+
+// WatchModelMachinesCharmProfiles returns a StringsWaterch that notifies when
+// the provisioner should update the charm profiles used by a machine.
+func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	if !p.authorizer.AuthController() {
+		return result, common.ErrPerm
+	}
+	watch := p.st.WatchModelMachinesCharmProfiles()
+	// Consume any initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = p.resources.Register(watch)
+		result.Changes = changes
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}
@@ -755,12 +787,12 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, tag)
+		guest, err := p.getMachine(canAccess, tag)
 		if err != nil {
 			logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		} else if !container.IsContainer() {
+		} else if !guest.IsContainer() {
 			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -768,7 +800,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 		// TODO(dimitern): Release those via the provider once we have
 		// Environ.ReleaseContainerAddresses. See LP bug http://pad.lv/1585878
-		err = container.RemoveAllAddresses()
+		err = guest.RemoveAllAddresses()
 		if err != nil {
 			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
@@ -797,6 +829,16 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	return p.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
+// Machine is an indirection for use in container provisioning.
+//go:generate mockgen -package provisioner_test -destination machine_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
+//go:generate mockgen -package provisioner_test -destination linklayerdevice_mock_test.go github.com/juju/juju/network/containerizer LinkLayerDevice
+type Machine interface {
+	containerizer.Container
+	InstanceId() (instance.Id, error)
+	IsManual() (bool, error)
+	MachineTag() names.MachineTag
+}
+
 // perContainerHandler is the interface we need to trigger processing on
 // every container passed in as a list of things to process.
 type perContainerHandler interface {
@@ -808,7 +850,7 @@ type perContainerHandler interface {
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error
+	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine) error
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
@@ -838,17 +880,21 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, machineTag)
+		guest, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
-		} else if !container.IsContainer() {
+		} else if !guest.IsContainer() {
 			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
 
-		if err := handler.ProcessOneContainer(env, p.providerCallContext, i, hostMachine, container); err != nil {
+		if err := handler.ProcessOneContainer(
+			env, p.providerCallContext, i,
+			&containerizer.MachineShim{Machine: hostMachine},
+			&containerizer.MachineShim{Machine: guest},
+		); err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
@@ -865,22 +911,23 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
-func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
-	containerId, err := container.InstanceId()
+func (ctx *prepareOrGetContext) ProcessOneContainer(
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+) error {
+	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
 		if err == nil {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
 			// provisioned yet.
-			return errors.Errorf("container %q already provisioned as %q", container, containerId)
+			return errors.Errorf("container %q already provisioned as %q", guest.Id(), instanceId)
 		}
 	}
 	// The only error we allow is NotProvisioned
 	if err != nil && !errors.IsNotProvisioned(err) {
-		return err
+		return errors.Trace(err)
 	}
 
-	supportContainerAddresses := environs.SupportsContainerAddresses(callContext, env)
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
@@ -890,13 +937,24 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 	// just be returning the ones we'd like to exist, and then we turn those
 	// into things we'd like to tell the Host machine to create, and then *it*
 	// reports back what actually exists when its done.
-	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, container); err != nil {
-		return err
+	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, guest); err != nil {
+		return errors.Trace(err)
 	}
 
-	containerDevices, err := container.AllLinkLayerDevices()
+	containerDevices, err := guest.AllLinkLayerDevices()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+
+	// We do not ask the provider to allocate addresses for manually provisioned
+	// machines as we do not expect such machines to be recognised (LP:1796106).
+	askProviderForAddress := false
+	hostIsManual, err := host.IsManual()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !hostIsManual {
+		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
 	}
 
 	preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
@@ -910,7 +968,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 		}
 		parentAddrs, err := parentDevice.Addresses()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		info := network.InterfaceInfo{
@@ -927,7 +985,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 		if len(parentAddrs) > 0 {
 			logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
 			firstAddress := parentAddrs[0]
-			if supportContainerAddresses {
+			if askProviderForAddress {
 				parentDeviceSubnet, err := firstAddress.Subnet()
 				if err != nil {
 					return errors.Annotatef(err,
@@ -962,15 +1020,17 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callCo
 	hostInstanceId, err := host.InstanceId()
 	if err != nil {
 		// this should have already been checked in the processEachContainer helper
-		return err
+		return errors.Trace(err)
 	}
+
 	allocatedInfo := preparedInfo
-	if supportContainerAddresses {
+	if askProviderForAddress {
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
-		allocatedInfo, err = networking.AllocateContainerAddresses(callContext, hostInstanceId, container.MachineTag(), preparedInfo)
+		allocatedInfo, err = networking.AllocateContainerAddresses(
+			callContext, hostInstanceId, guest.MachineTag(), preparedInfo)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 	} else {
@@ -1032,12 +1092,14 @@ type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
-func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
+func (ctx *hostChangesContext) ProcessOneContainer(
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+) error {
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
 	}
-	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
+	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
 		return err
 	}
@@ -1148,8 +1210,7 @@ func (p *ProvisionerAPI) containerProfiles(m *state.Machine) (params.ContainerPr
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			// juju-<model>-<application>-<charm-revision>
-			Name: fmt.Sprintf("juju-%s-%s-%d", p.m.Name(), app.Name(), ch.Revision()),
+			Name: lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision()),
 		}
 		result.LXDProfiles[i] = paramProfile
 	}

@@ -147,6 +147,12 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if app.Exposed {
 			notes = "exposed"
 		}
+		// Expose any operator messages.
+		if fs.Model.Type == caasModelType {
+			if app.StatusInfo.Message != "" {
+				notes = app.StatusInfo.Message
+			}
+		}
 		w.Print(appName, version)
 		w.PrintStatus(app.StatusInfo.Current)
 		scale, warn := fs.applicationScale(appName)

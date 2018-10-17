@@ -530,3 +530,23 @@ func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error 
 	}
 	return result.OneError()
 }
+
+// ChangeModelCredential replaces cloud credential for a given model with the provided one.
+func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.CloudCredentialTag) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 5 {
+		return errors.NotImplementedf("ChangeModelCredential")
+	}
+
+	var out params.ErrorResults
+	in := params.ChangeModelCredentialsParams{
+		[]params.ChangeModelCredentialParams{
+			{ModelTag: model.String(), CloudCredentialTag: credential.String()},
+		},
+	}
+
+	err := c.facade.FacadeCall("ChangeModelCredential", in, &out)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return out.OneError()
+}

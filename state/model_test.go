@@ -136,6 +136,69 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(st2, gc.NotNil)
 }
 
+func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := s.Factory.MakeUser(c, nil).UserTag()
+	owner2 := s.Factory.MakeUser(c, nil).UserTag()
+
+	// Create the first model.
+	model, st1, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		Config:                  cfg,
+		Owner:                   owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st1.Close()
+	c.Assert(model.UniqueIndexExists(), jc.IsTrue)
+
+	// Attempt to create another model with a different UUID but the
+	// same owner and name as the first.
+	newUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
+		"name": cfg.Name(),
+		"uuid": newUUID.String(),
+	})
+	_, _, err = s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		Config:                  cfg2,
+		Owner:                   owner2,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	errMsg := fmt.Sprintf("model %q for cloud dummy already exists", cfg2.Name())
+	c.Assert(err, gc.ErrorMatches, errMsg)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+
+	// Remove the first model.
+	model1, err := st1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model1.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	// Destroy only sets the model to dying and RemoveAllModelDocs can
+	// only be called on a dead model. Normally, the environ's lifecycle
+	// would be set to dead after machines and applications have been cleaned up.
+	err = model1.SetDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We should now be able to create the other model.
+	model2, st2, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		Config:                  cfg2,
+		Owner:                   owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st2.Close()
+	c.Assert(model2, gc.NotNil)
+	c.Assert(st2, gc.NotNil)
+}
+
 func (s *ModelSuite) TestNewModelMissingType(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")

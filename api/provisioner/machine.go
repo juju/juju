@@ -91,7 +91,7 @@ type MachineProvisioner interface {
 	SetInstanceInfo(
 		id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 		networkConfig []params.NetworkConfig, volumes []params.Volume,
-		volumeAttachments map[string]params.VolumeAttachmentInfo,
+		volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 	) error
 
 	// InstanceId returns the provider specific instance id for the
@@ -367,7 +367,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
-	volumeAttachments map[string]params.VolumeAttachmentInfo,
+	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
 	var result params.ErrorResults
 	args := params.InstancesInfo{
@@ -379,6 +379,7 @@ func (m *Machine) SetInstanceInfo(
 			Volumes:           volumes,
 			VolumeAttachments: volumeAttachments,
 			NetworkConfig:     networkConfig,
+			CharmProfiles:     charmProfiles,
 		}},
 	}
 	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)

@@ -25,8 +25,8 @@ import (
 type bridgePolicyStateSuite struct {
 	statetesting.StateSuite
 
-	machine          *state.Machine
-	containerMachine *state.Machine
+	machine          containerizer.Machine
+	containerMachine containerizer.Container
 
 	bridgePolicy *containerizer.BridgePolicy
 }
@@ -70,8 +70,9 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	s.machine = &containerizer.MachineShim{m}
 
 	s.bridgePolicy = &containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   13,
@@ -87,14 +88,16 @@ func (s *bridgePolicyStateSuite) addContainerMachine(c *gc.C) {
 	}
 	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	s.containerMachine = container
+	s.containerMachine = &containerizer.MachineShim{container}
 }
 
-func (s *bridgePolicyStateSuite) assertNoDevicesOnMachine(c *gc.C, machine *state.Machine) {
+func (s *bridgePolicyStateSuite) assertNoDevicesOnMachine(c *gc.C, machine containerizer.Container) {
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, machine, 0)
 }
 
-func (s *bridgePolicyStateSuite) assertAllLinkLayerDevicesOnMachineMatchCount(c *gc.C, machine *state.Machine, expectedCount int) {
+func (s *bridgePolicyStateSuite) assertAllLinkLayerDevicesOnMachineMatchCount(
+	c *gc.C, machine containerizer.Container, expectedCount int,
+) {
 	results, err := machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, expectedCount)
@@ -117,7 +120,7 @@ func (s *bridgePolicyStateSuite) setupTwoSpaces(c *gc.C) {
 	s.createSpaceAndSubnet(c, "dmz", "10.10.0.0/24")
 }
 
-func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceName, cidrAddress string) {
+func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine containerizer.Machine, deviceName, cidrAddress string) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
@@ -137,7 +140,9 @@ func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine *state.Machine
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine *state.Machine, bridgeName, cidrAddress string) {
+func (s *bridgePolicyStateSuite) createBridgeWithIP(
+	c *gc.C, machine containerizer.Machine, bridgeName, cidrAddress string,
+) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       bridgeName,
@@ -159,7 +164,9 @@ func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine *state.Mach
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
 // machine, and assigns the requested CIDRAddress to the bridge.
-func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(c *gc.C, machine *state.Machine, deviceName, bridgeName, cidrAddress string) {
+func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(
+	c *gc.C, machine containerizer.Machine, deviceName, bridgeName, cidrAddress string,
+) {
 	s.createBridgeWithIP(c, machine, bridgeName, cidrAddress)
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
@@ -178,7 +185,7 @@ func (s *bridgePolicyStateSuite) setupMachineInTwoSpaces(c *gc.C) {
 	s.createNICAndBridgeWithIP(c, s.machine, "ens0p10", "br-ens0p10", "10.10.0.20/24")
 }
 
-func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine *state.Machine) {
+func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerizer.Machine) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "lo",
@@ -199,15 +206,15 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine *state.Machi
 }
 
 // createAllDefaultDevices creates the loopback, lxcbr0, lxdbr0, and virbr0 devices
-func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine *state.Machine) {
+func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine containerizer.Machine) {
 	// loopback
-	s.createLoopbackNIC(c, s.machine)
+	s.createLoopbackNIC(c, machine)
 	// container.DefaultLxcBridge
-	s.createBridgeWithIP(c, s.machine, "lxcbr0", "10.0.3.1/24")
+	s.createBridgeWithIP(c, machine, "lxcbr0", "10.0.3.1/24")
 	// container.DefaultLxdBridge
-	s.createBridgeWithIP(c, s.machine, "lxdbr0", "10.0.4.1/24")
+	s.createBridgeWithIP(c, machine, "lxdbr0", "10.0.4.1/24")
 	// container.DefaultKvmBridge
-	s.createBridgeWithIP(c, s.machine, "virbr0", "192.168.124.1/24")
+	s.createBridgeWithIP(c, machine, "virbr0", "192.168.124.1/24")
 }
 
 func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
@@ -345,7 +352,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUnitBindin
 		addCharm(c, s.State, "quantal", "mysql"), map[string]string{"server": "default"})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(s.containerMachine)
+	err = unit.AssignToMachine(s.containerMachine.Raw())
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.containerMachine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)

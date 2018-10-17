@@ -6,6 +6,7 @@ package application_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
@@ -30,7 +32,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -79,6 +83,11 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	s.applicationAPI = s.makeAPI(c)
+
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *applicationSuite) TearDownTest(c *gc.C) {
@@ -674,11 +683,11 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel)
+	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
-	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel)
+	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
-	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel)
+	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
 
 	// Add a charm, without uploading it to storage, to
@@ -696,14 +705,14 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// AddCharm should see the charm in state and not upload it.
-	err = client.AddCharm(sch.URL(), csparams.StableChannel)
+	err = client.AddCharm(sch.URL(), csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
-	err = client.AddCharm(curl, csparams.StableChannel)
+	err = client.AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
@@ -725,7 +734,7 @@ func (s *applicationSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	// Try to add a charm to the model without authorization.
 	s.DischargeUser = ""
-	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
+	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
 
 	tryAs := func(user string) error {
@@ -782,7 +791,7 @@ func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
 		go func(index int) {
 			defer wg.Done()
 
-			c.Assert(client.AddCharm(curl, csparams.StableChannel), gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(client.AddCharm(curl, csparams.StableChannel, false), gc.IsNil, gc.Commentf("goroutine %d", index))
 			sch, err := s.State.Charm(curl)
 			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
 			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
@@ -831,7 +840,7 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 	// Now try to add the charm, which will convert the placeholder to
 	// a pending charm.
-	err = client.AddCharm(curl, csparams.StableChannel)
+	err = client.AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the document's flags were reset as expected.
@@ -1204,7 +1213,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
-	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
+	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 }
@@ -1389,6 +1398,99 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
+func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "quantal/lxd-profile-0", "lxd-profile")
+	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			CharmURL:        curl.String(),
+			ApplicationName: "application-name",
+			NumUnits:        1,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	application, err := s.State.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+	expected, force, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(force, jc.IsFalse)
+	c.Assert(expected.URL(), gc.DeepEquals, curl)
+	c.Assert(expected.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(expected.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(expected.LXDProfile(), gc.DeepEquals, ch.(charm.LXDProfiler).LXDProfile())
+
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := application.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id())
+}
+
+func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfile(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "quantal/lxd-profile-fail-0", "lxd-profile-fail")
+	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, gc.ErrorMatches, `.*invalid lxd-profile.yaml: contains device type "unix-disk"`)
+}
+
+func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "quantal/lxd-profile-fail-0", "lxd-profile-fail")
+	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
+		URL:   curl.String(),
+		Force: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			CharmURL:        curl.String(),
+			ApplicationName: "application-name",
+			NumUnits:        1,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	application, err := s.State.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+	expected, force, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(force, jc.IsFalse)
+	c.Assert(expected.URL(), gc.DeepEquals, curl)
+	c.Assert(expected.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(expected.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(expected.LXDProfile(), gc.DeepEquals, ch.(charm.LXDProfiler).LXDProfile())
+
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := application.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id())
+}
+
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1540,6 +1642,38 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 	// Ensure the minimum number of units has been set.
 	c.Assert(application.Refresh(), gc.IsNil)
 	c.Assert(application.MinUnits(), gc.Equals, minUnits)
+}
+
+func (s *applicationSuite) TestApplicationUpdateSetMinUnitsWithLXDProfile(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+
+	// Set minimum units for the application.
+	minUnits := 2
+	args := params.ApplicationUpdate{
+		ApplicationName: "lxd-profile",
+		MinUnits:        &minUnits,
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the minimum number of units has been set.
+	c.Assert(application.Refresh(), gc.IsNil)
+	c.Assert(application.MinUnits(), gc.Equals, minUnits)
+}
+
+func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile(c *gc.C) {
+	series := "quantal"
+	repo := testcharms.RepoForSeries(series)
+	ch := repo.CharmDir("lxd-profile-fail")
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
+	storerepo, err := charmrepo.InferRepository(
+		curl,
+		charmrepo.NewCharmStoreParams{},
+		repo.Path())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = jujutesting.PutCharm(s.State, curl, storerepo, false, false)
+	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {

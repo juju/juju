@@ -63,6 +63,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	}
 	c.Check(resultMachine.Id, gc.Equals, machine.Id())
 	c.Check(resultMachine.Series, gc.Equals, machine.Series())
+	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
 }
 
 func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *gc.C) {

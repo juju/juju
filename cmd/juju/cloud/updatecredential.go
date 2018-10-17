@@ -4,8 +4,6 @@
 package cloud
 
 import (
-	"sort"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -137,46 +135,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	models, err := client.UpdateCredentialsCheckModels(credentialTag, *credToUpdate)
 
 	// We always want to display models information if there is any.
-	var valid []string
-	invalid := map[string][]error{}
-	for _, m := range models {
-		if len(m.Errors) == 0 {
-			valid = append(valid, m.ModelName)
-			continue
-		} else {
-			var mError []error
-			for _, anErr := range m.Errors {
-				mError = append(mError, errors.Trace(anErr.Error))
-			}
-			invalid[m.ModelName] = mError
-		}
-	}
-
-	if len(valid) > 0 {
-		ctx.Infof("Credential valid for:")
-		for _, v := range valid {
-			ctx.Infof("  %v", v)
-		}
-	}
-	if len(invalid) > 0 {
-		// ensure we sort the valid, invalid slices so that the output is consistent
-		i := 0
-		names := make([]string, len(invalid))
-		for k := range invalid {
-			names[i] = k
-			i++
-		}
-		sort.Strings(names)
-
-		ctx.Infof("Credential invalid for:")
-		for _, v := range names {
-			ctx.Infof("  %v:", v)
-			for _, e := range invalid[v] {
-				ctx.Infof("    %v", e)
-			}
-		}
-	}
-
+	common.OutputUpdateCredentialModelResult(ctx, models, true)
 	if err != nil {
 		ctx.Infof("Controller credential %q for user %q on cloud %q not updated: %v.", c.credential, accountDetails.User, c.cloud, err)
 		// TODO (anastasiamac 2018-09-21) When set-credential is done, also direct user to it.

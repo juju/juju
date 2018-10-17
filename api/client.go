@@ -302,7 +302,7 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch, agentSt
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL.
-func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
+func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
@@ -311,7 +311,9 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Trace(err)
 	}
 	if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
-		return nil, errors.Trace(err)
+		if !force {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	// Package the charm for uploading.
@@ -442,10 +444,11 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
+func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel, force bool) error {
 	args := params.AddCharm{
 		URL:     curl.String(),
 		Channel: string(channel),
+		Force:   force,
 	}
 	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
 		return errors.Trace(err)
@@ -462,11 +465,14 @@ func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
 // If the AddCharmWithAuthorization API call fails because of an
 // authorization error when retrieving the charm from the charm store,
 // an error satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) error {
+// Force is used to overload any validation errors that could occur during
+// a deploy
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, force bool) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),
 		Channel:            string(channel),
 		CharmStoreMacaroon: csMac,
+		Force:              force,
 	}
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, nil); err != nil {
 		return errors.Trace(err)
