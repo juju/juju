@@ -324,8 +324,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 }
 
 var (
-	bootstrapPrepareIAAS       = bootstrap.PrepareIAAS
-	bootstrapPrepareCAAS       = bootstrap.PrepareCAAS
+	bootstrapPrepareController = bootstrap.PrepareController
 	environsDestroy            = environs.Destroy
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
@@ -399,7 +398,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Criticalf("cloud -> %#v, provider -> %#v, err -> %#v", cloud, provider, err)
 
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
@@ -416,13 +414,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 		return errors.Trace(err)
-	}
-
-	if credentials.name == "" {
-		// credentialName will be empty if the credential was detected.
-		// We must supply a name for the credential in the database,
-		// so choose one.
-		credentials.name = credentials.detectedName
 	}
 
 	cloudCallCtx := context.NewCloudCallContext()
@@ -510,8 +501,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		AgentVersion:              c.AgentVersion,
 		Cloud:                     cloud,
 		CloudRegion:               region.Name,
-		CloudCredential:           credentials.credential,
-		CloudCredentialName:       credentials.name,
 		ControllerConfig:          config.controller,
 		ControllerInheritedConfig: config.inheritedControllerAttrs,
 		RegionInheritedConfig:     cloud.RegionConfig,
@@ -524,17 +513,16 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		},
 	}
 
-	var environ environs.BootstrapEnviron
+	environ, err := bootstrapPrepareController(
+		bootstrapParams.IsCAASController, bootstrapCtx, store, bootstrapPrepareParams,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if bootstrapParams.IsCAASController {
 		if !featureflag.Enabled(feature.DeveloperMode) {
 			return errors.NotSupportedf("bootstrap to kubernetes cluster")
-		}
-
-		// bootstrap to k8s cluster
-		if environ, err = bootstrapPrepareCAAS(
-			bootstrapCtx, store, bootstrapPrepareParams,
-		); err != nil {
-			return errors.Trace(err)
 		}
 
 		if !c.noSwitch {
@@ -543,12 +531,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			}
 		}
 	} else {
-		// Bootstrap controller in IAAS mode.
-		if environ, err = bootstrapPrepareIAAS(
-			bootstrapCtx, store, bootstrapPrepareParams,
-		); err != nil {
-			return errors.Trace(err)
-		}
 
 		// only IAAS has hosted model.
 		hostedModelUUID, err := utils.NewUUID()
@@ -578,27 +560,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ,
 		)
 	}
-
-	constraintsValidator, err := environ.ConstraintsValidator(cloudCallCtx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Merge in any space constraints that should be implied from controller
-	// space config.
-	// Do it before calling merge, because the constraints will be validated
-	// there.
-	constraints := c.Constraints
-	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
-
-	// Merge environ and bootstrap-specific constraints.
-	bootstrapParams.BootstrapConstraints, err = constraintsValidator.Merge(constraints, c.BootstrapConstraints)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
-
-	bootstrapParams.ModelConstraints = c.Constraints
 
 	cloudRegion := c.Cloud
 	if region.Name != "" {
@@ -656,11 +617,41 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		bootstrapParams.MetadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
+	constraintsValidator, err := environ.ConstraintsValidator(cloudCallCtx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Merge in any space constraints that should be implied from controller
+	// space config.
+	// Do it before calling merge, because the constraints will be validated
+	// there.
+	constraints := c.Constraints
+	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
+
+	// Merge environ and bootstrap-specific constraints.
+	bootstrapParams.BootstrapConstraints, err = constraintsValidator.Merge(constraints, c.BootstrapConstraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
+
+	bootstrapParams.ModelConstraints = c.Constraints
+
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
 	if !c.noGUI {
 		bootstrapParams.GUIDataSourceBaseURL = common.GUIDataSourceBaseURL()
 	}
+
+	if credentials.name == "" {
+		// credentialName will be empty if the credential was detected.
+		// We must supply a name for the credential in the database,
+		// so choose one.
+		credentials.name = credentials.detectedName
+	}
+	bootstrapParams.CloudCredential = credentials.credential
+	bootstrapParams.CloudCredentialName = credentials.name
 
 	bootstrapFuncs := getBootstrapFuncs()
 	if err = bootstrapFuncs.Bootstrap(
@@ -672,10 +663,8 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	// TODO: how to organise post bootstrap for IAAS/CAAS !!!
 	if bootstrapParams.IsCAASController {
-		// !!! no need do some of the following steps, so ... !!!
-		// TODO: wait and fetch controller public endpoint then update juju home
+		// TODO(caas): wait and fetch controller public endpoint then update juju home
 		return nil
 	}
 
@@ -689,11 +678,13 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 	var addrs []network.Address
 	if env, ok := environ.(environs.InstanceBroker); ok {
-		// TODO!!!
 		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
-	}
-	if err != nil {
-		return errors.Trace(err)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		// TODO(caas): this should never happen. but we need enhance here with the above TODO solved together
+		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
 	}
 	if err := juju.UpdateControllerDetailsFromLogin(
 		c.ClientStore(),

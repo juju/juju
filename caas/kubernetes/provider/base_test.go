@@ -28,6 +28,8 @@ type BaseSuite struct {
 
 	broker caas.Broker
 
+	cfg *config.Config
+
 	k8sClient                  *mocks.MockInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
@@ -66,6 +68,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		config.NameKey: testNamespace,
 	}))
 	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
 
 	ctrl := gomock.NewController(c)
 

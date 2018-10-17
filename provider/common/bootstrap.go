@@ -75,12 +75,7 @@ func BootstrapInstance(
 	env environs.Environ,
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
-) (
-	_ *environs.StartInstanceResult,
-	selectedSeries string,
-	_ environs.CloudBootstrapFinalizer,
-	err error,
-) {
+) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.CloudBootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.

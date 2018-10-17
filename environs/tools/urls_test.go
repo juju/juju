@@ -44,7 +44,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			"agent-metadata-url": toolsMetadataURL,
 		})
 	}
-	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
@@ -55,7 +55,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return env
+	return env.(environs.Environ)
 }
 
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {

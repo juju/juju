@@ -1857,13 +1857,14 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
-	var err error
-	s.env, err = bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.env = env.(environs.Environ)
 	s.attrs = s.env.Config().AllAttrs()
 	s.callCtx = context.NewCloudCallContext()
 }
@@ -2668,13 +2669,14 @@ func (s *noNeutronSuite) SetUpTest(c *gc.C) {
 	})
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
+	s.env = env.(environs.Environ)
 	s.toolsMetadataStorage = openstack.MetadataStorage(s.env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
@@ -2848,13 +2850,14 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
+	s.env = env.(environs.Environ)
 }
 
 func (s *noSwiftSuite) TearDownTest(c *gc.C) {

@@ -515,7 +515,7 @@ func (cfg *InstanceConfig) ToolsList() coretools.List {
 	if cfg.tools == nil {
 		return nil
 	}
-	return copyToolsList(cfg.tools)
+	return CopyToolsList(cfg.tools)
 }
 
 // SetTools sets the tools that should be tried when provisioning this
@@ -545,11 +545,11 @@ func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 			return errors.Errorf("agent binary info mismatch (%v, %v)", *tools, info)
 		}
 	}
-	cfg.tools = copyToolsList(toolsList)
+	cfg.tools = CopyToolsList(toolsList)
 	return nil
 }
 
-func copyToolsList(in coretools.List) coretools.List {
+func CopyToolsList(in coretools.List) coretools.List {
 	out := make(coretools.List, len(in))
 	for i, tools := range in {
 		copied := *tools

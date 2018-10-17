@@ -423,7 +423,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		s.ControllerConfig[key] = value
 	}
 	cloudSpec := dummy.SampleCloudSpec()
-	environ, err := bootstrap.PrepareIAAS(
+	bootstrapEnviron, err := bootstrap.PrepareController(
+		false,
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
@@ -435,6 +436,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	environ := bootstrapEnviron.(environs.Environ)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Config().Name(), gc.Equals, "controller")
 	s.PatchValue(&dummy.DataDir, s.DataDir())

@@ -101,7 +101,8 @@ func (*modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 }
 
 func testingEnvConfig(c *gc.C) *config.Config {
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		modelcmd.BootstrapContext(cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/shell"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -22,18 +21,18 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
-// ControllerPodConfig represents initialization information for a new juju caas unit.
+// ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
-	// Tags is a set of tags to set on the instance, if supported. This
-	// should be populated using the InstanceTags method in this package.
+	// Tags is a set of tags/labels to set on the Pod, if supported. This
+	// should be populated using the PodLabels method in this package.
 	Tags map[string]string
 
 	// Bootstrap contains bootstrap-specific configuration. If this is set,
@@ -41,13 +40,13 @@ type ControllerPodConfig struct {
 	Bootstrap *BootstrapConfig
 
 	// Controller contains controller-specific configuration. If this is
-	// set, then the instance will be configured as a controller machine.
+	// set, then the instance will be configured as a controller pod.
 	Controller *ControllerConfig
 
-	// APIInfo holds the means for the new instance to communicate with the
-	// juju state API. Unless the new instance is running a controller (Controller is
+	// APIInfo holds the means for the new pod to communicate with the
+	// juju state API. Unless the new pod is running a controller (Controller is
 	// set), there must be at least one controller address supplied.
-	// The entity name must match that of the instance being started,
+	// The entity name must match that of the pod being started,
 	// or be empty when starting a controller.
 	APIInfo *api.Info
 
@@ -55,13 +54,13 @@ type ControllerPodConfig struct {
 	ControllerTag names.ControllerTag
 
 	// MachineNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct instance.
+	// ensure the agent is running on the correct pod.
 	MachineNonce string
 
 	// tools is the list of juju tools used to install the Juju agent
-	// on the new instance. Each of the entries in the list must have
+	// on the new pod. Each of the entries in the list must have
 	// identical versions and hashes, but may have different URLs.
-	tools coretools.List // ???
+	tools coretools.List
 
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
@@ -81,36 +80,29 @@ type ControllerPodConfig struct {
 	MachineId string
 
 	// AgentEnvironment defines additional configuration variables to set in
-	// the instance agent config.
+	// the pod agent config.
 	AgentEnvironment map[string]string
 
-	// Series represents the instance series.
+	// Series represents the pod series.
 	Series string
 
-	// MachineAgentServiceName is the init service name for the Juju machine agent.
+	// MachineAgentServiceName is the init service name for the Juju agent(k8s service name but not systemd service).
 	MachineAgentServiceName string
 }
 
+// BootstrapConfig represents bootstrap-specific initialization information
+// for a new juju caas pod. This is only relevant for the bootstrap pod.
 type BootstrapConfig struct {
 	instancecfg.BootstrapConfig
 }
 
+// ControllerConfig represents controller-specific initialization information
+// for a new juju caas pod. This is only relevant for controller pod.
 type ControllerConfig struct {
 	instancecfg.ControllerConfig
 }
 
-func (cfg *ControllerPodConfig) agentInfo() service.AgentInfo {
-	return service.NewMachineAgentInfo(
-		cfg.MachineId,
-		cfg.DataDir,
-		cfg.LogDir,
-	)
-}
-
-func (cfg *ControllerPodConfig) ToolsDir(renderer shell.Renderer) string {
-	return cfg.agentInfo().ToolsDir(renderer)
-}
-
+// AgentConfig returns an agent config.
 func (cfg *ControllerPodConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
@@ -148,6 +140,7 @@ func (cfg *ControllerPodConfig) JujuTools() string {
 	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
 }
 
+// stateHostAddrs returns a list of mongo server addresses.
 func (cfg *ControllerPodConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
@@ -161,6 +154,7 @@ func (cfg *ControllerPodConfig) stateHostAddrs() []string {
 	return hosts
 }
 
+// APIHostAddrs returns a list of api server addresses.
 func (cfg *ControllerPodConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
@@ -201,6 +195,8 @@ func (cfg *ControllerPodConfig) AgentVersion() version.Binary {
 	return cfg.tools[0].Version
 }
 
+// SetTools sets the tools that should be used when provisioning this
+// pod by determining the oci image.
 func (cfg *ControllerPodConfig) SetTools(toolsList coretools.List) error {
 	if len(toolsList) == 0 {
 		return errors.New("need at least 1 agent binary")
@@ -220,23 +216,8 @@ func (cfg *ControllerPodConfig) SetTools(toolsList coretools.List) error {
 			return errors.Errorf("agent binary info mismatch (%v, %v)", *tools, info)
 		}
 	}
-	cfg.tools = copyToolsList(toolsList)
+	cfg.tools = instancecfg.CopyToolsList(toolsList)
 	return nil
-}
-
-func copyToolsList(in coretools.List) coretools.List {
-	out := make(coretools.List, len(in))
-	for i, tools := range in {
-		copied := *tools
-		out[i] = &copied
-	}
-	return out
-}
-
-type requiresError string
-
-func (e requiresError) Error() string {
-	return "invalid machine configuration: missing " + string(e)
 }
 
 // VerifyConfig verifies that the ControllerPodConfig is valid.
@@ -361,8 +342,7 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 	return nil
 }
 
-// NewControllerPodConfig sets up a basic machine configuration, for a
-// non-bootstrap node. You'll still need to supply more information,
+// NewControllerPodConfig sets up a basic pod configuration. You'll still need to supply more information,
 // but this takes care of the fixed entries and the ones that are
 // always needed.
 func NewControllerPodConfig(
@@ -405,14 +385,14 @@ func NewControllerPodConfig(
 	return pcfg, nil
 }
 
-// NewBootstrapControllerPodConfig sets up a basic machine configuration for a
-// bootstrap node.  You'll still need to supply more information, but this
+// NewBootstrapControllerPodConfig sets up a basic pod configuration for a
+// bootstrap pod.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 func NewBootstrapControllerPodConfig(
 	config controller.Config,
 	series string,
 ) (*ControllerPodConfig, error) {
-	// For a bootstrap instance, the caller must provide the state.Info
+	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
 	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, "", series, nil)
 	if err != nil {
@@ -449,17 +429,13 @@ func PopulateControllerPodConfig(pcfg *ControllerPodConfig, providerType string)
 }
 
 // FinishControllerPodConfig sets fields on a ControllerPodConfig that can be determined by
-// inspecting a plain config.Config and the machine constraints at the last
-// moment before creating the user-data. It assumes that the supplied Config comes
+// inspecting a plain config.Config and the pod constraints at the last
+// moment before creating podspec. It assumes that the supplied Config comes
 // from an environment that has passed through all the validation checks in the
 // Bootstrap func, and that has set an agent-version (via finding the tools to,
 // use for bootstrap, or otherwise).
-// TODO(fwereade) This function is not meant to be "good" in any serious way:
-// it is better that this functionality be collected in one place here than
-// that it be spread out across 3 or 4 providers, but this is its only
-// redeeming feature.
 func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
+	defer errors.DeferredAnnotatef(&err, "cannot complete pod configuration")
 	if err := PopulateControllerPodConfig(pcfg, cfg.Type()); err != nil {
 		return errors.Trace(err)
 	}
@@ -471,4 +447,18 @@ func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config) (e
 		pcfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", pcfg.Controller.Config.NUMACtlPreference())
 	}
 	return nil
+}
+
+// PodLabels returns the minimum set of tags that should be set on a
+// pod, if the provider supports them.
+func PodLabels(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
+	podLabels := tags.ResourceTags(
+		names.NewModelTag(modelUUID),
+		names.NewControllerTag(controllerUUID),
+		tagger,
+	)
+	if multiwatcher.AnyJobNeedsState(jobs...) {
+		podLabels[tags.JujuIsController] = "true"
+	}
+	return podLabels
 }

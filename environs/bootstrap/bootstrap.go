@@ -494,7 +494,7 @@ func Bootstrap(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// TODO(caas-bootstrap): how to find the best/newest jujud docker image to use
+		// TODO(caas): how to find the best/newest jujud docker image to use
 		newestTool := version.MustParseBinary("2.5-beta1-bionic-amd64")
 		// set agent version before finalizing bootstrap config
 		if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {

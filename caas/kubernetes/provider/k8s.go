@@ -156,63 +156,6 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 	return nil
 }
 
-// func (k *kubernetesClient) prepareAgentConfig(series string, args bootstrap.BootstrapParams) (agent.ConfigSetterWriter, error) {
-// 	const machineID = "0"
-// 	cfg := k.Config()
-// 	agentVersion, _ := cfg.AgentVersion()
-
-// 	controllerCfg := args.ControllerConfig
-// 	caCert, hasCACert := controllerCfg.CACert()
-// 	if !hasCACert {
-// 		return nil, errors.New("controller configuration has no ca-cert")
-// 	}
-
-// 	dataDir, err := paths.DataDir(series)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	logDir, err := paths.LogDir(series)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
-// 	if err != nil {
-// 		return ni, errors.Annotate(err, "cannot generate controller certificate")
-// 	}
-// 	configParams := agent.AgentConfigParams{
-// 		Paths: agent.Paths{
-// 			DataDir:         dataDir,
-// 			LogDir:          path.Join(logDir, "juju"),
-// 			MetricsSpoolDir: metricsSpoolDir,
-// 		},
-// 		Jobs:              []multiwatcher.MachineJob{multiwatcher.JobManageModel},
-// 		Tag:               names.NewUnitTag(machineID),
-// 		UpgradedToVersion: agentVersion,
-// 		Password:          args.AdminSecret,
-// 		Nonce:             agent.BootstrapNonce,
-// 		APIAddresses: []string{
-// 			net.JoinHostPort("localhost", strconv.Itoa(controllerCfg.APIPort())),
-// 		},
-// 		CACert: caCert,
-// 		Values: map[string]string{
-// 			agent.ProviderType: cfg.Type(),
-// 		},
-// 		Controller: names.NewControllerTag(controllerCfg.ControllerUUID()),
-// 		Model:      names.NewModelTag(cfg.UUID()),
-// 	}
-// 	return agent.NewStateMachineConfig(configParams, params.StateServingInfo{
-// 		StatePort:    controllerCfg.StatePort(),
-// 		APIPort:      controllerCfg.APIPort(),
-// 		Cert:         cert,
-// 		PrivateKey:   key,
-// 		CAPrivateKey: args.CAPrivateKey,
-// 	})
-// }
-
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	const (
@@ -220,7 +163,6 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		Arch   = arch.AMD64
 	)
 
-	logger.Criticalf("kubernetesClient Bootstrap -> \n%#v, \n%#v, \n%#v", ctx, callCtx, args)
 	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) error {
 		envConfig := k.Config()
 		if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
@@ -231,15 +173,12 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 			return errors.Trace(err)
 		}
 
-		// No need to start instance for CAAS, so do everything for bootstraping controller here.
-		logger.Criticalf("kubernetesClient Finalizer, \nctx -> %#v, \npcfg -> %#v, \nopts -> %#v", ctx, pcfg, opts)
-
 		// prepare bootstrapParamsFile
 		bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("bootstrapParamsFileContent -> \n%s", string(bootstrapParamsFileContent))
+		logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
 		machineTag := names.NewMachineTag(pcfg.MachineId)
 		acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
@@ -250,7 +189,15 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("agentConfigFileContent -> \n%s", string(agentConfigFileContent))
+		logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
+
+		// TODO(caas): prepare
+		// agent.conf,
+		// bootstrap-params,
+		// server.pem,
+		// system-identity,
+		// shared-secret, then generate configmap/secret.
+		// Lastly, create StatefulSet for controller.
 		return nil
 	}
 	return &environs.BootstrapResult{

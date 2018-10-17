@@ -1965,7 +1965,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
@@ -1982,7 +1983,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	t.env = env
+	t.env = env.(environs.Environ)
 }
 
 func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {

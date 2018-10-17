@@ -45,7 +45,8 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 			"image-metadata-url": imageMetadataURL,
 		})
 	}
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
@@ -57,7 +58,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return env
+	return env.(environs.Environ)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
