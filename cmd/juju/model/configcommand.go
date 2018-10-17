@@ -164,8 +164,7 @@ func (c *configCommand) handleOneArg(arg string) error {
 	}
 	c.keys = []string{arg}
 	c.action = c.getConfig
-	return nil
-
+	return parseCert(arg)
 }
 
 // handleArgs handles the case where there's more than one positional arg.
@@ -300,6 +299,10 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 
 // get writes the value of a single key or the full output for the model to the cmd.Context.
 func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
+	if len(c.keys) == 1 && certBytes != nil {
+		ctx.Stdout.Write(certBytes)
+		return nil
+	}
 	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return err

@@ -223,6 +223,22 @@ func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ns1 := core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	ns2 := core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test2"}}
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+			Return(&core.NamespaceList{Items: []core.Namespace{ns1, ns2}}, nil),
+	)
+
+	result, err := s.broker.Namespaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []string{"test", "test2"})
+}
+
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
