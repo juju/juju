@@ -7,19 +7,16 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
-	"reflect"
-	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -28,14 +25,14 @@ import (
 type ManifoldConfig struct {
 	AgentName       string
 	CertWatcherName string
-	ClockName       string
 	StateName       string
+	MuxName         string
+	StartAfter      []string
 
 	PrometheusRegisterer prometheus.Registerer
 
-	NewStateAuthenticator NewStateAuthenticatorFunc
-	NewTLSConfig          func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
-	NewWorker             func(Config) (worker.Worker, error)
+	NewTLSConfig func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
+	NewWorker    func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -46,17 +43,14 @@ func (config ManifoldConfig) Validate() error {
 	if config.CertWatcherName == "" {
 		return errors.NotValidf("empty CertWatcherName")
 	}
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
-	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
+	if config.MuxName == "" {
+		return errors.NotValidf("empty MuxName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
-	}
-	if config.NewStateAuthenticator == nil {
-		return errors.NotValidf("nil NewStateAuthenticator")
 	}
 	if config.NewTLSConfig == nil {
 		return errors.NotValidf("nil NewTLSConfig")
@@ -71,15 +65,16 @@ func (config ManifoldConfig) Validate() error {
 // worker. The manifold outputs an *apiserverhttp.Mux, for other workers
 // to register handlers against.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	allInputs := []string{
+		config.AgentName,
+		config.CertWatcherName,
+		config.StateName,
+		config.MuxName,
+	}
+	allInputs = append(allInputs, config.StartAfter...)
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-			config.CertWatcherName,
-			config.ClockName,
-			config.StateName,
-		},
+		Inputs: allInputs,
 		Start:  config.start,
-		Output: manifoldOutput,
 	}
 }
 
@@ -99,9 +94,17 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
+	var mux *apiserverhttp.Mux
+	if err := context.Get(config.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	for _, name := range config.StartAfter {
+		// We don't actually need anything from these workers, but we
+		// shouldn't start until they're available.
+		if err := context.Get(name, nil); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	var stTracker workerstate.StateTracker
@@ -143,13 +146,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		}()
 	}
 
-	mux := apiserverhttp.NewMux()
-	abort := make(chan struct{})
-	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(Config{
 		AgentConfig:          agent.CurrentConfig(),
 		PrometheusRegisterer: config.PrometheusRegisterer,
@@ -159,55 +155,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		Mux:                  mux,
 	})
 	if err != nil {
-		close(abort)
 		return nil, errors.Trace(err)
 	}
-	return &wrapperWorker{
-		Worker:        w,
-		mux:           mux,
-		authenticator: authenticator,
-		cleanup: func() {
-			close(abort)
-			stTracker.Done()
-		},
-	}, nil
-}
-
-var (
-	muxType           = reflect.TypeOf(&apiserverhttp.Mux{})
-	authenticatorType = reflect.TypeOf((*httpcontext.LocalMacaroonAuthenticator)(nil)).Elem()
-)
-
-func manifoldOutput(in worker.Worker, out interface{}) error {
-	w, ok := in.(*wrapperWorker)
-	if !ok {
-		return errors.Errorf("expected worker of type %T, got %T", w, in)
-	}
-	rv := reflect.ValueOf(out)
-	if rt := rv.Type(); rt.Kind() == reflect.Ptr {
-		elemType := rt.Elem()
-		switch {
-		case muxType.AssignableTo(elemType):
-			rv.Elem().Set(reflect.ValueOf(w.mux))
-			return nil
-		case authenticatorType.AssignableTo(elemType):
-			rv.Elem().Set(reflect.ValueOf(w.authenticator))
-			return nil
-		}
-	}
-	return errors.Errorf("unexpected output type %T", out)
-}
-
-type wrapperWorker struct {
-	worker.Worker
-	mux           *apiserverhttp.Mux
-	authenticator httpcontext.LocalMacaroonAuthenticator
-	cleanupOnce   sync.Once
-	cleanup       func()
-}
-
-func (w *wrapperWorker) Wait() error {
-	err := w.Worker.Wait()
-	w.cleanupOnce.Do(w.cleanup)
-	return err
+	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }
