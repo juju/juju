@@ -31,6 +31,7 @@ type BaseSuite struct {
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
 	mockExtensions             *mocks.MockExtensionsV1beta1Interface
+	mockSecrets                *mocks.MockSecretInterface
 	mockDeployments            *mocks.MockDeploymentInterface
 	mockStatefulSets           *mocks.MockStatefulSetInterface
 	mockPods                   *mocks.MockPodInterface
@@ -89,6 +90,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumeClaims(testNamespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
+
+	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
+	mockCoreV1.EXPECT().Secrets(testNamespace).AnyTimes().Return(s.mockSecrets)
 
 	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)

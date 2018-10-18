@@ -49,7 +49,7 @@ containers:
         path: /pingReady
         port: www
     config:
-      attr: foo=bar; fred=blogs
+      attr: foo=bar; name['fred']='blogs';
       foo: bar
       restricted: 'yes'
       switch: on
@@ -120,7 +120,7 @@ foo: bar
 				{ContainerPort: 443, Name: "mary"},
 			},
 			Config: map[string]interface{}{
-				"attr":       "foo=bar; fred=blogs",
+				"attr":       "foo=bar; name['fred']='blogs';",
 				"foo":        "bar",
 				"restricted": "'yes'",
 				"switch":     true,
