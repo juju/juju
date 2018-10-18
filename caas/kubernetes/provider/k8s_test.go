@@ -266,10 +266,27 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	gomock.InOrder(
 		s.mockConfigMaps.EXPECT().Delete("juju-operator-test-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Delete("juju-test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("juju-operator-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
-			Return(&core.PodList{Items: []core.Pod{}}, nil),
+			Return(&core.PodList{Items: []core.Pod{{
+				Spec: core.PodSpec{
+					Containers: []core.Container{{
+						VolumeMounts: []core.VolumeMount{{Name: "test-operator-volume"}},
+					}},
+					Volumes: []core.Volume{{
+						Name: "test-operator-volume", VolumeSource: core.VolumeSource{
+							PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-operator-volume"}},
+					}},
+				},
+			}}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
+		s.mockPersistentVolumes.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Delete("juju-operator-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 	)
