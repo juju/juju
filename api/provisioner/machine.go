@@ -118,6 +118,11 @@ type MachineProvisioner interface {
 
 	// SupportsNoContainers records the fact that this machine doesn't support any containers.
 	SupportsNoContainers() error
+
+	// WatchContainers returns a StringsWatcher that notifies of
+	// changes to the upgrade charm profile charm url for all
+	// containers of the specified type  on the machine.
+	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
 }
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -492,6 +497,42 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 		},
 	}
 	err := m.st.facade.FacadeCall("WatchContainers", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchContainers implements MachineProvisioner.WatchContainersCharmProfiles.
+func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
+	if string(ctype) == "" {
+		return nil, fmt.Errorf("container type must be specified")
+	}
+	supported := false
+	for _, c := range instance.ContainerTypes {
+		if ctype == c {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		return nil, fmt.Errorf("unsupported container type %q", ctype)
+	}
+	var results params.StringsWatchResults
+	args := params.WatchContainers{
+		Params: []params.WatchContainer{
+			{MachineTag: m.tag.String(), ContainerType: string(ctype)},
+		},
+	}
+	err := m.st.facade.FacadeCall("WatchContainersCharmProfiles", args, &results)
 	if err != nil {
 		return nil, err
 	}

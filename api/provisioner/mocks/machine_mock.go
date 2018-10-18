@@ -366,3 +366,16 @@ func (m *MockMachineProvisioner) WatchContainers(arg0 instance.ContainerType) (w
 func (mr *MockMachineProvisionerMockRecorder) WatchContainers(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMachineProvisioner)(nil).WatchContainers), arg0)
 }
+
+// WatchContainersCharmProfiles mocks base method
+func (m *MockMachineProvisioner) WatchContainersCharmProfiles(arg0 instance.ContainerType) (watcher.StringsWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchContainersCharmProfiles", arg0)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchContainersCharmProfiles indicates an expected call of WatchContainersCharmProfiles
+func (mr *MockMachineProvisionerMockRecorder) WatchContainersCharmProfiles(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainersCharmProfiles", reflect.TypeOf((*MockMachineProvisioner)(nil).WatchContainersCharmProfiles), arg0)
+}
