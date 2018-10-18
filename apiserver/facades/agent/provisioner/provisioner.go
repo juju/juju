@@ -268,6 +268,54 @@ func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params
 	return p.WatchContainers(args)
 }
 
+func (p *ProvisionerAPI) watchOneMachineContainersCharmProfiles(arg params.WatchContainer) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return nothing, common.ErrPerm
+	}
+	tag, err := names.ParseMachineTag(arg.MachineTag)
+	if err != nil {
+		return nothing, common.ErrPerm
+	}
+	if !canAccess(tag) {
+		return nothing, common.ErrPerm
+	}
+	machine, err := p.st.Machine(tag.Id())
+	if err != nil {
+		return nothing, err
+	}
+	var watch state.StringsWatcher
+	if arg.ContainerType != "" {
+		watch = machine.WatchContainerCharmProfiles(instance.ContainerType(arg.ContainerType))
+	} else {
+		return nothing, errors.BadRequestf("ContainerType not specified")
+	}
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: p.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.EnsureErr(watch)
+}
+
+// WatchContainersCharmProfiles starts a StringsWatcher to  notifies when
+// the provisioner should update the charm profiles used by a container on
+// the given machine.
+func (p *ProvisionerAPI) WatchContainersCharmProfiles(args params.WatchContainers) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Params)),
+	}
+	for i, arg := range args.Params {
+		watcherResult, err := p.watchOneMachineContainersCharmProfiles(arg)
+		result.Results[i] = watcherResult
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
 func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
@@ -744,7 +792,7 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
-// WatchModelMachinesCharmProfiles returns a StringsWaterch that notifies when
+// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies when
 // the provisioner should update the charm profiles used by a machine.
 func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}

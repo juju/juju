@@ -615,6 +615,31 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc.AssertChange(container.Id())
 }
 
+func (s *provisionerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	// Add one LXD container.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := apiMachine.WatchContainersCharmProfiles(instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertChange(container.Id())
+
+	// Update the upgrade-charm charm profile to trigger watcher.
+	container.SetUpgradeCharmProfile("app-name", "local:charm-url-0")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(container.Id())
+}
+
 func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
@@ -865,20 +890,13 @@ func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// Add one LXD container.
-	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Initial event.
 	wc.AssertChange(s.machine.Id())
 
-	container.SetUpgradeCharmProfile("app-name", "local:charm-url-0")
+	// Update the upgrade-charm charm profile to trigger watcher.
+	s.machine.SetUpgradeCharmProfile("app-name", "local:charm-url-0")
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(container.Id())
+	wc.AssertChange(s.machine.Id())
 }
 
 var _ = gc.Suite(&provisionerContainerSuite{})

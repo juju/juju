@@ -678,6 +678,43 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
+func (s *withoutControllerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.WatchContainers{Params: []params.WatchContainer{
+		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXD)},
+		{MachineTag: s.machines[1].Tag().String(), ContainerType: string(instance.KVM)},
+		{MachineTag: "machine-42", ContainerType: ""},
+		{MachineTag: "unit-foo-0", ContainerType: ""},
+		{MachineTag: "application-bar", ContainerType: ""},
+	}}
+	result, err := s.provisioner.WatchContainersCharmProfiles(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "2", Changes: []string{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	m0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, m0Watcher)
+	m1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, m1Watcher)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0.AssertNoChange()
+	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1.AssertNoChange()
+}
+
 func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	// Now test it with a non-controller and make sure
 	// the secret attributes are masked.
