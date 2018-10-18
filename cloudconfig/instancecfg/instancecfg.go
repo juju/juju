@@ -300,7 +300,7 @@ type StateInitializationParams struct {
 	CustomImageMetadata []*imagemetadata.ImageMetadata
 }
 
-type StateInitializationParamsInternal struct {
+type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
@@ -328,7 +328,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
-	internal := StateInitializationParamsInternal{
+	internal := stateInitializationParamsInternal{
 		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
 		p.ControllerModelEnvironVersion,
@@ -351,7 +351,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 // Unmarshal unmarshals StateInitializationParams from a byte array that
 // was generated with StateInitializationParams.Marshal.
 func (p *StateInitializationParams) Unmarshal(data []byte) error {
-	var internal StateInitializationParamsInternal
+	var internal stateInitializationParamsInternal
 	if err := yaml.Unmarshal(data, &internal); err != nil {
 		return errors.Annotate(err, "unmarshalling state initialization params")
 	}

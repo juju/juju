@@ -93,6 +93,7 @@ type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsc
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,9 +108,9 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient Ne
 	return &kubernetesClient{
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           cfg.Name(),
+		namespace:           newCfg.Name(),
 		envCfg:              newCfg,
-		modelUUID:           cfg.UUID(),
+		modelUUID:           newCfg.UUID(),
 	}, nil
 }
 
@@ -138,7 +139,10 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 
 // Config returns environ config.
 func (k *kubernetesClient) Config() *config.Config {
-	return k.envCfg.Config
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	cfg := k.envCfg.Config
+	return cfg
 }
 
 // SetConfig is specified in the Environ interface.
@@ -153,7 +157,7 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// PrepareForBootstrap returns environ config.
+// PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
@@ -161,6 +165,7 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	const (
+		// TODO(caas): how to get these from oci path.
 		Series = "bionic"
 		Arch   = arch.AMD64
 	)
@@ -182,6 +187,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		}
 		logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
+		// TODO(caas): we'll need a different tag type other than machine tag.
 		machineTag := names.NewMachineTag(pcfg.MachineId)
 		acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
 		if err != nil {

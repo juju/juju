@@ -288,11 +288,14 @@ type Bootstraper interface {
 	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
 }
 
+// Configer implements access to an environment's configuration.
 type Configer interface {
 	ConfigGetter
 	ConfigSetter
 }
 
+// BootstrapEnviron is an interface that an EnvironProvider implements
+// in order to bootstrap a controller.
 type BootstrapEnviron interface {
 	Configer
 	Bootstraper
@@ -355,10 +358,8 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// ConfigGetter allows the retrieval of the configuration data.
-	ConfigGetter
-
-	ConfigSetter
+	// Configer allows the access of the configuration data.
+	Configer
 
 	// ConstraintsChecker provides a means to check that constraints are valid.
 	ConstraintsChecker
