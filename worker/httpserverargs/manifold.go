@@ -35,7 +35,7 @@ func (config ManifoldConfig) Validate() error {
 		return errors.NotValidf("empty StateName")
 	}
 	if config.NewStateAuthenticator == nil {
-		return errors.NotValidf("nil newStateAuthenticator")
+		return errors.NotValidf("nil NewStateAuthenticator")
 	}
 	return nil
 }
