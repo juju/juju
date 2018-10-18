@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -129,12 +130,12 @@ func (s *Store) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *Store) PinLease(key lease.Key) error {
+func (s *Store) PinLease(key lease.Key, entity names.Tag) error {
 	return errors.Trace(s.pinOp(key, OperationPin))
 }
 
 // UnpinLease is part of lease.Store.
-func (s *Store) UnpinLease(key lease.Key) error {
+func (s *Store) UnpinLease(key lease.Key, tag names.Tag) error {
 	return errors.Trace(s.pinOp(key, OperationUnpin))
 }
 

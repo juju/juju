@@ -4,6 +4,8 @@
 package lease
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/core/lease"
 )
 
@@ -11,6 +13,7 @@ import (
 // worker loop on behalf of PinLeadership and UnpinLeadership.
 type pin struct {
 	leaseKey lease.Key
+	entity   names.Tag
 	response chan error
 	stop     <-chan struct{}
 }

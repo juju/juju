@@ -449,11 +449,11 @@ func (manager *Manager) startRetry() *retry.Attempt {
 }
 
 func (manager *Manager) handlePin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey)))
+	p.respond(errors.Trace(manager.config.Store.PinLease(p.leaseKey, p.entity)))
 }
 
 func (manager *Manager) handleUnpin(p pin) {
-	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey)))
+	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity)))
 }
 
 func keysLess(a, b lease.Key) bool {

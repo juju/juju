@@ -76,11 +76,11 @@ type leadershipPinner struct {
 // PinLeadership (leadership.Pinner) pins the lease
 // for the input application and entity.
 func (m leadershipPinner) PinLeadership(applicationId string, entity names.Tag) error {
-	return errors.Trace(m.pinner.Pin(applicationId))
+	return errors.Trace(m.pinner.Pin(applicationId, entity))
 }
 
 // UnpinLeadership (leadership.Pinner) unpins the lease
 // for the input application and entity.
 func (m leadershipPinner) UnpinLeadership(applicationId string, entity names.Tag) error {
-	return errors.Trace(m.pinner.Unpin(applicationId))
+	return errors.Trace(m.pinner.Unpin(applicationId, entity))
 }
