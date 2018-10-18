@@ -500,15 +500,7 @@ func Bootstrap(
 		if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {
 			return errors.Trace(err)
 		}
-		if err := podConfig.SetTools(
-			coretools.List{
-				&coretools.Tools{
-					Version: newestTool,
-					URL:     "",
-					Size:    0,
-				}}); err != nil {
-			return errors.Trace(err)
-		}
+		podConfig.JujuVersion = newestTool.Number
 		if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 			return errors.Annotate(err, "finalizing bootstrap instance config")
 		}

@@ -5,14 +5,12 @@ package podcfg_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type podcfgSuite struct {
@@ -51,14 +49,4 @@ func (*podcfgSuite) TestPodLabelsUserSpecified(c *gc.C) {
 func testPodLabels(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJob, expectTags map[string]string) {
 	tags := podcfg.PodLabels(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, jobs)
 	c.Assert(tags, jc.DeepEquals, expectTags)
-}
-
-func (*podcfgSuite) TestAgentVersion(c *gc.C) {
-	var pcfg podcfg.ControllerPodConfig
-	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
-	}
-	err := pcfg.SetTools(list)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pcfg.AgentVersion(), gc.Equals, list[0].Version)
 }

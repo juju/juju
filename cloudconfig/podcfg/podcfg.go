@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"reflect"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -16,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
@@ -24,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state/multiwatcher"
-	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
@@ -53,14 +50,8 @@ type ControllerPodConfig struct {
 	// ControllerTag identifies the controller.
 	ControllerTag names.ControllerTag
 
-	// MachineNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct pod.
-	MachineNonce string
-
-	// tools is the list of juju tools used to install the Juju agent
-	// on the new pod. Each of the entries in the list must have
-	// identical versions and hashes, but may have different URLs.
-	tools coretools.List
+	// JujuVersion is the juju version.
+	JujuVersion version.Number
 
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
@@ -77,17 +68,11 @@ type ControllerPodConfig struct {
 	Jobs []multiwatcher.MachineJob
 
 	// MachineId identifies the new machine.
-	MachineId string
+	MachineId string // TODO(caas): change it to PodId once we introduced the new tag for pod.
 
 	// AgentEnvironment defines additional configuration variables to set in
 	// the pod agent config.
 	AgentEnvironment map[string]string
-
-	// Series represents the pod series.
-	Series string
-
-	// MachineAgentServiceName is the init service name for the Juju agent(k8s service name but not systemd service).
-	MachineAgentServiceName string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -103,10 +88,7 @@ type ControllerConfig struct {
 }
 
 // AgentConfig returns an agent config.
-func (cfg *ControllerPodConfig) AgentConfig(
-	tag names.Tag,
-	toolsVersion version.Number,
-) (agent.ConfigSetterWriter, error) {
+func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWriter, error) {
 	var password, cacert string
 	if cfg.Controller == nil {
 		password = cfg.APIInfo.Password
@@ -123,9 +105,8 @@ func (cfg *ControllerPodConfig) AgentConfig(
 		},
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
-		UpgradedToVersion: toolsVersion,
+		UpgradedToVersion: cfg.JujuVersion,
 		Password:          password,
-		Nonce:             cfg.MachineNonce,
 		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
@@ -133,25 +114,6 @@ func (cfg *ControllerPodConfig) AgentConfig(
 		Model:             cfg.APIInfo.ModelTag,
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
-}
-
-// JujuTools returns the directory where Juju tools are stored.
-func (cfg *ControllerPodConfig) JujuTools() string {
-	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
-}
-
-// stateHostAddrs returns a list of mongo server addresses.
-func (cfg *ControllerPodConfig) stateHostAddrs() []string {
-	var hosts []string
-	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
-		)
-	}
-	if cfg.Controller != nil {
-		hosts = append(hosts, cfg.Controller.MongoInfo.Addrs...)
-	}
-	return hosts
 }
 
 // APIHostAddrs returns a list of api server addresses.
@@ -168,6 +130,7 @@ func (cfg *ControllerPodConfig) APIHostAddrs() []string {
 	return hosts
 }
 
+// APIHosts returns api a list of server addresses.
 func (cfg *ControllerPodConfig) APIHosts() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
@@ -184,40 +147,6 @@ func (cfg *ControllerPodConfig) APIHosts() []string {
 		}
 	}
 	return hosts
-}
-
-// AgentVersion returns the version of the Juju agent that will be configured
-// on the instance.
-func (cfg *ControllerPodConfig) AgentVersion() version.Binary {
-	if len(cfg.tools) == 0 {
-		return version.Binary{}
-	}
-	return cfg.tools[0].Version
-}
-
-// SetTools sets the tools that should be used when provisioning this
-// pod by determining the oci image.
-func (cfg *ControllerPodConfig) SetTools(toolsList coretools.List) error {
-	if len(toolsList) == 0 {
-		return errors.New("need at least 1 agent binary")
-	}
-	var tools *coretools.Tools
-	for _, listed := range toolsList {
-		if listed == nil {
-			return errors.New("nil entry in agent binaries list")
-		}
-		info := *listed
-		info.URL = ""
-		if tools == nil {
-			tools = &info
-			continue
-		}
-		if !reflect.DeepEqual(info, *tools) {
-			return errors.Errorf("agent binary info mismatch (%v, %v)", *tools, info)
-		}
-	}
-	cfg.tools = instancecfg.CopyToolsList(toolsList)
-	return nil
 }
 
 // VerifyConfig verifies that the ControllerPodConfig is valid.
@@ -238,11 +167,9 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	if len(cfg.Jobs) == 0 {
 		return errors.New("missing machine jobs")
 	}
-	if cfg.tools == nil {
-		// SetTools() has never been called successfully.
-		return errors.New("missing agent binaries")
+	if cfg.JujuVersion == version.Zero {
+		return errors.New("missing juju version")
 	}
-	// We don't need to check cfg.toolsURLs since SetTools() does.
 	if cfg.APIInfo == nil {
 		return errors.New("missing API info")
 	}
@@ -251,12 +178,6 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
-	}
-	if cfg.MachineAgentServiceName == "" {
-		return errors.New("missing machine agent service name")
-	}
-	if cfg.MachineNonce == "" {
-		return errors.New("missing machine nonce")
 	}
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
@@ -347,10 +268,7 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 // always needed.
 func NewControllerPodConfig(
 	controllerTag names.ControllerTag,
-	machineID,
-	machineNonce,
-	imageStream,
-	series string,
+	machineID, series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
 	dataDir, err := paths.DataDir(series)
@@ -371,15 +289,14 @@ func NewControllerPodConfig(
 		LogDir:          path.Join(logDir, "juju"),
 		MetricsSpoolDir: metricsSpoolDir,
 		// CAAS only has JobManageModel.
-		Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
-		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
-		Series:                  series,
-		Tags:                    map[string]string{},
+		Jobs: []multiwatcher.MachineJob{
+			multiwatcher.JobManageModel,
+		},
+		Tags: map[string]string{},
 
 		// Parameter entries.
 		ControllerTag: controllerTag,
 		MachineId:     machineID,
-		MachineNonce:  machineNonce,
 		APIInfo:       apiInfo,
 	}
 	return pcfg, nil
@@ -388,13 +305,10 @@ func NewControllerPodConfig(
 // NewBootstrapControllerPodConfig sets up a basic pod configuration for a
 // bootstrap pod.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapControllerPodConfig(
-	config controller.Config,
-	series string,
-) (*ControllerPodConfig, error) {
+func NewBootstrapControllerPodConfig(config controller.Config, series string) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, "", series, nil)
+	pcfg, err := NewControllerPodConfig(names.NewControllerTag(config.ControllerUUID()), "0", series, nil)
 	if err != nil {
 		return nil, err
 	}

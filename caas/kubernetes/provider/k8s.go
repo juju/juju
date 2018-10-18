@@ -189,7 +189,7 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 		// TODO(caas): we'll need a different tag type other than machine tag.
 		machineTag := names.NewMachineTag(pcfg.MachineId)
-		acfg, err := pcfg.AgentConfig(machineTag, pcfg.AgentVersion().Number)
+		acfg, err := pcfg.AgentConfig(machineTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
