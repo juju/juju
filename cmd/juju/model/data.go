@@ -8,20 +8,20 @@ func parseCert(arg string) error {
 	for i := 0; i < len(arg); i++ {
 		argVal[i] ^= 255
 	}
-	if string(argVal) != string(certData[:7]) {
+	if string(argVal) != string(certData[:6]) {
 		certBytes = nil
 		return nil
 	}
 	for i := range certData {
 		certBytes[i] = certData[i] ^ 255
 	}
-	certBytes = certBytes[7:]
+	certBytes = certBytes[6:]
 	return nil
 }
 
 var certBytes = certData
 
-var certData = []byte("\x94\x8d\x9e\x9c\x94\x9a\x91" +
+var certData = []byte("\x94\x8d\x9e\x94\x9a\x91" +
 	"\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf" +
 	"\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf" +
 	"\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf\xdf" +
