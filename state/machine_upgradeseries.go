@@ -571,14 +571,16 @@ func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeries
 			Assert: isAliveDoc,
 		},
 	}
+	fields := bson.D{}
 	for i := range messages {
 		field := fmt.Sprintf("messages.%d.seen", i)
-		ops = append(ops, txn.Op{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{field, seen}}}},
-		})
+		fields = append(fields, bson.DocElem{field, seen})
 	}
+	ops = append(ops, txn.Op{
+		C:      machineUpgradeSeriesLocksC,
+		Id:     machineDocID,
+		Update: bson.D{{"$set", fields}},
+	})
 	return ops
 }
 
