@@ -527,9 +527,16 @@ func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) (*k8sstorage.S
 func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	logger.Debugf("deleting %s operator", appName)
 
-	// First delete the config map.
+	// First delete the config map(s).
 	configMaps := k.CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(appName)
+	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil
+	}
+	configMapName = operatorConfigurationsConfigMapName(appName)
 	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -549,9 +556,23 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	pvs := k.CoreV1().PersistentVolumes()
 	for _, p := range podsList.Items {
-		if err := k.deleteVolumeClaims(&p); err != nil {
+		volumeNames, err := k.deleteVolumeClaims(appName, &p)
+		if err != nil {
 			return errors.Trace(err)
+		}
+		// Just in case the volume reclaim policy is retain, we force deletion
+		// for operators as the volume is an inseparable part of the operator.
+		for _, volName := range volumeNames {
+			err = pvs.Delete(volName, &v1.DeleteOptions{
+				PropagationPolicy: &defaultPropagationPolicy,
+			})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
+					volName, appName)
+			}
 		}
 	}
 	return errors.Trace(k.deleteDeployment(operatorName))
@@ -616,7 +637,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 	for _, p := range podsList.Items {
-		if err := k.deleteVolumeClaims(&p); err != nil {
+		if _, err := k.deleteVolumeClaims(appName, &p); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1071,14 +1092,15 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteVolumeClaims(p *core.Pod) error {
+func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]string, error) {
 	volumesByName := make(map[string]core.Volume)
 	for _, pv := range p.Spec.Volumes {
 		volumesByName[pv.Name] = pv
 	}
 
+	var deletedClaimVolumes []string
 	for _, volMount := range p.Spec.Containers[0].VolumeMounts {
-		valid := jujuPVNameRegexp.MatchString(volMount.Name)
+		valid := volMount.Name == operatorVolumeClaim(appName) || jujuPVNameRegexp.MatchString(volMount.Name)
 		if !valid {
 			logger.Debugf("ignoring non-Juju attachment %q", volMount.Name)
 			continue
@@ -1098,11 +1120,12 @@ func (k *kubernetesClient) deleteVolumeClaims(p *core.Pod) error {
 			PropagationPolicy: &defaultPropagationPolicy,
 		})
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Annotatef(err, "deleting persistent volume claim %v for %v",
+			return nil, errors.Annotatef(err, "deleting persistent volume claim %v for %v",
 				vol.PersistentVolumeClaim.ClaimName, p.Name)
 		}
+		deletedClaimVolumes = append(deletedClaimVolumes, vol.Name)
 	}
-	return nil
+	return deletedClaimVolumes, nil
 }
 
 func (k *kubernetesClient) configureService(
@@ -1716,6 +1739,10 @@ func operatorName(appName string) string {
 
 func operatorConfigMapName(appName string) string {
 	return operatorName(appName) + "-config"
+}
+
+func operatorConfigurationsConfigMapName(appName string) string {
+	return deploymentName(appName) + "-configurations-config"
 }
 
 func applicationConfigMapName(appName, fileSetName string) string {
