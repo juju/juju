@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/juju/names.v2"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -69,11 +71,12 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 	uExp.Applications(prep.machineArg).Return([]string{"foo", "bar"}, nil).AnyTimes()
 
+	machineTag := names.NewMachineTag(machineArg)
 	lExp := mockLeadershipAPI.EXPECT()
-	lExp.PinLeadership("foo").Return(nil).AnyTimes()
-	lExp.PinLeadership("bar").Return(nil).AnyTimes()
-	lExp.UnpinLeadership("foo").Return(nil).AnyTimes()
-	lExp.UnpinLeadership("bar").Return(nil).AnyTimes()
+	lExp.PinLeadership("foo", machineTag).Return(nil).AnyTimes()
+	lExp.PinLeadership("bar", machineTag).Return(nil).AnyTimes()
+	lExp.UnpinLeadership("foo", machineTag).Return(nil).AnyTimes()
+	lExp.UnpinLeadership("bar", machineTag).Return(nil).AnyTimes()
 
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI, mockLeadershipAPI)
 
