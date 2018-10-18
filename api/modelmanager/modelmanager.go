@@ -434,11 +434,11 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 	if err := permission.ValidateModelAccess(modelAccess); err != nil {
 		return errors.Trace(err)
 	}
-	for _, model := range modelUUIDs {
-		if !names.IsValidModel(model) {
-			return errors.Errorf("invalid model: %q", model)
+	for _, m := range modelUUIDs {
+		if !names.IsValidModel(m) {
+			return errors.Errorf("invalid model: %q", m)
 		}
-		modelTag := names.NewModelTag(model)
+		modelTag := names.NewModelTag(m)
 		args.Changes = append(args.Changes, params.ModifyModelAccess{
 			UserTag:  userTag.String(),
 			Action:   action,
