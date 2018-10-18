@@ -22,6 +22,7 @@ type Context struct {
 
 	LeadershipClaimer_ leadership.Claimer
 	LeadershipChecker_ leadership.Checker
+	LeadershipPinner_  leadership.Pinner
 	SingularClaimer_   lease.Claimer
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
@@ -82,6 +83,11 @@ func (context Context) LeadershipClaimer(modelUUID string) (leadership.Claimer, 
 // LeadershipChecker implements facade.Context.
 func (context Context) LeadershipChecker() (leadership.Checker, error) {
 	return context.LeadershipChecker_, nil
+}
+
+// LeadershipPinner implements facade.Context.
+func (context Context) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
+	return context.LeadershipPinner_, nil
 }
 
 // SingularClaimer implements facade.Context.

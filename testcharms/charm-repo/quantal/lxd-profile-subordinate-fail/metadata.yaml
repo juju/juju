@@ -1,5 +1,5 @@
-name: lxd-profile-subordinate
-summary: start a juju machine with a lxd profile subordinate
+name: lxd-profile-subordinate-fail
+summary: start a juju machine with a invalid lxd profile subordinate
 maintainer: Juju QA
 description: |
   Run an Ubuntu system, with the given subordinate lxd-profile
@@ -16,6 +16,6 @@ requires:
     interface: juju-info
     scope: container
 series:
-  - quantal
-  - xenial
   - bionic
+  - xenial
+  - quantal

@@ -228,15 +228,15 @@ func (mr *MockMachineProvisionerMockRecorder) Series() *gomock.Call {
 }
 
 // SetInstanceInfo mocks base method
-func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.Id, arg1 string, arg2 *instance.HardwareCharacteristics, arg3 []params.NetworkConfig, arg4 []params.Volume, arg5 map[string]params.VolumeAttachmentInfo) error {
-	ret := m.ctrl.Call(m, "SetInstanceInfo", arg0, arg1, arg2, arg3, arg4, arg5)
+func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.Id, arg1 string, arg2 *instance.HardwareCharacteristics, arg3 []params.NetworkConfig, arg4 []params.Volume, arg5 map[string]params.VolumeAttachmentInfo, arg6 []string) error {
+	ret := m.ctrl.Call(m, "SetInstanceInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetInstanceInfo indicates an expected call of SetInstanceInfo
-func (mr *MockMachineProvisionerMockRecorder) SetInstanceInfo(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).SetInstanceInfo), arg0, arg1, arg2, arg3, arg4, arg5)
+func (mr *MockMachineProvisionerMockRecorder) SetInstanceInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).SetInstanceInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // SetInstanceStatus mocks base method
@@ -365,4 +365,17 @@ func (m *MockMachineProvisioner) WatchContainers(arg0 instance.ContainerType) (w
 // WatchContainers indicates an expected call of WatchContainers
 func (mr *MockMachineProvisionerMockRecorder) WatchContainers(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMachineProvisioner)(nil).WatchContainers), arg0)
+}
+
+// WatchContainersCharmProfiles mocks base method
+func (m *MockMachineProvisioner) WatchContainersCharmProfiles(arg0 instance.ContainerType) (watcher.StringsWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchContainersCharmProfiles", arg0)
+	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchContainersCharmProfiles indicates an expected call of WatchContainersCharmProfiles
+func (mr *MockMachineProvisionerMockRecorder) WatchContainersCharmProfiles(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainersCharmProfiles", reflect.TypeOf((*MockMachineProvisioner)(nil).WatchContainersCharmProfiles), arg0)
 }

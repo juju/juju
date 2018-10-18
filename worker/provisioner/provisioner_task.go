@@ -23,8 +23,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -78,6 +80,7 @@ func NewProvisionerTask(
 	toolsFinder ToolsFinder,
 	machineWatcher watcher.StringsWatcher,
 	retryWatcher watcher.NotifyWatcher,
+	profileWatcher watcher.StringsWatcher,
 	broker environs.InstanceBroker,
 	auth authentication.AuthenticationProvider,
 	imageStream string,
@@ -91,6 +94,7 @@ func NewProvisionerTask(
 		retryChanges = retryWatcher.Changes()
 		workers = append(workers, retryWatcher)
 	}
+	profileChanges := profileWatcher.Changes()
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
 		machineTag:                 machineTag,
@@ -99,6 +103,7 @@ func NewProvisionerTask(
 		toolsFinder:                toolsFinder,
 		machineChanges:             machineChanges,
 		retryChanges:               retryChanges,
+		profileChanges:             profileChanges,
 		broker:                     broker,
 		auth:                       auth,
 		harvestMode:                harvestMode,
@@ -134,6 +139,7 @@ type provisionerTask struct {
 	toolsFinder                ToolsFinder
 	machineChanges             watcher.StringsChannel
 	retryChanges               watcher.NotifyChannel
+	profileChanges             watcher.StringsChannel
 	broker                     environs.InstanceBroker
 	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider
@@ -201,6 +207,13 @@ func (task *provisionerTask) loop() error {
 		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return errors.Annotate(err, "failed to process machines with transient errors")
+			}
+		case ids, ok := <-task.profileChanges:
+			if !ok {
+				return errors.New("profile watcher closed channel")
+			}
+			if err := task.processProfileChanges(ids); err != nil {
+				return errors.Annotate(err, "failed to process updated charm profiles")
 			}
 		}
 	}
@@ -315,6 +328,13 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
+}
+
+func (task *provisionerTask) processProfileChanges(ids []string) error {
+	// TODO hml 2018-10-10
+	// Change to Tracef when function implemented
+	logger.Debugf("processProfileChanges(%v)", ids)
+	return nil
 }
 
 func instanceIds(instances []instance.Instance) []string {
@@ -1133,6 +1153,14 @@ func (task *provisionerTask) startMachine(
 	volumes := volumesToAPIserver(result.Volumes)
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIserver(result.VolumeAttachments)
 
+	// gather the charm LXD profile names, including the lxd profile names from
+	// the container brokers.
+	charmLXDProfiles := task.gatherCharmLXDProfiles(
+		string(result.Instance.Id()),
+		machine.Tag().Id(),
+		startInstanceParams.CharmLXDProfiles,
+	)
+
 	if err := machine.SetInstanceInfo(
 		result.Instance.Id(),
 		startInstanceParams.InstanceConfig.MachineNonce,
@@ -1140,6 +1168,7 @@ func (task *provisionerTask) startMachine(
 		networkConfig,
 		volumes,
 		volumeNameToAttachmentInfo,
+		charmLXDProfiles,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
@@ -1162,6 +1191,21 @@ func (task *provisionerTask) startMachine(
 		startInstanceParams.SubnetsToZones,
 	)
 	return nil
+}
+
+// gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
+// sources. This includes getting the information from the broker.
+func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag string, machineProfiles []string) []string {
+	if names.IsContainerMachine(machineTag) {
+		if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
+			if names, err := manager.LXDProfileNames(instanceId); err == nil {
+				return lxdprofile.LXDProfileNames(names)
+			}
+		} else {
+			logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
+		}
+	}
+	return machineProfiles
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds

@@ -629,7 +629,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 
 	curl := charm.MustParseURL("local:quantal/dummy-1")
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	_, err := jujutesting.AddCharm(newSt, curl, ch)
+	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Controller machine should be able to download the charm from
@@ -686,7 +686,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 
 	curl := charm.MustParseURL("local:quantal/dummy-1")
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	_, err := jujutesting.AddCharm(newSt, curl, ch)
+	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	url := s.charmsURL("url=" + curl.String() + "&file=revision")

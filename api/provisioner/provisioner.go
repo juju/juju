@@ -135,6 +135,22 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
+// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
+// changes to the upgrade charm profile charm url for all non container machines
+// in the current model.
+func (st *State) WatchModelMachinesCharmProfiles() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	err := st.facade.FacadeCall("WatchModelMachinesCharmProfiles", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult

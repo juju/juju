@@ -28,6 +28,7 @@ const (
 
 	typeDisk = "disk"
 	typeLoop = "loop"
+	typePart = "part"
 )
 
 func init() {
@@ -101,6 +102,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		// for now.
 		switch deviceType {
 		case typeLoop:
+		case typePart:
 		case typeDisk:
 			// Floppy disks, which have major device number 2,
 			// should be ignored.
@@ -176,8 +178,8 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 	output, err := exec.Command(
 		"udevadm", "info",
 		"-q", "property",
-		"--path", "/block/"+dev.DeviceName,
-	).Output()
+		"--name", dev.DeviceName,
+	).CombinedOutput()
 	if err != nil {
 		msg := "udevadm failed"
 		if output := bytes.TrimSpace(output); len(output) > 0 {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -210,6 +211,7 @@ var _ = gc.Suite(&environProfileSuite{})
 func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
 	svr := lxd.NewMockServer(ctrl)
 	exp := svr.EXPECT()
 	gomock.InOrder(
@@ -238,4 +240,25 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 		Description: "test profile",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	exp := svr.EXPECT()
+
+	exp.GetContainerProfiles("testname").Return([]string{
+		lxdprofile.Name("foo", "bar", 1),
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil)
+	lxdEnv, ok := env.(environs.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	result, err := lxdEnv.LXDProfileNames("testname")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []string{
+		lxdprofile.Name("foo", "bar", 1),
+	})
 }

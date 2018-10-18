@@ -48,6 +48,7 @@ func (ctx *charmsSuiteContext) Hub() facade.Hub             { return nil }
 
 func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)   { return nil, nil }
 func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)              { return nil, nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
@@ -155,6 +156,11 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 					Tags: []string{
 						"misc",
 						"application_development",
+					},
+					Series: []string{
+						"bionic",
+						"xenial",
+						"quantal",
 					},
 				},
 				Actions: &params.CharmActions{},

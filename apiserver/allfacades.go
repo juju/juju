@@ -56,11 +56,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
-	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelmanager"   // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/keymanager"                  // ModelUser Write
+	leadershipclient "github.com/juju/juju/apiserver/facades/client/leadership" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/machinemanager"              // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/metricsdebug"                // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelconfig"                 // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelmanager"                // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
@@ -197,7 +198,12 @@ func AllFacades() *facade.Registry {
 	reg("InstancePoller", 3, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
+
+	// LeadershipClient is the client API server,
+	// whereas LeadershipService is for agents.
+	reg("LeadershipClient", 1, leadershipclient.NewFacade)
 	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade)
+
 	reg("LifeFlag", 1, lifeflag.NewExternalFacade)
 	reg("Logger", 1, loggerapi.NewLoggerAPI)
 	reg("LogForwarding", 1, logfwd.NewFacade)
@@ -226,6 +232,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
+	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
@@ -240,6 +247,7 @@ func AllFacades() *facade.Registry {
 	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
 	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
 	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6) // v6 adds more proxy settings
+	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7) // v7 adds charm profile watcher
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)

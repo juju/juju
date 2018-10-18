@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
-	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -847,15 +846,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
 	}
-	if utilsfeatureflag.Enabled(feature.UpgradeSeries) {
-		manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-			NewFacade:     upgradeseries.NewFacade,
-			NewWorker:     upgradeseries.NewWorker,
-		}))
-	}
+
+	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+		AgentName:     agentName,
+		APICallerName: apiCallerName,
+		Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+		NewFacade:     upgradeseries.NewFacade,
+		NewWorker:     upgradeseries.NewWorker,
+	}))
+
 	return manifolds
 }
 

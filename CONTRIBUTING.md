@@ -350,6 +350,15 @@ Be sure to have a look at:
 
 https://help.github.com/articles/using-pull-requests
 
+Sanity checking PRs and unit tests
+----------------------
+
+All PRs run pre-merge check - unit tests and a small but representative sample of 
+functional tests. This check is re-run anytime the PR changes, for example when 
+a new commit is added.
+
+You can also initiate this check by commenting !!build!! on the PR.
+
 Code review
 -----------
 
@@ -413,12 +422,10 @@ Take a look at the community page:
 
  https://jujucharms.com/community/
 
-juju has two channels on IRC (freenode.net):
+juju has a channel on IRC (freenode.net):
 
 * `#juju`
-* `#juju-dev`
 
-There are also two mailing lists:
+Juju Discourse:
 
-* [juju@lists.ubuntu.com](https://lists.ubuntu.com/mailman/listinfo/juju)
-* [juju-dev@lists.ubuntu.com](https://lists.ubuntu.com/mailman/listinfo/juju-dev)
+* [https://discourse.jujucharms.com/](https://discourse.jujucharms.com/)

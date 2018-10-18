@@ -888,6 +888,7 @@ func (s *ebsSuite) TestAttachVolumes(c *gc.C) {
 		names.NewMachineTag("1"),
 		storage.VolumeAttachmentInfo{
 			DeviceName: "xvdf",
+			DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0",
 			ReadOnly:   false,
 		},
 	})
@@ -914,34 +915,8 @@ func (s *ebsSuite) TestAttachVolumes(c *gc.C) {
 		names.NewMachineTag("1"),
 		storage.VolumeAttachmentInfo{
 			DeviceName: "xvdf",
-			ReadOnly:   false,
-		},
-	})
-}
-
-func (s *ebsSuite) TestAttachVolumesNVMe(c *gc.C) {
-	vs := s.volumeSource(c, nil)
-	instanceId := s.srv.ec2srv.NewInstances(1, "c5.large", imageId, ec2test.Running, nil)[0]
-	s.assertCreateVolumes(c, vs, instanceId)
-
-	params := []storage.VolumeAttachmentParams{{
-		Volume:   names.NewVolumeTag("0"),
-		VolumeId: "vol-0",
-		AttachmentParams: storage.AttachmentParams{
-			Machine:    names.NewMachineTag("1"),
-			InstanceId: instance.Id(instanceId),
-		},
-	}}
-
-	result, err := vs.AttachVolumes(s.cloudCallCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Error, jc.ErrorIsNil)
-	c.Assert(result[0].VolumeAttachment, jc.DeepEquals, &storage.VolumeAttachment{
-		names.NewVolumeTag("0"),
-		names.NewMachineTag("1"),
-		storage.VolumeAttachmentInfo{
 			DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0",
+			ReadOnly:   false,
 		},
 	})
 }

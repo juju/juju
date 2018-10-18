@@ -418,16 +418,24 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
+		qualifierTerm := bson.DocElem{"owner", owner.Id()}
+		if args.Type == ModelTypeCAAS {
+			qualifierTerm = bson.DocElem{"cloud", args.CloudName}
+		}
 		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		modelCount, countErr := models.Find(bson.D{
-			{"owner", owner.Id()},
+			qualifierTerm,
 			{"name", name}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if modelCount > 0 {
-			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
+			qualifierMessage := qualifierTerm.Value
+			if args.Type == ModelTypeCAAS {
+				qualifierMessage = fmt.Sprintf("cloud %v", qualifierMessage)
+			}
+			err = errors.AlreadyExistsf("model %q for %s", name, qualifierMessage)
 		} else {
 			err = errors.Annotate(err, "failed to create new model")
 		}
@@ -677,7 +685,7 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	return getModelConfig(m.st.db())
+	return getModelConfig(m.st.db(), m.UUID())
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
@@ -967,7 +975,11 @@ type DestroyModelParams struct {
 }
 
 func (m *Model) uniqueIndexID() string {
-	return userModelNameIndex(m.doc.Owner, m.doc.Name)
+	qualifier := m.doc.Owner
+	if m.Type() == ModelTypeCAAS {
+		qualifier = m.Cloud()
+	}
+	return userModelNameIndex(qualifier, m.doc.Name)
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
@@ -1604,11 +1616,11 @@ func hostedModelCount(st *State) (int, error) {
 }
 
 // createUniqueOwnerModelNameOp returns the operation needed to create
-// an usermodelnameC document with the given owner and model name.
-func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
+// an usermodelnameC document with the given qualifier and model name.
+func createUniqueOwnerModelNameOp(qualifier string, modelName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
-		Id:     userModelNameIndex(owner.Id(), modelName),
+		Id:     userModelNameIndex(qualifier, modelName),
 		Assert: txn.DocMissing,
 		Insert: bson.M{},
 	}

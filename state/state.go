@@ -739,7 +739,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "model %q", st.modelTag.Id())
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
@@ -1225,8 +1225,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Updated:    st.clock().Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
-		// sense. It is only relevant for IAAS models.
-		NeverSet: model.Type() == ModelTypeIAAS,
+		// sense.
+		NeverSet: true,
 	}
 	if model.Type() == ModelTypeCAAS {
 		statusDoc.StatusInfo = status.MessageWaitForContainer

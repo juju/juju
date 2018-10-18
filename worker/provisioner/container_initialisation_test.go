@@ -250,6 +250,13 @@ func (s *containerSetupSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 		Changes:          []string{},
 	}}}
 	fExp.FacadeCall("WatchContainers", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
+	fExp.FacadeCall("WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(2, watchSource).Return(nil).AnyTimes()
+
+	watchOneSource := params.StringsWatchResult{
+		StringsWatcherId: "something",
+		Changes:          []string{},
+	}
+	fExp.FacadeCall("WatchModelMachinesCharmProfiles", gomock.Any(), gomock.Any()).SetArg(2, watchOneSource).Return(nil).AnyTimes()
 
 	controllerCfgSource := params.ControllerConfigResult{
 		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},

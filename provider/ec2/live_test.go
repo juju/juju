@@ -126,7 +126,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 
 	ec2inst := ec2.InstanceEC2(insts[0])
 	c.Assert(ec2inst.IPAddress, gc.Equals, addresses[0].Value)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "m3.medium")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t3.micro")
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
@@ -135,7 +135,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.callCtx, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(t.callCtx, inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "c5.large")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t3.medium")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
 	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
 	c.Assert(*hc.RootDisk, gc.Equals, uint64(8*1024))

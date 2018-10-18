@@ -4,6 +4,8 @@
 package cloud_test
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/permission"
 	gitjujutesting "github.com/juju/testing"
@@ -110,6 +112,17 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestCloudNotFound(c *gc.C) {
+	s.backend.SetErrors(errors.NotFoundf("cloud \"no-dice\""))
+	s.setTestAPIForUser(c, names.NewUserTag("admin"))
+	results, err := s.api.Cloud(params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "cloud \"no-dice\" not found")
+}
+
 func (s *cloudSuite) TestClouds(c *gc.C) {
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	s.ctlrBackend.cloudAccess = permission.AddModelAccess
@@ -135,6 +148,12 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Cloud", "User", "User")
 	s.ctlrBackend.CheckCallNames(c, "ControllerTag", "GetCloudUsers")
+
+	// Make sure that the slice is sorted in a predictable manor
+	sort.Slice(result.Results[0].Result.Users, func(i, j int) bool {
+		return result.Results[0].Result.Users[i].UserName < result.Results[0].Result.Users[j].UserName
+	})
+
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudInfoResult{
 		{
 			Result: &params.CloudInfo{

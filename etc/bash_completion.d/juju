@@ -60,6 +60,11 @@ print ("\n".join(j.get("applications", {}).keys()))
 '   < ${cache_fname}
 }
 
+# Print (return) upgradeseries commands
+_JUJU_2_upgrade_series_commands() {
+     echo -e "prepare\ncomplete"
+}
+
 # Print (return) all actions IDS from (cached) "juju show-action-status" output
 _JUJU_2_action_ids_from_action_status() {
     local model=$(_get_current_model)
@@ -203,6 +208,10 @@ _JUJU_2_completion_func_for_cmd() {
             echo true ;;  # help ok, existing command, no more expansion
         *juju?ssh*|*juju?scp*)
             echo _JUJU_2_units_and_machines_from_status;;
+        *upgrade-series*)
+            if [[ "preparecomplete" != *"${prev_word}"* ]]; then
+                        echo _JUJU_2_upgrade_series_commands
+            fi;;&
         *\<unit*)
             echo _JUJU_2_units_from_status;;
         *\<service*)

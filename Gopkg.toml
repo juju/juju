@@ -57,11 +57,11 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "bc5b7e5db16683db8ddffa7eef67b53706a4618a"
+  revision = "735c14e2335ad2d8112482794d69629c0517476c"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "1f9306d91eb3958fef5c2c8741e7049d1dda08b6"
+  revision = "f78aa97b9713ee80ce5be42c50ca283357ba2c5e"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -73,7 +73,7 @@
   name = "github.com/juju/gojsonschema"
 
 [[constraint]]
-  revision = "abe11904dd8cd40f0777b7704ae60348a876542e"
+  revision = "8a8cec793ba70659ba95f1b9a491ba807169bfc3"
   name = "github.com/juju/gomaasapi"
 
 [[constraint]]

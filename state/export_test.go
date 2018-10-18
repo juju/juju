@@ -61,6 +61,7 @@ var (
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
 	UpgradeInProgressError               = errUpgradeInProgress
+	DBCollectionSizeToInt                = dbCollectionSizeToInt
 )
 
 type (
@@ -847,6 +848,10 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 
 func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus status.StatusInfo) status.StatusInfo {
 	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus)
+}
+
+func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus status.StatusInfo) status.StatusInfo {
+	return caasApplicationDisplayStatus(appStatus, operatorStatus)
 }
 
 func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {

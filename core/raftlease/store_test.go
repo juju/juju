@@ -13,6 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -225,10 +226,12 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 }
 
 func (s *storeSuite) TestPin(c *gc.C) {
+	machineTag := names.NewMachineTag("0")
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.PinLease(
 				lease.Key{"warframe", "frost", "prime"},
+				machineTag,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -238,6 +241,7 @@ func (s *storeSuite) TestPin(c *gc.C) {
 			Namespace: "warframe",
 			ModelUUID: "frost",
 			Lease:     "prime",
+			PinEntity: machineTag.String(),
 		},
 		func(req raftlease.ForwardRequest) {
 			_, err := s.hub.Publish(
@@ -250,10 +254,12 @@ func (s *storeSuite) TestPin(c *gc.C) {
 }
 
 func (s *storeSuite) TestUnpin(c *gc.C) {
+	machineTag := names.NewMachineTag("0")
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.UnpinLease(
 				lease.Key{"warframe", "frost", "prime"},
+				machineTag,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -263,6 +269,7 @@ func (s *storeSuite) TestUnpin(c *gc.C) {
 			Namespace: "warframe",
 			ModelUUID: "frost",
 			Lease:     "prime",
+			PinEntity: machineTag.String(),
 		},
 		func(req raftlease.ForwardRequest) {
 			_, err := s.hub.Publish(

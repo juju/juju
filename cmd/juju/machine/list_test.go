@@ -105,6 +105,20 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 						},
 					},
 				},
+				LXDProfiles: map[string]params.LXDProfile{
+					"lxd-profile-name": {
+						Config: map[string]string{
+							"environment.http_proxy": "",
+						},
+						Description: "lxd-profile description",
+						Devices: map[string]map[string]string{
+							"tun": {
+								"path": "/dev/net/tun",
+								"type": "unix-char",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -186,14 +200,24 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"            - 10.0.0.3\n"+
 		"            - 10.0.1.3\n"+
 		"            mac-address: aa:bb:cc:dd:ee:ff\n"+
-		"            is-up: true\n")
+		"            is-up: true\n"+
+		"    lxd-profiles:\n"+
+		"      lxd-profile-name:\n"+
+		"        config:\n"+
+		"          environment.http_proxy: \"\"\n"+
+		"        description: lxd-profile description\n"+
+		"        devices:\n"+
+		"          tun:\n"+
+		"            path: /dev/net/tun\n"+
+		"            type: unix-char\n",
+	)
 }
 
 func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
-		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.1\",\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"instance-id\":\"juju-badd06-0\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}},\"constraints\":\"mem=3584M\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.2\",\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"instance-id\":\"juju-badd06-1\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}},\"containers\":{\"1/lxd/0\":{\"juju-status\":{\"current\":\"pending\"},\"dns-name\":\"10.0.0.3\",\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"instance-id\":\"juju-badd06-1-lxd-0\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}}}}}}}\n")
+		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.1\",\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"instance-id\":\"juju-badd06-0\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}},\"constraints\":\"mem=3584M\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.2\",\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"instance-id\":\"juju-badd06-1\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}},\"containers\":{\"1/lxd/0\":{\"juju-status\":{\"current\":\"pending\"},\"dns-name\":\"10.0.0.3\",\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"instance-id\":\"juju-badd06-1-lxd-0\",\"machine-status\":{},\"series\":\"trusty\",\"network-interfaces\":{\"eth0\":{\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"mac-address\":\"aa:bb:cc:dd:ee:ff\",\"is-up\":true}}}},\"lxd-profiles\":{\"lxd-profile-name\":{\"config\":{\"environment.http_proxy\":\"\"},\"description\":\"lxd-profile description\",\"devices\":{\"tun\":{\"path\":\"/dev/net/tun\",\"type\":\"unix-char\"}}}}}}}\n")
 }
 
 func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {

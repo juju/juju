@@ -143,6 +143,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		Containers:        make(map[string]machineStatus),
 		Constraints:       machine.Constraints,
 		Hardware:          machine.Hardware,
+		LXDProfiles:       make(map[string]lxdProfileContents),
 	}
 
 	for k, d := range machine.NetworkInterfaces {
@@ -155,6 +156,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 			IsUp:           d.IsUp,
 		}
 	}
+
 	for k, m := range machine.Containers {
 		out.Containers[k] = sf.formatMachine(m)
 	}
@@ -165,6 +167,15 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 			break
 		}
 	}
+
+	for k, v := range machine.LXDProfiles {
+		out.LXDProfiles[k] = lxdProfileContents{
+			Config:      v.Config,
+			Description: v.Description,
+			Devices:     v.Devices,
+		}
+	}
+
 	return out
 }
 

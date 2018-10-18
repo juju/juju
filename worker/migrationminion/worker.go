@@ -166,6 +166,10 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 	}
 	apiInfo.Addrs = status.TargetAPIAddrs
 	apiInfo.CACert = status.TargetCACert
+	// Application agents (k8s) use old password.
+	if apiInfo.Password == "" {
+		apiInfo.Password = agentConf.OldPassword()
+	}
 
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
