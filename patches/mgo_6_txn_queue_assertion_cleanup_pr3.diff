@@ -1,6 +1,6 @@
---- a/gopkg.in/mgo.v2/txn/flusher.go
-+++ b/gopkg.in/mgo.v2/txn/flusher.go
-@@ -895,6 +895,10 @@ func (f *flusher) apply(t *transaction, pull map[bson.ObjectId]*transaction) err
+--- a/gopkg.in/mgo.v2/txn/flusher.go	2018-10-18 12:49:53.400111777 +0000
++++ b/gopkg.in/mgo.v2/flusher.go	2018-10-18 12:50:29.852882808 +0000
+@@ -895,6 +895,10 @@
  			}
  		case op.Assert != nil:
  			// Pure assertion. No changes to apply.
@@ -11,9 +11,9 @@
  		}
  		if err == nil {
  			outcome = "DONE"
---- a/gopkg.in/mgo.v2/txn/txn.go
-+++ b/gopkg.in/mgo.v2/txn/txn.go
-@@ -223,6 +223,7 @@ type Runner struct {
+--- a/gopkg.in/mgo.v2/txn/txn.go	2018-10-18 12:49:53.396111692 +0000
++++ b/gopkg.in/mgo.v2/txn/txn.go	2018-10-18 12:50:29.852882808 +0000
+@@ -223,6 +223,7 @@
  }
  
  const defaultMaxTxnQueueLength = 1000
@@ -21,7 +21,7 @@
  
  // NewRunner returns a new transaction runner that uses tc to hold its
  // transactions.
-@@ -252,6 +253,11 @@ type RunnerOptions struct {
+@@ -252,6 +253,11 @@
  	// Normal operations are likely to only ever hit 10 or so, we use a default
  	// maximum length of 1000.
  	MaxTxnQueueLength int
@@ -33,7 +33,7 @@
  }
  
  // SetOptions allows people to change some of the internal behavior of a Runner.
-@@ -263,7 +269,8 @@ func (r *Runner) SetOptions(opts RunnerOptions) {
+@@ -263,7 +269,8 @@
  // Users can use the DefaultRunnerOptions to only override specific behavior.
  func DefaultRunnerOptions() RunnerOptions {
  	return RunnerOptions{
@@ -43,9 +43,9 @@
  	}
  }
  
---- a/gopkg.in/mgo.v2/txn/txn_test.go
-+++ b/gopkg.in/mgo.v2/txn/txn_test.go
-@@ -777,6 +777,97 @@ func (s *S) TestTxnQueueUnlimited(c *C) {
+--- a/gopkg.in/mgo.v2/txn/txn_test.go	2018-10-18 12:49:53.400111777 +0000
++++ b/gopkg.in/mgo.v2/txn/txn_test.go	2018-10-18 12:50:29.856882893 +0000
+@@ -777,6 +777,97 @@
  	c.Check(len(doc["txn-queue"].([]interface{})), Equals, 1101)
  }
  
