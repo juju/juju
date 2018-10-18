@@ -538,7 +538,7 @@ func (s *fsmSuite) TestSnapshot(c *gc.C) {
 		},
 		GlobalTime: zero.Add(2 * time.Second),
 		Pinned: map[raftlease.SnapshotKey][]string{
-			raftlease.SnapshotKey{"ns", "model", "lease"}: {machineTag.String()},
+			{"ns", "model", "lease"}: {machineTag.String()},
 		},
 	})
 }
@@ -575,7 +575,7 @@ func (s *fsmSuite) TestRestore(c *gc.C) {
 		},
 		GlobalTime: zero.Add(3 * time.Second),
 		Pinned: map[raftlease.SnapshotKey][]string{
-			raftlease.SnapshotKey{"ns", "model", "lease"}: {names.NewMachineTag("0").String()},
+			{"ns", "model", "lease"}: {names.NewMachineTag("0").String()},
 		},
 	}
 
@@ -600,7 +600,7 @@ func (s *fsmSuite) TestSnapshotPersist(c *gc.C) {
 			},
 		},
 		Pinned: map[raftlease.SnapshotKey][]string{
-			raftlease.SnapshotKey{"ns", "model", "lease"}: {names.NewMachineTag("0").String()},
+			{"ns", "model", "lease"}: {names.NewMachineTag("0").String()},
 		},
 		GlobalTime: zero.Add(2 * time.Second),
 	}
