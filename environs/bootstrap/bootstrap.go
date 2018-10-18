@@ -430,7 +430,6 @@ func Bootstrap(
 		return errors.Trace(err)
 	}
 
-	var newestToolVersion version.Number
 	if !args.IsCAASController {
 		publicKey, err := userPublicSigningKey()
 		if err != nil {
@@ -461,7 +460,7 @@ func Bootstrap(
 		// We set agent-version to the newest version, so the agent will immediately upgrade itself.
 		// Note that this only is relevant if a specific agent version has not been requested, since
 		// in that case the specific version will be the only version available.
-		newestToolVersion, _ = matchingTools.Newest()
+		newestToolVersion, _ := matchingTools.Newest()
 		// set agent version before finalizing bootstrap config
 		if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
 			return errors.Trace(err)
