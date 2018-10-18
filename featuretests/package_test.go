@@ -52,6 +52,8 @@ func init() {
 	gc.Suite(&undertakerSuite{})
 	gc.Suite(&upgradeSuite{})
 	gc.Suite(&CmdRelationSuite{})
+	gc.Suite(&debugLogDbSuite1{})
+	gc.Suite(&debugLogDbSuite2{})
 	gc.Suite(&remoteRelationsSuite{})
 	gc.Suite(&crossmodelSuite{})
 	gc.Suite(&ApplicationConfigSuite{})
