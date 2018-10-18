@@ -179,7 +179,7 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 		"udevadm", "info",
 		"-q", "property",
 		"--name", dev.DeviceName,
-	).Output()
+	).CombinedOutput()
 	if err != nil {
 		msg := "udevadm failed"
 		if output := bytes.TrimSpace(output); len(output) > 0 {
