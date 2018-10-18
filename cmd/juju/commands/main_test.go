@@ -524,6 +524,7 @@ var commandNames = []string{
 	"run-action",
 	"scale-application",
 	"scp",
+	"set-credential",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",

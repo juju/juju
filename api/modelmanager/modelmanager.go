@@ -534,7 +534,7 @@ func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error 
 // ChangeModelCredential replaces cloud credential for a given model with the provided one.
 func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.CloudCredentialTag) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 5 {
-		return errors.NotImplementedf("ChangeModelCredential")
+		return errors.NotImplementedf("ChangeModelCredential in version %v", bestVer)
 	}
 
 	var out params.ErrorResults
