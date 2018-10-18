@@ -4,11 +4,11 @@
 package model_test
 
 import (
-	"github.com/pkg/errors"
 	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
