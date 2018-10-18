@@ -290,7 +290,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 			continue
 		}
 		entities := make([]string, tags.Size())
-		for i, t := range tags.Values() {
+		for i, t := range tags.SortedValues() {
 			entities[i] = t.String()
 		}
 		pinned[SnapshotKey{
