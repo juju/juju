@@ -537,9 +537,7 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 }
 
 // SetUpgradeSeriesMessagesAsSeen marks a given upgrade series messages as
-// having been seen by a client of the API. The method we use to determine have
-// that the message has actually been seen is that a client has made a call to
-// fetch the message.
+// having been seen by a client of the API.
 func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
