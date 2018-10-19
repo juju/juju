@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership_test
+package common_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/facades/client/leadership"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -18,10 +18,8 @@ import (
 type LeadershipSuite struct {
 	coretesting.BaseSuite
 
-	clientFacade *mocks.MockClientFacade
-	facade       *mocks.MockFacadeCaller
-
-	client *leadership.Client
+	facade *mocks.MockFacadeCaller
+	client *common.LeadershipAPI
 
 	appName     string
 	machineTag  names.MachineTag
@@ -81,9 +79,8 @@ func (s *LeadershipSuite) TestUnpinLeadershipSuccess(c *gc.C) {
 func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.clientFacade = mocks.NewMockClientFacade(ctrl)
 	s.facade = mocks.NewMockFacadeCaller(ctrl)
-	s.client = leadership.NewClientFromFacades(s.clientFacade, s.facade)
+	s.client = common.NewLeadershipAPIFromFacade(s.facade)
 
 	return ctrl
 }

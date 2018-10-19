@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership
+package common
 
 import (
 	"github.com/juju/errors"
@@ -11,48 +11,46 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// TODO (manadart 2018-10-19) This has been kept intact after the relocation of
-// Leadership pinning API server. It will be further refactored and possibly
-// relocated when client-side querying/manipulation of lease pinning is added.
-
 const leadershipFacade = "LeadershipPinning"
 
 // Client provides common client-side API functions
 // for manipulating and querying application leadership.
-type Client struct {
-	base.ClientFacade
+type LeadershipAPI struct {
 	facade base.FacadeCaller
 }
 
 // NewClient creates and returns a new leadership API client.
-func NewClient(caller base.APICallCloser) *Client {
-	return NewClientFromFacades(base.NewClientFacade(caller, leadershipFacade))
+func NewLeadershipAPI(caller base.APICaller) *LeadershipAPI {
+	facadeCaller := base.NewFacadeCaller(
+		caller,
+		leadershipFacade,
+	)
+	return NewLeadershipAPIFromFacade(facadeCaller)
 }
 
 // NewClientFromFacades creates and returns a new leadership API client based
 // on the input client facade and facade caller.
-func NewClientFromFacades(clientFacade base.ClientFacade, facade base.FacadeCaller) *Client {
-	return &Client{
-		ClientFacade: clientFacade,
-		facade:       facade,
+func NewLeadershipAPIFromFacade(facade base.FacadeCaller) *LeadershipAPI {
+	return &LeadershipAPI{
+		facade: facade,
 	}
 }
 
 // PinLeadership (leadership.Pinner) sends a request to the API server to pin
 // leadership for the input application on behalf of the input entity.
-func (l *Client) PinLeadership(appName string) error {
+func (l *LeadershipAPI) PinLeadership(appName string) error {
 	return errors.Trace(l.pinOp("PinLeadership", appName))
 }
 
 // UnpinLeadership (leadership.Pinner) sends a request to the API server to
 // unpin leadership for the input application on behalf of the input entity.
-func (l *Client) UnpinLeadership(appName string) error {
+func (l *LeadershipAPI) UnpinLeadership(appName string) error {
 	return errors.Trace(l.pinOp("UnpinLeadership", appName))
 }
 
 // pinOp makes the appropriate facade call for leadership pinning manipulations
 // based on the input application and method name.
-func (l *Client) pinOp(callName, appName string) error {
+func (l *LeadershipAPI) pinOp(callName, appName string) error {
 	arg := params.PinLeadershipBulkParams{
 		Params: []params.PinLeadershipParams{{
 			ApplicationTag: names.NewApplicationTag(appName).String(),
