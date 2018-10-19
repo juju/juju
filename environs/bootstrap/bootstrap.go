@@ -510,7 +510,7 @@ func Bootstrap(
 	callCtx context.ProviderCallContext,
 	args BootstrapParams,
 ) error {
-	isCAASController := jujucloud.CloudIsCAAS(cloud)
+	isCAASController := jujucloud.CloudIsCAAS(args.Cloud)
 
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")

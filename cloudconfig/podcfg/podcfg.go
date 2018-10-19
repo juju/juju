@@ -4,7 +4,6 @@
 package podcfg
 
 import (
-	"fmt"
 	"net"
 	"path"
 	"strconv"
