@@ -190,7 +190,7 @@ func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 
 	var err error
-	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer)
+	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

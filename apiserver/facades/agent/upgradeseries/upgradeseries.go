@@ -12,34 +12,45 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 
-// State exposes methods from state required by this API.
-type State interface {
-	common.UpgradeSeriesBackend
-}
-
 // API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
+	common.LeadershipAPI
 
-	st        State
+	st        common.UpgradeSeriesBackend
 	auth      facade.Authorizer
 	resources facade.Resources
 }
 
-// NewAPI creates a new instance of the API server.
-// It has a signature suitable for external registration.
-func NewAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: st}, resources, authorizer)
+func NewAPI(ctx facade.Context) (*API, error) {
+	st := ctx.State()
+	mod, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	pinner, err := ctx.LeadershipPinner(mod.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	leadership, err := common.NewLeadershipAPI(mod.ModelTag(), pinner, ctx.Auth())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: st}, ctx.Resources(), ctx.Auth(), leadership)
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
 // dedicated state indirection.
-func NewUpgradeSeriesAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewUpgradeSeriesAPI(
+	st common.UpgradeSeriesBackend,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	leadership common.LeadershipAPI,
+) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -60,6 +71,7 @@ func NewUpgradeSeriesAPI(st State, resources facade.Resources, authorizer facade
 		resources:        resources,
 		auth:             authorizer,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LeadershipAPI:    leadership,
 	}, nil
 }
 
