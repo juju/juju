@@ -203,7 +203,6 @@ func Bootstrap(
 		Placement:        args.Placement,
 	}
 
-	var customImageMetadata []*imagemetadata.ImageMetadata
 	if !args.IsCAASController {
 		// bootstraping in IAAS mode.
 
@@ -225,6 +224,7 @@ func Bootstrap(
 		// Set default tools metadata source, add image metadata source,
 		// then verify constraints. Providers may rely on image metadata
 		// for constraint validation.
+		var customImageMetadata []*imagemetadata.ImageMetadata
 		if args.MetadataDir != "" {
 			var err error
 			customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
@@ -421,16 +421,14 @@ func Bootstrap(
 		if err = environ.SetConfig(cfg); err != nil {
 			return errors.Trace(err)
 		}
-	}
 
-	ctx.Verbosef("Starting new instance for initial controller")
+		ctx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
-	if err != nil {
-		return errors.Trace(err)
-	}
+		result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	if !args.IsCAASController {
 		publicKey, err := userPublicSigningKey()
 		if err != nil {
 			return errors.Trace(err)
@@ -485,6 +483,11 @@ func Bootstrap(
 			return errors.Trace(err)
 		}
 	} else {
+
+		result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 			args.ControllerConfig,
