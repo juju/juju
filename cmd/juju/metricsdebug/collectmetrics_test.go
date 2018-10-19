@@ -24,20 +24,13 @@ type collectMetricsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&collectMetricsSuite{})
+var (
+	_ = gc.Suite(&collectMetricsSuite{})
 
-func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
-	runClient := &testRunClient{}
-	applicationClient := &testApplicationClient{}
-	applicationClient.charmURL = "local:quantal/charm"
-	s.PatchValue(metricsdebug.NewAPIConn, noConn)
-	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
+	actionTag1 = names.NewActionTag("01234567-89ab-cdef-0123-456789abcdef")
+	actionTag2 = names.NewActionTag("11234567-89ab-cdef-0123-456789abcdef")
 
-	actionTag1 := names.NewActionTag("01234567-89ab-cdef-0123-456789abcdef")
-	actionTag2 := names.NewActionTag("11234567-89ab-cdef-0123-456789abcdef")
-
-	tests := []struct {
+	tests = []struct {
 		about     string
 		args      []string
 		stdout    string
@@ -302,6 +295,40 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		},
 		stdout: "failed to send metrics for unit uptime/0: kek\n",
 	}}
+)
+
+func (s *collectMetricsSuite) TestCollectMetricsLocal(c *gc.C) {
+	runClient := &testRunClient{}
+	applicationClient := &testApplicationClient{}
+	applicationClient.charmURL = "local:quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
+	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
+	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
+
+	for i, test := range tests {
+		c.Logf("running test %d: %v", i, test.about)
+		runClient.reset()
+		if test.results != nil {
+			runClient.results = test.results
+		}
+		metricsdebug.PatchGetActionResult(s.PatchValue, test.actionMap)
+		ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), test.args...)
+		if test.err != "" {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(cmdtesting.Stdout(ctx), gc.Matches, test.stdout)
+		}
+	}
+}
+
+func (s *collectMetricsSuite) TestCollectMetricsRemote(c *gc.C) {
+	runClient := &testRunClient{}
+	applicationClient := &testApplicationClient{}
+	applicationClient.charmURL = "quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
+	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
+	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
 
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
