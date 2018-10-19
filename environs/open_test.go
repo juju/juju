@@ -161,7 +161,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	e = bootstrapEnviron.(environs.Environ)
+	e := bootstrapEnviron.(environs.Environ)
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 

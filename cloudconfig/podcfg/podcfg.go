@@ -292,7 +292,6 @@ func NewControllerPodConfig(
 			multiwatcher.JobManageModel,
 		},
 		Tags: map[string]string{},
-
 		// Parameter entries.
 		ControllerTag: controllerTag,
 		MachineId:     machineID,

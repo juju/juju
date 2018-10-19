@@ -782,7 +782,6 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("data ---> \n%s", string(data))
 	commands := renderer.MkdirAll(c.Dir())
 	filename := c.File(agentConfigFilename)
 	commands = append(commands, renderer.WriteFile(filename, data)...)
