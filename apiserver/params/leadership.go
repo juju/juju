@@ -82,8 +82,4 @@ type PinLeadershipParams struct {
 	// ApplicationTag is the application for which leadership is to
 	// be pinned or unpinned.
 	ApplicationTag string `json:"application-tag"`
-
-	// EntityTag denotes who is responsible for particular pin being
-	// operated on.
-	EntityTag string `json:"entity-tag"`
 }
