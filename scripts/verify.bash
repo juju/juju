@@ -77,3 +77,6 @@ go build $(go list github.com/juju/juju/... | grep -v /vendor/)
 
 echo "checking: tests are wired up ..."
 ./scripts/checktesting.bash
+
+echo "checking: copyright notices are in place ..."
+./scripts/copyright.bash

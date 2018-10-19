@@ -36,22 +36,25 @@ func NewClientFromFacades(clientFacade base.ClientFacade, facade base.FacadeCall
 }
 
 // PinLeadership (leadership.Pinner) sends a request to the API server to pin
-// leadership for the input application.
-func (l *client) PinLeadership(appName string) error {
-	return errors.Trace(l.pinOp(appName, "PinLeadership"))
+// leadership for the input application on behalf of the input entity.
+func (l *client) PinLeadership(appName string, entity names.Tag) error {
+	return errors.Trace(l.pinOp("PinLeadership", appName, entity))
 }
 
 // UnpinLeadership (leadership.Pinner) sends a request to the API server to
-// unpin leadership for the input application.
-func (l *client) UnpinLeadership(appName string) error {
-	return errors.Trace(l.pinOp(appName, "UnpinLeadership"))
+// unpin leadership for the input application on behalf of the input entity.
+func (l *client) UnpinLeadership(appName string, entity names.Tag) error {
+	return errors.Trace(l.pinOp("UnpinLeadership", appName, entity))
 }
 
 // pinOp makes the appropriate facade call for leadership pinning manipulations
 // based on the input application and method name.
-func (l *client) pinOp(appName string, callName string) error {
+func (l *client) pinOp(callName, appName string, entity names.Tag) error {
 	arg := params.PinLeadershipBulkParams{
-		Params: []params.PinLeadershipParams{{ApplicationTag: names.NewApplicationTag(appName).String()}},
+		Params: []params.PinLeadershipParams{{
+			ApplicationTag: names.NewApplicationTag(appName).String(),
+			EntityTag:      entity.String(),
+		}},
 	}
 	var results params.ErrorResults
 	err := l.facade.FacadeCall(callName, arg, &results)

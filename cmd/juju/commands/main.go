@@ -368,6 +368,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
+	r.Register(model.NewModelCredentialCommand())
 
 	r.Register(newMigrateCommand())
 	if featureflag.Enabled(feature.DeveloperMode) {

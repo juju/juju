@@ -151,15 +151,30 @@ func NewWorker(config Config) (worker.Worker, error) {
 	})
 	w.Transport = transport
 
+	var h http.Handler = NewHandler(w.connections, w.catacomb.Dying())
+	h = &httpcontext.BasicAuthHandler{
+		Handler:       h,
+		Authenticator: w.config.Authenticator,
+		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
+	}
+	h = &httpcontext.ImpliedModelHandler{
+		Handler:   h,
+		ModelUUID: w.config.APIInfo.ModelTag.Id(),
+	}
+
+	w.config.Mux.AddHandler("GET", w.config.Path, h)
+
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: func() error {
 			defer transport.Close()
+			defer w.config.Mux.RemoveHandler("GET", w.config.Path)
 			return w.loop()
 		},
 		Init: []worker.Worker{stream},
 	}); err != nil {
 		transport.Close()
+		w.config.Mux.RemoveHandler("GET", w.config.Path)
 		return nil, errors.Trace(err)
 	}
 	return w, nil
@@ -252,20 +267,6 @@ func (w *Worker) errDialWorkerStopped() error {
 }
 
 func (w *Worker) loop() error {
-	var h http.Handler = NewHandler(w.connections, w.catacomb.Dying())
-	h = &httpcontext.BasicAuthHandler{
-		Handler:       h,
-		Authenticator: w.config.Authenticator,
-		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
-	}
-	h = &httpcontext.ImpliedModelHandler{
-		Handler:   h,
-		ModelUUID: w.config.APIInfo.ModelTag.Id(),
-	}
-
-	w.config.Mux.AddHandler("GET", w.config.Path, h)
-	defer w.config.Mux.RemoveHandler("GET", w.config.Path)
-
 	for {
 		select {
 		case <-w.catacomb.Dying():

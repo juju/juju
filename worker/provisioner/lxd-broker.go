@@ -184,6 +184,16 @@ func (broker *lxdBroker) MaintainInstance(ctx context.ProviderCallContext, args 
 	return err
 }
 
+// LXDProfileNames returns all the profiles for a container that the broker
+// currently is aware of.
+func (broker *lxdBroker) LXDProfileNames(containerName string) ([]string, error) {
+	nameRetriever, ok := broker.manager.(container.LXDProfileNameRetriever)
+	if !ok {
+		return make([]string, 0), nil
+	}
+	return nameRetriever.LXDProfileNames(containerName)
+}
+
 func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 	containerTag := names.NewMachineTag(machineID)
 	profileInfo, err := broker.api.GetContainerProfileInfo(containerTag)

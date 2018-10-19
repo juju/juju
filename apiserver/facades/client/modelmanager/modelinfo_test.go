@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
@@ -148,14 +149,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewCloudCallContext()
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, &s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -534,6 +535,18 @@ type metricSender interface {
 	CountOfUnsentMetrics() (int, error)
 	CountOfSentMetrics() (int, error)
 	CleanupOldMetrics() error
+}
+
+type mockCaasBroker struct {
+	gitjujutesting.Stub
+	caas.Broker
+
+	namespaces []string
+}
+
+func (m *mockCaasBroker) Namespaces() ([]string, error) {
+	m.MethodCall(m, "Namespaces")
+	return m.namespaces, nil
 }
 
 type mockState struct {

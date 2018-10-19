@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/juju/names.v2"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -69,11 +71,12 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 	uExp.Applications(prep.machineArg).Return([]string{"foo", "bar"}, nil).AnyTimes()
 
+	machineTag := names.NewMachineTag(machineArg)
 	lExp := mockLeadershipAPI.EXPECT()
-	lExp.PinLeadership("foo").Return(nil).AnyTimes()
-	lExp.PinLeadership("bar").Return(nil).AnyTimes()
-	lExp.UnpinLeadership("foo").Return(nil).AnyTimes()
-	lExp.UnpinLeadership("bar").Return(nil).AnyTimes()
+	lExp.PinLeadership("foo", machineTag).Return(nil).AnyTimes()
+	lExp.PinLeadership("bar", machineTag).Return(nil).AnyTimes()
+	lExp.UnpinLeadership("foo", machineTag).Return(nil).AnyTimes()
+	lExp.UnpinLeadership("bar", machineTag).Return(nil).AnyTimes()
 
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI, mockLeadershipAPI)
 
@@ -141,8 +144,13 @@ func (s *UpgradeSeriesSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
-func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgree(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--agree")
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYes(c *gc.C) {
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--yes")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesAbbreviation(c *gc.C) {
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "-y")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -154,11 +162,11 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, confirmationMsg)
 }
 
-func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *gc.C) {
-	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg, "--agree")
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c *gc.C) {
+	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg, "-y")
 	c.Assert(err, jc.ErrorIsNil)
 
-	//There is no confirmation message since the `--agree` flag is being used to avoid the prompt.
+	//There is no confirmation message since the `-y/--yes` flag is being used to avoid the prompt.
 	confirmationMessage := ""
 
 	finishedMessage := ""

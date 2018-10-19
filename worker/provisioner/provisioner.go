@@ -152,7 +152,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, err
 	}
 	profileWatcher, err := p.getProfileWatcher()
-	if err != nil && !errors.IsNotImplemented(err) {
+	if err != nil {
 		return nil, err
 	}
 	tag := p.agentConfig.Tag()
@@ -347,7 +347,7 @@ func (p *containerProvisioner) loop() error {
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return errors.Trace(err)
+		return loggedErrorStack(errors.Trace(err))
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)
@@ -405,5 +405,13 @@ func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) 
 }
 
 func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
-	return p.st.WatchModelMachinesCharmProfiles()
+	if p.containerType != instance.LXD {
+		// TODO (hml) lxd-profile 17-oct-2018
+		// what is the correct way to handle this, only start for LXD containers
+	}
+	machine, err := p.getMachine()
+	if err != nil {
+		return nil, err
+	}
+	return machine.WatchContainersCharmProfiles(p.containerType)
 }

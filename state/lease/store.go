@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -189,12 +190,12 @@ func (store *store) ExpireLease(key lease.Key) error {
 }
 
 // PinLease is part of the Store interface.
-func (store *store) PinLease(key lease.Key) error {
+func (store *store) PinLease(key lease.Key, entity names.Tag) error {
 	return errors.NotImplementedf("pinning for legacy leases")
 }
 
 // UnpinLease is part of the Store interface.
-func (store *store) UnpinLease(key lease.Key) error {
+func (store *store) UnpinLease(key lease.Key, entity names.Tag) error {
 	return errors.NotImplementedf("unpinning for legacy leases")
 }
 

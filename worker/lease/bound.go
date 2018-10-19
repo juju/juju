@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/lease"
 )
@@ -76,20 +77,21 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 }
 
 // Pin (lease.Pinner) sends a pin message to the worker loop.
-func (b *boundManager) Pin(leaseName string) error {
-	return errors.Trace(b.pinOp(leaseName, b.manager.pins))
+func (b *boundManager) Pin(leaseName string, entity names.Tag) error {
+	return errors.Trace(b.pinOp(leaseName, entity, b.manager.pins))
 }
 
 // Unpin (lease.Pinner) sends an unpin message to the worker loop.
-func (b *boundManager) Unpin(leaseName string) error {
-	return errors.Trace(b.pinOp(leaseName, b.manager.unpins))
+func (b *boundManager) Unpin(leaseName string, entity names.Tag) error {
+	return errors.Trace(b.pinOp(leaseName, entity, b.manager.unpins))
 }
 
 // pinOp creates a pin instance from the input lease name,
 // then sends it on the input channel.
-func (b *boundManager) pinOp(leaseName string, ch chan pin) error {
+func (b *boundManager) pinOp(leaseName string, entity names.Tag, ch chan pin) error {
 	return errors.Trace(pin{
 		leaseKey: b.leaseKey(leaseName),
+		entity:   entity,
 		response: make(chan error),
 		stop:     b.manager.catacomb.Dying(),
 	}.invoke(ch))

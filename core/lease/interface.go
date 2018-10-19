@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -50,14 +51,17 @@ type Claimer interface {
 type Pinner interface {
 
 	// Pin ensures that the current holder of input lease name will not lose
-	// the lease to expiry until Unpin is called for the same lease name.
+	// the lease to expiry.
 	// If there is no current holder of the lease, the next claimant will be
 	// the recipient of the pin behaviour.
-	Pin(leaseName string) error
+	// The input entity denotes the party responsible for the
+	// pinning operation.
+	Pin(leaseName string, entity names.Tag) error
 
-	// Unpin ensures that the current or future holders of the input lease name
-	// are subject to normal lease expiry behaviour.
-	Unpin(leaseName string) error
+	// Unpin reverses a Pin operation for the same application and entity.
+	// Normal expiry behaviour is restored when no entities remain with
+	// pins for the application.
+	Unpin(leaseName string, tag names.Tag) error
 }
 
 // Checker exposes facts about lease ownership.

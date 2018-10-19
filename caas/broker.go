@@ -102,6 +102,9 @@ type Broker interface {
 	// Destroy terminates all containers and other resources in this broker's namespace.
 	Destroy(context.ProviderCallContext) error
 
+	// Namespaces returns name names of the namespaces on the cluster.
+	Namespaces() ([]string, error)
+
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
 

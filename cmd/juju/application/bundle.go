@@ -63,6 +63,7 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleOverlayFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
@@ -115,7 +116,7 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage, bundleDevices)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleURL, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -184,6 +185,10 @@ type bundleHandler struct {
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
+	// bundleURL is the URL of the bundle when deploying a bundle from the
+	// charmstore, nil otherwise.
+	bundleURL *charm.URL
+
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
 	// handlers (addCharm, addApplication etc.) and by updateUnitStatus.
@@ -214,6 +219,7 @@ func makeBundleHandler(
 	api DeployAPI,
 	ctx *cmd.Context,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
 ) *bundleHandler {
@@ -232,6 +238,7 @@ func makeBundleHandler(
 		bundleDevices: bundleDevices,
 		ctx:           ctx,
 		data:          data,
+		bundleURL:     bundleURL,
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
@@ -331,11 +338,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 }
 
 func (h *bundleHandler) getChanges() error {
+	bundleURL := ""
+	if h.bundleURL != nil {
+		bundleURL = h.bundleURL.String()
+	}
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
-			Bundle: h.data,
-			Model:  h.model,
-			Logger: logger,
+			Bundle:    h.data,
+			BundleURL: bundleURL,
+			Model:     h.model,
+			Logger:    logger,
 		})
 	if err != nil {
 		return errors.Trace(err)
@@ -610,6 +622,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
 	h.writeAddedResources(resNames2IDs)
+
 	return nil
 }
 

@@ -81,7 +81,7 @@ type upgradeSeriesCommand struct {
 	force         bool
 	machineNumber string
 	series        string
-	agree         bool
+	yes           bool
 
 	catacomb catacomb.Catacomb
 	plan     catacomb.Plan
@@ -146,9 +146,8 @@ func (c *upgradeSeriesCommand) Info() *cmd.Info {
 func (c *upgradeSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Upgrade even if the series is not supported by the charm and/or related subordinate charms.")
-	// TODO (hml) 2018-06-28
-	// agree should be hidden, or available only during initial testing?
-	f.BoolVar(&c.agree, "agree", false, "Agree this operation cannot be reverted or canceled once started.")
+	f.BoolVar(&c.yes, "y", false, "Agree that the operation cannot be reverted or canceled once started without being prompted.")
+	f.BoolVar(&c.yes, "yes", false, "")
 }
 
 // Init implements cmd.Command.
@@ -263,7 +262,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 
 func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnits []string) error {
 	formattedUnitNames := strings.Join(affectedUnits, "\n")
-	if c.agree {
+	if c.yes {
 		return nil
 	}
 
@@ -287,7 +286,7 @@ func (c *upgradeSeriesCommand) pinLeaders(ctx *cmd.Context, units []string) erro
 	}
 
 	for _, app := range applications.SortedValues() {
-		if err := c.leadershipClient.PinLeadership(app); err != nil {
+		if err := c.leadershipClient.PinLeadership(app, names.NewMachineTag(c.machineNumber)); err != nil {
 			return errors.Annotatef(err, "freezing leadership for %q", app)
 		}
 		ctx.Infof("leadership pinned for application %q", app)
@@ -422,7 +421,7 @@ func (c *upgradeSeriesCommand) unpinLeaders(ctx *cmd.Context) error {
 	apps := sort.StringSlice(applications)
 	apps.Sort()
 	for _, app := range apps {
-		if err := c.leadershipClient.UnpinLeadership(app); err != nil {
+		if err := c.leadershipClient.UnpinLeadership(app, names.NewMachineTag(c.machineNumber)); err != nil {
 			return errors.Annotatef(err, "unfreezing leadership for %q", app)
 		}
 		ctx.Infof("leadership unpinned for application %q", app)

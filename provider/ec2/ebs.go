@@ -719,11 +719,6 @@ func (v *ebsVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachP
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	for i, params := range attachParams {
 		instId := string(params.InstanceId)
-		inst, err := instances.get(instId)
-		if err != nil {
-			results[i].Error = maybeConvertCredentialError(err, ctx)
-			continue
-		}
 
 		// By default we should allocate device names without the
 		// trailing number. Block devices with a trailing number are
@@ -742,26 +737,25 @@ func (v *ebsVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachP
 		}
 
 		var attachmentInfo storage.VolumeAttachmentInfo
-		if strings.HasPrefix(inst.InstanceType, "c5.") || strings.HasPrefix(inst.InstanceType, "m5.") {
-			// The newer hypervisor attaches EBS volumes
-			// as NVMe devices, and the block device names
-			// are unpredictable from here.
-			//
-			// Instead of using device name, we fill in
-			// the device link, based on the statically
-			// defined model name ("Amazon Elastic Block Store",
-			// and serial (vol123456abcdef...); the serial
-			// is the same as the volume ID without the "-".
-			//
-			// NOTE(axw) inst.Hypervisor still says "xen" for
-			// m5 and c5 instance types, which would seem to
-			// be a lie. This is why we check the prefix,
-			// rather than the hypervisor name.
-			sn := strings.Replace(params.VolumeId, "-", "", 1)
-			attachmentInfo.DeviceLink = nvmeDeviceLinkPrefix + sn
-		} else {
-			attachmentInfo.DeviceName = deviceName
-		}
+		// The newer hypervisor attaches EBS volumes
+		// as NVMe devices, and the block device names
+		// are unpredictable from here.
+		//
+		// Instead of using device name, we fill in
+		// the device link, based on the statically
+		// defined model name ("Amazon Elastic Block Store",
+		// and serial (vol123456abcdef...); the serial
+		// is the same as the volume ID without the "-".
+		//
+		// NOTE(axw) inst.Hypervisor still says "xen" for
+		// affected instance types, which would seem to
+		// be a lie. There's no way to tell how a volume will
+		// be exposed so we have to assume an nvme link - the
+		// subsequent matching code will correctly skip the link
+		// and match against device name for non-nvme volumes.
+		sn := strings.Replace(params.VolumeId, "-", "", 1)
+		attachmentInfo.DeviceLink = nvmeDeviceLinkPrefix + sn
+		attachmentInfo.DeviceName = deviceName
 
 		results[i].VolumeAttachment = &storage.VolumeAttachment{
 			params.Volume,

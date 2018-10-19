@@ -521,7 +521,7 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	for _, unseenMessage := range unseenMessages {
 		messages = append(messages, unseenMessage.Message)
 	}
-	err = m.SetUpgradeSeriesMessagesAsSeen(lock.Messages)
+	err = m.SetUpgradeSeriesMessagesAsSeen(unseenMessages)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -537,17 +537,16 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 }
 
 // SetUpgradeSeriesMessagesAsSeen marks a given upgrade series messages as
-// having been seen by a client of the API. This method is exported since only
-// the client of this method can determine when a message has been "seen" and
-// thus the decision must be made ad the APIServer level as whether to call this
-// method or not (as apposed to immediately calling this method when messages
-// are queried for sending).
+// having been seen by a client of the API.
 func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
+		}
+		if len(messages) == 0 {
+			return nil, jujutxn.ErrNoOperations
 		}
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
@@ -570,14 +569,16 @@ func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeries
 			Assert: isAliveDoc,
 		},
 	}
+	fields := bson.D{}
 	for i := range messages {
 		field := fmt.Sprintf("messages.%d.seen", i)
-		ops = append(ops, txn.Op{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{field, seen}}}},
-		})
+		fields = append(fields, bson.DocElem{field, seen})
 	}
+	ops = append(ops, txn.Op{
+		C:      machineUpgradeSeriesLocksC,
+		Id:     machineDocID,
+		Update: bson.D{{"$set", fields}},
+	})
 	return ops
 }
 
