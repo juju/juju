@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/juju/names.v2"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -18,7 +16,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
-	leadershipmocks "github.com/juju/juju/core/leadership/mocks"
 	"github.com/juju/juju/testing"
 )
 
@@ -62,7 +59,6 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	defer mockController.Finish()
 
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
-	mockLeadershipAPI := leadershipmocks.NewMockPinner(mockController)
 
 	uExp := mockUpgradeSeriesAPI.EXPECT()
 	prep := s.prepareExpectation
@@ -71,14 +67,7 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 	uExp.Applications(prep.machineArg).Return([]string{"foo", "bar"}, nil).AnyTimes()
 
-	machineTag := names.NewMachineTag(machineArg)
-	lExp := mockLeadershipAPI.EXPECT()
-	lExp.PinLeadership("foo", machineTag).Return(nil).AnyTimes()
-	lExp.PinLeadership("bar", machineTag).Return(nil).AnyTimes()
-	lExp.UnpinLeadership("foo", machineTag).Return(nil).AnyTimes()
-	lExp.UnpinLeadership("bar", machineTag).Return(nil).AnyTimes()
-
-	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI, mockLeadershipAPI)
+	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 
 	err = cmdtesting.InitCommand(com, args)
 	if err != nil {
@@ -169,11 +158,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c
 	//There is no confirmation message since the `-y/--yes` flag is being used to avoid the prompt.
 	confirmationMessage := ""
 
-	finishedMessage := ""
-	for _, unit := range units {
-		finishedMessage += fmt.Sprintf("leadership pinned for application %q\n", strings.Split(unit, "/")[0])
-	}
-	finishedMessage = fmt.Sprintf(finishedMessage+machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
+	finishedMessage := fmt.Sprintf(machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
 }
