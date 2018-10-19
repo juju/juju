@@ -212,7 +212,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 
 func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
 	if !hookFound {
-		return fmt.Sprintf("%s not found, skipping", name)
+		return fmt.Sprintf("%s hook not found, skipping", name)
 	}
 	return fmt.Sprintf("%s completed", name)
 }
