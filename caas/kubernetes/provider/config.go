@@ -103,8 +103,3 @@ func ConfigSchema() environschema.Fields {
 func ConfigDefaults() schema.Defaults {
 	return schemaDefaults
 }
-
-type environConfig struct {
-	*config.Config
-	attrs map[string]interface{}
-}

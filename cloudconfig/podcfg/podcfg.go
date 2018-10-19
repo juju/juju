@@ -353,13 +353,6 @@ func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config) (e
 	if err := PopulateControllerPodConfig(pcfg, cfg.Type()); err != nil {
 		return errors.Trace(err)
 	}
-	if pcfg.Controller != nil {
-		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
-		// Only makes sense for controller
-		logger.Debugf("Setting numa ctl preference to %v", pcfg.Controller.Config.NUMACtlPreference())
-		// Unfortunately, AgentEnvironment can only take strings as values
-		pcfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", pcfg.Controller.Config.NUMACtlPreference())
-	}
 	return nil
 }
 
@@ -371,8 +364,7 @@ func PodLabels(modelUUID, controllerUUID string, tagger tags.ResourceTagger, job
 		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
-	if multiwatcher.AnyJobNeedsState(jobs...) {
-		podLabels[tags.JujuIsController] = "true"
-	}
+	// always be a controller.
+	podLabels[tags.JujuIsController] = "true"
 	return podLabels
 }

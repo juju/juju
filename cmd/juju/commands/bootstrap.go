@@ -373,6 +373,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 	}()
 
+	developerMode := featureflag.Enabled(feature.DeveloperMode)
+
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -398,6 +400,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	isCAASController := jujucloud.CloudIsCAAS(cloud)
 
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
@@ -492,7 +496,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		AdminSecret:    config.bootstrap.AdminSecret,
 	}
 	bootstrapParams := bootstrap.BootstrapParams{
-		IsCAASController:          jujucloud.CloudIsCAAS(cloud),
 		BootstrapSeries:           c.BootstrapSeries,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
@@ -514,14 +517,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	environ, err := bootstrapPrepareController(
-		bootstrapParams.IsCAASController, bootstrapCtx, store, bootstrapPrepareParams,
+		isCAASController, bootstrapCtx, store, bootstrapPrepareParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if bootstrapParams.IsCAASController {
-		if !featureflag.Enabled(feature.DeveloperMode) {
+	if isCAASController {
+		if !developerMode {
 			return errors.NotSupportedf("bootstrap to kubernetes cluster")
 		}
 
@@ -663,7 +666,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if bootstrapParams.IsCAASController {
+	if isCAASController {
 		// TODO(caas): wait and fetch controller public endpoint then update juju home
 		return nil
 	}

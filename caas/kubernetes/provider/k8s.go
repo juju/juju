@@ -74,7 +74,7 @@ type kubernetesClient struct {
 	namespace string
 
 	lock   sync.Mutex
-	envCfg *environConfig
+	envCfg *config.Config
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
@@ -141,7 +141,7 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 func (k *kubernetesClient) Config() *config.Config {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	cfg := k.envCfg.Config
+	cfg := k.envCfg
 	return cfg
 }
 
