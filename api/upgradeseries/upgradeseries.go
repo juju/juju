@@ -18,6 +18,7 @@ const upgradeSeriesFacade = "UpgradeSeries"
 // Client provides access to the UpgradeSeries API facade.
 type Client struct {
 	*common.UpgradeSeriesAPI
+	*common.LeadershipAPI
 
 	facade base.FacadeCaller
 	// authTag contains the authenticated unit/machine tag.
@@ -34,6 +35,7 @@ func NewClient(caller base.APICaller, authTag names.Tag) *Client {
 		facade:           facadeCaller,
 		authTag:          authTag,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
+		LeadershipAPI:    common.NewLeadershipAPI(caller),
 	}
 }
 

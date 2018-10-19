@@ -61,6 +61,18 @@ func (mr *MockFacadeMockRecorder) MachineStatus() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineStatus", reflect.TypeOf((*MockFacade)(nil).MachineStatus))
 }
 
+// PinLeadership mocks base method
+func (m *MockFacade) PinLeadership(arg0 string) error {
+	ret := m.ctrl.Call(m, "PinLeadership", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PinLeadership indicates an expected call of PinLeadership
+func (mr *MockFacadeMockRecorder) PinLeadership(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinLeadership", reflect.TypeOf((*MockFacade)(nil).PinLeadership), arg0)
+}
+
 // SetMachineStatus mocks base method
 func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
 	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1)
@@ -122,6 +134,18 @@ func (m *MockFacade) UnitsPrepared() ([]names_v2.UnitTag, error) {
 // UnitsPrepared indicates an expected call of UnitsPrepared
 func (mr *MockFacadeMockRecorder) UnitsPrepared() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared))
+}
+
+// UnpinLeadership mocks base method
+func (m *MockFacade) UnpinLeadership(arg0 string) error {
+	ret := m.ctrl.Call(m, "UnpinLeadership", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnpinLeadership indicates an expected call of UnpinLeadership
+func (mr *MockFacadeMockRecorder) UnpinLeadership(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinLeadership", reflect.TypeOf((*MockFacade)(nil).UnpinLeadership), arg0)
 }
 
 // WatchUpgradeSeriesNotifications mocks base method

@@ -269,6 +269,10 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
 	s.facade.EXPECT().FinishUpgradeSeries("xenial").Return(nil)
+
+	s.expectServiceDiscovery(false)
+	s.facade.EXPECT().UnpinLeadership("mysql").Return(nil)
+	s.facade.EXPECT().UnpinLeadership("wordpress").Return(nil)
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {

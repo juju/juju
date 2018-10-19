@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -75,8 +76,7 @@ func (config Config) Validate() error {
 // during upgrade-series:
 // 		copying the agent binary directory and renaming;
 // 		rewriting the machine and unit(s) systemd files if necessary;
-// 		stopping the unit agents;
-//		starting the unit agents;
+//		ensuring unit agents are started post-upgrade;
 //		moving the status of the upgrade-series steps along.
 type upgradeSeriesWorker struct {
 	Facade
@@ -162,7 +162,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 		}
 		return errors.Trace(err)
 	}
-	w.logger.Infof("machine series upgrade status changed to %q", w.machineStatus)
+	w.logger.Infof("machine series upgrade status is %q", w.machineStatus)
 
 	switch w.machineStatus {
 	case model.UpgradeSeriesPrepareStarted:
@@ -189,7 +189,7 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 	}
 	if !allConfirmed {
 		w.logger.Debugf(
-			"still waiting for units to complete series upgrade preparation; known unit agent services: %s",
+			"waiting for units to complete series upgrade preparation; known unit agent services: %s",
 			unitNames(unitServices),
 		)
 		return nil
@@ -214,7 +214,8 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]
 	if err := upgrader.PerformUpgrade(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, "all necessary binaries and service files written"))
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted,
+		"binaries and service files written"))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
@@ -262,7 +263,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 // transitionUnitsStarted iterates over units managed by this machine. Starts
 // the unit's agent service, and transitions all unit subordinate statuses.
 func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]string) error {
-	w.logger.Infof("starting units after series upgrade")
+	w.logger.Infof("ensuring units are up after series upgrade")
 
 	for unit, serviceName := range unitServices {
 		svc, err := w.service.DiscoverService(serviceName)
@@ -281,22 +282,20 @@ func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]str
 		}
 	}
 
-	return errors.Trace(w.StartUnitCompletion("starting all unit agents after series upgrade"))
+	return errors.Trace(w.StartUnitCompletion("started unit agents after series upgrade"))
 }
 
 // handleCompleted notifies the server that it has completed the upgrade
-// workflow, passing back the current host OS series.
+// workflow, then unpins leadership for applications running on the machine.
 func (w *upgradeSeriesWorker) handleCompleted() error {
 	s, err := hostSeries()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = w.FinishUpgradeSeries(s)
-	if err != nil {
+	if err = w.FinishUpgradeSeries(s); err != nil {
 		return errors.Trace(err)
 	}
-
-	return nil
+	return errors.Trace(w.unpinLeaders())
 }
 
 // compareUnitsAgentServices filters the services running on the local machine
@@ -307,12 +306,10 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 // NOTE: No unit tags and no agent services returns true, meaning that the
 // workflow can progress.
 func (w *upgradeSeriesWorker) compareUnitAgentServices(units []names.UnitTag) (map[string]string, bool, error) {
-	services, err := w.service.ListServices()
+	unitServices, err := w.unitServices()
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-
-	unitServices := service.FindUnitServiceNames(services)
 	if len(unitServices) == 0 {
 		w.logger.Debugf("no unit agent services found")
 	}
@@ -326,6 +323,74 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(units []names.UnitTag) (m
 		}
 	}
 	return unitServices, true, nil
+}
+
+// unpinLeaders pins leadership for applications based on unit agent services
+// running on the machine.
+func (w *upgradeSeriesWorker) pinLeaders() (err error) {
+	apps, err := w.applications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// if we encounter an error from here on,
+	// attempt to reverse any completed leader pinning.
+	defer func() {
+		if err != nil {
+			if unpinErr := w.unpinLeaders(); unpinErr != nil {
+				err = errors.Wrap(err, unpinErr)
+			}
+		}
+	}()
+	for _, app := range apps {
+		err = w.UnpinLeadership(app)
+	}
+	return errors.Trace(err)
+}
+
+// unpinLeaders unpins leadership for applications based on unit agent services
+// running on the machine.
+func (w *upgradeSeriesWorker) unpinLeaders() error {
+	apps, err := w.applications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We attempt to unpin for all applications,
+	// returning only the last error.
+	for _, app := range apps {
+		err = w.UnpinLeadership(app)
+	}
+	return errors.Trace(err)
+}
+
+// applications returns a collection of application names from the
+// unit agent services running on the machine.
+func (w *upgradeSeriesWorker) applications() ([]string, error) {
+	units, err := w.unitServices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	apps := set.NewStrings()
+	for u := range units {
+		app, err := names.UnitApplication(u)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		apps.Add(app)
+	}
+	return apps.SortedValues(), nil
+}
+
+// Unit services returns a map of unit agent service names,
+// keyed on their unit IDs.
+func (w *upgradeSeriesWorker) unitServices() (map[string]string, error) {
+	services, err := w.service.ListServices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.FindUnitServiceNames(services), nil
 }
 
 // Report (worker.Reporter) generates a report for the Juju engine.
