@@ -373,8 +373,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 	}()
 
-	developerMode := featureflag.Enabled(feature.DeveloperMode)
-
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -402,6 +400,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	isCAASController := jujucloud.CloudIsCAAS(cloud)
+
+	if isCAASController && !featureflag.Enabled(feature.DeveloperMode) {
+		return errors.NotSupportedf("bootstrap to kubernetes cluster")
+	}
 
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
@@ -524,10 +526,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	if isCAASController {
-		if !developerMode {
-			return errors.NotSupportedf("bootstrap to kubernetes cluster")
-		}
-
 		if !c.noSwitch {
 			if err := store.SetCurrentController(c.controllerName); err != nil {
 				return errors.Trace(err)
