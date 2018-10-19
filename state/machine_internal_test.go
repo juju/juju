@@ -135,6 +135,42 @@ func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.
 	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)
 }
 
+func (s *MachineInternalSuite) TestSetUpgradeSeriesMessageTxnOps(c *gc.C) {
+	arbitraryMachineID := "id"
+	arbitraryTimestamp := bson.Now()
+	arbitraryMessages := []UpgradeSeriesMessage{
+		{
+			Message:   "arbitraryMessages0",
+			Timestamp: arbitraryTimestamp,
+			Seen:      false,
+		},
+		{
+			Message:   "arbitraryMessages1",
+			Timestamp: arbitraryTimestamp,
+			Seen:      false,
+		},
+	}
+	expectedOps := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     arbitraryMachineID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:  machineUpgradeSeriesLocksC,
+			Id: arbitraryMachineID,
+			Update: bson.D{{"$set", bson.D{
+				{"messages.0.seen", true},
+				{"messages.1.seen", true},
+			}}},
+		},
+	}
+	actualOps := setUpgradeSeriesMessageTxnOps(arbitraryMachineID, arbitraryMessages, true)
+	expectedOpsSt := fmt.Sprint(expectedOps)
+	actualOpsSt := fmt.Sprint(actualOps)
+	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)
+}
+
 func assertConstainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
 	var found bool
 	for _, actualOp := range actualOps {
