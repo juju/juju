@@ -507,12 +507,22 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
+	// finished means that a subsequent call to this method, while the
+	// Machine Lock is of a similar Machine Status, would return no
+	// additional messages (notifications). Since the value of this variable
+	// is returned, callers may choose to close streams or stop watchers
+	// based on this information.
+	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
+		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
 	// Filter seen messages
 	unseenMessages := make([]UpgradeSeriesMessage, 0)
 	for _, upgradeSeriesMessage := range lock.Messages {
 		if !upgradeSeriesMessage.Seen {
 			unseenMessages = append(unseenMessages, upgradeSeriesMessage)
 		}
+	}
+	if len(unseenMessages) == 0 {
+		return []string{}, finished, nil
 	}
 	sort.Slice(unseenMessages, func(i, j int) bool {
 		return unseenMessages[i].Timestamp.Before(unseenMessages[j].Timestamp)
@@ -521,18 +531,10 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	for _, unseenMessage := range unseenMessages {
 		messages = append(messages, unseenMessage.Message)
 	}
-	err = m.SetUpgradeSeriesMessagesAsSeen(unseenMessages)
+	err = m.SetUpgradeSeriesMessagesAsSeen(lock.Messages)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	// finished means that a subsequent call to this method, while the
-	// Machine Lock is of a similar Machine Status, would return no
-	// additional messages (notifications). Since the value of this variable
-	// is returned, callers may choose to close streams or stop watchers
-	// based on this information.
-	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
-		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
-
 	return messages, finished, nil
 }
 
