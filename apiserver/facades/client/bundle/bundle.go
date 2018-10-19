@@ -181,8 +181,9 @@ func getChanges(
 	}
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
-			Bundle: data,
-			Logger: loggo.GetLogger("juju.apiserver.bundlechanges"),
+			Bundle:    data,
+			BundleURL: args.BundleURL,
+			Logger:    loggo.GetLogger("juju.apiserver.bundlechanges"),
 		})
 	if err != nil {
 		return results, err

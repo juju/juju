@@ -425,9 +425,9 @@ be used to override configurations or devices when creating the containers for
 LXD. LXD Profiles are validated against a allow/deny list, using '--force' flag
 can bypass the validation.
 
-Using the '--force' flag for LXD Profiles is not generally recommended when 
-deploying an application; overriding profiles on the container may cause 
-unexpected behavior. 
+Using the '--force' flag for LXD Profiles is not generally recommended when
+deploying an application; overriding profiles on the container may cause
+unexpected behavior.
 
 Local bundles are specified with a direct path to a bundle.yaml file.
 For example:
@@ -773,6 +773,7 @@ func (c *DeployCommand) deployBundle(
 	ctx *cmd.Context,
 	filePath string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
@@ -825,6 +826,7 @@ func (c *DeployCommand) deployBundle(
 	if _, err := deployBundle(
 		filePath,
 		data,
+		bundleURL,
 		c.BundleOverlayFile,
 		channel,
 		apiRoot,
@@ -1226,6 +1228,7 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 			ctx,
 			bundleDir,
 			bundleData,
+			nil,
 			c.Channel,
 			apiRoot,
 			c.BundleStorage,
@@ -1366,6 +1369,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				ctx,
 				"", // filepath
 				data,
+				storeCharmOrBundleURL,
 				channel,
 				apiRoot,
 				c.BundleStorage,
