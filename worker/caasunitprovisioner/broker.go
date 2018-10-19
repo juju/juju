@@ -15,8 +15,6 @@ type ContainerBroker interface {
 	Units(appName string) ([]caas.Unit, error)
 	WatchOperator(string) (watcher.NotifyWatcher, error)
 	Operator(string) (*caas.Operator, error)
-	DeleteService(appName string) error
-	UnexposeService(appName string) error
 }
 
 type ServiceBroker interface {
@@ -25,4 +23,5 @@ type ServiceBroker interface {
 	EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error
 	Service(appName string) (*caas.Service, error)
 	DeleteService(appName string) error
+	UnexposeService(appName string) error
 }

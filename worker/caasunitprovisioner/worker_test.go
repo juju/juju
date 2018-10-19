@@ -133,7 +133,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.unitUpdater = mockUnitUpdater{}
 
 	s.containerBroker = mockContainerBroker{
-		serviceDeleted:  s.serviceDeleted,
 		unitsWatcher:    watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 		operatorWatcher: watchertest.NewMockNotifyWatcher(s.caasOperatorChanges),
 		podSpec:         &parsedSpec,
@@ -142,6 +141,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.lifeGetter.setLife(life.Alive)
 	s.serviceBroker = mockServiceBroker{
 		ensured: s.serviceEnsured,
+		deleted: s.serviceDeleted,
 		podSpec: &parsedSpec,
 	}
 	s.statusSetter = mockProvisioningStatusSetter{}
@@ -507,9 +507,9 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 		c.Fatal("timed out waiting for service to be deleted")
 	}
 
-	s.containerBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
-	s.containerBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
-	s.containerBroker.CheckCall(c, 1, "DeleteService", "gitlab")
+	s.serviceBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
+	s.serviceBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
+	s.serviceBroker.CheckCall(c, 1, "DeleteService", "gitlab")
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
