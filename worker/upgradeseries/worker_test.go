@@ -120,7 +120,8 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1), s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction)
+	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
+		s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -132,6 +133,8 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction() {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	s.expectPinLeadership()
+
 	// Only one of the two units has completed preparation.
 	s.expectUnitsPrepared("wordpress/0")
 
@@ -144,7 +147,9 @@ func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareCo
 	defer s.setupMocks(c).Finish()
 
 	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete)
+		s.expectPinLeadership,
+		s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete,
+	)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -318,6 +323,17 @@ func (s *workerSuite) expectUnitsPrepared(units ...string) {
 		tags[i] = names.NewUnitTag(u)
 	}
 	s.facade.EXPECT().UnitsPrepared().Return(tags, nil)
+}
+
+// For individual tests that use a status of UpgradeSeriesPrepare started,
+// this will be called each time, but for the full workflow scenario we
+// only expect it once. To accommodate this, calls to this method will
+// often be in the Test... method instead of its partner expectation
+// method.
+func (s *workerSuite) expectPinLeadership() {
+	s.expectServiceDiscovery(false)
+	s.facade.EXPECT().PinLeadership("mysql").Return(nil)
+	s.facade.EXPECT().PinLeadership("wordpress").Return(nil).AnyTimes()
 }
 
 // expectServiceDiscovery is a convenience method for expectations that mimic
