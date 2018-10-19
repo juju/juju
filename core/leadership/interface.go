@@ -13,9 +13,8 @@ package leadership
 import (
 	"time"
 
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 )
 
 // TODO (manadart 2010-10-05) Add interfaces to the end of this line,

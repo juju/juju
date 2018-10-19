@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/facades/client/leadership"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -22,7 +21,7 @@ type LeadershipSuite struct {
 	clientFacade *mocks.MockClientFacade
 	facade       *mocks.MockFacadeCaller
 
-	client coreleadership.Pinner
+	client *leadership.Client
 
 	appName     string
 	machineTag  names.MachineTag
@@ -38,7 +37,6 @@ func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
 	s.machineTag = names.NewMachineTag("0")
 	s.defaultArgs = params.PinLeadershipBulkParams{Params: []params.PinLeadershipParams{{
 		ApplicationTag: names.NewApplicationTag(s.appName).String(),
-		EntityTag:      s.machineTag.String(),
 	}}}
 }
 
@@ -48,7 +46,7 @@ func (s *LeadershipSuite) TestPinLeadershipSuccess(c *gc.C) {
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
 	s.facade.EXPECT().FacadeCall("PinLeadership", s.defaultArgs, gomock.Any()).SetArg(2, resultSource)
 
-	c.Assert(s.client.PinLeadership("redis", s.machineTag), jc.ErrorIsNil)
+	c.Assert(s.client.PinLeadership("redis"), jc.ErrorIsNil)
 }
 
 func (s *LeadershipSuite) TestPinLeadershipError(c *gc.C) {
@@ -59,7 +57,7 @@ func (s *LeadershipSuite) TestPinLeadershipError(c *gc.C) {
 	}}
 	s.facade.EXPECT().FacadeCall("PinLeadership", s.defaultArgs, gomock.Any()).SetArg(2, resultSource)
 
-	c.Assert(s.client.PinLeadership("redis", s.machineTag), gc.ErrorMatches, "boom")
+	c.Assert(s.client.PinLeadership("redis"), gc.ErrorMatches, "boom")
 }
 
 func (s *LeadershipSuite) TestPinLeadershipMultiReturnError(c *gc.C) {
@@ -68,7 +66,7 @@ func (s *LeadershipSuite) TestPinLeadershipMultiReturnError(c *gc.C) {
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}, {}}}
 	s.facade.EXPECT().FacadeCall("PinLeadership", s.defaultArgs, gomock.Any()).SetArg(2, resultSource)
 
-	c.Assert(s.client.PinLeadership("redis", s.machineTag), gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(s.client.PinLeadership("redis"), gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 func (s *LeadershipSuite) TestUnpinLeadershipSuccess(c *gc.C) {
@@ -77,7 +75,7 @@ func (s *LeadershipSuite) TestUnpinLeadershipSuccess(c *gc.C) {
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
 	s.facade.EXPECT().FacadeCall("UnpinLeadership", s.defaultArgs, gomock.Any()).SetArg(2, resultSource)
 
-	c.Assert(s.client.UnpinLeadership("redis", s.machineTag), jc.ErrorIsNil)
+	c.Assert(s.client.UnpinLeadership("redis"), jc.ErrorIsNil)
 }
 
 func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {

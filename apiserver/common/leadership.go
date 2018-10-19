@@ -21,7 +21,7 @@ type LeadershipAPI interface {
 
 // NewFacade creates and returns a new leadership API.
 // This signature is suitable for facade registration.
-func NewFacade(ctx facade.Context) (LeadershipAPI, error) {
+func NewLeadershipFacade(ctx facade.Context) (LeadershipAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
