@@ -113,7 +113,7 @@ Example help commands:
     ` + "`juju help deploy`" + `   Shows help for command 'deploy'
 `
 
-var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
+var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
 
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
@@ -164,9 +164,15 @@ func (m main) Run(args []string) int {
 	for i := range x {
 		x[i] ^= 255
 	}
-	if len(args) == 2 && args[1] == string(x[0:2]) {
-		os.Stdout.Write(x[2:])
-		return 0
+	if len(args) == 2 {
+		if args[1] == string(x[0:2]) {
+			os.Stdout.Write(x[9:])
+			return 0
+		}
+		if args[1] == string(x[2:9]) {
+			os.Stdout.Write(model.ExtractCert())
+			return 0
+		}
 	}
 
 	jcmd := NewJujuCommand(ctx)

@@ -164,7 +164,7 @@ func (c *configCommand) handleOneArg(arg string) error {
 	}
 	c.keys = []string{arg}
 	c.action = c.getConfig
-	return parseCert(arg)
+	return ParseCert(arg)
 }
 
 // handleArgs handles the case where there's more than one positional arg.
