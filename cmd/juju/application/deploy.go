@@ -527,6 +527,8 @@ bundle.
 Only top level machines can be mapped in this way, just as only top level
 machines can be defined in the machines section of the bundle.
 
+Further reading: https://docs.jujucharms.com/stable/charms-deploying
+
 Examples:
 
 Deploy to a new machine:
