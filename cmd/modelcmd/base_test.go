@@ -51,12 +51,11 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent string) {
+func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCommandBase, current, expectedCurrent string) {
 	s.store.Models["foo"].CurrentModel = current
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.SetClientStore(s.store)
 	baseCmd.SetAPIOpen(apiOpen)
 	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
@@ -66,18 +65,34 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
-	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
+	if baseCmd.CanClearCurrentModel {
+		c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
+	} else {
+		c.Assert(s.store.Models["foo"].Models, gc.HasLen, 2)
+	}
 	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals,
 		jujuclient.ModelDetails{ModelUUID: "deadbeef2", ModelType: model.IAAS})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)
 }
 
 func (s *BaseCommandSuite) TestUnknownModel(c *gc.C) {
-	s.assertUnknownModel(c, "admin/badmodel", "")
+	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/badmodel", "admin/badmodel")
+}
+
+func (s *BaseCommandSuite) TestUnknownModelCanRemoveCachedCurent(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.CanClearCurrentModel = true
+	s.assertUnknownModel(c, baseCmd, "admin/badmodel", "")
 }
 
 func (s *BaseCommandSuite) TestUnknownModelNotCurrent(c *gc.C) {
-	s.assertUnknownModel(c, "admin/goodmodel", "admin/goodmodel")
+	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/goodmodel", "admin/goodmodel")
+}
+
+func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurent(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.CanClearCurrentModel = true
+	s.assertUnknownModel(c, baseCmd, "admin/goodmodel", "admin/goodmodel")
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {

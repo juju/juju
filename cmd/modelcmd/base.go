@@ -58,13 +58,14 @@ type ModelAPI interface {
 // an API connection.
 type CommandBase struct {
 	cmd.CommandBase
-	cmdContext    *cmd.Context
-	apiContexts   map[string]*apiContext
-	modelAPI_     ModelAPI
-	apiOpenFunc   api.OpenFunc
-	authOpts      AuthOpts
-	runStarted    bool
-	refreshModels func(jujuclient.ClientStore, string) error
+	cmdContext           *cmd.Context
+	apiContexts          map[string]*apiContext
+	modelAPI_            ModelAPI
+	apiOpenFunc          api.OpenFunc
+	authOpts             AuthOpts
+	runStarted           bool
+	refreshModels        func(jujuclient.ClientStore, string) error
+	CanClearCurrentModel bool
 }
 
 func (c *CommandBase) assertRunStarted() {
@@ -157,17 +158,19 @@ func (c *CommandBase) NewAPIRoot(
 }
 
 func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controllerName, modelName string) error {
-	// First, we'll try and clean up the missing model from the local cache.
-	err := store.RemoveModel(controllerName, modelName)
-	if err != nil {
-		logger.Warningf("cannot remove unknown model from cache: %v", err)
-	}
-	currentModel, err := store.CurrentModel(controllerName)
-	if err != nil {
-		logger.Warningf("cannot read current model: %v", err)
-	} else if currentModel == modelName {
-		if err := store.SetCurrentModel(controllerName, ""); err != nil {
-			logger.Warningf("cannot reset current model: %v", err)
+	if c.CanClearCurrentModel {
+		// First, we'll try and clean up the missing model from the local cache.
+		err := store.RemoveModel(controllerName, modelName)
+		if err != nil {
+			logger.Warningf("cannot remove unknown model from cache: %v", err)
+		}
+		currentModel, err := store.CurrentModel(controllerName)
+		if err != nil {
+			logger.Warningf("cannot read current model: %v", err)
+		} else if currentModel == modelName {
+			if err := store.SetCurrentModel(controllerName, ""); err != nil {
+				logger.Warningf("cannot reset current model: %v", err)
+			}
 		}
 	}
 	return errors.Errorf("model %q has been removed from the controller, run 'juju models' and switch to one of them.", modelName)

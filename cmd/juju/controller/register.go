@@ -47,6 +47,7 @@ func NewRegisterCommand() cmd.Command {
 	c.apiOpen = c.APIOpen
 	c.listModelsFunc = c.listModels
 	c.store = jujuclient.NewFileClientStore()
+	c.CanClearCurrentModel = true
 	return modelcmd.WrapBase(c)
 }
 
