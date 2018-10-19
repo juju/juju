@@ -367,9 +367,6 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
 
 	releaser, err := s.acquireLock()
 	if err != nil {
@@ -377,9 +374,20 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 	}
 	defer releaser.Release()
 
+	if modelName != "" {
+		if err := ValidateModelName(modelName); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return errors.Trace(updateModels(
 		controllerName,
 		func(models *ControllerModels) (bool, error) {
+			if modelName == "" {
+				// We just want to reset
+				models.CurrentModel = ""
+				return true, nil
+
+			}
 			if models.CurrentModel == modelName {
 				return false, nil
 			}
@@ -518,9 +526,6 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 				)
 			}
 			delete(models.Models, modelName)
-			if models.CurrentModel == modelName {
-				models.CurrentModel = ""
-			}
 			return true, nil
 		},
 	))

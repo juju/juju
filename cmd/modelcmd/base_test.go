@@ -65,11 +65,7 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCo
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
-	if baseCmd.CanClearCurrentModel {
-		c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
-	} else {
-		c.Assert(s.store.Models["foo"].Models, gc.HasLen, 2)
-	}
+	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
 	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals,
 		jujuclient.ModelDetails{ModelUUID: "deadbeef2", ModelType: model.IAAS})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)
@@ -79,7 +75,7 @@ func (s *BaseCommandSuite) TestUnknownModel(c *gc.C) {
 	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/badmodel", "admin/badmodel")
 }
 
-func (s *BaseCommandSuite) TestUnknownModelCanRemoveCachedCurent(c *gc.C) {
+func (s *BaseCommandSuite) TestUnknownModelCanRemoveCachedCurrent(c *gc.C) {
 	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.CanClearCurrentModel = true
 	s.assertUnknownModel(c, baseCmd, "admin/badmodel", "")
@@ -89,7 +85,7 @@ func (s *BaseCommandSuite) TestUnknownModelNotCurrent(c *gc.C) {
 	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/goodmodel", "admin/goodmodel")
 }
 
-func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurent(c *gc.C) {
+func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurrent(c *gc.C) {
 	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.CanClearCurrentModel = true
 	s.assertUnknownModel(c, baseCmd, "admin/goodmodel", "admin/goodmodel")

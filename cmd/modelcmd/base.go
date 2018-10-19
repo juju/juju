@@ -58,13 +58,15 @@ type ModelAPI interface {
 // an API connection.
 type CommandBase struct {
 	cmd.CommandBase
-	cmdContext           *cmd.Context
-	apiContexts          map[string]*apiContext
-	modelAPI_            ModelAPI
-	apiOpenFunc          api.OpenFunc
-	authOpts             AuthOpts
-	runStarted           bool
-	refreshModels        func(jujuclient.ClientStore, string) error
+	cmdContext    *cmd.Context
+	apiContexts   map[string]*apiContext
+	modelAPI_     ModelAPI
+	apiOpenFunc   api.OpenFunc
+	authOpts      AuthOpts
+	runStarted    bool
+	refreshModels func(jujuclient.ClientStore, string) error
+
+	// CanClearCurrentModel indicates that this command can reset current model in local cache, aka client store.
 	CanClearCurrentModel bool
 }
 
@@ -157,6 +159,15 @@ func (c *CommandBase) NewAPIRoot(
 	return conn, err
 }
 
+// RemoveModelFromClientStore removes given model from client cache, store,
+// for a given controller.
+// If this model has also been cached as current, it will be reset if
+// the requesting command can modify current model.
+// For example, commands such as add/destroy-model, login/register, etc.
+// If the model was cached as currnet but the command is not expected to
+// change current model, this call will still remove model details from the client cache
+// but will keep current model name intact to allow subsequent calls to try to resolve
+// model details on the controller.
 func (c *CommandBase) RemoveModelFromClientStore(store jujuclient.ClientStore, controllerName, modelName string) {
 	err := store.RemoveModel(controllerName, modelName)
 	if err != nil {

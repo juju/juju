@@ -233,12 +233,18 @@ func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
 	controllerModels, ok := c.Models[controllerName]
 	if !ok {
 		return errors.NotFoundf("model %s:%s", controllerName, modelName)
+	}
+	if modelName == "" {
+		// We just want to reset
+		controllerModels.CurrentModel = ""
+		return nil
+	}
+
+	if err := ValidateModelName(modelName); err != nil {
+		return errors.Trace(err)
 	}
 	if _, ok := controllerModels.Models[modelName]; !ok {
 		return errors.NotFoundf("model %s:%s", controllerName, modelName)
@@ -266,9 +272,6 @@ func (c *MemStore) RemoveModel(controller, model string) error {
 		return errors.NotFoundf("model %s:%s", controller, model)
 	}
 	delete(controllerModels.Models, model)
-	if controllerModels.CurrentModel == model {
-		controllerModels.CurrentModel = ""
-	}
 	return nil
 }
 
