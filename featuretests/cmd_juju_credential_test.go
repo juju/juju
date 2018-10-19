@@ -125,7 +125,7 @@ clouds:
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Did not find credential remotely. Looking locally...
 Uploading local credential to the controller.
-Changed model credential.
+Changed cloud credential on model "controller" to "newcred".
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 

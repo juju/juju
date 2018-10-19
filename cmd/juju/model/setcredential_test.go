@@ -152,7 +152,7 @@ func (s *ModelCredentialCommandSuite) assertCredentialNotFound(c *gc.C, expected
 func (s *ModelCredentialCommandSuite) TestSetCredentialFoundRemote(c *gc.C) {
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
-Changed model credential.
+Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -197,7 +197,7 @@ func (s *ModelCredentialCommandSuite) TestSetCredentialLocal(c *gc.C) {
 	err := s.assertLocalCredentialUsed(c, `
 Did not find credential remotely. Looking locally...
 Uploading local credential to the controller.
-Changed model credential.
+Changed cloud credential on model "admin/mymodel" to "credential".
 `[1:])
 	c.Assert(err, jc.ErrorIsNil)
 

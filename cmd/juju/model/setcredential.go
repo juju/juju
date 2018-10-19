@@ -6,7 +6,6 @@ package model
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -67,11 +66,6 @@ func (c *modelCredentialCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags implements Command.SetFlags.
-func (c *modelCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
-}
-
 // Init implements Command.Init.
 func (c *modelCredentialCommand) Init(args []string) error {
 	if len(args) != 2 {
@@ -109,7 +103,7 @@ func (c *modelCredentialCommand) Run(ctx *cmd.Context) error {
 	cloudTag := names.NewCloudTag(c.cloud)
 	credentialTag, err := common.ResolveCloudCredentialTag(userTag, cloudTag, c.credential)
 	if err != nil {
-		return fail(errors.Annotate(err, "resolving credential tag"))
+		return fail(errors.Annotate(err, "resolving credential"))
 	}
 
 	cloudClient := c.newCloudAPIFunc(root)
@@ -144,7 +138,7 @@ func (c *modelCredentialCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	_, modelDetails, err := c.ModelDetails()
+	modelName, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -157,7 +151,7 @@ func (c *modelCredentialCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	ctx.Infof("Changed model credential.")
+	ctx.Infof("Changed cloud credential on model %q to %q.", modelName, c.credential)
 	return nil
 }
 
@@ -177,12 +171,12 @@ func (c *modelCredentialCommand) findCredentialLocally(ctx *cmd.Context) (*cloud
 	return credential, nil
 }
 
-const modelCredentialDoc = `This command changes a cloud credential used by a model.
+const modelCredentialDoc = `This command changes the cloud credential used by a model.
 
 When current user has specified credential for the given cloud remotely, i.e
 it exists on the controller, Juju will use it to replace model's credential.
 
-If specified credential does not exist remotely, but it exists locally on the client,
-Juju will upload it to the controller first and then use the remote copy to replace model's credential.
+If the specified credential does not exist remotely on the controller, but does exist locally on the client,
+Juju will upload it to the controller first and then replace the model's credential.
 
 `
