@@ -157,13 +157,12 @@ func (c *CommandBase) NewAPIRoot(
 	return conn, err
 }
 
-func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controllerName, modelName string) error {
+func (c *CommandBase) RemoveModelFromClientStore(store jujuclient.ClientStore, controllerName, modelName string) {
+	err := store.RemoveModel(controllerName, modelName)
+	if err != nil {
+		logger.Warningf("cannot remove unknown model from cache: %v", err)
+	}
 	if c.CanClearCurrentModel {
-		// First, we'll try and clean up the missing model from the local cache.
-		err := store.RemoveModel(controllerName, modelName)
-		if err != nil {
-			logger.Warningf("cannot remove unknown model from cache: %v", err)
-		}
 		currentModel, err := store.CurrentModel(controllerName)
 		if err != nil {
 			logger.Warningf("cannot read current model: %v", err)
@@ -173,6 +172,11 @@ func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controller
 			}
 		}
 	}
+}
+
+func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controllerName, modelName string) error {
+	// First, we'll try and clean up the missing model from the local cache.
+	c.RemoveModelFromClientStore(store, controllerName, modelName)
 	return errors.Errorf("model %q has been removed from the controller, run 'juju models' and switch to one of them.", modelName)
 }
 
