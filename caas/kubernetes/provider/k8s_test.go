@@ -85,12 +85,12 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 
 var basicPodspec = &caas.PodSpec{
 	Containers: []caas.ContainerSpec{{
-		Name:       "test",
-		Ports:      []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		Image:      "juju/image",
-		Command:    []string{"sh", "-c"},
-		Args:       []string{"doIt", "--debug"},
-		WorkingDir: "/path/to/here",
+		Name:         "test",
+		Ports:        []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+		ImageDetails: caas.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+		Command:      []string{"sh", "-c"},
+		Args:         []string{"doIt", "--debug"},
+		WorkingDir:   "/path/to/here",
 		Config: map[string]interface{}{
 			"foo":        "bar",
 			"restricted": "'yes'",
@@ -139,10 +139,10 @@ var operatorPodspec = core.PodSpec{
 
 var basicServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
-		Name:   "juju-test",
-		Labels: map[string]string{"juju-application": "test"}},
+		Name:   "juju-app-name",
+		Labels: map[string]string{"juju-application": "app-name"}},
 	Spec: core.ServiceSpec{
-		Selector: map[string]string{"juju-application": "test"},
+		Selector: map[string]string{"juju-application": "app-name"},
 		Type:     "nodeIP",
 		Ports: []core.ServicePort{
 			{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -153,10 +153,30 @@ var basicServiceArg = &core.Service{
 	},
 }
 
+func (s *K8sBrokerSuite) secretArg(c *gc.C, labels map[string]string) *core.Secret {
+	secretData, err := provider.CreateDockerConfigJSON(&basicPodspec.Containers[0].ImageDetails)
+	c.Assert(err, jc.ErrorIsNil)
+	secret := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "juju-app-name-test-secret",
+			Namespace: "test",
+			Labels:    labels,
+		},
+		Type: "kubernetes.io/dockerconfigjson",
+		Data: map[string][]byte{".dockerconfigjson": secretData},
+	}
+	if secret.Labels == nil {
+		secret.Labels = make(map[string]string)
+	}
+	secret.Labels["juju-application"] = "app-name"
+	return secret
+}
+
 func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 	spec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		ImagePullSecrets: []core.LocalObjectReference{{Name: "juju-app-name-test-secret"}},
 		Containers: []core.Container{
 			{
 				Name:       "test",
@@ -274,6 +294,7 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 			Return(&core.PodList{Items: []core.Pod{{
 				Spec: core.PodSpec{
 					Containers: []core.Container{{
+						Name:         "jujud",
 						VolumeMounts: []core.VolumeMount{{Name: "test-operator-volume"}},
 					}},
 					Volumes: []core.Volume{{
@@ -283,6 +304,8 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 					}},
 				},
 			}}}, nil),
+		s.mockSecrets.EXPECT().Delete("juju-test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockPersistentVolumes.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
@@ -344,16 +367,16 @@ func operatorStatefulSetArg(numUnits int32, scName string) *appsv1.StatefulSet {
 func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
+			Name:   "juju-app-name",
+			Labels: map[string]string{"juju-application": "app-name"}},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "test"},
+				MatchLabels: map[string]string{"juju-application": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-application": "test"},
+					Labels: map[string]string{"juju-application": "app-name"},
 				},
 				Spec: podSpec,
 			},
@@ -361,7 +384,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 				ObjectMeta: v1.ObjectMeta{
 					Name: "juju-database-0",
 					Labels: map[string]string{
-						"juju-application": "test",
+						"juju-application": "app-name",
 						"foo":              "bar",
 					}},
 				Spec: core.PersistentVolumeClaimSpec{
@@ -480,9 +503,15 @@ func (s *K8sBrokerSuite) TestDeleteService(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-application==test"}).
 			Return(&core.PodList{Items: []core.Pod{}}, nil),
-		s.mockDeployments.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-application==test"}).Times(1).
+			Return(&core.SecretList{Items: []core.Secret{{
+				ObjectMeta: v1.ObjectMeta{Name: "secret"},
+			}}}, nil),
+		s.mockSecrets.EXPECT().Delete("secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 	)
 
@@ -500,16 +529,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 	emptyDc := dc
 	emptyDc.Spec.Replicas = &zero
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockDeployments.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(dc, nil),
 		s.mockDeployments.EXPECT().Update(emptyDc).Times(1).
 			Return(nil, nil),
 	)
 
 	params := &caas.ServiceParams{}
-	err := s.broker.EnsureService("test", nil, params, 0, nil)
+	err := s.broker.EnsureService("app-name", nil, params, 0, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -524,21 +553,21 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "juju-test",
+			Name: "juju-app-name",
 			Labels: map[string]string{
-				"juju-application": "test",
+				"juju-application": "app-name",
 				"fred":             "mary",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "test"},
+				MatchLabels: map[string]string{"juju-application": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					GenerateName: "juju-test-",
+					GenerateName: "juju-app-name-",
 					Labels: map[string]string{
-						"juju-application": "test",
+						"juju-application": "app-name",
 						"fred":             "mary",
 					},
 				},
@@ -548,13 +577,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	}
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "juju-test",
+			Name: "juju-app-name",
 			Labels: map[string]string{
-				"juju-application": "test",
+				"juju-application": "app-name",
 				"fred":             "mary",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-application": "test"},
+			Selector: map[string]string{"juju-application": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -565,14 +594,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		},
 	}
 
+	secretArg := s.secretArg(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockSecrets.EXPECT().Update(secretArg).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(serviceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -584,7 +616,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		PodSpec:      basicPodspec,
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
-	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -815,6 +847,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -823,7 +857,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -843,7 +877,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
 	}
-	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -873,17 +907,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "juju-test",
-			Labels: map[string]string{"juju-application": "test"}},
+			Name:   "juju-app-name",
+			Labels: map[string]string{"juju-application": "app-name"}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-application": "test"},
+				MatchLabels: map[string]string{"juju-application": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					GenerateName: "juju-test-",
-					Labels:       map[string]string{"juju-application": "test"},
+					GenerateName: "juju-app-name-",
+					Labels:       map[string]string{"juju-application": "app-name"},
 				},
 				Spec: podSpec,
 			},
@@ -891,13 +925,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -915,7 +951,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			},
 		},
 	}
-	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -948,6 +984,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -956,7 +994,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -983,7 +1021,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			},
 		},
 	}
-	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1013,6 +1051,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1021,7 +1061,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1042,7 +1082,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		}},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
 	}
-	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
@@ -1065,6 +1105,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 	statefulSetArg := unitStatefulSetArg(2, "juju-unit-storage", podSpec)
 
 	gomock.InOrder(
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1073,7 +1115,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1094,7 +1136,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithPlacement(c *gc.C) {
 		}},
 		Placement: "a=b",
 	}
-	err = s.broker.EnsureService("test", nil, params, 2, application.ConfigAttributes{
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",

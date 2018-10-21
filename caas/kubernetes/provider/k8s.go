@@ -77,7 +77,7 @@ type kubernetesClient struct {
 // run "go generate" from the package directory.
 //go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
 //go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
-//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface
+//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 
@@ -220,8 +220,7 @@ func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDe
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteSecret(appName, containerName string) error {
-	imageSecretName := appSecretName(appName, containerName)
+func (k *kubernetesClient) deleteSecret(imageSecretName string) error {
 	secrets := k.CoreV1().Secrets(k.namespace)
 	err := secrets.Delete(imageSecretName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
@@ -559,6 +558,14 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 
 	pvs := k.CoreV1().PersistentVolumes()
 	for _, p := range podsList.Items {
+		// Delete secrets.
+		for _, c := range p.Spec.Containers {
+			secretName := appSecretName(appName, c.Name)
+			if err := k.deleteSecret(secretName); err != nil {
+				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
+			}
+		}
+		// Delete operator storage volumes.
 		volumeNames, err := k.deleteVolumeClaims(appName, &p)
 		if err != nil {
 			return errors.Trace(err)
@@ -629,6 +636,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteStatefulSet(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
+	if err := k.deleteDeployment(deploymentName); err != nil {
+		return errors.Trace(err)
+	}
 	pods := k.CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
@@ -641,7 +651,19 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 			return errors.Trace(err)
 		}
 	}
-	return errors.Trace(k.deleteDeployment(deploymentName))
+	secrets := k.CoreV1().Secrets(k.namespace)
+	secretList, err := secrets.List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range secretList.Items {
+		if err := k.deleteSecret(s.Name); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
@@ -757,15 +779,20 @@ func (k *kubernetesClient) EnsureService(
 		unitSpec.Pod.NodeSelector = affinityLabels
 	}
 
+	resourceTags := make(map[string]string)
+	for k, v := range params.ResourceTags {
+		resourceTags[k] = v
+	}
+	resourceTags[labelApplication] = appName
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
 			continue
 		}
 		imageSecretName := appSecretName(appName, c.Name)
-		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, params.ResourceTags); err != nil {
+		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
+		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -784,11 +811,6 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	numPods := int32(numUnits)
-	resourceTags := make(map[string]string)
-	for k, v := range params.ResourceTags {
-		resourceTags[k] = v
-	}
-	resourceTags[labelApplication] = appName
 	if useStatefulSet {
 		if err := k.configureStatefulSet(appName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
@@ -1698,6 +1720,7 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	var unitSpec unitSpec
 	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
+		logger.Errorf("unable to parse %q pod spec: %+v\n%v", appName, *podSpec, unitSpecString)
 		return nil, errors.Trace(err)
 	}
 

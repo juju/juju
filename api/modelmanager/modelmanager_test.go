@@ -632,7 +632,7 @@ func (s *modelmanagerSuite) TestChangeModelCredentialV4(c *gc.C) {
 
 	client := modelmanager.NewClient(apiCaller)
 	err := client.ChangeModelCredential(coretesting.ModelTag, credentialTag)
-	c.Assert(err, gc.ErrorMatches, `ChangeModelCredential not implemented`)
+	c.Assert(err, gc.ErrorMatches, `ChangeModelCredential in version 4 not implemented`)
 	c.Assert(called, jc.IsFalse)
 }
 

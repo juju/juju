@@ -286,8 +286,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n"+
+		"- set annotations for mysql\n"+
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
+		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
@@ -325,8 +327,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"Changes to deploy bundle:\n" +
 		"- upload charm cs:xenial/mysql-42 for series xenial\n" +
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
 		"- add unit wordpress/0 to new machine 1"
@@ -363,8 +367,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit wordpress/0 to new machine 1"
 
@@ -1048,6 +1054,24 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 	s.assertUnitsCreated(c, map[string]string{
 		"customized/0": "0",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	err := runDeploy(c, "bundle/wordpress-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	ann, err := s.Model.Annotations(application)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	application2, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	ann2, err := s.Model.Annotations(application2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {

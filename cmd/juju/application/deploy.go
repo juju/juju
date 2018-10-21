@@ -790,6 +790,7 @@ func (c *DeployCommand) deployBundle(
 	ctx *cmd.Context,
 	filePath string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
@@ -842,6 +843,7 @@ func (c *DeployCommand) deployBundle(
 	if _, err := deployBundle(
 		filePath,
 		data,
+		bundleURL,
 		c.BundleOverlayFile,
 		channel,
 		apiRoot,
@@ -1243,6 +1245,7 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 			ctx,
 			bundleDir,
 			bundleData,
+			nil,
 			c.Channel,
 			apiRoot,
 			c.BundleStorage,
@@ -1383,6 +1386,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				ctx,
 				"", // filepath
 				data,
+				storeCharmOrBundleURL,
 				channel,
 				apiRoot,
 				c.BundleStorage,

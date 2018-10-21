@@ -8,12 +8,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,6 +26,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -277,14 +276,14 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 }
 
 func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.NotifyChannel) {
-	var (
-		uniterStarted      int32
-		applicationChannel atomic.Value
-	)
+	applicationChannel := make(chan watcher.NotifyChannel)
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-		atomic.AddInt32(&uniterStarted, 1)
-		applicationChannel.Store(params.ApplicationChannel)
+		select {
+		case applicationChannel <- params.ApplicationChannel:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timeout sending application channel")
+		}
 		return nil
 	}
 
@@ -302,12 +301,12 @@ func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.Notif
 		c.Fatal("timed out sending unit change")
 	}
 
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if atomic.LoadInt32(&uniterStarted) > 0 {
-			return w, applicationChannel.Load().(watcher.NotifyChannel)
-		}
+	select {
+	case channel := <-applicationChannel:
+		return w, channel
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for uniter to start")
 	}
-	c.Fatalf("timeout while waiting for uniter to start")
 	panic("not reachable")
 }
 

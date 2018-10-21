@@ -122,9 +122,9 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	units := make(map[string]unitStatus)
 	var w output.Wrapper
 	if fs.Model.Type == caasModelType {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Charm version", "Notes")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Notes")
 	} else {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Charm version", "Notes")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	}
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
@@ -168,13 +168,6 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			app.OS)
 		if fs.Model.Type == caasModelType {
 			w.Print(app.Address)
-		}
-
-		charmVersion := fmt.Sprintf("%.15s", app.CharmVersion)
-		if len(app.CharmVersion) > len(charmVersion) {
-			w.Print(charmVersion + "...")
-		} else {
-			w.Print(charmVersion)
 		}
 
 		w.Println(notes)
