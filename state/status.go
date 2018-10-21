@@ -239,8 +239,8 @@ func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.Statu
 	if applicationStatus.Status == status.Terminated {
 		return applicationStatus
 	}
-	// Only interested in the operator status if it's not running
-	if operatorStatus.Status != status.Running {
+	// Only interested in the operator status if it's not running/active.
+	if operatorStatus.Status != status.Running && operatorStatus.Status != status.Active {
 		return operatorStatus
 	}
 

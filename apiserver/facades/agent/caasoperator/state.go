@@ -40,7 +40,7 @@ type Model interface {
 type Application interface {
 	Charm() (Charm, bool, error)
 	CharmModifiedVersion() int
-	SetStatus(status.StatusInfo) error
+	SetOperatorStatus(status.StatusInfo) error
 	WatchUnits() state.StringsWatcher
 	AllUnits() ([]Unit, error)
 }

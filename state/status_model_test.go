@@ -490,6 +490,17 @@ func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
 		},
 		{
 			operatorStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Blocked,
+				Message: "unit",
+			},
+			messageCheck: "unit",
+		},
+		{
+			operatorStatus: status.StatusInfo{
 				Status:  status.Terminated,
 				Message: "operator",
 			},
