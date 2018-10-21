@@ -131,7 +131,7 @@ func (f *Facade) setStatus(tag names.ApplicationTag, info status.StatusInfo) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return app.SetStatus(info)
+	return app.SetOperatorStatus(info)
 }
 
 // Charm returns the charm info for all given applications.

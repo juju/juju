@@ -93,8 +93,7 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 		for _, name := range unitNames {
 			unitStatus, err := m.UnitWorkload(name)
 			if err != nil {
-				errors.Annotatef(err, "deriving application status from %q", name)
-				continue
+				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", name)
 			}
 			unitStatuses = append(unitStatuses, unitStatus)
 		}
@@ -197,8 +196,13 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 		return containerStatus
 	}
 	if containerStatus.Status == "" {
-		// No container update received from k8s yet,
-		// so we have to assume it's still allocating.
+		// No container update received from k8s yet.
+		// Unit may have set status.
+		if unitStatus.Status != "" {
+			return unitStatus
+		}
+
+		// If no unit status set, assume still allocating.
 		return status.StatusInfo{
 			Status:  status.Waiting,
 			Message: status.MessageWaitForContainer,
@@ -235,8 +239,8 @@ func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.Statu
 	if applicationStatus.Status == status.Terminated {
 		return applicationStatus
 	}
-	// Only interested in the operator status if it's not running
-	if operatorStatus.Status != status.Running {
+	// Only interested in the operator status if it's not running/active.
+	if operatorStatus.Status != status.Running && operatorStatus.Status != status.Active {
 		return operatorStatus
 	}
 

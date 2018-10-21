@@ -142,8 +142,8 @@ func (a *mockApplication) Life() state.Life {
 	return a.life
 }
 
-func (a *mockApplication) SetStatus(info status.StatusInfo) error {
-	a.MethodCall(a, "SetStatus", info)
+func (a *mockApplication) SetOperatorStatus(info status.StatusInfo) error {
+	a.MethodCall(a, "SetOperatorStatus", info)
 	return a.NextErr()
 }
 

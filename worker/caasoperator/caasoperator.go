@@ -331,7 +331,7 @@ func (op *caasOperator) loop() (err error) {
 	}
 	op.catacomb.Add(jujuUnitsWatcher)
 
-	if op.setStatus(status.Active, ""); err != nil {
+	if err := op.setStatus(status.Active, ""); err != nil {
 		return errors.Trace(err)
 	}
 
