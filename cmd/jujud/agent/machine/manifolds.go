@@ -685,6 +685,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
+			ControllerPortName:    controllerPortName,
 			StateName:             stateName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		}),
@@ -705,15 +706,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
 			AgentName:            agentName,
 			CertWatcherName:      certificateWatcherName,
-			ClockName:            clockName,
-			ControllerPortName:   controllerPortName,
+			HubName:              centralHubName,
 			StateName:            stateName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
 			RaftTransportName:    raftTransportName,
 			RaftEnabledName:      raftEnabledName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
-			Hub:                  config.CentralHub,
+			Clock:                config.Clock,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,
 		}),

@@ -26,12 +26,11 @@ import (
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName          string
-	CertWatcherName    string
-	ClockName          string
-	ControllerPortName string
-	StateName          string
-	MuxName            string
+	AgentName       string
+	CertWatcherName string
+	HubName         string
+	MuxName         string
+	StateName       string
 
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
@@ -40,8 +39,8 @@ type ManifoldConfig struct {
 	APIServerName     string
 	RaftEnabledName   string
 
+	Clock                clock.Clock
 	PrometheusRegisterer prometheus.Registerer
-	Hub                  *pubsub.StructuredHub
 
 	NewTLSConfig func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
 	NewWorker    func(Config) (worker.Worker, error)
@@ -55,11 +54,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.CertWatcherName == "" {
 		return errors.NotValidf("empty CertWatcherName")
 	}
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
-	}
-	if config.ControllerPortName == "" {
-		return errors.NotValidf("empty ControllerPortName")
+	if config.HubName == "" {
+		return errors.NotValidf("empty HubName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -76,11 +72,11 @@ func (config ManifoldConfig) Validate() error {
 	if config.APIServerName == "" {
 		return errors.NotValidf("empty APIServerName")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
-	}
-	if config.Hub == nil {
-		return errors.NotValidf("nil Hub")
 	}
 	if config.NewTLSConfig == nil {
 		return errors.NotValidf("nil NewTLSConfig")
@@ -99,8 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.CertWatcherName,
-			config.ClockName,
-			config.ControllerPortName,
+			config.HubName,
 			config.StateName,
 			config.MuxName,
 			config.RaftEnabledName,
@@ -122,6 +117,11 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
+	var hub *pubsub.StructuredHub
+	if err := context.Get(config.HubName, &hub); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var getCertificate func() *tls.Certificate
 	if err := context.Get(config.CertWatcherName, &getCertificate); err != nil {
 		return nil, errors.Trace(err)
@@ -129,11 +129,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	var mux *apiserverhttp.Mux
 	if err := context.Get(config.MuxName, &mux); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -151,10 +146,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		if err := context.Get(config.RaftTransportName, nil); err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-	// Ensure that the controller-port worker is running.
-	if err := context.Get(config.ControllerPortName, nil); err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
@@ -202,9 +193,9 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:          agent.CurrentConfig(),
-		Clock:                clock,
+		Clock:                config.Clock,
 		PrometheusRegisterer: config.PrometheusRegisterer,
-		Hub:                  config.Hub,
+		Hub:                  hub,
 		TLSConfig:            tlsConfig,
 		AutocertHandler:      autocertHandler,
 		AutocertListener:     autocertListener,
