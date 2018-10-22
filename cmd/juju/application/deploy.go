@@ -16,6 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -1169,6 +1170,24 @@ func (c *DeployCommand) validateCharmSeries(series string) error {
 	return model.ValidateSeries(modelType, series)
 }
 
+func (c *DeployCommand) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if modelType != model.CAAS {
+		return nil
+	}
+	for resName, resMeta := range charmMeta.Resources {
+		if resMeta.Type == resource.TypeContainerImage {
+			if _, ok := c.Resources[resName]; !ok {
+				return errors.NotValidf("must specify OCI images for local charm (%s)", resName)
+			}
+		}
+	}
+	return nil
+}
+
 func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
@@ -1188,6 +1207,13 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 
 	return func(ctx *cmd.Context, api DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
+			return errors.Trace(err)
+		}
+		charmInfo, err := api.CharmInfo(userCharmURL.String())
+		if err != nil {
+			return err
+		}
+		if err := c.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 			return errors.Trace(err)
 		}
 		formattedCharmURL := userCharmURL.String()
@@ -1346,6 +1372,9 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(series); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 

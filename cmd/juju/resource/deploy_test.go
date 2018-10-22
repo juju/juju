@@ -6,9 +6,12 @@ package resource
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
+	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -320,6 +323,75 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 	_, err := du.upload(files, revisions)
 	c.Check(err, gc.ErrorMatches, `file for resource "res1".*`)
 	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+}
+
+func (s DeploySuite) TestUnMarshallingDockerDetails(c *gc.C) {
+	content := `
+registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
+username: docker-registry
+password: hunter2
+`
+	data := bytes.NewBufferString(content)
+	dets, err := unMarshalDockerDetails(data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+		Username:     "docker-registry",
+		Password:     "hunter2",
+	})
+
+	content = `
+{
+"ImageName": "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+"Username": "docker-registry",
+"Password": "hunter2"
+}
+`
+	data = bytes.NewBufferString(content)
+	dets, err = unMarshalDockerDetails(data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+		Username:     "docker-registry",
+		Password:     "hunter2",
+	})
+
+	content = `
+path: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image@sha256:516f74
+username: docker-registry
+password: hunter2
+`
+	data = bytes.NewBufferString(content)
+	dets, err = unMarshalDockerDetails(data)
+	c.Assert(err, gc.ErrorMatches, "docker image path \"\" not valid")
+}
+
+func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
+	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
+		Username:     "",
+		Password:     "",
+	})
+
+	result, err = getDockerDetailsData("/path/doesnt/exist.yaml")
+	c.Assert(err, gc.ErrorMatches, "filepath or registry path: /path/doesnt/exist.yaml not valid")
+
+	result, err = getDockerDetailsData(".invalid-reg-path")
+	c.Assert(err, gc.ErrorMatches, "filepath or registry path: .invalid-reg-path not valid")
+
+	dir := c.MkDir()
+	yamlFile := path.Join(dir, "actually-yaml-file")
+	err = ioutil.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err = getDockerDetailsData(yamlFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "mariadb/mariadb:10.2",
+		Username:     "",
+		Password:     "",
+	})
 }
 
 type uploadDeps struct {

@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -399,14 +398,9 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 
 func (s *DeploySuite) TestResources(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	dir := c.MkDir()
 
-	foopath := path.Join(dir, "foo")
-	barpath := path.Join(dir, "bar")
-	err := ioutil.WriteFile(foopath, []byte("foo"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	foopath := "/test/path/foo"
+	barpath := "/test/path/var"
 
 	res1 := fmt.Sprintf("foo=%s", foopath)
 	res2 := fmt.Sprintf("bar=%s", barpath)
@@ -414,7 +408,7 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	d := DeployCommand{}
 	args := []string{ch, "--resource", res1, "--resource", res2, "--series", "quantal"}
 
-	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
+	err := cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
@@ -528,6 +522,30 @@ func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
 	args = []string{"-m", "caas-model", "some-application-name", "--to", "#:2"}
 	err = cmdtesting.InitCommand(NewDeployCommand(), args)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`placement directive "#:2" not supported`))
+}
+
+func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+	storagePoolManager := poolmanager.New(state.NewStateSettings(s.State), storageProviderRegistry)
+	_, err = storagePoolManager.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	otherModels := map[string]jujuclient.ModelDetails{
+		"admin/" + m.Name(): {ModelUUID: m.UUID(), ModelType: model.CAAS},
+	}
+	err = s.ControllerStore.SetModels("kontroll", otherModels)
+	c.Assert(err, jc.ErrorIsNil)
+
+	repo := testcharms.RepoForSeries("kubernetes")
+	ch := repo.ClonedDirPath(s.CharmsPath, "mysql")
+	err = runDeploy(c, ch, "-m", m.Name())
+	c.Assert(err, gc.ErrorMatches, "must specify OCI images for local charm \\(mysql_image\\) not valid")
+
+	err = runDeploy(c, ch, "-m", m.Name(), "--resource", "mysql_image=abc")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CAASDeploySuite) TestPlacement(c *gc.C) {

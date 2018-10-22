@@ -8,12 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmstore"
 	resources "github.com/juju/juju/core/resources"
@@ -144,7 +146,12 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 		case charmresource.TypeFile:
 			err = d.checkFile(name, value)
 		case charmresource.TypeContainerImage:
-			err = resources.CheckDockerDetails(name, value)
+			dockerDetails, err := getDockerDetailsData(value)
+			if err != nil {
+				return err
+			}
+			// At the moment this is the same validation that occurs in getDockerDetailsData
+			err = resources.CheckDockerDetails(name, dockerDetails)
 		default:
 			return fmt.Errorf("unknown resource: %s", name)
 		}
@@ -236,12 +243,11 @@ func (d deployUploader) uploadFile(resourcename, filename string) (id string, er
 }
 
 func (d deployUploader) uploadDockerDetails(resourcename, registryPath string) (id string, error error) {
-	// TODO (veebers): This will handle either a straight registryPath
-	// string (for public images) or a path to a file containing
-	// username/password details.
-	data, err := json.Marshal(resources.DockerImageDetails{
-		RegistryPath: registryPath,
-	})
+	dockerDetails, err := getDockerDetailsData(registryPath)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	data, err := json.Marshal(dockerDetails)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -273,4 +279,44 @@ func (d deployUploader) checkExpectedResources(filenames map[string]string, revi
 		return errors.Errorf("unrecognized resources: %s", strings.Join(unknown, ", "))
 	}
 	return nil
+}
+
+// getDockerDetailsData determines if path is a local file path and extracts the
+// details from that otherwise path is considered to be a registry path.
+func getDockerDetailsData(path string) (resources.DockerImageDetails, error) {
+	var details resources.DockerImageDetails
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		f, err := os.Open(path)
+		if err != nil {
+			return details, errors.Trace(err)
+		}
+		defer f.Close()
+		details, err = unMarshalDockerDetails(f)
+		if err != nil {
+			return details, errors.Trace(err)
+		}
+	} else if err := resources.ValidateDockerRegistryPath(path); err == nil {
+		details.RegistryPath = path
+	} else {
+		return details, errors.NotValidf("filepath or registry path: %s", path)
+	}
+	return details, nil
+}
+
+func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
+	var details resources.DockerImageDetails
+	contents, err := ioutil.ReadAll(data)
+	if err != nil {
+		return details, errors.Trace(err)
+	}
+
+	if err := json.Unmarshal(contents, &details); err != nil {
+		if err := yaml.Unmarshal(contents, &details); err != nil {
+			return details, errors.Annotate(err, "file neither valid json or yaml")
+		}
+	}
+	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+		return resources.DockerImageDetails{}, err
+	}
+	return details, nil
 }
