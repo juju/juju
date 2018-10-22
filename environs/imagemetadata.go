@@ -80,7 +80,7 @@ func UnregisterImageDataSourceFunc(id string) {
 
 // ImageMetadataSources returns the sources to use when looking for
 // simplestreams image id metadata for the given stream.
-func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
+func ImageMetadataSources(env BootstrapEnviron) ([]simplestreams.DataSource, error) {
 	config := env.Config()
 
 	// Add configured and environment-specific datasources.
@@ -117,10 +117,16 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 // environmentDataSources returns simplestreams datasources for the environment
 // by calling the functions registered in RegisterImageDataSourceFunc.
 // The datasources returned will be in the same order the functions were registered.
-func environmentDataSources(env Environ) ([]simplestreams.DataSource, error) {
+func environmentDataSources(bootstrapEnviron BootstrapEnviron) ([]simplestreams.DataSource, error) {
 	datasourceFuncsMu.RLock()
 	defer datasourceFuncsMu.RUnlock()
 	var datasources []simplestreams.DataSource
+	env, ok := bootstrapEnviron.(Environ)
+	if !ok {
+		logger.Debugf("environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
+		// ignore for CAAS
+		return datasources, nil
+	}
 	for _, f := range datasourceFuncs {
 		datasource, err := f.f(env)
 		if err != nil {

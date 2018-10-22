@@ -10,11 +10,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
@@ -34,11 +36,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
@@ -69,6 +73,9 @@ type kubernetesClient struct {
 	// creating k8s resources.
 	namespace string
 
+	lock   sync.Mutex
+	envCfg *config.Config
+
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
 }
@@ -85,20 +92,25 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, namespace, uuid string, newClient NewK8sClientFunc) (caas.Broker, error) {
-	config, err := newK8sConfig(cloudSpec)
+func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	k8sClient, apiextensionsClient, err := newClient(config)
+	k8sClient, apiextensionsClient, err := newClient(k8sConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newCfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &kubernetesClient{
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           namespace,
-		modelUUID:           uuid,
+		namespace:           newCfg.Name(),
+		envCfg:              newCfg,
+		modelUUID:           newCfg.UUID(),
 	}, nil
 }
 
@@ -123,6 +135,91 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 			CAData:   CAData,
 		},
 	}, nil
+}
+
+// Config returns environ config.
+func (k *kubernetesClient) Config() *config.Config {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	cfg := k.envCfg
+	return cfg
+}
+
+// SetConfig is specified in the Environ interface.
+func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	newCfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	k.envCfg = newCfg
+	return nil
+}
+
+// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// Bootstrap deploys controller with mongoDB together into k8s cluster.
+func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	const (
+		// TODO(caas): how to get these from oci path.
+		Series = "bionic"
+		Arch   = arch.AMD64
+	)
+
+	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) error {
+		envConfig := k.Config()
+		if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := pcfg.VerifyConfig(); err != nil {
+			return errors.Trace(err)
+		}
+
+		// prepare bootstrapParamsFile
+		bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
+
+		// TODO(caas): we'll need a different tag type other than machine tag.
+		machineTag := names.NewMachineTag(pcfg.MachineId)
+		acfg, err := pcfg.AgentConfig(machineTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		agentConfigFileContent, err := acfg.Render()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
+
+		// TODO(caas): prepare
+		// agent.conf,
+		// bootstrap-params,
+		// server.pem,
+		// system-identity,
+		// shared-secret, then generate configmap/secret.
+		// Lastly, create StatefulSet for controller.
+		return nil
+	}
+	return &environs.BootstrapResult{
+		Arch:                   Arch,
+		Series:                 Series,
+		CaasBootstrapFinalizer: finalizer,
+	}, nil
+}
+
+// DestroyController implements the Environ interface.
+func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// TODO(caas): destroy controller and all models
+	logger.Warningf("DestroyController is not supported yet on CAAS.")
+	return nil
 }
 
 // Provider is part of the Broker interface.

@@ -392,7 +392,7 @@ type fakeCommon struct {
 
 	Arch        string
 	Series      string
-	BSFinalizer environs.BootstrapFinalizer
+	BSFinalizer environs.CloudBootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
 }
 
@@ -404,9 +404,9 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 	})
 
 	result := &environs.BootstrapResult{
-		Arch:     fc.Arch,
-		Series:   fc.Series,
-		Finalize: fc.BSFinalizer,
+		Arch:                    fc.Arch,
+		Series:                  fc.Series,
+		CloudBootstrapFinalizer: fc.BSFinalizer,
 	}
 	return result, fc.err()
 }

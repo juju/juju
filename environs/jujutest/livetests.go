@@ -150,10 +150,10 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	args := t.prepareForBootstrapParams(c)
-	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
-	t.Env = e
+	t.Env = e.(environs.Environ)
 	t.prepared = true
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
@@ -958,12 +958,12 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
-	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		args,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer dummyenv.Destroy(t.ProviderCallContext)
+	defer e.(environs.Environ).Destroy(t.ProviderCallContext)
 
 	t.Destroy(c)
 
@@ -972,7 +972,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": other.Series,
 	})
 	args.ModelConfig = attrs
-	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)

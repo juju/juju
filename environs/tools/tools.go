@@ -82,7 +82,7 @@ type HasAgentMirror interface {
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(env environs.Environ, majorVersion, minorVersion int, streams []string, filter coretools.Filter) (_ coretools.List, err error) {
+func FindTools(env environs.BootstrapEnviron, majorVersion, minorVersion int, streams []string, filter coretools.Filter) (_ coretools.List, err error) {
 	var cloudSpec simplestreams.CloudSpec
 	switch env := env.(type) {
 	case simplestreams.HasRegion:

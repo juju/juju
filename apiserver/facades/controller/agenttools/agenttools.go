@@ -47,7 +47,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 func NewAgentToolsAPI(
 	modelGetter ModelGetter,
 	newEnviron func() (environs.Environ, error),
-	findTools func(environs.Environ, int, int, []string, coretools.Filter) (coretools.List, error),
+	findTools toolsFinder,
 	envVersionUpdate func(*state.Model, version.Number) error,
 	authorizer facade.Authorizer,
 ) (*AgentToolsAPI, error) {
@@ -66,7 +66,7 @@ type ModelGetter interface {
 }
 
 type newEnvironFunc func() (environs.Environ, error)
-type toolsFinder func(environs.Environ, int, int, []string, coretools.Filter) (coretools.List, error)
+type toolsFinder func(environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Model, version.Number) error
 
 func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {

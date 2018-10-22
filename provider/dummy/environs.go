@@ -942,9 +942,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:     arch,
-		Series:   series,
-		Finalize: finalize,
+		Arch:                    arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: finalize,
 	}
 	return bsResult, nil
 }

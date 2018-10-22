@@ -222,6 +222,19 @@ type K8sBrokerSuite struct {
 
 var _ = gc.Suite(&K8sBrokerSuite{})
 
+func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
+}
+
+func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+	err := s.broker.SetConfig(s.cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()

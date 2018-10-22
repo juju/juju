@@ -156,12 +156,12 @@ type Broker interface {
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
 
-	// ConstraintsChecker provides a means to check that constraints are valid.
-	environs.ConstraintsChecker
-
 	// InstancePrechecker provides a means of "prechecking" placement
 	// arguments before recording them in state.
 	environs.InstancePrechecker
+
+	// BootstrapEnviron defines methods for bootstraping a controller.
+	environs.BootstrapEnviron
 
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter

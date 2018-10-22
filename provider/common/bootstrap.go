@@ -56,9 +56,9 @@ func Bootstrap(
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:     *result.Hardware.Arch,
-		Series:   series,
-		Finalize: finalizer,
+		Arch:                    *result.Hardware.Arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: finalizer,
 	}
 	return bsResult, nil
 }
@@ -75,7 +75,7 @@ func BootstrapInstance(
 	env environs.Environ,
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
-) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
+) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.CloudBootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
@@ -233,7 +233,7 @@ func BootstrapInstance(
 	}
 	ctx.Infof(msg)
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
@@ -251,7 +251,7 @@ func BootstrapInstance(
 		maybeSetBridge(icfg)
 		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 	}
-	return result, selectedSeries, finalize, nil
+	return result, selectedSeries, finalizer, nil
 }
 
 func startInstanceZones(env environs.Environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
