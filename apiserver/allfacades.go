@@ -198,7 +198,6 @@ func AllFacades() *facade.Registry {
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
 
-	reg("LeadershipPinning", 1, common.NewLeadershipFacade)
 	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade)
 
 	reg("LifeFlag", 1, lifeflag.NewExternalFacade)

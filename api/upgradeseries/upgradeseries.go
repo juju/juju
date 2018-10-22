@@ -35,7 +35,7 @@ func NewClient(caller base.APICaller, authTag names.Tag) *Client {
 		facade:           facadeCaller,
 		authTag:          authTag,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
-		LeadershipAPI:    common.NewLeadershipAPI(caller),
+		LeadershipAPI:    common.NewLeadershipAPIFromFacade(facadeCaller),
 	}
 }
 
