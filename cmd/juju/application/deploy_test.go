@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -1201,10 +1200,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	fakeAPI.planURL = server.URL
 	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
-
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, meteredURL, cfg)
+	withCharmRepoResolvable(fakeAPI, meteredURL)
 
 	// `"hello registration"\n` (quotes and newline from json
 	// encoding) is returned by the fake http server. This is binary64
@@ -1218,7 +1214,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -1252,10 +1248,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	fakeAPI.planURL = server.URL
 	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
-
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, meteredURL, cfg)
+	withCharmRepoResolvable(fakeAPI, meteredURL)
 
 	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
 	setMetricCredentialsCall := fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
@@ -1266,7 +1259,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -1295,9 +1288,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 
 	charmURL := charm.MustParseURL("cs:quantal/dummy-1")
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, charmURL, cfg)
+	withCharmRepoResolvable(fakeAPI, charmURL)
 	withCharmDeployable(fakeAPI, charmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	deploy := &DeployCommand{
@@ -1307,7 +1298,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 		},
 	}
 
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, call := range fakeAPI.Calls() {
@@ -1339,10 +1330,7 @@ summary: summary
 		"type": "foo",
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, url, cfg)
+	withCharmRepoResolvable(fakeAPI, url)
 	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, false, 1, nil, nil)
 
 	stub := &jujutesting.Stub{}
@@ -1356,7 +1344,7 @@ summary: summary
 		},
 	}
 
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckNoCalls(c)
 }
@@ -1389,10 +1377,7 @@ summary: summary
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	fakeAPI.planURL = server.URL
-
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, url, cfg)
+	withCharmRepoResolvable(fakeAPI, url)
 	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, false, 1, nil, nil)
 
 	deploy := &DeployCommand{
@@ -1402,7 +1387,7 @@ summary: summary
 		},
 	}
 
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
@@ -1462,10 +1447,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
 	fakeAPI.planURL = server.URL
-
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, meteredCharmURL, cfg)
+	withCharmRepoResolvable(fakeAPI, meteredCharmURL)
 	withCharmDeployable(fakeAPI, meteredCharmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 
 	// `"hello registration"\n` (quotes and newline from json
@@ -1480,7 +1462,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 			return fakeAPI, nil
 		},
 	}
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
 }
@@ -1740,13 +1722,11 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	withAllWatcher(fakeAPI)
 
 	fakeBundleURL := charm.MustParseURL("cs:bundle/wordpress-simple")
-	cfg, err := config.New(config.NoDefaults, s.cfgAttrs())
-	c.Assert(err, jc.ErrorIsNil)
-	withCharmRepoResolvable(fakeAPI, fakeBundleURL, cfg)
+	withCharmRepoResolvable(fakeAPI, fakeBundleURL)
 	fakeAPI.Call("GetBundle", fakeBundleURL).Returns(bundleDir, error(nil))
 
 	mysqlURL := charm.MustParseURL("cs:mysql")
-	withCharmRepoResolvable(fakeAPI, mysqlURL, cfg)
+	withCharmRepoResolvable(fakeAPI, mysqlURL)
 	withCharmDeployable(
 		fakeAPI,
 		mysqlURL,
@@ -1765,7 +1745,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	}).Returns([]string{"mysql/0"}, error(nil))
 
 	wordpressURL := charm.MustParseURL("cs:wordpress")
-	withCharmRepoResolvable(fakeAPI, wordpressURL, cfg)
+	withCharmRepoResolvable(fakeAPI, wordpressURL)
 	withCharmDeployable(
 		fakeAPI,
 		wordpressURL,
@@ -1930,13 +1910,13 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) Resolve(cfg *config.Config, url *charm.URL) (
+func (f *fakeDeployAPI) ResolveWithChannel(url *charm.URL) (
 	*charm.URL,
 	csclientparams.Channel,
 	[]string,
 	error,
 ) {
-	results := f.MethodCall(f, "Resolve", cfg, url)
+	results := f.MethodCall(f, "ResolveWithChannel", url)
 
 	return results[0].(*charm.URL),
 		results[1].(csclientparams.Channel),
@@ -2141,9 +2121,8 @@ func withCharmDeployable(
 func withCharmRepoResolvable(
 	fakeAPI *fakeDeployAPI,
 	url *charm.URL,
-	cfg *config.Config,
 ) {
-	fakeAPI.Call("Resolve", cfg, url).Returns(
+	fakeAPI.Call("ResolveWithChannel", url).Returns(
 		url,
 		csclientparams.Channel(""),
 		[]string{"quantal"}, // Supported series
