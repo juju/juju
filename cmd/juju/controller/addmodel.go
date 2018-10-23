@@ -30,7 +30,7 @@ import (
 
 // NewAddModelCommand returns a command to add a model.
 func NewAddModelCommand() cmd.Command {
-	return modelcmd.WrapController(&addModelCommand{
+	command := &addModelCommand{
 		newAddModelAPI: func(caller base.APICallCloser) AddModelAPI {
 			return modelmanager.NewClient(caller)
 		},
@@ -38,7 +38,9 @@ func NewAddModelCommand() cmd.Command {
 			return cloudapi.NewClient(caller)
 		},
 		providerRegistry: environs.GlobalProviderRegistry(),
-	})
+	}
+	command.CanClearCurrentModel = true
+	return modelcmd.WrapController(command)
 }
 
 // addModelCommand calls the API to add a new model.

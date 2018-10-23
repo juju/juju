@@ -138,9 +138,11 @@ See also:
 const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {
-	return modelcmd.Wrap(
-		&bootstrapCommand{},
-		modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel,
+	command := &bootstrapCommand{}
+	command.CanClearCurrentModel = true
+	return modelcmd.Wrap(command,
+		modelcmd.WrapSkipModelFlags,
+		modelcmd.WrapSkipDefaultModel,
 	)
 }
 

@@ -86,6 +86,7 @@ var (
 func NewLoginCommand() cmd.Command {
 	var c loginCommand
 	c.SetClientStore(loginClientStore)
+	c.CanClearCurrentModel = true
 	return modelcmd.WrapController(&c, modelcmd.WrapControllerSkipControllerFlags)
 }
 

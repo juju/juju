@@ -16,11 +16,12 @@ import (
 )
 
 func newSwitchCommand() cmd.Command {
-	cmd := &switchCommand{
+	command := &switchCommand{
 		Store: jujuclient.NewFileClientStore(),
 	}
-	cmd.RefreshModels = cmd.CommandBase.RefreshModels
-	return modelcmd.WrapBase(cmd)
+	command.CanClearCurrentModel = true
+	command.RefreshModels = command.CommandBase.RefreshModels
+	return modelcmd.WrapBase(command)
 }
 
 type switchCommand struct {
