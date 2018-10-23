@@ -1,6 +1,6 @@
 --- a/gopkg.in/mgo.v2/txn/flusher.go
 +++ b/gopkg.in/mgo.v2/txn/flusher.go
-@@ -270,6 +270,21 @@
+@@ -244,6 +244,21 @@ NextDoc:
  		change.Upsert = false
  		chaos("")
  		if _, err := cquery.Apply(change, &info); err == nil {
@@ -22,7 +22,7 @@
  			if info.Remove == "" {
  				// Fast path, unless workload is insert/remove heavy.
  				revno[dkey] = info.Revno
-@@ -637,8 +652,8 @@
+@@ -610,8 +625,8 @@ func (f *flusher) assert(t *transaction, revnos []int64, pull map[bson.ObjectId]
  
  func (f *flusher) abortOrReload(t *transaction, revnos []int64, pull map[bson.ObjectId]*transaction) (err error) {
  	f.debugf("Aborting or reloading %s (was %q)", t, t.State)
@@ -33,9 +33,20 @@
  		udoc := bson.D{{"$set", bson.D{{"s", taborting}}}}
  		chaos("set-aborting")
  		if err = f.tc.Update(qdoc, udoc); err == nil {
+@@ -853,6 +868,10 @@ func (f *flusher) apply(t *transaction, pull map[bson.ObjectId]*transaction) err
+ 			}
+ 		case op.Assert != nil:
+ 			// Pure assertion. No changes to apply.
++			if f.opts.AssertionCleanupLength > 0 && len(pullAll) >= f.opts.AssertionCleanupLength {
++				chaos("")
++				err = c.Update(qdoc, bson.D{{"$pullAll", bson.D{{"txn-queue", pullAll}}}})
++			}
+ 		}
+ 		if err == nil {
+ 			outcome = "DONE"
 --- a/gopkg.in/mgo.v2/txn/txn.go
 +++ b/gopkg.in/mgo.v2/txn/txn.go
-@@ -216,11 +216,14 @@
+@@ -216,11 +216,15 @@ const (
  // A Runner applies operations as part of a transaction onto any number
  // of collections within a database. See the Run method for details.
  type Runner struct {
@@ -49,11 +60,12 @@
  }
  
 +const defaultMaxTxnQueueLength = 1000
++const defaultAssertionCleanupLength = 10
 +
  // NewRunner returns a new transaction runner that uses tc to hold its
  // transactions.
  //
-@@ -232,7 +235,36 @@
+@@ -232,7 +236,42 @@ type Runner struct {
  // will be used for implementing the transactional behavior of insert
  // and remove operations.
  func NewRunner(tc *mgo.Collection) *Runner {
@@ -75,6 +87,11 @@
 +	// Normal operations are likely to only ever hit 10 or so, we use a default
 +	// maximum length of 1000.
 +	MaxTxnQueueLength int
++
++	// AssertionCleanupLength is the length of a txn-queue that we will start
++	// cleaning up even if this is only an assertion against the document (not
++	// otherwise modifying the document).
++	AssertionCleanupLength int
 +}
 +
 +// SetOptions allows people to change some of the internal behavior of a Runner.
@@ -86,14 +103,15 @@
 +// Users can use the DefaultRunnerOptions to only override specific behavior.
 +func DefaultRunnerOptions() RunnerOptions {
 +	return RunnerOptions{
-+		MaxTxnQueueLength: defaultMaxTxnQueueLength,
++		MaxTxnQueueLength:      defaultMaxTxnQueueLength,
++		AssertionCleanupLength: defaultAssertionCleanupLength,
 +	}
  }
  
  var ErrAborted = fmt.Errorf("transaction aborted")
 --- a/gopkg.in/mgo.v2/txn/txn_test.go
 +++ b/gopkg.in/mgo.v2/txn/txn_test.go
-@@ -621,6 +621,162 @@
+@@ -621,6 +621,253 @@ func (s *S) TestTxnQueueStashStressTest(c *C) {
  	}
  }
  
@@ -251,6 +269,97 @@
 +	err = s.accounts.FindId(0).One(&doc)
 +	c.Assert(err, IsNil)
 +	c.Check(len(doc["txn-queue"].([]interface{})), Equals, 1101)
++}
++
++func (s *S) TestTxnQueueAssertionsDefault(c *C) {
++	opts := txn.DefaultRunnerOptions()
++	// We force the MaxTxnQueueLength to be shorter, so we don't have to do
++	// as many iterations to get it to fail.
++	// Without any default pruning, the queue on the assert-only document
++	// will grow longer than this length, and that will cause transactions
++	// to stop being applied.
++	opts.MaxTxnQueueLength = 500
++	s.runner.SetOptions(opts)
++	// By default we should prevent a txn-queue from growing too large
++	txn.SetDebug(false)
++	c.Assert(s.accounts.Insert(M{"_id": 0, "balance": 100}), IsNil)
++	c.Assert(s.accounts.Insert(M{"_id": 1, "balance": 100}), IsNil)
++	ops := []txn.Op{{
++		C:      "accounts",
++		Id:     0,
++		Assert: M{"balance": 100},
++	}, {
++		C:      "accounts",
++		Id:     1,
++		Update: M{"$inc": M{"balance": 1}},
++	}}
++	for i := 0; i < 600; i++ {
++		c.Assert(s.runner.Run(ops, "", nil), IsNil)
++	}
++	var a0 txnQueue
++	c.Assert(s.accounts.FindId(0).One(&a0), IsNil)
++	var a1 txnQueue
++	c.Assert(s.accounts.FindId(1).One(&a1), IsNil)
++	c.Check(len(a0.Queue) < 500, Equals, true,
++		Commentf("txn-queue grew too long: len=%d", len(a0.Queue)))
++	c.Check(len(a1.Queue) < 500, Equals, true,
++		Commentf("txn-queue grew too long: len=%d", len(a1.Queue)))
++}
++
++func (s *S) TestTxnQueueAssertionsCustomValue(c *C) {
++	opts := txn.DefaultRunnerOptions()
++	opts.AssertionCleanupLength = 17
++	s.runner.SetOptions(opts)
++	// By default we should prevent a txn-queue from growing too large
++	txn.SetDebug(false)
++	c.Assert(s.accounts.Insert(M{"_id": 0, "balance": 100}), IsNil)
++	c.Assert(s.accounts.Insert(M{"_id": 1, "balance": 100}), IsNil)
++	ops := []txn.Op{{
++		C:      "accounts",
++		Id:     0,
++		Assert: M{"balance": 100},
++	}, {
++		C:      "accounts",
++		Id:     1,
++		Update: M{"$inc": M{"balance": 1}},
++	}}
++	for i := 0; i < 100; i++ {
++		c.Assert(s.runner.Run(ops, "", nil), IsNil)
++	}
++	var a0 txnQueue
++	c.Assert(s.accounts.FindId(0).One(&a0), IsNil)
++	var a1 txnQueue
++	c.Assert(s.accounts.FindId(1).One(&a1), IsNil)
++	c.Check(len(a0.Queue) <= 17, Equals, true,
++		Commentf("txn-queue grew too long: len=%d", len(a0.Queue)))
++	c.Check(len(a1.Queue) <= 17, Equals, true,
++		Commentf("txn-queue grew too long: len=%d", len(a1.Queue)))
++}
++
++func (s *S) TestTxnQueueAssertionsDisabled(c *C) {
++	opts := txn.DefaultRunnerOptions()
++	opts.AssertionCleanupLength = 0
++	s.runner.SetOptions(opts)
++	// By default we should prevent a txn-queue from growing too large
++	txn.SetDebug(false)
++	c.Assert(s.accounts.Insert(M{"_id": 0, "balance": 100}), IsNil)
++	c.Assert(s.accounts.Insert(M{"_id": 1, "balance": 100}), IsNil)
++	ops := []txn.Op{{
++		C:      "accounts",
++		Id:     0,
++		Assert: M{"balance": 100},
++	}, {
++		C:      "accounts",
++		Id:     1,
++		Update: M{"$inc": M{"balance": 1}},
++	}}
++	for i := 0; i < 200; i++ {
++		c.Assert(s.runner.Run(ops, "", nil), IsNil)
++	}
++	var a0 txnQueue
++	c.Assert(s.accounts.FindId(0).One(&a0), IsNil)
++	c.Check(len(a0.Queue), Equals, 200,
++		Commentf("queue length did not match expected %d: actual: %d", 200, len(a0.Queue)))
 +}
 +
  func (s *S) TestPurgeMissingPipelineSizeLimit(c *C) {
