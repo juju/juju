@@ -207,17 +207,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		MachineLock:          machineLock,
 	})
 
-	config := dependency.EngineConfig{
-		IsFatal:       cmdutil.IsFatal,
-		WorstError:    cmdutil.MoreImportantError,
-		ErrorDelay:    3 * time.Second,
-		BounceDelay:   10 * time.Millisecond,
-		BackoffFactor: 1.5,
-		MaxDelay:      5 * time.Minute,
-		Clock:         clock.WallClock,
-		Logger:        loggo.GetLogger("juju.worker.dependency"),
-	}
-	engine, err := dependency.NewEngine(config)
+	engine, err := dependency.NewEngine(dependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}

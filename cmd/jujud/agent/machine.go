@@ -498,17 +498,7 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		config := dependency.EngineConfig{
-			IsFatal:       cmdutil.IsFatal,
-			WorstError:    cmdutil.MoreImportantError,
-			ErrorDelay:    3 * time.Second,
-			BounceDelay:   10 * time.Millisecond,
-			BackoffFactor: 1.5,
-			MaxDelay:      5 * time.Minute,
-			Clock:         clock.WallClock,
-			Logger:        loggo.GetLogger("juju.worker.dependency"),
-		}
-		engine, err := dependency.NewEngine(config)
+		engine, err := dependency.NewEngine(dependencyEngineConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -996,18 +986,11 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	engine, err := dependency.NewEngine(dependency.EngineConfig{
-		IsFatal:       model.IsFatal,
-		WorstError:    model.WorstError,
-		Filter:        model.IgnoreErrRemoved,
-		ErrorDelay:    3 * time.Second,
-		BounceDelay:   10 * time.Millisecond,
-		BackoffFactor: 1.5,
-		MaxDelay:      5 * time.Minute,
-		Clock:         clock.WallClock,
-		Logger:        loggo.GetLogger("juju.worker.dependency"),
-	})
+	config := dependencyEngineConfig()
+	config.IsFatal = model.IsFatal
+	config.WorstError = model.WorstError
+	config.Filter = model.IgnoreErrRemoved
+	engine, err := dependency.NewEngine(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

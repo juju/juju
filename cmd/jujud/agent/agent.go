@@ -8,7 +8,9 @@ package agent
 
 import (
 	"sync"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/util"
@@ -154,4 +157,17 @@ func GetJujuVersion(machineAgent string, dataDir string) (version.Number, error)
 		return version.Number{}, errors.Errorf("%s agent conf is not found", machineAgent)
 	}
 	return config.UpgradedToVersion(), nil
+}
+
+func dependencyEngineConfig() dependency.EngineConfig {
+	return dependency.EngineConfig{
+		IsFatal:       util.IsFatal,
+		WorstError:    util.MoreImportantError,
+		ErrorDelay:    3 * time.Second,
+		BounceDelay:   10 * time.Millisecond,
+		BackoffFactor: 1.5,
+		MaxDelay:      5 * time.Minute,
+		Clock:         clock.WallClock,
+		Logger:        loggo.GetLogger("juju.worker.dependency"),
+	}
 }
