@@ -387,42 +387,51 @@ type DeployCommand struct {
 }
 
 const deployDoc = `
-The charm (or bundle) can be referred to by a charm/bundle URL, or an
-unambiguously condensed form of it. Assuming a current series of "xenial", the
-following forms are accepted:
+A charm can be referred to by its simple name or by specifying a series (if
+available):
 
-For cs:xenial/mysql: 'xenial/mysql' or 'mysql'
+  juju deploy postgresql
+  juju deploy xenial/postgresql
+  juju deploy cs:xenial/postgresql
+  juju deploy postgresql --series xenial
 
-For cs:~user/xenial/mysql: '~user/mysql'
-
-For cs:bundle/mediawiki-single: 'bundle/mediawiki-single' or 'mediawiki-single'
-
-The current series for a charm is determined first by the 'default-series' model
-setting, followed by the charm's preferred series in the Charm Store.
+The second and third forms are using charm URLs.
 
 A versioned charm URL will be expanded as expected. For example, 'mysql-33'
 becomes 'cs:xenial/mysql-33'.
 
-A local charm may be deployed by specifying the path to its directory. A series
-can be optionally stated:
+A bundle can be expressed similarly, but not by series:
+
+  juju deploy mediawiki-single
+  juju deploy bundle/mediawiki-single
+  juju deploy cs:bundle/mediawiki-single
+
+A local charm may be deployed by specifying the path to its directory:
 
   juju deploy /path/to/charm --series xenial
-
-If '--series' is not specified, the charm's default series is used. The default
-series is the top-most one specified in the charm metadata. If the specified
-series is not supported by the charm an error is emitted. The '--force' option
-can be used to override this check:
-
-  juju deploy /path/to/charm --series wily --force
 
 A local bundle may be deployed by specifying the path to its YAML file:
 
   juju deploy /path/to/bundle.yaml
 
-When charms that include LXD profiles (to override configurations or devices
-when creating containers) are deployed the profiles are validated using a
-hardcoded allow/deny list. This check can be bypassed with the use of the
-'--force' option. However, doing so is not recommended as it can lead to
+A series is determined in this order of precedence (most preferred to least):
+
+ 1. the '--series' deploy command option
+ 2. the series stated in the charm URL
+ 3. for a bundle, the 'series' field in the charm spec
+ 4. for a bundle, the 'series' field at top level of bundle file
+ 5. the 'default-series' model key
+ 6. the top-most series specified in the charm's metadata file
+    (this sets the charm's 'preferred series' in the Charm Store)
+ 
+If the determined series is not supported by the charm an error is emitted. The
+'--force' option can be used to override this check:
+
+  juju deploy charm --series xenial --force
+
+When charms that include LXD profiles are deployed the profiles are validated
+using a hardcoded allow/deny list. This check can be bypassed with the use of
+the '--force' option. However, doing so is not recommended as it can lead to
 unexpected behaviour.
 
 If an 'application name' is not provided, the application name used is the charm
