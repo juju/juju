@@ -43,6 +43,7 @@ type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 type ReadonlyFSM interface {
 	Leases(time.Time) map[lease.Key]lease.Info
 	GlobalTime() time.Time
+	Pinned() map[lease.Key][]names.Tag
 }
 
 // StoreConfig holds resources and settings needed to run the Store.
@@ -137,6 +138,11 @@ func (s *Store) PinLease(key lease.Key, entity names.Tag) error {
 // UnpinLease is part of lease.Store.
 func (s *Store) UnpinLease(key lease.Key, entity names.Tag) error {
 	return errors.Trace(s.pinOp(OperationUnpin, key, entity))
+}
+
+// Pinned is part of the Store interface.
+func (s *Store) Pinned() map[lease.Key][]names.Tag {
+	return s.fsm.Pinned()
 }
 
 func (s *Store) pinOp(operation string, key lease.Key, entity names.Tag) error {

@@ -281,6 +281,12 @@ func (s *storeSuite) TestUnpin(c *gc.C) {
 	)
 }
 
+func (s *storeSuite) TestPinned(c *gc.C) {
+	s.fsm.pinned = map[lease.Key][]names.Tag{}
+	c.Check(s.store.Pinned(), gc.DeepEquals, s.fsm.pinned)
+	s.fsm.CheckCallNames(c, "Pinned")
+}
+
 // handleHubRequest takes the action that triggers the request, the
 // expected command, and a function that will be run to make checks on
 // the request and send the response back.
@@ -456,11 +462,17 @@ type fakeFSM struct {
 	testing.Stub
 	leases     map[lease.Key]lease.Info
 	globalTime time.Time
+	pinned     map[lease.Key][]names.Tag
 }
 
 func (f *fakeFSM) Leases(t time.Time) map[lease.Key]lease.Info {
 	f.AddCall("Leases", t)
 	return f.leases
+}
+
+func (f *fakeFSM) Pinned() map[lease.Key][]names.Tag {
+	f.AddCall("Pinned")
+	return f.pinned
 }
 
 func (f *fakeFSM) GlobalTime() time.Time {

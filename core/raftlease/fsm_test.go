@@ -254,14 +254,14 @@ func (s *fsmSuite) TestPinUnpin(c *gc.C) {
 		Duration:  time.Second,
 	}).Error(), jc.ErrorIsNil)
 
-	machineTag := names.NewMachineTag("0").String()
+	machineTag := names.NewMachineTag("0")
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationPin,
 		Namespace: "ns",
 		ModelUUID: "model",
 		Lease:     "lease",
-		PinEntity: machineTag,
+		PinEntity: machineTag.String(),
 	}).Error(), jc.ErrorIsNil)
 
 	// Pinned lease does not expire.
@@ -274,13 +274,16 @@ func (s *fsmSuite) TestPinUnpin(c *gc.C) {
 	c.Assert(resp.Error(), jc.ErrorIsNil)
 	assertExpired(c, resp)
 
+	exp := map[lease.Key][]names.Tag{{Namespace: "ns", ModelUUID: "model", Lease: "lease"}: {machineTag}}
+	c.Assert(s.fsm.Pinned(), gc.DeepEquals, exp)
+
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationUnpin,
 		Namespace: "ns",
 		ModelUUID: "model",
 		Lease:     "lease",
-		PinEntity: machineTag,
+		PinEntity: machineTag.String(),
 	}).Error(), jc.ErrorIsNil)
 
 	// Unpinned lease expires when time advances.
@@ -292,6 +295,8 @@ func (s *fsmSuite) TestPinUnpin(c *gc.C) {
 	})
 	c.Assert(resp.Error(), jc.ErrorIsNil)
 	assertExpired(c, resp, lease.Key{"ns", "model", "lease"})
+
+	c.Assert(s.fsm.Pinned(), gc.DeepEquals, map[lease.Key][]names.Tag{})
 }
 
 func (s *fsmSuite) TestPinUnpinMultipleHoldersNoExpiry(c *gc.C) {
@@ -312,23 +317,28 @@ func (s *fsmSuite) TestPinUnpinMultipleHoldersNoExpiry(c *gc.C) {
 	}).Error(), jc.ErrorIsNil)
 
 	// Two different entities pin the same lease.
-	machineTag := names.NewMachineTag("0").String()
+	m0Tag := names.NewMachineTag("0")
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationPin,
 		Namespace: "ns",
 		ModelUUID: "model",
 		Lease:     "lease",
-		PinEntity: machineTag,
+		PinEntity: m0Tag.String(),
 	}).Error(), jc.ErrorIsNil)
+
+	m1Tag := names.NewMachineTag("1")
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
 		Operation: raftlease.OperationPin,
 		Namespace: "ns",
 		ModelUUID: "model",
 		Lease:     "lease",
-		PinEntity: names.NewMachineTag("1").String(),
+		PinEntity: m1Tag.String(),
 	}).Error(), jc.ErrorIsNil)
+
+	exp := map[lease.Key][]names.Tag{{Namespace: "ns", ModelUUID: "model", Lease: "lease"}: {m0Tag, m1Tag}}
+	c.Assert(s.fsm.Pinned(), gc.DeepEquals, exp)
 
 	// One entity releases.
 	c.Assert(s.apply(c, raftlease.Command{
@@ -337,8 +347,11 @@ func (s *fsmSuite) TestPinUnpinMultipleHoldersNoExpiry(c *gc.C) {
 		Namespace: "ns",
 		ModelUUID: "model",
 		Lease:     "lease",
-		PinEntity: machineTag,
+		PinEntity: m0Tag.String(),
 	}).Error(), jc.ErrorIsNil)
+
+	exp = map[lease.Key][]names.Tag{{Namespace: "ns", ModelUUID: "model", Lease: "lease"}: {m1Tag}}
+	c.Assert(s.fsm.Pinned(), gc.DeepEquals, exp)
 
 	// Lease does not expire, as there is still one pin.
 	resp := s.apply(c, raftlease.Command{

@@ -134,3 +134,8 @@ func (s *leaseStore) PinLease(key lease.Key, entity names.Tag) error {
 func (s *leaseStore) UnpinLease(key lease.Key, entity names.Tag) error {
 	return errors.NotImplementedf("lease unpinning")
 }
+
+// Pinned is part of the Store interface.
+func (s *leaseStore) Pinned() map[lease.Key][]names.Tag {
+	return nil
+}

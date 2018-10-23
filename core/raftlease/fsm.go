@@ -183,6 +183,19 @@ func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
 	return results
 }
 
+// Pinned returns all of the currently known lease pins and vested entities.
+func (f *FSM) Pinned() map[lease.Key][]names.Tag {
+	f.mu.Lock()
+	pinned := make(map[lease.Key][]names.Tag)
+	for key, entities := range f.pinned {
+		if !entities.IsEmpty() {
+			pinned[key] = entities.SortedValues()
+		}
+	}
+	f.mu.Unlock()
+	return pinned
+}
+
 func (f *FSM) isPinned(key lease.Key) bool {
 	return !f.pinned[key].IsEmpty()
 }
