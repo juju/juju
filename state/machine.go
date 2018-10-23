@@ -2161,16 +2161,7 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
-
-		ops := []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"life", Alive}},
-			Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecharmurl", chURL},
-				{"upgradecharmprofileapplication", appName}}}},
-		}}
-
-		return ops, nil
+		return []txn.Op{m.SetUpgradeCharmProfileOp(appName, chURL)}, nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2179,6 +2170,16 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 	m.doc.UpgradeCharmProfileApplication = appName
 	m.doc.UpgradeCharmProfileCharmURL = chURL
 	return nil
+}
+
+func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
+	return txn.Op{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: bson.D{{"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecharmurl", chURL},
+			{"upgradecharmprofileapplication", appName}}}},
+	}
 }
 
 func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {

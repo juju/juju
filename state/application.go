@@ -870,12 +870,21 @@ func (a *Application) changeCharmOps(
 
 // SetCharmProfile updates each machine the application is deployed
 // on with the name and charm url for a profile update of that machine.
+// If the application is a subordinate, the charm profile is applied
+// to the machine of the principal's unit.
 func (a *Application) SetCharmProfile(charmURL string) error {
 	units, err := a.AllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, u := range units {
+		principal, ok := u.PrincipalName()
+		if ok {
+			u, err = a.st.Unit(principal)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
 		m, err := u.machine()
 		if err != nil {
 			return errors.Trace(err)
@@ -1535,6 +1544,13 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
+		subCharmProfileOp, haveTxn, err := a.addUnitSubordinateCharmProfileOp(args.principalName)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		if haveTxn {
+			ops = append(ops, subCharmProfileOp)
+		}
 	} else {
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
 	}
@@ -1551,6 +1567,30 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	}
 	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
+}
+
+// addUnitSubordinateCharmProfileOp returns a transaction to an LXD profile
+// to the principal's machine if the charm has a non-empty charm profile.
+func (a *Application) addUnitSubordinateCharmProfileOp(principalName string) (txn.Op, bool, error) {
+	charm, _, err := a.Charm()
+	if err != nil {
+		return txn.Op{}, false, err
+	}
+	profile := charm.LXDProfile()
+	if profile == nil || (profile != nil && profile.Empty()) {
+		return txn.Op{}, false, nil
+	}
+	// a subordinate doesn't have a machine, so add the application's
+	// charm profile to the machine of the unit's principal.
+	unit, err := a.st.Unit(principalName)
+	if err != nil {
+		return txn.Op{}, false, err
+	}
+	machine, err := unit.machine()
+	if err != nil {
+		return txn.Op{}, false, err
+	}
+	return machine.SetUpgradeCharmProfileOp(a.doc.Name, a.doc.CharmURL.String()), true, nil
 }
 
 func (a *Application) addUnitStorageOps(
