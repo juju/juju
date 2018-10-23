@@ -153,7 +153,16 @@ func (rh *runHook) beforeHook(state State) error {
 			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
+	case hooks.LeaderElected:
+		// Check if leadership has changed between queueing of the hook and
+		// Actual execution. Set the error if we are no longer the leader.
+		isLeader := false
+		isLeader, err = rh.runner.Context().IsLeader()
+		if err == nil && !isLeader {
+			err = context.ErrIsNotLeader
+		}
 	}
+
 	if err != nil {
 		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
 		return err
