@@ -125,6 +125,7 @@ var (
 		"agent",
 		"api-address-updater",
 		"api-caller",
+		"api-config-watcher",
 		"clock",
 		"logging-config-updater",
 		"log-sender",

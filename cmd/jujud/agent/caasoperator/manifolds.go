@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/juju/worker/apiaddressupdater"
-	"github.com/juju/juju/worker/logger"
+	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -20,10 +19,13 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
@@ -37,6 +39,10 @@ type ManifoldsConfig struct {
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
+
+	// AgentConfigChanged is set whenever the unit agent's config
+	// is updated.
+	AgentConfigChanged *voyeur.Value
 
 	// Clock contains the clock that will be made available to manifolds.
 	Clock clock.Clock
@@ -85,10 +91,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
 
+		// The api-config-watcher manifold monitors the API server
+		// addresses in the agent config and bounces when they
+		// change. It's required as part of model migrations.
+		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:     agentName,
-			APIOpen:       api.Open,
-			NewConnection: apicaller.OnlyConnect,
+			AgentName:            agentName,
+			APIOpen:              api.Open,
+			APIConfigWatcherName: apiConfigWatcherName,
+			NewConnection:        apicaller.OnlyConnect,
 		}),
 
 		clockName: clockManifold(config.Clock),
@@ -219,11 +234,12 @@ var ifNotMigrating = engine.Housing{
 }.Decorate
 
 const (
-	agentName     = "agent"
-	apiCallerName = "api-caller"
-	clockName     = "clock"
-	operatorName  = "operator"
-	logSenderName = "log-sender"
+	agentName            = "agent"
+	apiConfigWatcherName = "api-config-watcher"
+	apiCallerName        = "api-caller"
+	clockName            = "clock"
+	operatorName         = "operator"
+	logSenderName        = "log-sender"
 
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"
