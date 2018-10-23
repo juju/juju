@@ -23,6 +23,9 @@ type QualifyingClientStore struct {
 // fully qualified name, it is returned untouched; otherwise it is
 // return qualified with the logged-in user name.
 func (s QualifyingClientStore) QualifiedModelName(controllerName, modelName string) (string, error) {
+	if modelName == "" {
+		return "", nil
+	}
 	if !jujuclient.IsQualifiedModelName(modelName) {
 		details, err := s.ClientStore.AccountDetails(controllerName)
 		if err != nil {
