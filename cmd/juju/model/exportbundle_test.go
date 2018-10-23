@@ -53,6 +53,10 @@ func (s *ExportBundleCommandSuite) TearDownTest(c *gc.C) {
 		if !os.IsNotExist(err) {
 			c.Check(err, jc.ErrorIsNil)
 		}
+		err = os.Remove(s.fake.filename)
+		if !os.IsNotExist(err) {
+			c.Check(err, jc.ErrorIsNil)
+		}
 	}
 
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)

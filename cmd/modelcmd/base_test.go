@@ -51,12 +51,11 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent string) {
+func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCommandBase, current, expectedCurrent string) {
 	s.store.Models["foo"].CurrentModel = current
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.SetClientStore(s.store)
 	baseCmd.SetAPIOpen(apiOpen)
 	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
@@ -73,11 +72,23 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 }
 
 func (s *BaseCommandSuite) TestUnknownModel(c *gc.C) {
-	s.assertUnknownModel(c, "admin/badmodel", "")
+	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/badmodel", "admin/badmodel")
+}
+
+func (s *BaseCommandSuite) TestUnknownModelCanRemoveCachedCurrent(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.CanClearCurrentModel = true
+	s.assertUnknownModel(c, baseCmd, "admin/badmodel", "")
 }
 
 func (s *BaseCommandSuite) TestUnknownModelNotCurrent(c *gc.C) {
-	s.assertUnknownModel(c, "admin/goodmodel", "admin/goodmodel")
+	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/goodmodel", "admin/goodmodel")
+}
+
+func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurrent(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.CanClearCurrentModel = true
+	s.assertUnknownModel(c, baseCmd, "admin/goodmodel", "admin/goodmodel")
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {
