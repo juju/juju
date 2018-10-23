@@ -10,11 +10,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
@@ -34,11 +36,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
@@ -69,6 +73,9 @@ type kubernetesClient struct {
 	// creating k8s resources.
 	namespace string
 
+	lock   sync.Mutex
+	envCfg *config.Config
+
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
 }
@@ -77,7 +84,7 @@ type kubernetesClient struct {
 // run "go generate" from the package directory.
 //go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
 //go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
-//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface
+//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 
@@ -85,20 +92,25 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, namespace, uuid string, newClient NewK8sClientFunc) (caas.Broker, error) {
-	config, err := newK8sConfig(cloudSpec)
+func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	k8sClient, apiextensionsClient, err := newClient(config)
+	k8sClient, apiextensionsClient, err := newClient(k8sConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newCfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &kubernetesClient{
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           namespace,
-		modelUUID:           uuid,
+		namespace:           newCfg.Name(),
+		envCfg:              newCfg,
+		modelUUID:           newCfg.UUID(),
 	}, nil
 }
 
@@ -123,6 +135,91 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 			CAData:   CAData,
 		},
 	}, nil
+}
+
+// Config returns environ config.
+func (k *kubernetesClient) Config() *config.Config {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	cfg := k.envCfg
+	return cfg
+}
+
+// SetConfig is specified in the Environ interface.
+func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	newCfg, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	k.envCfg = newCfg
+	return nil
+}
+
+// PrepareForBootstrap prepares for bootstraping a controller.
+func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// Bootstrap deploys controller with mongoDB together into k8s cluster.
+func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	const (
+		// TODO(caas): how to get these from oci path.
+		Series = "bionic"
+		Arch   = arch.AMD64
+	)
+
+	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) error {
+		envConfig := k.Config()
+		if err := podcfg.FinishControllerPodConfig(pcfg, envConfig); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := pcfg.VerifyConfig(); err != nil {
+			return errors.Trace(err)
+		}
+
+		// prepare bootstrapParamsFile
+		bootstrapParamsFileContent, err := pcfg.Bootstrap.StateInitializationParams.Marshal()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
+
+		// TODO(caas): we'll need a different tag type other than machine tag.
+		machineTag := names.NewMachineTag(pcfg.MachineId)
+		acfg, err := pcfg.AgentConfig(machineTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		agentConfigFileContent, err := acfg.Render()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("agentConfig file content: \n%s", string(agentConfigFileContent))
+
+		// TODO(caas): prepare
+		// agent.conf,
+		// bootstrap-params,
+		// server.pem,
+		// system-identity,
+		// shared-secret, then generate configmap/secret.
+		// Lastly, create StatefulSet for controller.
+		return nil
+	}
+	return &environs.BootstrapResult{
+		Arch:                   Arch,
+		Series:                 Series,
+		CaasBootstrapFinalizer: finalizer,
+	}, nil
+}
+
+// DestroyController implements the Environ interface.
+func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	// TODO(caas): destroy controller and all models
+	logger.Warningf("DestroyController is not supported yet on CAAS.")
+	return nil
 }
 
 // Provider is part of the Broker interface.
@@ -220,8 +317,7 @@ func (k *kubernetesClient) ensureSecret(imageSecretName, appName string, imageDe
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteSecret(appName, containerName string) error {
-	imageSecretName := appSecretName(appName, containerName)
+func (k *kubernetesClient) deleteSecret(imageSecretName string) error {
 	secrets := k.CoreV1().Secrets(k.namespace)
 	err := secrets.Delete(imageSecretName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
@@ -559,6 +655,14 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 
 	pvs := k.CoreV1().PersistentVolumes()
 	for _, p := range podsList.Items {
+		// Delete secrets.
+		for _, c := range p.Spec.Containers {
+			secretName := appSecretName(appName, c.Name)
+			if err := k.deleteSecret(secretName); err != nil {
+				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
+			}
+		}
+		// Delete operator storage volumes.
 		volumeNames, err := k.deleteVolumeClaims(appName, &p)
 		if err != nil {
 			return errors.Trace(err)
@@ -629,6 +733,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteStatefulSet(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
+	if err := k.deleteDeployment(deploymentName); err != nil {
+		return errors.Trace(err)
+	}
 	pods := k.CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
@@ -641,7 +748,19 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 			return errors.Trace(err)
 		}
 	}
-	return errors.Trace(k.deleteDeployment(deploymentName))
+	secrets := k.CoreV1().Secrets(k.namespace)
+	secretList, err := secrets.List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range secretList.Items {
+		if err := k.deleteSecret(s.Name); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
@@ -757,15 +876,20 @@ func (k *kubernetesClient) EnsureService(
 		unitSpec.Pod.NodeSelector = affinityLabels
 	}
 
+	resourceTags := make(map[string]string)
+	for k, v := range params.ResourceTags {
+		resourceTags[k] = v
+	}
+	resourceTags[labelApplication] = appName
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
 			continue
 		}
 		imageSecretName := appSecretName(appName, c.Name)
-		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, params.ResourceTags); err != nil {
+		if err := k.ensureSecret(imageSecretName, appName, &c.ImageDetails, resourceTags); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
+		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -784,11 +908,6 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	numPods := int32(numUnits)
-	resourceTags := make(map[string]string)
-	for k, v := range params.ResourceTags {
-		resourceTags[k] = v
-	}
-	resourceTags[labelApplication] = appName
 	if useStatefulSet {
 		if err := k.configureStatefulSet(appName, resourceTags, unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
@@ -1698,6 +1817,7 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	var unitSpec unitSpec
 	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
+		logger.Errorf("unable to parse %q pod spec: %+v\n%v", appName, *podSpec, unitSpecString)
 		return nil, errors.Trace(err)
 	}
 

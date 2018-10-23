@@ -25,7 +25,7 @@ var (
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string, validator constraints.Validator) error {
+func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *string, validator constraints.Validator) error {
 	// Now check that the architecture and series for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := arch.HostArch()
@@ -55,7 +55,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string,
 
 // findPackagedTools returns a list of tools for in simplestreams.
 func findPackagedTools(
-	env environs.Environ,
+	env environs.BootstrapEnviron,
 	vers *version.Number,
 	arch, series *string,
 ) (coretools.List, error) {
@@ -105,7 +105,7 @@ func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ ver
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.Environ, vers *version.Number, arch, series *string) (list coretools.List, err error) {
+func findBootstrapTools(env environs.BootstrapEnviron, vers *version.Number, arch, series *string) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter

@@ -30,7 +30,7 @@ import (
 
 // NewAddModelCommand returns a command to add a model.
 func NewAddModelCommand() cmd.Command {
-	return modelcmd.WrapController(&addModelCommand{
+	command := &addModelCommand{
 		newAddModelAPI: func(caller base.APICallCloser) AddModelAPI {
 			return modelmanager.NewClient(caller)
 		},
@@ -38,7 +38,9 @@ func NewAddModelCommand() cmd.Command {
 			return cloudapi.NewClient(caller)
 		},
 		providerRegistry: environs.GlobalProviderRegistry(),
-	})
+	}
+	command.CanClearCurrentModel = true
+	return modelcmd.WrapController(command)
 }
 
 // addModelCommand calls the API to add a new model.
@@ -153,7 +155,7 @@ type CloudAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Cloud(names.CloudTag) (jujucloud.Cloud, error)
 	UserCredentials(names.UserTag, names.CloudTag) ([]names.CloudCredentialTag, error)
-	UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error)
+	AddCredential(tag string, credential jujucloud.Credential) error
 }
 
 func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
@@ -168,11 +170,11 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	api, err := c.newAPIRoot()
+	root, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Annotate(err, "opening API connection")
 	}
-	defer api.Close()
+	defer root.Close()
 
 	store := c.ClientStore()
 	accountDetails, err := store.AccountDetails(controllerName)
@@ -194,7 +196,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	cloudClient := c.newCloudAPI(api)
+	cloudClient := c.newCloudAPI(root)
 	var cloudTag names.CloudTag
 	var cloud jujucloud.Cloud
 	var cloudRegion string
@@ -210,6 +212,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Find a credential to use with the new model.
+	// If credential was found on the controller, it will be nil in return.
 	credential, credentialTag, cloudRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
 		cloudTag:    cloudTag,
 		cloudRegion: cloudRegion,
@@ -223,14 +226,13 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	// Upload the credential if it was explicitly set and we have found it locally.
 	if c.CredentialName != "" && credential != nil {
 		ctx.Infof("Uploading credential '%s' to controller", credentialTag.Id())
-		if all, err := cloudClient.UpdateCredentialsCheckModels(credentialTag, *credential); err != nil {
+		if err := cloudClient.AddCredential(credentialTag.String(), *credential); err != nil {
 			ctx.Infof("Failed to upload credential: %v", err)
-			common.OutputUpdateCredentialModelResult(ctx, all, false)
 			return cmd.ErrSilent
 		}
 	}
 
-	addModelClient := c.newAddModelAPI(api)
+	addModelClient := c.newAddModelAPI(root)
 	model, err := addModelClient.CreateModel(c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {

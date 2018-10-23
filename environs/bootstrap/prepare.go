@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
@@ -62,17 +63,18 @@ func (p PrepareParams) Validate() error {
 	return nil
 }
 
-// Prepare prepares a new controller based on the provided configuration.
+// PrepareController prepares a new controller based on the provided configuration.
 // It is an error to prepare a controller if there already exists an
 // entry in the client store with the same name.
 //
 // Upon success, Prepare will update the ClientStore with the details of
 // the controller, admin account, and admin model.
-func Prepare(
+func PrepareController(
+	isCAASController bool,
 	ctx environs.BootstrapContext,
 	store jujuclient.ClientStore,
 	args PrepareParams,
-) (environs.Environ, error) {
+) (environs.BootstrapEnviron, error) {
 
 	if err := args.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -95,17 +97,43 @@ func Prepare(
 		return nil, errors.Trace(err)
 	}
 
-	env, details, err := prepare(ctx, p, args)
+	cfg, details, err := prepare(ctx, p, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := decorateAndWriteInfo(
-		store, details, args.ControllerName, env.Config().Name(),
-	); err != nil {
-		return nil, errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
+	do := func() error {
+		if err := decorateAndWriteInfo(
+			store, details, args.ControllerName, cfg.Name(),
+		); err != nil {
+			return errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
+		}
+		return nil
 	}
-	return env, nil
+
+	if isCAASController {
+		details.ModelType = model.CAAS
+		if err := do(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return caas.Open(p, environs.OpenParams{Cloud: args.Cloud, Config: cfg})
+	} else {
+		details.ModelType = model.IAAS
+		env, err := environs.Open(p, environs.OpenParams{
+			Cloud:  args.Cloud,
+			Config: cfg,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := env.PrepareForBootstrap(ctx); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := do(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return env, nil
+	}
 }
 
 // decorateAndWriteInfo decorates the info struct with information
@@ -141,27 +169,17 @@ func prepare(
 	ctx environs.BootstrapContext,
 	p environs.EnvironProvider,
 	args PrepareParams,
-) (environs.Environ, prepareDetails, error) {
+) (*config.Config, prepareDetails, error) {
 	var details prepareDetails
 
 	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
 	if err != nil {
-		return nil, details, errors.Trace(err)
+		return cfg, details, errors.Trace(err)
 	}
 
-	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{args.Cloud, cfg})
+	cfg, err = p.PrepareConfig(environs.PrepareConfigParams{Cloud: args.Cloud, Config: cfg})
 	if err != nil {
-		return nil, details, errors.Trace(err)
-	}
-	env, err := environs.Open(p, environs.OpenParams{
-		Cloud:  args.Cloud,
-		Config: cfg,
-	})
-	if err != nil {
-		return nil, details, errors.Trace(err)
-	}
-	if err := env.PrepareForBootstrap(ctx); err != nil {
-		return nil, details, errors.Trace(err)
+		return cfg, details, errors.Trace(err)
 	}
 
 	// We store the base configuration only; we don't want the
@@ -179,7 +197,7 @@ func prepare(
 	// a CA certificate.
 	caCert, ok := args.ControllerConfig.CACert()
 	if !ok {
-		return nil, details, errors.New("controller config is missing CA certificate")
+		return cfg, details, errors.New("controller config is missing CA certificate")
 	}
 
 	// We want to store attributes describing how a controller has been configured.
@@ -205,8 +223,6 @@ func prepare(
 	details.Password = args.AdminSecret
 	details.LastKnownAccess = string(permission.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
-	// We only bootstrap IAAS models.
-	details.ModelType = model.IAAS
 	details.ControllerDetails.Cloud = args.Cloud.Name
 	details.ControllerDetails.CloudRegion = args.Cloud.Region
 	details.BootstrapConfig.CloudType = args.Cloud.Type
@@ -218,7 +234,7 @@ func prepare(
 	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
 
-	return env, details, nil
+	return cfg, details, nil
 }
 
 type prepareDetails struct {

@@ -118,7 +118,8 @@ func (s *suite) TearDownTest(c *gc.C) {
 }
 
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
-	env, err := bootstrap.Prepare(
+	e, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
@@ -130,7 +131,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
-	c.Assert(env, gc.NotNil)
+	c.Assert(e, gc.NotNil)
+	env := e.(environs.Environ)
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 

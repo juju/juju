@@ -393,7 +393,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
-	c.Assert(result.Finalize, gc.NotNil)
+	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	// Check that we make the SSH connection with desired options.
 	var knownHosts string
@@ -429,7 +429,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		}
 		return nil
 	})
-	err = result.Finalize(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
 		Timeout: coretesting.LongWait,
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
@@ -482,8 +482,8 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result.Finalize, gc.NotNil)
-	err = result.Finalize(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
+	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
 		Timeout: coretesting.ShortWait,
 	})
 	c.Assert(err, gc.ErrorMatches, "waited for 50ms without being able to connect.*")

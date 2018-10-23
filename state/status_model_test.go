@@ -408,10 +408,15 @@ func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
 		{
 			cloudContainerStatus: status.StatusInfo{},
 			unitStatus: status.StatusInfo{
-				Status:  status.Active,
+				Status:  status.Blocked,
 				Message: "unit",
 			},
-			messageCheck: status.MessageWaitForContainer,
+			messageCheck: "unit",
+		},
+		{
+			cloudContainerStatus: status.StatusInfo{},
+			unitStatus:           status.StatusInfo{},
+			messageCheck:         status.MessageWaitForContainer,
 		},
 	}
 
@@ -479,6 +484,17 @@ func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
 			},
 			appStatus: status.StatusInfo{
 				Status:  status.Active,
+				Message: "unit",
+			},
+			messageCheck: "unit",
+		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Active,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Blocked,
 				Message: "unit",
 			},
 			messageCheck: "unit",

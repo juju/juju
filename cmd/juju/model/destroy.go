@@ -38,6 +38,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 func NewDestroyCommand() cmd.Command {
 	destroyCmd := &destroyCommand{}
 	destroyCmd.sleepFunc = time.Sleep
+	destroyCmd.CanClearCurrentModel = true
 	return modelcmd.Wrap(
 		destroyCmd,
 		modelcmd.WrapSkipDefaultModel,
@@ -295,11 +296,6 @@ upgrade the controller to version 2.3 or greater.
 		modelData = modelStatus(modelStatusPollWait)
 	}
 
-	err = store.RemoveModel(controllerName, modelName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-
 	// Check if the model has an sla auth.
 	if slaIsSet {
 		err = c.removeModelBudget(modelDetails.ModelUUID)
@@ -308,6 +304,7 @@ upgrade the controller to version 2.3 or greater.
 		}
 	}
 
+	c.RemoveModelFromClientStore(store, controllerName, modelName)
 	return nil
 }
 

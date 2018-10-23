@@ -131,27 +131,6 @@ var newApplicationClient = func(root api.Connection) applicationClient {
 	return application.NewClient(root)
 }
 
-func isLocalCharmURL(conn api.Connection, entity string) (bool, error) {
-	applicationName := entity
-	var err error
-	if names.IsValidUnit(entity) {
-		applicationName, err = names.UnitApplication(entity)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-	}
-
-	client := newApplicationClient(conn)
-	// TODO (mattyw, anastasiamac) The storage work might lead to an api
-	// allowing us to query charm url for a unit.
-	// When that api exists we should use that here.
-	url, err := client.GetCharmURL(applicationName)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return url.Schema == "local", nil
-}
-
 var newAPIConn = func(cmd modelcmd.ModelCommandBase) (api.Connection, error) {
 	return cmd.NewAPIRoot()
 }
@@ -164,14 +143,6 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	}
 	runnerClient := newRunClient(root)
 	defer runnerClient.Close()
-
-	islocal, err := isLocalCharmURL(root, c.entity)
-	if err != nil {
-		return errors.Annotate(err, "failed to find charmURL for entity")
-	}
-	if !islocal {
-		return errors.Errorf("%q is not a local charm", c.entity)
-	}
 
 	units := []string{}
 	applications := []string{}

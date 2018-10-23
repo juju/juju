@@ -191,9 +191,9 @@ func (env *maasEnviron) Bootstrap(
 	}
 
 	bsResult := &environs.BootstrapResult{
-		Arch:     *result.Hardware.Arch,
-		Series:   series,
-		Finalize: waitingFinalizer,
+		Arch:                    *result.Hardware.Arch,
+		Series:                  series,
+		CloudBootstrapFinalizer: waitingFinalizer,
 	}
 	return bsResult, nil
 }

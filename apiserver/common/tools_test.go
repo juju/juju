@@ -182,7 +182,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 			SHA256:  "feedface",
 		}}
 
-		s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+		s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
 			c.Assert(major, gc.Equals, 123)
 			c.Assert(minor, gc.Equals, 456)
 			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
@@ -218,7 +218,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(stateenvirons.EnvironConfigGetter{s.State, s.Model}, s.State, sprintfURLGetter("%s"))
@@ -253,7 +253,7 @@ func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 
 func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool, develVersion bool) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
 		c.Assert(filter.Series, gc.Equals, series.MustHostSeries())
@@ -285,7 +285,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 
 func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		return nil, errors.NotFoundf("tools")
 	})

@@ -5,10 +5,7 @@ package httpserver
 
 import (
 	"crypto/tls"
-	"reflect"
-	"sync"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
@@ -16,8 +13,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -26,14 +24,20 @@ import (
 type ManifoldConfig struct {
 	AgentName       string
 	CertWatcherName string
-	ClockName       string
 	StateName       string
+	MuxName         string
+
+	// We don't use these in the worker, but we want to prevent the
+	// httpserver from starting until they're running so that all of
+	// their handlers are registered.
+	RaftTransportName string
+	APIServerName     string
+	RaftEnabledName   string
 
 	PrometheusRegisterer prometheus.Registerer
 
-	NewStateAuthenticator NewStateAuthenticatorFunc
-	NewTLSConfig          func(*state.State, func() *tls.Certificate) (*tls.Config, error)
-	NewWorker             func(Config) (worker.Worker, error)
+	NewTLSConfig func(*state.State, func() *tls.Certificate) (*tls.Config, error)
+	NewWorker    func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -44,17 +48,23 @@ func (config ManifoldConfig) Validate() error {
 	if config.CertWatcherName == "" {
 		return errors.NotValidf("empty CertWatcherName")
 	}
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
-	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
+	if config.MuxName == "" {
+		return errors.NotValidf("empty MuxName")
+	}
+	if config.RaftEnabledName == "" {
+		return errors.NotValidf("empty RaftEnabledName")
+	}
+	if config.RaftTransportName == "" {
+		return errors.NotValidf("empty RaftTransportName")
+	}
+	if config.APIServerName == "" {
+		return errors.NotValidf("empty APIServerName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
-	}
-	if config.NewStateAuthenticator == nil {
-		return errors.NotValidf("nil NewStateAuthenticator")
 	}
 	if config.NewTLSConfig == nil {
 		return errors.NotValidf("nil NewTLSConfig")
@@ -73,11 +83,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.CertWatcherName,
-			config.ClockName,
 			config.StateName,
+			config.MuxName,
+			config.RaftEnabledName,
+			config.RaftTransportName,
+			config.APIServerName,
 		},
-		Start:  config.start,
-		Output: manifoldOutput,
+		Start: config.start,
 	}
 }
 
@@ -97,9 +109,25 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
+	var mux *apiserverhttp.Mux
+	if err := context.Get(config.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// We don't actually need anything from these workers, but we
+	// shouldn't start until they're available.
+	if err := context.Get(config.APIServerName, nil); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Only check for the raft transport if raft is enabled.
+	var raftEnabled engine.Flag
+	if err := context.Get(config.RaftEnabledName, &raftEnabled); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if raftEnabled.Check() {
+		if err := context.Get(config.RaftTransportName, nil); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	var stTracker workerstate.StateTracker
@@ -122,13 +150,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	mux := apiserverhttp.NewMux()
-	abort := make(chan struct{})
-	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(Config{
 		AgentConfig:          agent.CurrentConfig(),
 		PrometheusRegisterer: config.PrometheusRegisterer,
@@ -136,55 +157,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		Mux:                  mux,
 	})
 	if err != nil {
-		close(abort)
 		return nil, errors.Trace(err)
 	}
-	return &wrapperWorker{
-		Worker:        w,
-		mux:           mux,
-		authenticator: authenticator,
-		cleanup: func() {
-			close(abort)
-			stTracker.Done()
-		},
-	}, nil
-}
-
-var (
-	muxType           = reflect.TypeOf(&apiserverhttp.Mux{})
-	authenticatorType = reflect.TypeOf((*httpcontext.LocalMacaroonAuthenticator)(nil)).Elem()
-)
-
-func manifoldOutput(in worker.Worker, out interface{}) error {
-	w, ok := in.(*wrapperWorker)
-	if !ok {
-		return errors.Errorf("expected worker of type %T, got %T", w, in)
-	}
-	rv := reflect.ValueOf(out)
-	if rt := rv.Type(); rt.Kind() == reflect.Ptr {
-		elemType := rt.Elem()
-		switch {
-		case muxType.AssignableTo(elemType):
-			rv.Elem().Set(reflect.ValueOf(w.mux))
-			return nil
-		case authenticatorType.AssignableTo(elemType):
-			rv.Elem().Set(reflect.ValueOf(w.authenticator))
-			return nil
-		}
-	}
-	return errors.Errorf("unexpected output type %T", out)
-}
-
-type wrapperWorker struct {
-	worker.Worker
-	mux           *apiserverhttp.Mux
-	authenticator httpcontext.LocalMacaroonAuthenticator
-	cleanupOnce   sync.Once
-	cleanup       func()
-}
-
-func (w *wrapperWorker) Wait() error {
-	err := w.Worker.Wait()
-	w.cleanupOnce.Do(w.cleanup)
-	return err
+	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }

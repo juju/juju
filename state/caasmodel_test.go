@@ -367,15 +367,6 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	f := factory.NewFactory(st, s.StatePool)
 	unit := f.MakeUnit(c, &factory.UnitParams{})
 
-	unit.SetStatus(status.StatusInfo{
-		Status:  status.Active,
-		Message: "Unit Active",
-	})
-
-	unitStatus, err := unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Message, gc.Equals, "Unit Active")
-	c.Assert(unitStatus.Status, gc.Equals, status.Active)
 	workloadStatus := unitWorkloadStatus(c, m, unit.Name())
 	c.Assert(workloadStatus.Message, gc.Equals, status.MessageWaitForContainer)
 	c.Assert(workloadStatus.Status, gc.Equals, status.Waiting)
@@ -384,6 +375,15 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory, gc.HasLen, 1)
 	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
+
+	unit.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "Unit Active",
+	})
+	unitStatus, err := unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitStatus.Message, gc.Equals, "Unit Active")
+	c.Assert(unitStatus.Status, gc.Equals, status.Active)
 
 	// Now that status is stored as Active, but displayed (and in history)
 	// as waiting for container, once we set cloud container status as active

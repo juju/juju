@@ -82,7 +82,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Check(result.Arch, gc.Equals, "amd64")
 	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
-	c.Check(result.Finalize, gc.NotNil)
+	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 }
 
 func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
@@ -27,10 +28,13 @@ type BaseSuite struct {
 
 	broker caas.Broker
 
+	cfg *config.Config
+
 	k8sClient                  *mocks.MockInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
 	mockExtensions             *mocks.MockExtensionsV1beta1Interface
+	mockSecrets                *mocks.MockSecretInterface
 	mockDeployments            *mocks.MockDeploymentInterface
 	mockStatefulSets           *mocks.MockStatefulSetInterface
 	mockPods                   *mocks.MockPodInterface
@@ -61,6 +65,11 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		Credential:     &cred,
 		CACertificates: []string{testing.CACert},
 	}
+	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
+		config.NameKey: testNamespace,
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
 
 	ctrl := gomock.NewController(c)
 
@@ -89,6 +98,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumeClaims(testNamespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
+
+	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
+	mockCoreV1.EXPECT().Secrets(testNamespace).AnyTimes().Return(s.mockSecrets)
 
 	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)
@@ -125,8 +137,7 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		return s.k8sClient, s.mockApiextensionsClient, nil
 	}
 
-	var err error
-	s.broker, err = provider.NewK8sBroker(cloudSpec, testNamespace, testing.ModelTag.Id(), newClient)
+	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

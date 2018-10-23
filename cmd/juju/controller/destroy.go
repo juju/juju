@@ -83,7 +83,7 @@ Examples:
     # any remaining persistent storage from Juju's control.
     juju destroy-controller --destroy-all-models --release-storage
 
-See also: 
+See also:
     kill-controller
     unregister`
 
@@ -470,7 +470,7 @@ type destroyCommandBase struct {
 
 	controllerCredentialAPIFunc newCredentialAPIFunc
 
-	environsDestroy func(string, environs.Environ, context.ProviderCallContext, jujuclient.ControllerStore) error
+	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {

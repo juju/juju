@@ -84,8 +84,8 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "SetStatus")
-	s.st.app.CheckCall(c, 0, "SetStatus", status.StatusInfo{
+	s.st.app.CheckCallNames(c, "SetOperatorStatus")
+	s.st.app.CheckCall(c, 0, "SetOperatorStatus", status.StatusInfo{
 		Status:  "bar",
 		Message: "baz",
 		Data: map[string]interface{}{

@@ -60,7 +60,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	fakeCert := testing.CACert
 	cloudSpec := dummy.SampleCloudSpec()
 	cloudSpec.CACertificates = []string{fakeCert}
-	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
+	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),
@@ -108,7 +108,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	})
 
 	// Check we cannot call Prepare again.
-	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
+	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),

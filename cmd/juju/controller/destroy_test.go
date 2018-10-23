@@ -54,7 +54,7 @@ type baseDestroySuite struct {
 	apierror   error
 
 	controllerCredentialAPI *mockCredentialAPI
-	environsDestroy         func(string, environs.Environ, context.ProviderCallContext, jujuclient.ControllerStore) error
+	environsDestroy         func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -593,7 +593,7 @@ func (s *DestroySuite) destroyAndInvalidateCredentialWithError(c *gc.C, expected
 	// Make sure that the invalidate credential callback in the cloud context
 	// is called.
 	s.environsDestroy = func(controllerName string,
-		env environs.Environ,
+		env environs.ControllerDestroyer,
 		ctx context.ProviderCallContext,
 		store jujuclient.ControllerStore,
 	) error {

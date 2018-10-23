@@ -108,7 +108,7 @@ type NetworkingEnviron interface {
 	Networking
 }
 
-func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
+func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
 }

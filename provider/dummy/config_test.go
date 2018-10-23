@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -69,7 +70,8 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		ctx := envtesting.BootstrapContext(c)
-		env, err := bootstrap.Prepare(
+		e, err := bootstrap.PrepareController(
+			false,
 			ctx, jujuclient.NewMemStore(),
 			bootstrap.PrepareParams{
 				ControllerConfig: testing.FakeControllerConfig(),
@@ -84,6 +86,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
+		env := e.(environs.Environ)
 		defer env.Destroy(context.NewCloudCallContext())
 
 		firewallMode := env.Config().FirewallMode()

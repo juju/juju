@@ -507,12 +507,22 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
+	// finished means that a subsequent call to this method, while the
+	// Machine Lock is of a similar Machine Status, would return no
+	// additional messages (notifications). Since the value of this variable
+	// is returned, callers may choose to close streams or stop watchers
+	// based on this information.
+	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
+		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
 	// Filter seen messages
 	unseenMessages := make([]UpgradeSeriesMessage, 0)
 	for _, upgradeSeriesMessage := range lock.Messages {
 		if !upgradeSeriesMessage.Seen {
 			unseenMessages = append(unseenMessages, upgradeSeriesMessage)
 		}
+	}
+	if len(unseenMessages) == 0 {
+		return []string{}, finished, nil
 	}
 	sort.Slice(unseenMessages, func(i, j int) bool {
 		return unseenMessages[i].Timestamp.Before(unseenMessages[j].Timestamp)
@@ -525,29 +535,20 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	// finished means that a subsequent call to this method, while the
-	// Machine Lock is of a similar Machine Status, would return no
-	// additional messages (notifications). Since the value of this variable
-	// is returned, callers may choose to close streams or stop watchers
-	// based on this information.
-	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
-		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
-
 	return messages, finished, nil
 }
 
 // SetUpgradeSeriesMessagesAsSeen marks a given upgrade series messages as
-// having been seen by a client of the API. This method is exported since only
-// the client of this method can determine when a message has been "seen" and
-// thus the decision must be made ad the APIServer level as whether to call this
-// method or not (as apposed to immediately calling this method when messages
-// are queried for sending).
+// having been seen by a client of the API.
 func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
+		}
+		if len(messages) == 0 {
+			return nil, jujutxn.ErrNoOperations
 		}
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
@@ -570,14 +571,16 @@ func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeries
 			Assert: isAliveDoc,
 		},
 	}
+	fields := bson.D{}
 	for i := range messages {
 		field := fmt.Sprintf("messages.%d.seen", i)
-		ops = append(ops, txn.Op{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{field, seen}}}},
-		})
+		fields = append(fields, bson.DocElem{field, seen})
 	}
+	ops = append(ops, txn.Op{
+		C:      machineUpgradeSeriesLocksC,
+		Id:     machineDocID,
+		Update: bson.D{{"$set", fields}},
+	})
 	return ops
 }
 

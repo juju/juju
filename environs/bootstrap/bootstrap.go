@@ -27,7 +27,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -178,14 +180,48 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 	return cons
 }
 
-// Bootstrap bootstraps the given environment. The supplied constraints are
-// used to provision the instance, and are also set within the bootstrapped
-// environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx context.ProviderCallContext, args BootstrapParams) error {
-	if err := args.Validate(); err != nil {
-		return errors.Annotate(err, "validating bootstrap parameters")
+func bootstrapCAAS(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	callCtx context.ProviderCallContext,
+	args BootstrapParams,
+	bootstrapParams environs.BootstrapParams,
+) error {
+	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		args.ControllerConfig,
+		result.Series,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(caas): how to find the best/newest jujud docker image to use
+	newestTool := version.MustParseBinary("2.5-beta1-bionic-amd64")
+	// set agent version before finalizing bootstrap config
+	if err := setBootstrapToolsVersion(environ, newestTool.Number); err != nil {
+		return errors.Trace(err)
+	}
+	podConfig.JujuVersion = newestTool.Number
+	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
+		return errors.Annotate(err, "finalizing bootstrap instance config")
+	}
+	if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func bootstrapIAAS(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	callCtx context.ProviderCallContext,
+	args BootstrapParams,
+	bootstrapParams environs.BootstrapParams,
+) error {
 	cfg := environ.Config()
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
@@ -209,7 +245,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 		var err error
 		customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
@@ -255,6 +291,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 			architectures.Add(iMetadata.Arch)
 		}
 	}
+	bootstrapParams.ImageMetadata = imageMetadata
 
 	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
 	if err != nil {
@@ -274,6 +311,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints() {
 		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 	}
+	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	// The arch we use to find tools isn't the boostrapConstraints arch.
 	// We copy the constraints arch to a separate variable and
@@ -324,7 +362,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
-		if err := validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
+		if err = validateUploadAllowed(environ, &bootstrapArch, bootstrapSeries, constraintsValidator); err != nil {
 			return err
 		}
 		if args.BuildAgent {
@@ -367,6 +405,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)
 	}
+	bootstrapParams.AvailableTools = availableTools
+
 	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
 	// of available tools (agent binaries) but they should all be the same
 	// version. Need to do check here, otherwise the provider.Bootstrap call
@@ -392,79 +432,108 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 	if cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": agentVersion.String(),
 	}); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err = environ.SetConfig(cfg); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ctx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx,
-		callCtx,
-		environs.BootstrapParams{
-			CloudName:            args.Cloud.Name,
-			CloudRegion:          args.CloudRegion,
-			ControllerConfig:     args.ControllerConfig,
-			ModelConstraints:     args.ModelConstraints,
-			BootstrapConstraints: bootstrapConstraints,
-			BootstrapSeries:      args.BootstrapSeries,
-			Placement:            args.Placement,
-			AvailableTools:       availableTools,
-			ImageMetadata:        imageMetadata,
-		})
+	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	matchingTools, err := availableTools.Match(coretools.Filter{
-		Arch:   result.Arch,
-		Series: result.Series,
-	})
-	if err != nil {
-		return err
-	}
-	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
-	if err != nil {
-		return err
-	}
-	// We set agent-version to the newest version, so the agent will immediately upgrade itself.
-	// Note that this only is relevant if a specific agent version has not been requested, since
-	// in that case the specific version will be the only version available.
-	newestVersion, _ := matchingTools.Newest()
-	if err := setBootstrapToolsVersion(environ, newestVersion); err != nil {
-		return err
-	}
-
-	ctx.Infof("Installing Juju agent on bootstrap instance")
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig,
-		bootstrapConstraints,
+		bootstrapParams.BootstrapConstraints,
 		args.ModelConstraints,
 		result.Series,
 		publicKey,
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
+	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
+		Arch:   result.Arch,
+		Series: result.Series,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// We set agent-version to the newest version, so the agent will immediately upgrade itself.
+	// Note that this only is relevant if a specific agent version has not been requested, since
+	// in that case the specific version will be the only version available.
+	newestToolVersion, _ := matchingTools.Newest()
+	// set agent version before finalizing bootstrap config
+	if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
+		return errors.Trace(err)
+	}
+
+	ctx.Infof("Installing Juju agent on bootstrap instance")
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
+	var environVersion int
+	if e, ok := environ.(environs.Environ); ok {
+		environVersion = e.Provider().Version()
+	}
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
-	cfg = environ.Config()
-	environVersion := environ.Provider().Version()
 	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, cfg, environVersion, customImageMetadata,
+		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
 	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
-		return err
+	if err := result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// Bootstrap bootstraps the given environment. The supplied constraints are
+// used to provision the instance, and are also set within the bootstrapped
+// environment.
+func Bootstrap(
+	ctx environs.BootstrapContext,
+	environ environs.BootstrapEnviron,
+	callCtx context.ProviderCallContext,
+	args BootstrapParams,
+) error {
+	isCAASController := jujucloud.CloudIsCAAS(args.Cloud)
+
+	if err := args.Validate(); err != nil {
+		return errors.Annotate(err, "validating bootstrap parameters")
+	}
+	bootstrapParams := environs.BootstrapParams{
+		CloudName:        args.Cloud.Name,
+		CloudRegion:      args.CloudRegion,
+		ControllerConfig: args.ControllerConfig,
+		ModelConstraints: args.ModelConstraints,
+		BootstrapSeries:  args.BootstrapSeries,
+		Placement:        args.Placement,
+	}
+
+	var err error
+	if isCAASController {
+		// bootstraping in IAAS mode.
+		err = bootstrapCAAS(ctx, environ, callCtx, args, bootstrapParams)
+	} else {
+		// bootstraping in IAAS mode.
+		err = bootstrapIAAS(ctx, environ, callCtx, args, bootstrapParams)
+	}
+	if err != nil {
+		return errors.Trace(err)
 	}
 	ctx.Infof("Bootstrap agent now started")
 	return nil
@@ -533,6 +602,59 @@ func finalizeInstanceBootstrapConfig(
 	return nil
 }
 
+func finalizePodBootstrapConfig(
+	ctx environs.BootstrapContext,
+	pcfg *podcfg.ControllerPodConfig,
+	args BootstrapParams,
+	cfg *config.Config,
+) error {
+	if pcfg.APIInfo != nil || pcfg.Controller.MongoInfo != nil {
+		return errors.New("machine configuration already has api/state info")
+	}
+	controllerCfg := pcfg.Controller.Config
+	caCert, hasCACert := controllerCfg.CACert()
+	if !hasCACert {
+		return errors.New("controller configuration has no ca-cert")
+	}
+	pcfg.APIInfo = &api.Info{
+		Password: args.AdminSecret,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(cfg.UUID()),
+	}
+	pcfg.Controller.MongoInfo = &mongo.MongoInfo{
+		Password: args.AdminSecret,
+		Info:     mongo.Info{CACert: caCert},
+	}
+
+	// These really are directly relevant to running a controller.
+	// Initially, generate a controller certificate with no host IP
+	// addresses in the SAN field. Once the controller is up and the
+	// NIC addresses become known, the certificate can be regenerated.
+	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot generate controller certificate")
+	}
+	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+		StatePort:    controllerCfg.StatePort(),
+		APIPort:      controllerCfg.APIPort(),
+		Cert:         cert,
+		PrivateKey:   key,
+		CAPrivateKey: args.CAPrivateKey,
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return errors.New("controller model configuration has no agent-version")
+	}
+
+	pcfg.Bootstrap.ControllerModelConfig = cfg
+	pcfg.Bootstrap.ControllerCloud = args.Cloud
+	pcfg.Bootstrap.ControllerCloudCredential = args.CloudCredential
+	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
+	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
+	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
+	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
+	return nil
+}
+
 func userPublicSigningKey() (string, error) {
 	signingKeyFile := os.Getenv("JUJU_STREAMS_PUBLICKEY_FILE")
 	signingKey := ""
@@ -559,7 +681,7 @@ func userPublicSigningKey() (string, error) {
 // initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
-	environ environs.Environ,
+	environ environs.BootstrapEnviron,
 	bootstrapSeries *string,
 	bootstrapArch string,
 	bootstrapImageId string,
@@ -669,7 +791,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 }
 
 // setBootstrapToolsVersion updates the agent-version configuration attribute.
-func setBootstrapToolsVersion(environ environs.Environ, toolsVersion version.Number) error {
+func setBootstrapToolsVersion(environ environs.Configer, toolsVersion version.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{
