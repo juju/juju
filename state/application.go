@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/feature"
+	"github.com/juju/utils/featureflag"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -1125,6 +1128,16 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	updatedSettings, err := cfg.Charm.Config().ValidateSettings(cfg.ConfigSettings)
 	if err != nil {
 		return errors.Annotate(err, "validating config settings")
+	}
+
+	if featureflag.Enabled(feature.LXDProfile) {
+		// we don't need to check that this is a charm.LXDProfiler, as we can
+		// state that the function exists.
+		if profile := cfg.Charm.LXDProfile(); profile != nil {
+			if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
+				return errors.Annotate(err, "validating lxd profile")
+			}
+		}
 	}
 
 	// TODO (hml) lxd-profile 15-oct-2018
