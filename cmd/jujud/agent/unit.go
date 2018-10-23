@@ -208,12 +208,14 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	})
 
 	config := dependency.EngineConfig{
-		IsFatal:     cmdutil.IsFatal,
-		WorstError:  cmdutil.MoreImportantError,
-		ErrorDelay:  3 * time.Second,
-		BounceDelay: 10 * time.Millisecond,
-		Clock:       clock.WallClock,
-		Logger:      loggo.GetLogger("juju.worker.dependency"),
+		IsFatal:       cmdutil.IsFatal,
+		WorstError:    cmdutil.MoreImportantError,
+		ErrorDelay:    3 * time.Second,
+		BounceDelay:   10 * time.Millisecond,
+		BackoffFactor: 1.5,
+		MaxDelay:      5 * time.Minute,
+		Clock:         clock.WallClock,
+		Logger:        loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
 	if err != nil {
