@@ -58,6 +58,11 @@ type Store interface {
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
 	UnpinLease(lease Key, tag names.Tag) error
+
+	// Pinned returns a snapshot of pinned leases.
+	// The return consists of each pinned lease and the collection of entities
+	// vested in its pinned behaviour.
+	Pinned() map[Key][]names.Tag
 }
 
 // Key fully identifies a lease, including the namespace and

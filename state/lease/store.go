@@ -199,6 +199,11 @@ func (store *store) UnpinLease(key lease.Key, entity names.Tag) error {
 	return errors.NotImplementedf("unpinning for legacy leases")
 }
 
+// Pinned is part of the Store interface.
+func (store *store) Pinned() map[lease.Key][]names.Tag {
+	return nil
+}
+
 // Refresh is part of the Store interface.
 func (store *store) Refresh() error {
 	store.mu.Lock()
