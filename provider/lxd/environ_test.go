@@ -262,3 +262,43 @@ func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
 		lxdprofile.Name("foo", "bar", 1),
 	})
 }
+
+func (s *environProfileSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	instId := "testme"
+	old := "old-profile"
+	new := "new-profile"
+
+	svr := lxd.NewMockServer(ctrl)
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HasProfile(new).Return(false, nil),
+		exp.CreateProfile(api.ProfilesPost{
+			Name: new,
+			ProfilePut: api.ProfilePut{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "test profile",
+			},
+		}).Return(nil),
+		exp.ReplaceOrAddContainerProfile(instId, old, new).Return(nil),
+		exp.DeleteProfile(old),
+		exp.GetContainerProfiles(instId).Return([]string{"default", "juju-default", new}, nil),
+	)
+
+	env := s.NewEnviron(c, svr, nil)
+	lxdEnv, ok := env.(environs.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	put := &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	}
+	obtained, err := lxdEnv.ReplaceOrAddInstanceProfile(instId, old, new, put)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", new})
+}

@@ -319,3 +319,22 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
 	return env.server.GetContainerProfiles(containerName)
 }
+
+// ReplaceLXDProfile implements environs.LXDProfiler.
+func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
+	if put != nil {
+		if err := env.MaybeWriteLXDProfile(newProfile, put); err != nil {
+			return []string{}, errors.Trace(err)
+		}
+	}
+	if err := env.server.ReplaceOrAddContainerProfile(instId, oldProfile, newProfile); err != nil {
+		return []string{}, errors.Trace(err)
+	}
+	if oldProfile != "" {
+		if err := env.server.DeleteProfile(oldProfile); err != nil {
+			// most likely the failure is because the profile is already in use
+			logger.Debugf("failed to delete profile %q: %s", oldProfile, err)
+		}
+	}
+	return env.LXDProfileNames(instId)
+}

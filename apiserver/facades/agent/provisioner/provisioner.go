@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1393,4 +1394,143 @@ func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
+}
+
+// CharmProfileChangeInfo retrieves the info necessary to change a charm
+// profile used by a machine.
+func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (params.ProfileChangeResults, error) {
+	results := make([]params.ProfileChangeResult, len(machines.Entities))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ProfileChangeResults{}, errors.Trace(err)
+	}
+	for i, machine := range machines.Entities {
+		result, err := p.machineChangeProfileChangeInfo(machine.Tag, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i] = result
+	}
+	return params.ProfileChangeResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAccess common.AuthFunc) (params.ProfileChangeResult, error) {
+	nothing := params.ProfileChangeResult{}
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	appName := machine.UpgradeCharmProfileApplication()
+	if appName == "" {
+		return nothing, errors.Trace(errors.New("no appname for profile charm upgrade"))
+	}
+	profileNames, err := machine.CharmProfiles()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	// If oldProfileName ends up as an empty string,
+	// the charm has added an lxd-profile where it didn't have one before.
+	oldProfileName, err := lxdprofile.MatchProfileNameByAppName(profileNames, appName)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+
+	url := machine.UpgradeCharmProfileCharmURL()
+	if url == "" {
+		return nothing, errors.Trace(errors.New("no url for profile charm upgrade"))
+	}
+	chURL, err := charm.ParseURL(url)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+
+	ch, err := p.st.Charm(chURL)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	var profile *params.CharmLXDProfile
+	chProfile := ch.LXDProfile()
+	if chProfile != nil && !chProfile.Empty() {
+		p := params.CharmLXDProfile(*chProfile)
+		profile = &p
+	}
+	chRev := ch.Revision()
+
+	var newProfileName string
+	switch {
+	case oldProfileName == "":
+		newProfileName = lxdprofile.Name(machine.ModelName(), appName, chRev)
+		logger.Tracef("new profile %s is being added to machine-%s", machine.Id(), newProfileName)
+	case profile == nil:
+		logger.Tracef("profile %s is being removed from machine-%s, no replacement", machine.Id(), oldProfileName)
+		newProfileName = ""
+	default:
+		newProfileName, err = lxdprofile.ProfileReplaceRevision(oldProfileName, chRev)
+		if err != nil {
+			return nothing, errors.Trace(err)
+		}
+		logger.Tracef("profile %s is being replaced with %s on machine-%s", oldProfileName, newProfileName, machine.Id())
+	}
+
+	return params.ProfileChangeResult{
+		OldProfileName: oldProfileName,
+		NewProfileName: newProfileName,
+		Profile:        profile,
+	}, nil
+}
+
+func (p *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(p.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetCharmProfiles(profiles)
+}
+
+func (p *ProvisionerAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Args))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Args {
+		results[i].Error = common.ServerError(p.oneUpgradeCharmProfileComplete(a.Entity.Tag, a.Message, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) oneUpgradeCharmProfileComplete(machineTag string, msg string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.SetUpgradeCharmProfileComplete(msg)
 }

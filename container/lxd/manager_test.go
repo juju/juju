@@ -594,3 +594,56 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", &put)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+	// Operation arrangements.
+	updateOp := lxdtesting.NewMockOperation(ctrl)
+	updateOp.EXPECT().Wait().Return(nil)
+	updateOp.EXPECT().Get().Return(lxdapi.Operation{Description: "Updating ontainer"})
+
+	instId := "testme"
+	old := "old-profile"
+	oldProfiles := []string{"default", "juju-default", old}
+	new := "new-profile"
+	newProfiles := []string{"default", "juju-default", new}
+	put := charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	}
+	post := lxdapi.ProfilesPost{
+		ProfilePut: lxdapi.ProfilePut(put),
+		Name:       new,
+	}
+	cExp := cSvr.EXPECT()
+	gomock.InOrder(
+		cExp.GetProfileNames().Return(oldProfiles, nil),
+		cExp.CreateProfile(post).Return(nil),
+		cExp.GetContainer(instId).Return(
+			&lxdapi.Container{
+				ContainerPut: lxdapi.ContainerPut{
+					Profiles: oldProfiles,
+				},
+			}, "", nil),
+		cExp.UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil),
+		cExp.DeleteProfile(old).Return(nil),
+		cExp.GetContainer(instId).Return(
+			&lxdapi.Container{
+				ContainerPut: lxdapi.ContainerPut{
+					Profiles: newProfiles,
+				},
+			}, "", nil),
+	)
+
+	mgr := s.makeManager(c, cSvr)
+	proMgr, ok := mgr.(container.LXDProfileManager)
+	c.Assert(ok, jc.IsTrue)
+
+	obtained, err := proMgr.ReplaceOrAddInstanceProfile(instId, old, new, &put)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, newProfiles)
+}

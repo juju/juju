@@ -168,6 +168,51 @@ func (s *Server) GetContainerProfiles(name string) ([]string, error) {
 	return container.Profiles, nil
 }
 
+// ReplaceOrAddContainerProfile updates the profiles for the container with the
+// input name, using the input values.
+func (s *Server) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
+	container, eTag, err := s.GetContainer(name)
+	if err != nil {
+		return errors.Trace(errors.Annotatef(err, "failed to get container %q", name))
+	}
+	profiles := addRemoveReplaceProfileName(container.Profiles, oldProfile, newProfile)
+
+	container.Profiles = profiles
+	resp, err := s.UpdateContainer(name, container.Writable(), eTag)
+	if err != nil {
+		return errors.Trace(errors.Annotatef(err, "failed to updated container %q", name))
+	}
+
+	op := resp.Get()
+	logger.Debugf("updated container, waiting on %s", op.Description)
+	err = resp.Wait()
+	if err != nil {
+		logger.Tracef("updating container failed on %q", err)
+	}
+	return errors.Trace(err)
+}
+
+func addRemoveReplaceProfileName(profiles []string, oldProfile, newProfile string) []string {
+	if oldProfile == "" {
+		// add profile
+		profiles = append(profiles, newProfile)
+	} else {
+		for i, pName := range profiles {
+			if pName == oldProfile {
+				if newProfile == "" {
+					// remove profile
+					profiles = append(profiles[:i], profiles[i+1:]...)
+				} else {
+					// replace profile
+					profiles[i] = newProfile
+				}
+				break
+			}
+		}
+	}
+	return profiles
+}
+
 // CreateClientCertificate adds the input certificate to the server,
 // indicating that is for use in client communication.
 func (s *Server) CreateClientCertificate(cert *Certificate) error {

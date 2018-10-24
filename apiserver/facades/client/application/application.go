@@ -721,25 +721,8 @@ func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) erro
 	//	}
 	//}
 
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ch, err := api.backend.Charm(curl)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	lxdCharm, ok := ch.(charm.LXDProfiler)
-	if !ok {
-		return nil
-	}
-	profile := lxdCharm.LXDProfile()
-	if profile == nil || profile.Empty() {
-		// TODO (hml) 3-oct-2018
-		// handle case of charm did have a profile and doesn't any longer.
-		return nil
-	}
+	// Don't verify the charm lxd profile, the watcher must be able to
+	// determine if a profile has been removed from the charm.
 
 	application, err := api.backend.Application(args.ApplicationName)
 	if err != nil {

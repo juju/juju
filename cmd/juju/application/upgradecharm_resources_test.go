@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmstore.v5"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cmd/juju/application"
@@ -49,11 +50,11 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Application("riak")
+	curl := charm.MustParseURL("local:quantal/riak-7")
+	riak, _ := s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	ch, forced, err := riak.Charm()
+	_, forced, err := riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
 }
 
@@ -210,8 +211,13 @@ Deploying charm "cs:trusty/starsay-1".`
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"starsay": {charm: "cs:trusty/starsay-1"},
 	})
-	_, err = s.State.Unit("starsay/0")
+
+	unit, err := s.State.Unit("starsay/0")
 	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
 
 	res, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)

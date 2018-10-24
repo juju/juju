@@ -160,6 +160,18 @@ func (mr *MockServerMockRecorder) DeleteCertificate(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCertificate", reflect.TypeOf((*MockServer)(nil).DeleteCertificate), arg0)
 }
 
+// DeleteProfile mocks base method
+func (m *MockServer) DeleteProfile(arg0 string) error {
+	ret := m.ctrl.Call(m, "DeleteProfile", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteProfile indicates an expected call of DeleteProfile
+func (mr *MockServerMockRecorder) DeleteProfile(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProfile", reflect.TypeOf((*MockServer)(nil).DeleteProfile), arg0)
+}
+
 // DeleteStoragePoolVolume mocks base method
 func (m *MockServer) DeleteStoragePoolVolume(arg0, arg1, arg2 string) error {
 	ret := m.ctrl.Call(m, "DeleteStoragePoolVolume", arg0, arg1, arg2)
@@ -458,6 +470,18 @@ func (m *MockServer) RemoveContainers(arg0 []string) error {
 // RemoveContainers indicates an expected call of RemoveContainers
 func (mr *MockServerMockRecorder) RemoveContainers(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveContainers", reflect.TypeOf((*MockServer)(nil).RemoveContainers), arg0)
+}
+
+// ReplaceOrAddContainerProfile mocks base method
+func (m *MockServer) ReplaceOrAddContainerProfile(arg0, arg1, arg2 string) error {
+	ret := m.ctrl.Call(m, "ReplaceOrAddContainerProfile", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceOrAddContainerProfile indicates an expected call of ReplaceOrAddContainerProfile
+func (mr *MockServerMockRecorder) ReplaceOrAddContainerProfile(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceOrAddContainerProfile", reflect.TypeOf((*MockServer)(nil).ReplaceOrAddContainerProfile), arg0, arg1, arg2)
 }
 
 // ServerCertificate mocks base method

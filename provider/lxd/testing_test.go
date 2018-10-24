@@ -533,9 +533,19 @@ func (conn *StubClient) GetContainerProfiles(name string) ([]string, error) {
 	}, conn.NextErr()
 }
 
+func (conn *StubClient) DeleteProfile(name string) error {
+	conn.AddCall("DeleteProfile", name)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
+}
+
+func (conn *StubClient) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
+	conn.AddCall("ReplaceOrAddContainerProfile", name, oldProfile, newProfile)
+	return conn.NextErr()
 }
 
 func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, ETag string) error {

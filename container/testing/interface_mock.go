@@ -125,3 +125,16 @@ func (m *MockTestLXDManager) Namespace() instance.Namespace {
 func (mr *MockTestLXDManagerMockRecorder) Namespace() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Namespace", reflect.TypeOf((*MockTestLXDManager)(nil).Namespace))
 }
+
+// ReplaceOrAddInstanceProfile mocks base method
+func (m *MockTestLXDManager) ReplaceOrAddInstanceProfile(arg0, arg1, arg2 string, arg3 *charm_v6.LXDProfile) ([]string, error) {
+	ret := m.ctrl.Call(m, "ReplaceOrAddInstanceProfile", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReplaceOrAddInstanceProfile indicates an expected call of ReplaceOrAddInstanceProfile
+func (mr *MockTestLXDManagerMockRecorder) ReplaceOrAddInstanceProfile(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceOrAddInstanceProfile", reflect.TypeOf((*MockTestLXDManager)(nil).ReplaceOrAddInstanceProfile), arg0, arg1, arg2, arg3)
+}

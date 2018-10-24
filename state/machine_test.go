@@ -144,6 +144,25 @@ func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
 	c.Assert(expectedProfiles, jc.SameContents, obtainedProfiles)
 }
 
+func (s *MachineSuite) TestSetUpgradeCharmProfile(c *gc.C) {
+	err := s.machine.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.UpgradeCharmProfileApplication(), gc.Equals, "app-name")
+	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, "local:quantal/riak-7")
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
+	err := s.machine.SetUpgradeCharmProfileComplete("success")
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
+}
+
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

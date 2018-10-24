@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/juju/names"
 )
 
@@ -77,11 +79,49 @@ type nameIndex struct {
 	Index int
 }
 
-func contains(a []string, b string) bool {
-	for _, v := range a {
-		if v == b {
-			return true
+// ProfileRevision returns an int which is the charm revision of the given
+// profile name.
+func ProfileRevision(profile string) (int, error) {
+	if !IsValidName(profile) {
+		return 0, errors.BadRequestf("not a juju profile name: %q", profile)
+	}
+	split := strings.Split(profile, "-")
+	rev := split[len(split)-1:]
+	return strconv.Atoi(rev[0])
+}
+
+// ProfileReplaceRevision replaces the old revision with a new revision
+// in the profile.
+func ProfileReplaceRevision(profile string, rev int) (string, error) {
+	if !IsValidName(profile) {
+		return "", errors.BadRequestf("not a juju profile name: %q", profile)
+	}
+	split := strings.Split(profile, "-")
+	notRev := split[:len(split)-1]
+	return strings.Join(append(notRev, strconv.Itoa(rev)), "-"), nil
+}
+
+// MatchProfileNameByApp returns the first profile which matches the provided
+// appName.  No match returns an empty string.
+// Assumes there is not more than one profile for the same application.
+func MatchProfileNameByAppName(names []string, appName string) (string, error) {
+	if appName == "" {
+		return "", errors.BadRequestf("no application name specified")
+	}
+	var foundProfile string
+	for _, p := range LXDProfileNames(names) {
+		rev, err := ProfileRevision(p)
+		if err != nil {
+			// "Shouldn't" happen since we used LXDProfileNames...
+			if errors.IsBadRequest(err) {
+				continue
+			}
+			return "", err
+		}
+		if strings.HasSuffix(p, fmt.Sprintf("-%s-%d", appName, rev)) {
+			foundProfile = p
+			break
 		}
 	}
-	return false
+	return foundProfile, nil
 }

@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	provisioner "github.com/juju/juju/api/provisioner"
 	params "github.com/juju/juju/apiserver/params"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
@@ -49,6 +50,19 @@ func (m *MockMachineProvisioner) AvailabilityZone() (string, error) {
 // AvailabilityZone indicates an expected call of AvailabilityZone
 func (mr *MockMachineProvisionerMockRecorder) AvailabilityZone() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockMachineProvisioner)(nil).AvailabilityZone))
+}
+
+// CharmProfileChangeInfo mocks base method
+func (m *MockMachineProvisioner) CharmProfileChangeInfo() (provisioner.CharmProfileChangeInfo, error) {
+	ret := m.ctrl.Call(m, "CharmProfileChangeInfo")
+	ret0, _ := ret[0].(provisioner.CharmProfileChangeInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CharmProfileChangeInfo indicates an expected call of CharmProfileChangeInfo
+func (mr *MockMachineProvisionerMockRecorder) CharmProfileChangeInfo() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfileChangeInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).CharmProfileChangeInfo))
 }
 
 // DistributionGroup mocks base method
@@ -227,6 +241,18 @@ func (mr *MockMachineProvisionerMockRecorder) Series() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachineProvisioner)(nil).Series))
 }
 
+// SetCharmProfiles mocks base method
+func (m *MockMachineProvisioner) SetCharmProfiles(arg0 []string) error {
+	ret := m.ctrl.Call(m, "SetCharmProfiles", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetCharmProfiles indicates an expected call of SetCharmProfiles
+func (mr *MockMachineProvisionerMockRecorder) SetCharmProfiles(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMachineProvisioner)(nil).SetCharmProfiles), arg0)
+}
+
 // SetInstanceInfo mocks base method
 func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.Id, arg1 string, arg2 *instance.HardwareCharacteristics, arg3 []params.NetworkConfig, arg4 []params.Volume, arg5 map[string]params.VolumeAttachmentInfo, arg6 []string) error {
 	ret := m.ctrl.Call(m, "SetInstanceInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
@@ -289,6 +315,18 @@ func (m *MockMachineProvisioner) SetSupportedContainers(arg0 ...instance.Contain
 // SetSupportedContainers indicates an expected call of SetSupportedContainers
 func (mr *MockMachineProvisionerMockRecorder) SetSupportedContainers(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSupportedContainers", reflect.TypeOf((*MockMachineProvisioner)(nil).SetSupportedContainers), arg0...)
+}
+
+// SetUpgradeCharmProfileComplete mocks base method
+func (m *MockMachineProvisioner) SetUpgradeCharmProfileComplete(arg0 string) error {
+	ret := m.ctrl.Call(m, "SetUpgradeCharmProfileComplete", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUpgradeCharmProfileComplete indicates an expected call of SetUpgradeCharmProfileComplete
+func (mr *MockMachineProvisionerMockRecorder) SetUpgradeCharmProfileComplete(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeCharmProfileComplete", reflect.TypeOf((*MockMachineProvisioner)(nil).SetUpgradeCharmProfileComplete), arg0)
 }
 
 // Status mocks base method
