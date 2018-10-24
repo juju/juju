@@ -2172,13 +2172,18 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 	return nil
 }
 
+// SetUpgradeCharmProfileOp returns a transaction for the machine to
+// trigger a change to its LXD Profile(s).
 func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
 	return txn.Op{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"life", Alive}},
-		Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecharmurl", chURL},
-			{"upgradecharmprofileapplication", appName}}}},
+		Update: bson.D{{"$set", bson.D{
+			{"upgradecharmprofilecharmurl", chURL},
+			{"upgradecharmprofileapplication", appName},
+			{"upgradecharmprofilecomplete", ""},
+		}}},
 	}
 }
 

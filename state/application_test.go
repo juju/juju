@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -27,6 +29,8 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -1929,6 +1933,66 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 		Status: status.Allocating,
 		Data:   map[string]interface{}{},
 	})
+}
+
+func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
+	m, _, subApp := s.assertCharmProfileSubordinate(c)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+
+	subCharm, _, err := subApp.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, m, subApp.Name(), subCharm.URL().String())
+}
+
+func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
+	m, profileApp, subApp := s.assertCharmProfileSubordinate(c)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+
+	err := profileApp.SetCharmProfile("string for testing")
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, m, profileApp.Name(), "string for testing")
+
+	err = subApp.SetCharmProfile("different string for testing")
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, m, subApp.Name(), "different string for testing")
+}
+
+func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machine, *state.Application, *state.Application) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	profileCharm := s.AddTestingCharm(c, "lxd-profile")
+	profileApp := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+
+	unitZero, err := profileApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unitZero.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subCharm := s.AddTestingCharm(c, "lxd-profile-subordinate")
+	subApp := s.AddTestingApplication(c, "lxd-profile-subordinate", subCharm)
+
+	eps, err := s.State.InferEndpoints("lxd-profile", "lxd-profile-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unitZero)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return m, profileApp, subApp
+}
+
+func assertUpgradeCharmProfile(c *gc.C, m *state.Machine, appName, charmURL string) {
+	err := m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.UpgradeCharmProfileApplication(), gc.Equals, appName)
+	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, charmURL)
 }
 
 func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
