@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 // PoolCommandBase is a helper base structure for pool commands.
@@ -99,6 +100,14 @@ func (c *poolListCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer api.Close()
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS {
+		// always filter storage pools for CAAS model by kubernetes provider.
+		c.Providers = append(c.Providers, "kubernetes")
+	}
 	result, err := api.ListPools(c.Providers, c.Names)
 	if err != nil {
 		return err
