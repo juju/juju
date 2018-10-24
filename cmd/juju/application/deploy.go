@@ -387,8 +387,8 @@ type DeployCommand struct {
 }
 
 const deployDoc = `
-A charm can be referred to by its simple name and can optionally specify a
-series:
+A charm can be referred to by its simple name and a series can optionally be
+specified:
 
   juju deploy postgresql
   juju deploy xenial/postgresql
@@ -402,7 +402,7 @@ by 'cs') and therefore also make use of "charm URLs".
 A versioned charm URL will be expanded as expected. For example, 'mysql-56'
 becomes 'cs:xenial/mysql-56'.
 
-A local charm may be deployed by specifying the path to its directory:
+A local charm may be deployed by giving the path to its directory:
 
   juju deploy /path/to/charm
   juju deploy /path/to/charm --series xenial
@@ -418,7 +418,7 @@ the '--force' option to override this check:
 
   juju deploy charm --series xenial --force
 
-A bundle can be expressed similarly, but not by series:
+A bundle can be expressed similarly to a charm, but not by series:
 
   juju deploy mediawiki-single
   juju deploy bundle/mediawiki-single
@@ -433,22 +433,17 @@ preferred to least):
 
  - the '--series' command option
  - the series stated in the charm URL
- - for a bundle, the series stated in each charm URL (of the bundle file)
- - for a bundle, the series given at the top level (of the bundle file)
+ - for a bundle, the series stated in each charm URL (in the bundle file)
+ - for a bundle, the series given at the top level (in the bundle file)
  - the 'default-series' model key
  - the top-most series specified in the charm's metadata file
    (this sets the charm's 'preferred series' in the Charm Store)
 
-When charms that include LXD profiles are deployed the profiles are validated
-for security purposes by allowing only certain configurations and devices. Use
-the '--force' option to bypass this check. Doing so is not recommended as it
-can lead to unexpected behaviour.
-
 An 'application name' provides an alternate name for the application. It works
-only for charms; it is silently ignored for bundles. Such a name must consist
-only of lower-case letters (a-z), numbers (0-9), and single hyphens (-). The
-name must begin with a letter and not have a group of all numbers follow a
-hyphen:
+only for charms; it is silently ignored for bundles (although the same can be
+done at the bundle file level). Such a name must consist only of lower-case
+letters (a-z), numbers (0-9), and single hyphens (-). The name must begin with
+a letter and not have a group of all numbers follow a hyphen:
 
   Valid:   myappname, custom-app, app2-scat-23skidoo
   Invalid: myAppName, custom--app, app2-scat-23, areacode-555-info
@@ -546,6 +541,11 @@ bundle.
 
 Only top level machines can be mapped in this way, just as only top level
 machines can be defined in the machines section of the bundle.
+
+When charms that include LXD profiles are deployed the profiles are validated
+for security purposes by allowing only certain configurations and devices. Use
+the '--force' option to bypass this check. Doing so is not recommended as it
+can lead to unexpected behaviour.
 
 Further reading: https://docs.jujucharms.com/stable/charms-deploying
 
