@@ -397,8 +397,8 @@ available):
 
 The second and third forms are using charm URLs.
 
-A versioned charm URL will be expanded as expected. For example, 'mysql-33'
-becomes 'cs:xenial/mysql-33'.
+A versioned charm URL will be expanded as expected. For example, 'mysql-56'
+becomes 'cs:xenial/mysql-56'.
 
 A bundle can be expressed similarly, but not by series:
 
@@ -414,30 +414,31 @@ A local bundle may be deployed by specifying the path to its YAML file:
 
   juju deploy /path/to/bundle.yaml
 
-A series is determined in this order of precedence (most preferred to least):
+A series is determined using an order of precedence (most preferred to least):
 
- 1. the '--series' deploy command option
- 2. the series stated in the charm URL
- 3. for a bundle, the 'series' field in the charm spec
- 4. for a bundle, the 'series' field at top level of bundle file
- 5. the 'default-series' model key
- 6. the top-most series specified in the charm's metadata file
-    (this sets the charm's 'preferred series' in the Charm Store)
+ - the '--series' command option
+ - the series stated in the charm URL
+ - for a bundle, the series stated in each charm URL (of the bundle file)
+ - for a bundle, the series given at the top level (of the bundle file)
+ - the 'default-series' model key
+ - the top-most series specified in the charm's metadata file
+   (this sets the charm's 'preferred series' in the Charm Store)
  
-If the determined series is not supported by the charm an error is emitted. The
-'--force' option can be used to override this check:
+An error is emitted if the determined series is not supported by the charm. Use
+the '--force' option to override this check:
 
   juju deploy charm --series xenial --force
 
 When charms that include LXD profiles are deployed the profiles are validated
-using a hardcoded allow/deny list. This check can be bypassed with the use of
-the '--force' option. However, doing so is not recommended as it can lead to
-unexpected behaviour.
+for security purposes by allowing only certain configurations and devices. Use
+the '--force' option to bypass this check. Doing so is not recommended as it
+can lead to unexpected behaviour.
 
-If an 'application name' is not provided, the application name used is the charm
-or bundle name. A user-supplied 'application name' must consist only of
-lower-case letters (a-z), numbers (0-9), and single hyphens (-). The name must
-begin with a letter and not have a group of all numbers follow a hyphen:
+An 'application name' provides an alternate name for the application. It works
+only for charms; it is silently ignored for bundles. Such a name must consist
+only of lower-case letters (a-z), numbers (0-9), and single hyphens (-). The
+name must begin with a letter and not have a group of all numbers follow a
+hyphen:
 
   Valid:   myappname, custom-app, app2-scat-23skidoo
   Invalid: myAppName, custom--app, app2-scat-23, areacode-555-info
