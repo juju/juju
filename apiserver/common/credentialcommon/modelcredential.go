@@ -18,7 +18,7 @@ import (
 )
 
 // ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
-func ValidateExistingModelCredential(backend PersistedBackend, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
 	model, err := backend.Model()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -42,7 +42,7 @@ func ValidateExistingModelCredential(backend PersistedBackend, callCtx context.P
 }
 
 // ValidateNewModelCredential checks if a new cloud credential could be valid for a given model.
-func ValidateNewModelCredential(backend PersistedBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
+func ValidateNewModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
 	openParams, err := buildOpenParams(backend, credentialTag, credential)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -74,7 +74,7 @@ func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorRes
 	return params.ErrorResults{}, nil
 }
 
-func checkIAASModelCredential(openParams environs.OpenParams, backend PersistedBackend, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+func checkIAASModelCredential(openParams environs.OpenParams, backend PersistentBackend, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
 	env, err := newEnv(openParams)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -89,7 +89,7 @@ func checkIAASModelCredential(openParams environs.OpenParams, backend PersistedB
 // checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 // This only makes sense for non-k8s providers.
-func checkMachineInstances(backend PersistedBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+func checkMachineInstances(backend PersistentBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
 	fail := func(original error) (params.ErrorResults, error) {
 		return params.ErrorResults{}, original
 	}
@@ -155,7 +155,7 @@ var (
 	newCAASBroker = caas.New
 )
 
-func buildOpenParams(backend PersistedBackend, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (environs.OpenParams, error) {
+func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
 	}

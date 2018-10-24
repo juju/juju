@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// PersistedBackend defines persisted entities that are accessed
+// PersistentBackend defines persisted entities that are accessed
 // during credential validity check.
-type PersistedBackend interface {
+type PersistentBackend interface {
 	// Model returns the model entity.
 	Model() (Model, error)
 
@@ -78,12 +78,12 @@ type stateShim struct {
 	*state.State
 }
 
-// NewPersistedBackend creates a credential validity backend to use, based on state.State.
-func NewPersistedBackend(p *state.State) PersistedBackend {
+// NewPersistentBackend creates a credential validity backend to use, based on state.State.
+func NewPersistentBackend(p *state.State) PersistentBackend {
 	return stateShim{p}
 }
 
-// AllMachines implements PersistedBackend.AllMachines.
+// AllMachines implements PersistentBackend.AllMachines.
 func (st stateShim) AllMachines() ([]Machine, error) {
 	machines, err := st.State.AllMachines()
 	if err != nil {
@@ -96,7 +96,7 @@ func (st stateShim) AllMachines() ([]Machine, error) {
 	return result, nil
 }
 
-// Model implements PersistedBackend.Model.
+// Model implements PersistentBackend.Model.
 func (st stateShim) Model() (Model, error) {
 	m, err := st.State.Model()
 	return m, err

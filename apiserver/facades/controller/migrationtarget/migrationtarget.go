@@ -268,7 +268,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	defer st.Release()
 
 	return credentialcommon.ValidateExistingModelCredential(
-		credentialcommon.NewPersistedBackend(st.State),
+		credentialcommon.NewPersistentBackend(st.State),
 		api.callContext,
 	)
 }
