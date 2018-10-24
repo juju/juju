@@ -27,20 +27,11 @@ type API struct {
 }
 
 func NewAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	mod, err := st.Model()
+	leadership, err := common.NewLeadershipPinningFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	pinner, err := ctx.LeadershipPinner(mod.UUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	leadership, err := common.NewLeadershipPinningAPI(mod.ModelTag(), pinner, ctx.Auth())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: st}, ctx.Resources(), ctx.Auth(), leadership)
+	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the

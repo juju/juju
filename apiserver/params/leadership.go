@@ -83,3 +83,12 @@ type PinLeadershipParams struct {
 	// be pinned or unpinned.
 	ApplicationTag string `json:"application-tag"`
 }
+
+type PinApplicationsResults struct {
+	Results []PinApplicationResult `json:"results"`
+}
+
+type PinApplicationResult struct {
+	ApplicationTag string `json:"application-tag"`
+	Error          *Error `json:"error,omitempty"`
+}

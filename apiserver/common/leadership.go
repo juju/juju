@@ -10,13 +10,43 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
+
+//go:generate mockgen -package mocks -destination mocks/leadership.go github.com/juju/juju/apiserver/common LeadershipPinningBackend,LeadershipMachine
+
+// LeadershipMachine is an indirection for state.machine.
+type LeadershipMachine interface {
+	ApplicationNames() ([]string, error)
+}
+
+type leadershipMachine struct {
+	*state.Machine
+}
+
+// LeadershipPinningBacked describes state method wrappers used by this API.
+type LeadershipPinningBackend interface {
+	Machine(string) (LeadershipMachine, error)
+}
+
+type leadershipPinningBackend struct {
+	*state.State
+}
+
+// Machine wraps state.Machine to return an implementation
+// of the LeadershipMachine indirection.
+func (s leadershipPinningBackend) Machine(name string) (LeadershipMachine, error) {
+	m, err := s.State.Machine(name)
+	if err != nil {
+		return nil, err
+	}
+	return leadershipMachine{m}, nil
+}
 
 // API exposes leadership pinning and unpinning functionality for remote use.
 type LeadershipPinningAPI interface {
-	PinLeadership(params params.PinLeadershipBulkParams) (params.ErrorResults, error)
-	UnpinLeadership(params params.PinLeadershipBulkParams) (params.ErrorResults, error)
+	PinMachineApplications() (params.PinApplicationsResults, error)
+	UnpinMachineApplications() (params.PinApplicationsResults, error)
 }
 
 // NewLeadershipPinningFacade creates and returns a new leadership API.
@@ -31,83 +61,71 @@ func NewLeadershipPinningFacade(ctx facade.Context) (LeadershipPinningAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewLeadershipPinningAPI(model.ModelTag(), pinner, ctx.Auth())
+	return NewLeadershipPinningAPI(leadershipPinningBackend{st}, model.ModelTag(), pinner, ctx.Auth())
 }
 
 // NewLeadershipPinningAPI creates and returns a new leadership API from the
 // input tag, Pinner implementation and facade Authorizer.
 func NewLeadershipPinningAPI(
-	modelTag names.ModelTag, pinner leadership.Pinner, authorizer facade.Authorizer,
+	st LeadershipPinningBackend, modelTag names.ModelTag, pinner leadership.Pinner, authorizer facade.Authorizer,
 ) (LeadershipPinningAPI, error) {
-	return &leadershipAPI{
+	return &leadershipPinningAPI{
+		st:         st,
 		modelTag:   modelTag,
 		pinner:     pinner,
 		authorizer: authorizer,
 	}, nil
 }
 
-type leadershipAPI struct {
+type leadershipPinningAPI struct {
+	st         LeadershipPinningBackend
 	modelTag   names.ModelTag
 	pinner     leadership.Pinner
 	authorizer facade.Authorizer
 }
 
-// PinLeadership (API) pins the leadership for applications indicated in the
-// input arguments.
-func (a *leadershipAPI) PinLeadership(param params.PinLeadershipBulkParams) (params.ErrorResults, error) {
-	entity := a.authorizer.GetAuthTag()
-	if err := a.checkAccess(entity, permission.WriteAccess); err != nil {
-		return params.ErrorResults{}, err
+// PinMachineApplications pins leadership for applications represented by units
+// running on the auth'd machine.
+func (a *leadershipPinningAPI) PinMachineApplications() (params.PinApplicationsResults, error) {
+	if !a.authorizer.AuthMachineAgent() {
+		return params.PinApplicationsResults{}, ErrPerm
 	}
-
-	return a.pinOps(a.pinner.PinLeadership, param, entity), nil
+	return a.pinMachineAppsOps(a.pinner.PinLeadership)
 }
 
-// PinLeadership (API) unpins the leadership for applications indicated in the
-// input arguments.
-func (a *leadershipAPI) UnpinLeadership(param params.PinLeadershipBulkParams) (params.ErrorResults, error) {
-	entity := a.authorizer.GetAuthTag()
-	if err := a.checkAccess(entity, permission.WriteAccess); err != nil {
-		return params.ErrorResults{}, err
+// UnpinMachineApplications unpins leadership for applications represented by
+// units running on the auth'd machine.
+func (a *leadershipPinningAPI) UnpinMachineApplications() (params.PinApplicationsResults, error) {
+	if !a.authorizer.AuthMachineAgent() {
+		return params.PinApplicationsResults{}, ErrPerm
 	}
-
-	return a.pinOps(a.pinner.UnpinLeadership, param, entity), nil
+	return a.pinMachineAppsOps(a.pinner.UnpinLeadership)
 }
 
-// TODO (manadart 2018-10-19): Querying for pins,
-// which will use permission.WriteAccess
+// pinMachineAppsOps runs the input pin/unpin operation against all
+// applications represented by units on the authorised machine.
+// An assumption is made that the validity of the auth tag has been verified
+// by the caller.
+func (a *leadershipPinningAPI) pinMachineAppsOps(op func(string, names.Tag) error) (params.PinApplicationsResults, error) {
+	tag := a.authorizer.GetAuthTag()
 
-func (a *leadershipAPI) pinOps(
-	op func(string, names.Tag) error, param params.PinLeadershipBulkParams, entity names.Tag,
-) params.ErrorResults {
-	results := make([]params.ErrorResult, len(param.Params))
-	for i, p := range param.Params {
-		appTag, err := names.ParseApplicationTag(p.ApplicationTag)
-		if err != nil {
-			results[i] = params.ErrorResult{Error: ServerError(err)}
-			continue
+	m, err := a.st.Machine(tag.Id())
+	if err != nil {
+		return params.PinApplicationsResults{}, errors.Trace(err)
+	}
+	apps, err := m.ApplicationNames()
+	if err != nil {
+		return params.PinApplicationsResults{}, errors.Trace(err)
+	}
+
+	results := make([]params.PinApplicationResult, len(apps))
+	for i, app := range apps {
+		results[i] = params.PinApplicationResult{
+			ApplicationTag: names.NewApplicationTag(app).String(),
 		}
-		if err = op(appTag.Id(), entity); err != nil {
-			results[i] = params.ErrorResult{Error: ServerError(err)}
+		if err := op(app, tag); err != nil {
+			results[i].Error = ServerError(err)
 		}
 	}
-	return params.ErrorResults{Results: results}
-}
-
-func (a *leadershipAPI) checkAccess(entity names.Tag, access permission.Access) error {
-	switch entity.Kind() {
-	case names.MachineTagKind, names.ApplicationTagKind, names.ModelTagKind:
-		return nil
-	case names.UserTagKind:
-		canAccess, err := a.authorizer.HasPermission(access, a.modelTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !canAccess {
-			return ErrPerm
-		}
-		return nil
-	default:
-		return ErrPerm
-	}
+	return params.PinApplicationsResults{Results: results}, nil
 }
