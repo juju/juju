@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -93,13 +92,10 @@ type upgradeSeriesWorker struct {
 	preparedUnits  []names.UnitTag
 	completedUnits []names.UnitTag
 
-	// This state is retained because we need to ensure that leaders are pinned
-	// only once if possible, on the first transition to UpgradeSeriesPrepare
-	// started. However there is nothing in the upgrade-series lock or workflow
-	// that denotes this as a discrete step.
-	// The only case where we will have multiple pin requests is if the worker
-	// restarts while still in the prepare-started state.
-	// This is not of too much concern, as the pin operations are idempotent.
+	// Ensure that leaders are pinned only once if possible,
+	// on the first transition to UpgradeSeriesPrepareStarted.
+	// However repeated pin calls are not of too much concern,
+	// as the pin operations are idempotent.
 	leadersPinned bool
 }
 
@@ -341,16 +337,11 @@ func (w *upgradeSeriesWorker) compareUnitAgentServices(units []names.UnitTag) (m
 	return unitServices, true, nil
 }
 
-// unpinLeaders pins leadership for applications based on unit agent services
-// running on the machine.
+// pinLeaders pins leadership for applications
+// represented by units running on this machine.
 func (w *upgradeSeriesWorker) pinLeaders() (err error) {
-	apps, err := w.applications()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// if we encounter an error from here on,
-	// attempt to reverse any completed leader pinning.
+	// if we encounter an error,
+	// attempt to ensure that no application leaders remain pinned.
 	defer func() {
 		if err != nil {
 			if unpinErr := w.unpinLeaders(); unpinErr != nil {
@@ -358,57 +349,52 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 			}
 		}
 	}()
-	for _, app := range apps {
-		if err := w.PinLeadership(app); err != nil {
-			return errors.Trace(err)
-		}
-		w.logger.Infof("pinned leader for application %q", app)
-	}
 
-	w.leadersPinned = true
-	return nil
-}
-
-// unpinLeaders unpins leadership for applications based on unit agent services
-// running on the machine.
-func (w *upgradeSeriesWorker) unpinLeaders() error {
-	apps, err := w.applications()
+	results, err := w.PinMachineApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// We attempt to unpin for all applications,
-	// returning only the last error.
-	for _, app := range apps {
-		err = w.UnpinLeadership(app)
+	var lastErr error
+	for appTag, err := range results {
 		if err == nil {
-			w.logger.Infof("unpinned leader for application %q", app)
+			w.logger.Infof("unpin leader for application %q", appTag.Id())
+			continue
 		}
+		w.logger.Errorf("failed to pin leader for application %q: %s", appTag.Id(), err.Error())
+		lastErr = err
 	}
 
-	if err == nil {
-		w.leadersPinned = false
+	if lastErr == nil {
+		w.leadersPinned = true
+		return nil
 	}
-	return errors.Trace(err)
+	return errors.Trace(lastErr)
 }
 
-// applications returns a collection of application names from the
-// unit agent services running on the machine.
-func (w *upgradeSeriesWorker) applications() ([]string, error) {
-	units, err := w.unitServices()
+// unpinLeaders unpins leadership for applications
+// represented by units running on this machine.
+func (w *upgradeSeriesWorker) unpinLeaders() error {
+	results, err := w.UnpinMachineApplications()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	apps := set.NewStrings()
-	for u := range units {
-		app, err := names.UnitApplication(u)
-		if err != nil {
-			return nil, errors.Trace(err)
+	var lastErr error
+	for appTag, err := range results {
+		if err == nil {
+			w.logger.Infof("unpinned leader for application %q", appTag.Id())
+			continue
 		}
-		apps.Add(app)
+		w.logger.Errorf("failed to unpin leader for application %q: %s", appTag.Id(), err.Error())
+		lastErr = err
 	}
-	return apps.SortedValues(), nil
+
+	if lastErr == nil {
+		w.leadersPinned = false
+		return nil
+	}
+	return errors.Trace(lastErr)
 }
 
 // Unit services returns a map of unit agent service names,

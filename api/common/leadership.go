@@ -36,38 +36,47 @@ func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinn
 	}
 }
 
-// PinLeadership (leadership.Pinner) sends a request to the API server to pin
-// leadership for the input application on behalf of the input entity.
-func (l *LeadershipPinningAPI) PinLeadership(appName string) error {
-	return errors.Trace(l.pinOp("PinLeadership", appName))
+// PinMachineApplications pins leadership for applications represented by units
+// running on the local machine.
+// If the caller is not a machine agent, an error will be returned.
+// The return is a collection of applications determined to be running on the
+// machine, with the result of each individual pin operation.
+func (a *LeadershipPinningAPI) PinMachineApplications() (map[names.ApplicationTag]error, error) {
+	res, err := a.pinMachineAppsOps("PinMachineApplications")
+	return res, errors.Trace(err)
 }
 
-// UnpinLeadership (leadership.Pinner) sends a request to the API server to
-// unpin leadership for the input application on behalf of the input entity.
-func (l *LeadershipPinningAPI) UnpinLeadership(appName string) error {
-	return errors.Trace(l.pinOp("UnpinLeadership", appName))
+// UnpinMachineApplications pins leadership for applications represented by
+// units running on the local machine.
+// If the caller is not a machine agent, an error will be returned.
+// The return is a collection of applications determined to be running on the
+// machine, with the result of each individual unpin operation.
+func (a *LeadershipPinningAPI) UnpinMachineApplications() (map[names.ApplicationTag]error, error) {
+	res, err := a.pinMachineAppsOps("UnpinMachineApplications")
+	return res, errors.Trace(err)
 }
 
-// pinOp makes the appropriate facade call for leadership pinning manipulations
-// based on the input application and method name.
-func (l *LeadershipPinningAPI) pinOp(callName, appName string) error {
-	arg := params.PinLeadershipBulkParams{
-		Params: []params.PinLeadershipParams{{
-			ApplicationTag: names.NewApplicationTag(appName).String(),
-		}},
-	}
-	var results params.ErrorResults
-	err := l.facade.FacadeCall(callName, arg, &results)
+// pinMachineAppsOps makes a facade call to the input method name and
+// transforms the response into map.
+func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[names.ApplicationTag]error, error) {
+	var callResult params.PinApplicationsResults
+	err := a.facade.FacadeCall(callName, nil, &callResult)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	callResults := callResult.Results
+	result := make(map[names.ApplicationTag]error, len(callResults))
+	for _, res := range callResults {
+		var appErr error
+		if res.Error != nil {
+			appErr = res.Error
+		}
+		tag, err := names.ParseApplicationTag(res.ApplicationTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result[tag] = appErr
 	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
+	return result, nil
 }

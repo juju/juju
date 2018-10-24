@@ -272,12 +272,13 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 	s.patchHost("xenial")
 
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
-	s.facade.EXPECT().FinishUpgradeSeries("xenial").Return(nil)
-
-	s.expectServiceDiscovery(false)
-	s.facade.EXPECT().UnpinLeadership("mysql").Return(nil)
-	s.facade.EXPECT().UnpinLeadership("wordpress").Return(nil)
+	exp := s.facade.EXPECT()
+	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
+	exp.FinishUpgradeSeries("xenial").Return(nil)
+	exp.UnpinMachineApplications().Return(map[names.ApplicationTag]error{
+		names.NewApplicationTag("mysql"):     nil,
+		names.NewApplicationTag("wordpress"): nil,
+	}, nil)
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -331,9 +332,10 @@ func (s *workerSuite) expectUnitsPrepared(units ...string) {
 // often be in the Test... method instead of its partner expectation
 // method.
 func (s *workerSuite) expectPinLeadership() {
-	s.expectServiceDiscovery(false)
-	s.facade.EXPECT().PinLeadership("mysql").Return(nil)
-	s.facade.EXPECT().PinLeadership("wordpress").Return(nil).AnyTimes()
+	s.facade.EXPECT().PinMachineApplications().Return(map[names.ApplicationTag]error{
+		names.NewApplicationTag("mysql"):     nil,
+		names.NewApplicationTag("wordpress"): nil,
+	}, nil)
 }
 
 // expectServiceDiscovery is a convenience method for expectations that mimic

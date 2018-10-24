@@ -61,16 +61,17 @@ func (mr *MockFacadeMockRecorder) MachineStatus() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineStatus", reflect.TypeOf((*MockFacade)(nil).MachineStatus))
 }
 
-// PinLeadership mocks base method
-func (m *MockFacade) PinLeadership(arg0 string) error {
-	ret := m.ctrl.Call(m, "PinLeadership", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+// PinMachineApplications mocks base method
+func (m *MockFacade) PinMachineApplications() (map[names_v2.ApplicationTag]error, error) {
+	ret := m.ctrl.Call(m, "PinMachineApplications")
+	ret0, _ := ret[0].(map[names_v2.ApplicationTag]error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// PinLeadership indicates an expected call of PinLeadership
-func (mr *MockFacadeMockRecorder) PinLeadership(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinLeadership", reflect.TypeOf((*MockFacade)(nil).PinLeadership), arg0)
+// PinMachineApplications indicates an expected call of PinMachineApplications
+func (mr *MockFacadeMockRecorder) PinMachineApplications() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinMachineApplications", reflect.TypeOf((*MockFacade)(nil).PinMachineApplications))
 }
 
 // SetMachineStatus mocks base method
@@ -136,16 +137,17 @@ func (mr *MockFacadeMockRecorder) UnitsPrepared() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared))
 }
 
-// UnpinLeadership mocks base method
-func (m *MockFacade) UnpinLeadership(arg0 string) error {
-	ret := m.ctrl.Call(m, "UnpinLeadership", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+// UnpinMachineApplications mocks base method
+func (m *MockFacade) UnpinMachineApplications() (map[names_v2.ApplicationTag]error, error) {
+	ret := m.ctrl.Call(m, "UnpinMachineApplications")
+	ret0, _ := ret[0].(map[names_v2.ApplicationTag]error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// UnpinLeadership indicates an expected call of UnpinLeadership
-func (mr *MockFacadeMockRecorder) UnpinLeadership(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinLeadership", reflect.TypeOf((*MockFacade)(nil).UnpinLeadership), arg0)
+// UnpinMachineApplications indicates an expected call of UnpinMachineApplications
+func (mr *MockFacadeMockRecorder) UnpinMachineApplications() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinMachineApplications", reflect.TypeOf((*MockFacade)(nil).UnpinMachineApplications))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method
