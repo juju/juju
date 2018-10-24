@@ -259,6 +259,8 @@ $ git checkout -b new_feature
 Testing
 -------
 
+Some of `juju` tests may require local lxd to be installed, see [installing lxd via snap](https://stgraber.org/2016/10/17/lxd-snap-available/).  
+
 `juju` uses the `gocheck` testing framework. `gocheck` is automatically
 installed as a dependency of `juju`. You can read more about `gocheck`
 at http://godoc.org/gopkg.in/check.v1. `gocheck` is integrated
