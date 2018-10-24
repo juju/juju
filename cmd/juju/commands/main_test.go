@@ -432,6 +432,7 @@ var commandNames = []string{
 	"destroy-controller",
 	"destroy-model",
 	"detach-storage",
+	"diff-bundle",
 	"disable-command",
 	"disable-user",
 	"disabled-commands",

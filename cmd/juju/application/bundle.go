@@ -61,7 +61,7 @@ type deploymentLogger interface {
 // data struct.
 func composeBundle(data *charm.BundleData, ctx *cmd.Context, bundleDir string, overlayFileNames []string) error {
 	if err := processBundleOverlay(data, overlayFileNames...); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "unable to process overlays")
 	}
 	if bundleDir == "" {
 		bundleDir = ctx.Dir
@@ -99,10 +99,7 @@ func verifyBundle(data *charm.BundleData, bundleDir string) error {
 		}
 		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
 	}
-	if verifyError != nil {
-		return errors.Trace(verifyError)
-	}
-	return nil
+	return errors.Trace(verifyError)
 }
 
 // deployBundle deploys the given bundle data using the given API client and

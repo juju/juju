@@ -10,8 +10,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/loggo"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -30,8 +28,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
-
-var logger = loggo.GetLogger("xtian")
 
 type diffSuite struct {
 	jujutesting.IsolationSuite

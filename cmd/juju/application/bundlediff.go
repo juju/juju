@@ -33,6 +33,7 @@ existing is always assumed, so it doesn't need to be specified.
 Examples:
     juju diff-bundle localbundle.yaml
     juju diff-bundle canonical-kubernetes
+    juju diff-bundle -m othermodel hadoop-spark
     juju diff-bundle mongodb-cluster --channel beta
     juju diff-bundle canonical-kubernetes --overlay local-config.yaml --overlay extra.yaml
     juju diff-bundle localbundle.yaml --map-machines 3=4
@@ -75,7 +76,7 @@ func (c *bundleDiffCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "diff-bundle",
 		Args:    "<bundle file or name>",
-		Purpose: "Compare a bundle against a model and report any differences.",
+		Purpose: "Compare a bundle with a model and report any differences.",
 		Doc:     bundleDiffDoc,
 	}
 }
@@ -160,7 +161,9 @@ func (c *bundleDiffCommand) newAPIRoot() (base.APICallCloser, error) {
 
 func (c *bundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot base.APICallCloser) (*charm.BundleData, string, error) {
 	bundleData, bundleDir, err := readLocalBundle(ctx, c.bundle)
-	if err != nil {
+	// NotValid means we should try interpreting it as a charm store
+	// bundle URL.
+	if err != nil && !errors.IsNotValid(err) {
 		return nil, "", errors.Trace(err)
 	}
 	if bundleData != nil {
@@ -175,7 +178,7 @@ func (c *bundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot base.APICallClo
 	bundleURL, _, err := resolveBundleURL(
 		modelconfig.NewClient(apiRoot), charmStore, c.bundle,
 	)
-	if err != nil {
+	if err != nil && !errors.IsNotValid(err) {
 		return nil, "", errors.Trace(err)
 	}
 	if bundleURL == nil {

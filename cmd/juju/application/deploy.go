@@ -1193,7 +1193,7 @@ func readLocalBundle(ctx *cmd.Context, bundleFile string) (*charm.BundleData, st
 		}
 
 		logger.Debugf("cannot interpret as local bundle: %v", err)
-		return nil, "", nil
+		return nil, "", errors.NotValidf("local bundle %q", bundleFile)
 	}
 	bundleData = bundle.Data()
 
@@ -1219,11 +1219,14 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			bundleFile,
 		)
 	}
+	if errors.IsNotValid(err) {
+		// No problem reading it, but it's not a local bundle. Return
+		// nil, nil to indicate the fallback pipeline should try the
+		// next possibility.
+		return nil, nil
+	}
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot deploy bundle")
-	}
-	if bundleData == nil {
-		return nil, nil
 	}
 	if err := c.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
@@ -1364,7 +1367,7 @@ func resolveBundleURL(getter ModelConfigGetter, store URLResolver, maybeBundle s
 			`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
 			storeCharmOrBundleURL.Series,
 		)
-		return nil, "", nil
+		return nil, "", errors.NotValidf("charmstore bundle %q", maybeBundle)
 	}
 	return storeCharmOrBundleURL, channel, nil
 }
@@ -1374,12 +1377,13 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 		bundleURL, channel, err := resolveBundleURL(apiRoot, apiRoot, c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-		} else if err != nil {
-			return nil, errors.Trace(err)
 		}
-		if bundleURL == nil {
+		if errors.IsNotValid(err) {
 			// The URL resolved alright, but not to a bundle.
 			return nil, nil
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		if err := c.validateBundleFlags(); err != nil {
 			return nil, errors.Trace(err)
