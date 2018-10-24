@@ -872,6 +872,7 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 	if d.opts.certPool == nil {
 		tlsConfig.ServerName = d.serverName
 	}
+	logger.Tracef("dialing: %q %v", d.urlStr, d.ipAddr)
 	conn, err := d.opts.DialWebsocket(d.ctx, d.urlStr, tlsConfig, d.ipAddr)
 	if err == nil {
 		logger.Debugf("successfully dialed %q", d.urlStr)

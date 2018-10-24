@@ -165,8 +165,8 @@ func dependencyEngineConfig() dependency.EngineConfig {
 		WorstError:    util.MoreImportantError,
 		ErrorDelay:    3 * time.Second,
 		BounceDelay:   10 * time.Millisecond,
-		BackoffFactor: 1.5,
-		MaxDelay:      5 * time.Minute,
+		BackoffFactor: 1.2,
+		MaxDelay:      2 * time.Minute,
 		Clock:         clock.WallClock,
 		Logger:        loggo.GetLogger("juju.worker.dependency"),
 	}
