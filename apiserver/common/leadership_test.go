@@ -24,7 +24,7 @@ type LeadershipSuite struct {
 
 	pinner *mocks.MockPinner
 	tag    names.Tag
-	api    common.LeadershipAPI
+	api    common.LeadershipPinningAPI
 }
 
 var _ = gc.Suite(&LeadershipSuite{})
@@ -127,7 +127,7 @@ func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 	}
 
 	var err error
-	s.api, err = common.NewLeadershipAPI(
+	s.api, err = common.NewLeadershipPinningAPI(
 		names.NewModelTag(utils.MustNewUUID().String()),
 		s.pinner,
 		&apiservertesting.FakeAuthorizer{Tag: s.tag},

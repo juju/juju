@@ -13,44 +13,44 @@ import (
 
 const leadershipFacade = "LeadershipPinning"
 
-// Client provides common client-side API functions
-// for manipulating and querying application leadership.
-type LeadershipAPI struct {
+// LeadershipPinningAPI provides common client-side API functions
+// for manipulating and querying application leadership pinning.
+type LeadershipPinningAPI struct {
 	facade base.FacadeCaller
 }
 
-// NewClient creates and returns a new leadership API client.
-func NewLeadershipAPI(caller base.APICaller) *LeadershipAPI {
+// NewLeadershipPinningAPI creates and returns a new leadership API client.
+func NewLeadershipPinningAPI(caller base.APICaller) *LeadershipPinningAPI {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		leadershipFacade,
 	)
-	return NewLeadershipAPIFromFacade(facadeCaller)
+	return NewLeadershipPinningAPIFromFacade(facadeCaller)
 }
 
-// NewClientFromFacades creates and returns a new leadership API client based
-// on the input client facade and facade caller.
-func NewLeadershipAPIFromFacade(facade base.FacadeCaller) *LeadershipAPI {
-	return &LeadershipAPI{
+// NewLeadershipPinningAPIFromFacade creates and returns a new leadership API
+// client based on the input client facade and facade caller.
+func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinningAPI {
+	return &LeadershipPinningAPI{
 		facade: facade,
 	}
 }
 
 // PinLeadership (leadership.Pinner) sends a request to the API server to pin
 // leadership for the input application on behalf of the input entity.
-func (l *LeadershipAPI) PinLeadership(appName string) error {
+func (l *LeadershipPinningAPI) PinLeadership(appName string) error {
 	return errors.Trace(l.pinOp("PinLeadership", appName))
 }
 
 // UnpinLeadership (leadership.Pinner) sends a request to the API server to
 // unpin leadership for the input application on behalf of the input entity.
-func (l *LeadershipAPI) UnpinLeadership(appName string) error {
+func (l *LeadershipPinningAPI) UnpinLeadership(appName string) error {
 	return errors.Trace(l.pinOp("UnpinLeadership", appName))
 }
 
 // pinOp makes the appropriate facade call for leadership pinning manipulations
 // based on the input application and method name.
-func (l *LeadershipAPI) pinOp(callName, appName string) error {
+func (l *LeadershipPinningAPI) pinOp(callName, appName string) error {
 	arg := params.PinLeadershipBulkParams{
 		Params: []params.PinLeadershipParams{{
 			ApplicationTag: names.NewApplicationTag(appName).String(),

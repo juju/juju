@@ -19,7 +19,7 @@ type LeadershipSuite struct {
 	coretesting.BaseSuite
 
 	facade *mocks.MockFacadeCaller
-	client *common.LeadershipAPI
+	client *common.LeadershipPinningAPI
 
 	appName     string
 	machineTag  names.MachineTag
@@ -80,7 +80,7 @@ func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.facade = mocks.NewMockFacadeCaller(ctrl)
-	s.client = common.NewLeadershipAPIFromFacade(s.facade)
+	s.client = common.NewLeadershipPinningAPIFromFacade(s.facade)
 
 	return ctrl
 }

@@ -14,14 +14,14 @@ import (
 )
 
 // API exposes leadership pinning and unpinning functionality for remote use.
-type LeadershipAPI interface {
+type LeadershipPinningAPI interface {
 	PinLeadership(params params.PinLeadershipBulkParams) (params.ErrorResults, error)
 	UnpinLeadership(params params.PinLeadershipBulkParams) (params.ErrorResults, error)
 }
 
-// NewFacade creates and returns a new leadership API.
+// NewLeadershipPinningFacade creates and returns a new leadership API.
 // This signature is suitable for facade registration.
-func NewLeadershipFacade(ctx facade.Context) (LeadershipAPI, error) {
+func NewLeadershipPinningFacade(ctx facade.Context) (LeadershipPinningAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -31,14 +31,14 @@ func NewLeadershipFacade(ctx facade.Context) (LeadershipAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewLeadershipAPI(model.ModelTag(), pinner, ctx.Auth())
+	return NewLeadershipPinningAPI(model.ModelTag(), pinner, ctx.Auth())
 }
 
-// NewAPI creates and returns a new leadership API from the input tag,
-// Pinner implementation and facade Authorizer.
-func NewLeadershipAPI(
+// NewLeadershipPinningAPI creates and returns a new leadership API from the
+// input tag, Pinner implementation and facade Authorizer.
+func NewLeadershipPinningAPI(
 	modelTag names.ModelTag, pinner leadership.Pinner, authorizer facade.Authorizer,
-) (LeadershipAPI, error) {
+) (LeadershipPinningAPI, error) {
 	return &leadershipAPI{
 		modelTag:   modelTag,
 		pinner:     pinner,

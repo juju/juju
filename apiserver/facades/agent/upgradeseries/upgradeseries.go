@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 // API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
-	common.LeadershipAPI
+	common.LeadershipPinningAPI
 
 	st        common.UpgradeSeriesBackend
 	auth      facade.Authorizer
@@ -36,7 +36,7 @@ func NewAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadership, err := common.NewLeadershipAPI(mod.ModelTag(), pinner, ctx.Auth())
+	leadership, err := common.NewLeadershipPinningAPI(mod.ModelTag(), pinner, ctx.Auth())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -49,7 +49,7 @@ func NewUpgradeSeriesAPI(
 	st common.UpgradeSeriesBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	leadership common.LeadershipAPI,
+	leadership common.LeadershipPinningAPI,
 ) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
@@ -67,11 +67,11 @@ func NewUpgradeSeriesAPI(
 	}
 
 	return &API{
-		st:               st,
-		resources:        resources,
-		auth:             authorizer,
-		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		LeadershipAPI:    leadership,
+		st:                   st,
+		resources:            resources,
+		auth:                 authorizer,
+		UpgradeSeriesAPI:     common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LeadershipPinningAPI: leadership,
 	}, nil
 }
 
