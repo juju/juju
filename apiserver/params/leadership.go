@@ -67,23 +67,6 @@ type MergeLeadershipSettingsParam struct {
 	Settings Settings `json:"settings"`
 }
 
-// PinLeadershipBulkParams is a collection of parameters for making
-// bulk requests to pin or unpin leadership claims.
-type PinLeadershipBulkParams struct {
-
-	// Params indicates the collection of applications for which a pin or unpin
-	// request is being made.
-	Params []PinLeadershipParams `json:"params"`
-}
-
-// PinLeadershipParams holds the parameters for pinning or unpinning a single
-// application's leadership claim.
-type PinLeadershipParams struct {
-	// ApplicationTag is the application for which leadership is to
-	// be pinned or unpinned.
-	ApplicationTag string `json:"application-tag"`
-}
-
 type PinApplicationsResults struct {
 	Results []PinApplicationResult `json:"results"`
 }
