@@ -13,37 +13,38 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
-type ModelCredentialSuite struct {
+var _ = gc.Suite(&CheckMachinesSuite{})
+var _ = gc.Suite(&ModelCredentialSuite{})
+
+type CheckMachinesSuite struct {
 	testing.IsolationSuite
 
-	provider           *mockProvider
-	instance           *mockInstance
-	callContext        context.ProviderCallContext
-	testNewEnvironFunc credentialcommon.NewEnvironFunc
+	provider    *mockProvider
+	instance    *mockInstance
+	callContext context.ProviderCallContext
 
-	backend *mockBackend
+	backend *mockPersistedBackend
 	machine *mockMachine
 }
 
-var _ = gc.Suite(&ModelCredentialSuite{})
-
-func (s *ModelCredentialSuite) SetUpTest(c *gc.C) {
+func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	s.backend = createModelBackend(c)
 
 	// This is what the test gets from the state.
 	s.machine = createTestMachine("1", "wind-up")
-	s.backend = &mockBackend{
-		Stub: &testing.Stub{},
-		allMachinesFunc: func() ([]credentialcommon.Machine, error) {
-			return []credentialcommon.Machine{s.machine}, nil
-		},
+	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
+		return []credentialcommon.Machine{s.machine}, nil
 	}
 
 	// This is what the test gets from the cloud.
@@ -54,20 +55,16 @@ func (s *ModelCredentialSuite) SetUpTest(c *gc.C) {
 			return []instance.Instance{s.instance}, nil
 		},
 	}
-
-	s.testNewEnvironFunc = func(args environs.OpenParams) (environs.Environ, error) {
-		return &mockEnviron{mockProvider: s.provider}, nil
-	}
 	s.callContext = context.NewCloudCallContext()
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesSuccess(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *gc.C) {
 	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	machine1 := createTestMachine("2", "birds")
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
@@ -80,7 +77,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `couldn't find instance "birds" for machine 2`)
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesExtraInstances(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
 	instance2 := &mockInstance{id: "analyse"}
 	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 		return []instance.Instance{s.instance, instance2}, nil
@@ -93,7 +90,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesExtraInstances(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `no machine with instance "analyse"`)
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return nil, errors.New("boom")
 	}
@@ -103,7 +100,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
 	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 		return nil, errors.New("kaboom")
 	}
@@ -113,7 +110,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesHandlesContainers(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	machine1 := createTestMachine("1", "")
 	machine1.container = true
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
@@ -125,7 +122,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesHandlesManual(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *gc.C) {
 	machine1 := createTestMachine("2", "")
 	machine1.manualFunc = func() (bool, error) { return false, errors.New("manual retrieval failure") }
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
@@ -142,7 +139,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesHandlesManual(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *gc.C) {
 	machine1 := createTestMachine("2", "")
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
@@ -158,7 +155,7 @@ func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachineInstanceId(c 
 	})
 }
 
-func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatal(c *gc.C) {
+func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatal(c *gc.C) {
 	machine1 := createTestMachine("2", "")
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
@@ -180,101 +177,245 @@ func (s *ModelCredentialSuite) TestCheckMachinesErrorGettingMachineInstanceIdNon
 	})
 }
 
-func (s *ModelCredentialSuite) TestValidateModelCredential(c *gc.C) {
-	results, err := credentialcommon.ValidateModelCredential(s.backend, s.provider, s.callContext)
-	c.Assert(err, jc.ErrorIsNil)
+type ModelCredentialSuite struct {
+	testing.IsolationSuite
+
+	backend     *mockPersistedBackend
+	callContext context.ProviderCallContext
+}
+
+func (s *ModelCredentialSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.backend = createModelBackend(c)
+	s.callContext = context.NewCloudCallContext()
+}
+
+func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c *gc.C) {
+	unknownModel := createTestModel()
+	unknownModel.modelType = state.ModelType("unknown")
+	s.backend.modelFunc = func() (credentialcommon.Model, error) {
+		return unknownModel, nil
+	}
+
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, &testCredential)
+	c.Assert(err, gc.ErrorMatches, `model type "unknown" not supported`)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorGettingModel(c *gc.C) {
+func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorGettingModel(c *gc.C) {
 	s.backend.SetErrors(errors.New("get model error"))
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, nil)
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, nil)
 	c.Assert(err, gc.ErrorMatches, "get model error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model")
 }
 
-func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorGettingCloud(c *gc.C) {
+func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorGettingCloud(c *gc.C) {
 	s.backend.SetErrors(
 		nil, // getting model
 		errors.New("get cloud error"),
 	)
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, nil)
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, nil)
+	s.backend.CheckCallNames(c, "Model", "Cloud")
 	c.Assert(err, gc.ErrorMatches, "get cloud error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorGettingModelConfig(c *gc.C) {
+func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorGettingModelConfig(c *gc.C) {
 	model := createTestModel()
 	model.configFunc = func() (*config.Config, error) {
 		return nil, errors.New("get model config error")
 	}
 
-	backend := s.createModelBackend(c)
-	backend.modelFunc = func() (credentialcommon.Model, error) {
+	s.backend.modelFunc = func() (credentialcommon.Model, error) {
 		return model, nil
 	}
 
-	results, err := credentialcommon.ValidateNewModelCredential(backend, s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, &testCredential)
 	c.Assert(err, gc.ErrorMatches, "get model config error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model", "Cloud")
 }
 
-func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorValidateCredentialForModelCloud(c *gc.C) {
+func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorValidateCredentialForModelCloud(c *gc.C) {
 	model := createTestModel()
 	model.validateCredentialFunc = func(tag names.CloudCredentialTag, credential cloud.Credential) error {
 		return errors.New("credential not for model cloud error")
 	}
 
-	backend := s.createModelBackend(c)
-	backend.modelFunc = func() (credentialcommon.Model, error) {
+	s.backend.modelFunc = func() (credentialcommon.Model, error) {
 		return model, nil
 	}
 
-	results, err := credentialcommon.ValidateNewModelCredential(backend, s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, &testCredential)
 	c.Assert(err, gc.ErrorMatches, "credential not for model cloud error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model", "Cloud")
 }
 
-func (s *ModelCredentialSuite) TestValidateNewModelCredentialErrorOpenEnviron(c *gc.C) {
-	failNewEnvironFunc := func(args environs.OpenParams) (environs.Environ, error) {
-		return nil, errors.New("new environ error")
+func (s *ModelCredentialSuite) TestValidateExistingModelCredentialErrorGettingModel(c *gc.C) {
+	s.backend.SetErrors(errors.New("get model error"))
+	results, err := credentialcommon.ValidateExistingModelCredential(s.backend, s.callContext)
+	c.Assert(err, gc.ErrorMatches, "get model error")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model")
+}
+
+func (s *ModelCredentialSuite) TestValidateExistingModelCredentialUnsetCloudCredential(c *gc.C) {
+	model := createTestModel()
+	model.cloudCredentialFunc = func() (names.CloudCredentialTag, bool) {
+		return names.CloudCredentialTag{}, false
 	}
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), failNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
-	c.Assert(err, gc.ErrorMatches, "new environ error")
+
+	s.backend.modelFunc = func() (credentialcommon.Model, error) {
+		return model, nil
+	}
+
+	results, err := credentialcommon.ValidateExistingModelCredential(s.backend, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model")
+}
+
+func (s *ModelCredentialSuite) TestValidateExistingModelCredentialErrorGettingCredential(c *gc.C) {
+	s.backend.cloudCredentialFunc = func(tag names.CloudCredentialTag) (state.Credential, error) {
+		return state.Credential{}, errors.New("no nope niet")
+	}
+
+	results, err := credentialcommon.ValidateExistingModelCredential(s.backend, s.callContext)
+	c.Assert(err, gc.ErrorMatches, "no nope niet")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model", "CloudCredential")
+}
+
+func (s *ModelCredentialSuite) TestValidateExistingModelCredentialInvalidCredential(c *gc.C) {
+	s.backend.cloudCredentialFunc = func(tag names.CloudCredentialTag) (state.Credential, error) {
+		cred := statetesting.NewEmptyCredential()
+		cred.Name = "cred"
+		cred.Invalid = true
+		return cred, nil
+	}
+
+	results, err := credentialcommon.ValidateExistingModelCredential(s.backend, s.callContext)
+	c.Assert(err, gc.ErrorMatches, `credential "cred" not valid`)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	s.backend.CheckCallNames(c, "Model", "CloudCredential")
+}
+
+func (s *ModelCredentialSuite) TestOpeningProviderFails(c *gc.C) {
+	s.PatchValue(credentialcommon.NewEnv, func(environs.OpenParams) (environs.Environ, error) {
+		return nil, errors.New("explosive")
+	})
+	results, err := credentialcommon.CheckIAASModelCredential(environs.OpenParams{}, s.backend, s.callContext)
+	c.Assert(err, gc.ErrorMatches, "explosive")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestValidateNewModelCredentialSuccess(c *gc.C) {
-	results, err := credentialcommon.ValidateNewModelCredential(s.createModelBackend(c), s.testNewEnvironFunc, s.callContext, names.CloudCredentialTag{}, &testCredential)
+func (s *ModelCredentialSuite) TestValidateNewModelCredentialForIAASModel(c *gc.C) {
+	s.ensureEnvForIAASModel(c)
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, &testCredential)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) createModelBackend(c *gc.C) *mockModelBackend {
-	return &mockModelBackend{
-		mockBackend: s.backend,
-		modelFunc: func() (credentialcommon.Model, error) {
-			return createTestModel(), s.backend.NextErr()
-		},
-		cloudFunc: func(name string) (cloud.Cloud, error) {
-			return cloud.Cloud{
-				Name:      "nuage",
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-				Regions:   []cloud.Region{{Name: "nine", Endpoint: "endpoint"}},
-			}, s.backend.NextErr()
-		},
+func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForIAASModel(c *gc.C) {
+	s.ensureEnvForIAASModel(c)
+	results, err := credentialcommon.ValidateExistingModelCredential(s.backend, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *gc.C) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+		return nil, errors.New("explosive")
+	})
+	results, err := credentialcommon.CheckCAASModelCredential(environs.OpenParams{})
+	c.Assert(err, gc.ErrorMatches, "explosive")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) TestCAASCredentialCheckFailed(c *gc.C) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+		return &mockCaasBroker{
+			namespacesFunc: func() ([]string, error) { return nil, errors.New("fail auth") },
+		}, nil
+	})
+	results, err := credentialcommon.CheckCAASModelCredential(environs.OpenParams{})
+	c.Assert(err, gc.ErrorMatches, "fail auth")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) TestCAASCredentialCheckSucceeds(c *gc.C) {
+	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+		return &mockCaasBroker{
+			namespacesFunc: func() ([]string, error) { return []string{}, nil },
+		}, nil
+	})
+	results, err := credentialcommon.CheckCAASModelCredential(environs.OpenParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *gc.C) {
+	s.ensureEnvForCAASModel(c)
+	results, err := credentialcommon.ValidateNewModelCredential(s.backend, s.callContext, names.CloudCredentialTag{}, &testCredential)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForCAASSuccess(c *gc.C) {
+	s.ensureEnvForCAASModel(c)
+	results, err := credentialcommon.ValidateExistingModelCredential(s.backend, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ModelCredentialSuite) ensureEnvForCAASModel(c *gc.C) {
+	caasModel := createTestModel()
+	caasModel.modelType = state.ModelTypeCAAS
+	s.backend.modelFunc = func() (credentialcommon.Model, error) {
+		return caasModel, nil
 	}
+	s.PatchValue(credentialcommon.NewCAASBroker, func(environs.OpenParams) (caas.Broker, error) {
+		return &mockCaasBroker{
+			namespacesFunc: func() ([]string, error) { return []string{}, nil },
+		}, nil
+	})
 }
 
-type mockBackend struct {
-	*testing.Stub
-	allMachinesFunc func() ([]credentialcommon.Machine, error)
+func (s *ModelCredentialSuite) ensureEnvForIAASModel(c *gc.C) {
+	s.PatchValue(credentialcommon.NewEnv, func(environs.OpenParams) (environs.Environ, error) {
+		return &mockEnviron{
+			mockProvider: &mockProvider{
+				Stub: &testing.Stub{},
+				allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+					return []instance.Instance{}, nil
+				},
+			},
+		}, nil
+	})
 }
 
-func (m *mockBackend) AllMachines() ([]credentialcommon.Machine, error) {
-	m.MethodCall(m, "AllMachines")
-	return m.allMachinesFunc()
+func createModelBackend(c *gc.C) *mockPersistedBackend {
+	backend := mockPersistedBackend{Stub: &testing.Stub{}}
+	backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
+		return []credentialcommon.Machine{}, backend.NextErr()
+	}
+	backend.modelFunc = func() (credentialcommon.Model, error) {
+		return createTestModel(), backend.NextErr()
+	}
+	backend.cloudFunc = func(name string) (cloud.Cloud, error) {
+		return cloud.Cloud{
+			Name:      "nuage",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+			Regions:   []cloud.Region{{Name: "nine", Endpoint: "endpoint"}},
+		}, backend.NextErr()
+	}
+	backend.cloudCredentialFunc = func(tag names.CloudCredentialTag) (state.Credential, error) {
+		return statetesting.NewEmptyCredential(), backend.NextErr()
+	}
+	return &backend
 }
 
 type mockProvider struct {
@@ -327,28 +468,42 @@ func createTestMachine(id, instanceId string) *mockMachine {
 	}
 }
 
-type mockModelBackend struct {
-	*mockBackend
+type mockPersistedBackend struct {
+	*testing.Stub
+	allMachinesFunc func() ([]credentialcommon.Machine, error)
 
-	modelFunc func() (credentialcommon.Model, error)
-	cloudFunc func(name string) (cloud.Cloud, error)
+	modelFunc           func() (credentialcommon.Model, error)
+	cloudFunc           func(name string) (cloud.Cloud, error)
+	cloudCredentialFunc func(tag names.CloudCredentialTag) (state.Credential, error)
 }
 
-func (m *mockModelBackend) Model() (credentialcommon.Model, error) {
+func (m *mockPersistedBackend) AllMachines() ([]credentialcommon.Machine, error) {
+	m.MethodCall(m, "AllMachines")
+	return m.allMachinesFunc()
+}
+
+func (m *mockPersistedBackend) Model() (credentialcommon.Model, error) {
 	m.MethodCall(m, "Model")
 	return m.modelFunc()
 }
 
-func (m *mockModelBackend) Cloud(name string) (cloud.Cloud, error) {
+func (m *mockPersistedBackend) Cloud(name string) (cloud.Cloud, error) {
 	m.MethodCall(m, "Cloud", name)
 	return m.cloudFunc(name)
 }
 
+func (m *mockPersistedBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+	m.MethodCall(m, "CloudCredential", tag)
+	return m.cloudCredentialFunc(tag)
+}
+
 type mockModel struct {
+	modelType              state.ModelType
 	cloudFunc              func() string
 	cloudRegionFunc        func() string
 	configFunc             func() (*config.Config, error)
 	validateCredentialFunc func(tag names.CloudCredentialTag, credential cloud.Credential) error
+	cloudCredentialFunc    func() (names.CloudCredentialTag, bool)
 }
 
 func (m *mockModel) Cloud() string {
@@ -363,12 +518,21 @@ func (m *mockModel) Config() (*config.Config, error) {
 	return m.configFunc()
 }
 
+func (m *mockModel) Type() state.ModelType {
+	return m.modelType
+}
+
+func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
+	return m.cloudCredentialFunc()
+}
+
 func (m *mockModel) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
 	return m.validateCredentialFunc(tag, credential)
 }
 
 func createTestModel() *mockModel {
 	return &mockModel{
+		modelType:       state.ModelTypeIAAS,
 		cloudFunc:       func() string { return "nuage" },
 		cloudRegionFunc: func() string { return "nine" },
 		configFunc: func() (*config.Config, error) {
@@ -376,6 +540,10 @@ func createTestModel() *mockModel {
 		},
 		validateCredentialFunc: func(tag names.CloudCredentialTag, credential cloud.Credential) error {
 			return nil
+		},
+		cloudCredentialFunc: func() (names.CloudCredentialTag, bool) {
+			// return true here since, most of the time, we want to test when the cloud credential is set.
+			return names.CloudCredentialTag{}, true
 		},
 	}
 }
@@ -397,4 +565,14 @@ type mockEnviron struct {
 
 func (m *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	return m.mockProvider.AllInstances(ctx)
+}
+
+type mockCaasBroker struct {
+	caas.Broker
+
+	namespacesFunc func() ([]string, error)
+}
+
+func (m *mockCaasBroker) Namespaces() ([]string, error) {
+	return m.namespacesFunc()
 }
