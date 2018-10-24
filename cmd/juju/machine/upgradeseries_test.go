@@ -65,7 +65,6 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 	uExp.UpgradeSeriesValidate(prep.machineArg, prep.seriesArg).AnyTimes().Return(units, nil)
 	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.seriesArg, prep.force).AnyTimes()
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
-	uExp.Applications(prep.machineArg).Return([]string{"foo", "bar"}, nil).AnyTimes()
 
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 

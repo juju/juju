@@ -62,7 +62,6 @@ type UpgradeMachineSeriesAPI interface {
 	UpgradeSeriesComplete(string) error
 	WatchUpgradeSeriesNotifications(string) (watcher.NotifyWatcher, string, error)
 	GetUpgradeSeriesMessages(string, string) ([]string, error)
-	Applications(string) ([]string, error)
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.

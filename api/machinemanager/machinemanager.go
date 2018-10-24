@@ -271,26 +271,3 @@ func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([
 
 	return result.Result, nil
 }
-
-func (client *Client) Applications(machineName string) ([]string, error) {
-	if client.BestAPIVersion() < 5 {
-		return nil, errors.NotSupportedf("Applications")
-	}
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: names.NewMachineTag(machineName).String()},
-	}}
-	results := new(params.StringsResults)
-	err := client.facade.FacadeCall("Applications", args, results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return result.Result, nil
-}

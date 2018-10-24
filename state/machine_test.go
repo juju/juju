@@ -1507,6 +1507,31 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *MachineSuite) TestApplicationNames(c *gc.C) {
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	worpress0, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql0.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql1.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = worpress0.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps, err := machine.ApplicationNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(apps, jc.DeepEquals, []string{"mysql", "wordpress"})
+}
+
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
