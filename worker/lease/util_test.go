@@ -182,6 +182,10 @@ func (store *Store) UnpinLease(key lease.Key, entity names.Tag) error {
 	return store.call("UnpinLease", []interface{}{key, entity})
 }
 
+func (Store *Store) Pinned() map[lease.Key][]names.Tag {
+	return nil
+}
+
 // call defines a expected method call on a Store; it encodes:
 type call struct {
 
