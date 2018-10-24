@@ -13,9 +13,9 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -44,28 +44,34 @@ See also:
 // NewBundleDiffCommand returns a command to compare a bundle against
 // the selected model.
 func NewBundleDiffCommand() cmd.Command {
-	return modelcmd.Wrap(&BundleDiffCommand{})
+	return modelcmd.Wrap(&bundleDiffCommand{})
 }
 
-// BundleDiffCommand compares a bundle to a model.
-type BundleDiffCommand struct {
+// bundleDiffCommand compares a bundle to a model.
+type bundleDiffCommand struct {
 	modelcmd.ModelCommandBase
-	Bundle         string
-	BundleOverlays []string
-	Channel        csparams.Channel
+	bundle         string
+	bundleOverlays []string
+	channel        csparams.Channel
+	annotations    bool
 
-	BundleMachines map[string]string
-	MachineMap     string
+	bundleMachines map[string]string
+	machineMap     string
+
+	// These are set in tests to enable mocking out the API and the
+	// charm store.
+	_apiRoot    base.APICallCloser
+	_charmStore BundleResolver
 }
 
 // IsSuperCommand is part of cmd.Command.
-func (c *BundleDiffCommand) IsSuperCommand() bool { return false }
+func (c *bundleDiffCommand) IsSuperCommand() bool { return false }
 
 // AllowInterspersedFlags is part of cmd.Command.
-func (c *BundleDiffCommand) AllowInterspersedFlags() bool { return true }
+func (c *bundleDiffCommand) AllowInterspersedFlags() bool { return true }
 
 // Info is part of cmd.Command.
-func (c *BundleDiffCommand) Info() *cmd.Info {
+func (c *bundleDiffCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "diff-bundle",
 		Args:    "<bundle file or name>",
@@ -75,32 +81,33 @@ func (c *BundleDiffCommand) Info() *cmd.Info {
 }
 
 // SetFlags is part of cmd.Command.
-func (c *BundleDiffCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *bundleDiffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the bundle from the charm store")
-	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
-	f.StringVar(&c.MachineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
+	f.StringVar((*string)(&c.channel), "channel", "", "Channel to use when getting the bundle from the charm store")
+	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
+	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
+	f.BoolVar(&c.annotations, "annotations", false, "Include differences in annotations")
 }
 
 // Init is part of cmd.Command.
-func (c *BundleDiffCommand) Init(args []string) error {
+func (c *bundleDiffCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("no bundle specified")
 	}
-	c.Bundle = args[0]
+	c.bundle = args[0]
 	// UseExisting is assumed for diffing.
-	_, mapping, err := parseMachineMap(c.MachineMap)
+	_, mapping, err := parseMachineMap(c.machineMap)
 	if err != nil {
 		return errors.Annotate(err, "error in --map-machines")
 	}
-	c.BundleMachines = mapping
+	c.bundleMachines = mapping
 
 	return cmd.CheckEmpty(args[1:])
 }
 
 // Run is part of cmd.Command.
-func (c *BundleDiffCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.NewAPIRoot()
+func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
+	apiRoot, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -111,7 +118,7 @@ func (c *BundleDiffCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := composeBundle(bundle, ctx, bundleDir, c.BundleOverlays); err != nil {
+	if err := composeBundle(bundle, ctx, bundleDir, c.bundleOverlays); err != nil {
 		return errors.Trace(err)
 	}
 	if err := verifyBundle(bundle, bundleDir); err != nil {
@@ -125,9 +132,10 @@ func (c *BundleDiffCommand) Run(ctx *cmd.Context) error {
 	}
 	// Get the differences between them.
 	diff, err := bundlechanges.BuildDiff(bundlechanges.DiffConfig{
-		Bundle: bundle,
-		Model:  model,
-		Logger: logger,
+		Bundle:             bundle,
+		Model:              model,
+		Logger:             logger,
+		IncludeAnnotations: c.annotations,
 	})
 
 	if err != nil {
@@ -143,8 +151,15 @@ func (c *BundleDiffCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *BundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot api.Connection) (*charm.BundleData, string, error) {
-	bundleData, bundleDir, err := readLocalBundle(ctx, c.Bundle)
+func (c *bundleDiffCommand) newAPIRoot() (base.APICallCloser, error) {
+	if c._apiRoot != nil {
+		return c._apiRoot, nil
+	}
+	return c.NewAPIRoot()
+}
+
+func (c *bundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot base.APICallCloser) (*charm.BundleData, string, error) {
+	bundleData, bundleDir, err := readLocalBundle(ctx, c.bundle)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -158,14 +173,14 @@ func (c *BundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot api.Connection)
 		return nil, "", errors.Trace(err)
 	}
 	bundleURL, _, err := resolveBundleURL(
-		modelconfig.NewClient(apiRoot), charmStore, c.Bundle,
+		modelconfig.NewClient(apiRoot), charmStore, c.bundle,
 	)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 	if bundleURL == nil {
 		// This isn't a charmstore bundle either! Complain.
-		return nil, "", errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.Bundle)
+		return nil, "", errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
 	}
 
 	bundle, err := charmStore.GetBundle(bundleURL)
@@ -176,7 +191,10 @@ func (c *BundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot api.Connection)
 	return bundle.Data(), "", nil
 }
 
-func (c *BundleDiffCommand) charmStore() (*charmrepo.CharmStore, error) {
+func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
+	if c._charmStore != nil {
+		return c._charmStore, nil
+	}
 	controllerAPIRoot, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -190,20 +208,32 @@ func (c *BundleDiffCommand) charmStore() (*charmrepo.CharmStore, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(c.Channel)
+	cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
 	return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
 }
 
-func (c *BundleDiffCommand) readModel(apiRoot api.Connection) (*bundlechanges.Model, error) {
-	status, err := apiRoot.Client().Status(nil)
+func (c *bundleDiffCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
+	status, err := c.getStatus(apiRoot)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model status")
 	}
-	model, err := buildModelRepresentation(status, c.makeModelExtractor(apiRoot), true, c.BundleMachines)
+	model, err := buildModelRepresentation(status, c.makeModelExtractor(apiRoot), true, c.bundleMachines)
 	return model, errors.Trace(err)
 }
 
-func (c *BundleDiffCommand) makeModelExtractor(apiRoot api.Connection) ModelExtractor {
+func (c *bundleDiffCommand) getStatus(apiRoot base.APICallCloser) (*params.FullStatus, error) {
+	// Ported from api.Client which is nigh impossible to test without
+	// a real api.Connection.
+	_, facade := base.NewClientFacade(apiRoot, "Client")
+	var result params.FullStatus
+	if err := facade.FacadeCall("FullStatus", params.StatusParams{}, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// We don't care about model type.
+	return &result, nil
+}
+
+func (c *bundleDiffCommand) makeModelExtractor(apiRoot base.APICallCloser) ModelExtractor {
 	return &extractorImpl{
 		application: application.NewClient(apiRoot),
 		annotations: annotations.NewClient(apiRoot),
@@ -235,4 +265,11 @@ func (e *extractorImpl) GetConfig(applications ...string) ([]map[string]interfac
 // Sequences is part of ModelExtractor.
 func (e *extractorImpl) Sequences() (map[string]int, error) {
 	return e.modelConfig.Sequences()
+}
+
+// BundleResolver defines what we need from a charm store to resolve a
+// bundle and read the bundle data.
+type BundleResolver interface {
+	URLResolver
+	GetBundle(*charm.URL) (charm.Bundle, error)
 }

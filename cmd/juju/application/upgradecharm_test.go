@@ -146,25 +146,25 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 			s.PopNoErr()
 			return &s.charmAdder
 		},
-		func(conn api.Connection) CharmClient {
+		func(conn base.APICallCloser) CharmClient {
 			s.AddCall("NewCharmClient", conn)
 			s.PopNoErr()
 			return &s.charmClient
 		},
-		func(conn api.Connection) CharmUpgradeClient {
+		func(conn base.APICallCloser) CharmUpgradeClient {
 			s.AddCall("NewCharmUpgradeClient", conn)
 			s.PopNoErr()
 			return &s.charmUpgradeClient
 		},
-		func(conn api.Connection) ModelConfigGetter {
+		func(conn base.APICallCloser) ModelConfigGetter {
 			s.AddCall("NewModelConfigGetter", conn)
 			return &s.modelConfigGetter
 		},
-		func(conn api.Connection) (ResourceLister, error) {
+		func(conn base.APICallCloser) (ResourceLister, error) {
 			s.AddCall("NewResourceLister", conn)
 			return &s.resourceLister, s.NextErr()
 		},
-		func(conn api.Connection) (string, error) {
+		func(conn base.APICallCloser) (string, error) {
 			s.AddCall("CharmStoreURLGetter", conn)
 			return "testing.api.charmstore", s.NextErr()
 		},
@@ -272,7 +272,7 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&getCharmStoreAPIURL, func(api.Connection) (string, error) {
+	s.PatchValue(&getCharmStoreAPIURL, func(base.APICallCloser) (string, error) {
 		return s.srv.URL, nil
 	})
 }
