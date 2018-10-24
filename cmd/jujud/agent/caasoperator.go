@@ -16,6 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -45,14 +46,15 @@ var (
 type CaasOperatorAgent struct {
 	cmd.CommandBase
 	AgentConf
-	ApplicationName string
-	runner          *worker.Runner
-	bufferedLogger  *logsender.BufferedLogWriter
-	setupLogging    func(agent.Config) error
-	ctx             *cmd.Context
-	dead            chan struct{}
-	errReason       error
-	machineLock     machinelock.Lock
+	configChangedVal *voyeur.Value
+	ApplicationName  string
+	runner           *worker.Runner
+	bufferedLogger   *logsender.BufferedLogWriter
+	setupLogging     func(agent.Config) error
+	ctx              *cmd.Context
+	dead             chan struct{}
+	errReason        error
+	machineLock      machinelock.Lock
 
 	upgradeComplete gate.Lock
 
@@ -67,6 +69,7 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 	}
 	return &CaasOperatorAgent{
 		AgentConf:          NewAgentConf(""),
+		configChangedVal:   voyeur.NewValue(true),
 		ctx:                ctx,
 		dead:               make(chan struct{}),
 		bufferedLogger:     bufferedLogger,
@@ -201,7 +204,8 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	}
 
 	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
-		Agent:                op,
+		Agent:                agent.APIHostPortsSetter{op},
+		AgentConfigChanged:   op.configChangedVal,
 		Clock:                clock.WallClock,
 		LogSource:            op.bufferedLogger.Logs(),
 		UpdateLoggerConfig:   updateAgentConfLogging,
@@ -250,6 +254,13 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 // Tag implements Agent.
 func (op *CaasOperatorAgent) Tag() names.Tag {
 	return names.NewApplicationTag(op.ApplicationName)
+}
+
+// ChangeConfig implements Agent.
+func (a *CaasOperatorAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConf.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
 }
 
 // validateMigration is called by the migrationminion to help check

@@ -7,10 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/agent"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -169,4 +172,37 @@ func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
 	addr, err := agentConfig.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, jc.SameContents, []string{"localhost:17070"})
+}
+
+func (s *CAASOperatorSuite) TestChangeConfig(c *gc.C) {
+	config := FakeAgentConfig{}
+	configChanged := voyeur.NewValue(true)
+	a := UnitAgent{
+		AgentConf:        config,
+		configChangedVal: configChanged,
+	}
+
+	var mutateCalled bool
+	mutate := func(config agent.ConfigSetter) error {
+		mutateCalled = true
+		return nil
+	}
+
+	configChangedCh := make(chan bool)
+	watcher := configChanged.Watch()
+	watcher.Next() // consume initial event
+	go func() {
+		configChangedCh <- watcher.Next()
+	}()
+
+	err := a.ChangeConfig(mutate)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(mutateCalled, jc.IsTrue)
+	select {
+	case result := <-configChangedCh:
+		c.Check(result, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for config changed signal")
+	}
 }
