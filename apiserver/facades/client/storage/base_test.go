@@ -67,9 +67,9 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.api, err = storage.NewAPIv4(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.apiv3, err = storage.NewAPIv3(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
