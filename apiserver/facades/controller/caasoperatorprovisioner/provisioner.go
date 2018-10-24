@@ -97,9 +97,9 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	}
 
 	imagePath := cfg.CAASOperatorImagePath()
+	vers := version.Current
+	vers.Build = 0
 	if imagePath == "" {
-		vers := version.Current
-		vers.Build = 0
 		imagePath = fmt.Sprintf("%s/caas-jujud-operator:%s", "jujusolutions", vers.String())
 	}
 	charmStorageParams, err := charmStorageParams(a.storagePoolManager, a.storageProviderRegistry)
@@ -132,7 +132,7 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 
 	return params.OperatorProvisioningInfo{
 		ImagePath:    imagePath,
-		Version:      version.Current,
+		Version:      vers,
 		APIAddresses: apiAddresses.Result,
 		CharmStorage: charmStorageParams,
 		Tags:         resourceTags,

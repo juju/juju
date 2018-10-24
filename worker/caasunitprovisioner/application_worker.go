@@ -87,9 +87,9 @@ func (aw *applicationWorker) loop() error {
 		brokerUnitsWatcher watcher.NotifyWatcher
 		appOperatorWatcher watcher.NotifyWatcher
 	)
-	// The caas watcher can just die from underneath us hence it needs to be
+	// The caas watcher can just die from underneath hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
-	// workers unbounded, use use a defer to stop the running worker.
+	// workers unbounded, use a defer to stop the running worker.
 	defer func() {
 		if brokerUnitsWatcher != nil {
 			worker.Stop(brokerUnitsWatcher)
@@ -104,7 +104,7 @@ func (aw *applicationWorker) loop() error {
 	lastReportedStatus := make(map[string]status.StatusInfo)
 
 	for {
-		// The caas watcher can just die from underneath us so recreate if needed.
+		// The caas watcher can just die from underneath so recreate if needed.
 		if brokerUnitsWatcher == nil {
 			brokerUnitsWatcher, err = aw.containerBroker.WatchUnits(aw.application)
 			if err != nil {
