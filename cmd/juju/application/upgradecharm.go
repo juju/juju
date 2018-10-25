@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 
@@ -23,17 +24,25 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
+
+//go:generate mockgen -package mocks -destination mocks/lxdprofileupgradeapi_mock.go github.com/juju/juju/cmd/juju/application LXDProfileUpgradeAPI
+
+type LXDProfileUpgradeAPI interface {
+	WatchLXDProfileUpgradeNotifications(string) (watcher.NotifyWatcher, string, error)
+}
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
 func NewUpgradeCharmCommand() cmd.Command {
@@ -58,6 +67,9 @@ func NewUpgradeCharmCommand() cmd.Command {
 			return resclient, nil
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
+		NewLXDProfileUpgradeClient: func(conn api.Connection) LXDProfileUpgradeAPI {
+			return machinemanager.NewClient(conn)
+		},
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -96,14 +108,15 @@ type NewCharmAdderFunc func(
 type upgradeCharmCommand struct {
 	modelcmd.ModelCommandBase
 
-	DeployResources       resourceadapters.DeployResourcesFunc
-	ResolveCharm          ResolveCharmFunc
-	NewCharmAdder         NewCharmAdderFunc
-	NewCharmClient        func(base.APICallCloser) CharmClient
-	NewCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient
-	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
-	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
-	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
+	DeployResources            resourceadapters.DeployResourcesFunc
+	ResolveCharm               ResolveCharmFunc
+	NewCharmAdder              NewCharmAdderFunc
+	NewCharmClient             func(api.Connection) CharmClient
+	NewCharmUpgradeClient      func(api.Connection) CharmUpgradeClient
+	NewModelConfigGetter       func(api.Connection) ModelConfigGetter
+	NewResourceLister          func(api.Connection) (ResourceLister, error)
+	CharmStoreURLGetter        func(api.Connection) (string, error)
+	NewLXDProfileUpgradeClient func(api.Connection) LXDProfileUpgradeAPI
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
@@ -129,6 +142,9 @@ type upgradeCharmCommand struct {
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata, to add or update during upgrade.
 	Storage map[string]storage.Constraints
+
+	catacomb catacomb.Catacomb
+	plan     catacomb.Plan
 }
 
 const upgradeCharmDoc = `
@@ -353,6 +369,11 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	lxdProfileUpgradeClient := c.NewLXDProfileUpgradeClient(apiRoot)
+	if err := c.handleNotifications(ctx, lxdProfileUpgradeClient); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Finally, upgrade the application.
 	var configYAML []byte
 	if c.Config.Path != "" {
@@ -371,6 +392,61 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		StorageConstraints: c.Storage,
 	}
 	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
+}
+
+func (c *upgradeCharmCommand) handleNotifications(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI) error {
+	if c.plan.Work == nil {
+		c.plan = catacomb.Plan{
+			Site: &c.catacomb,
+			Work: c.displayNotifications(ctx, lxdProfileUpgradeClient),
+		}
+	}
+	err := catacomb.Invoke(c.plan)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.catacomb.Wait()
+	if err != nil {
+		if params.IsCodeStopped(err) {
+			logger.Debugf("the lxd profile upgrade watcher has been stopped")
+		} else {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// displayNotifications handles the writing of lxd profile upgrade notifications
+// to standard out.
+func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI) func() error {
+	// We return and anonymous function here to satisfy the catacomb plan's
+	// need for a work function and to close over the commands context.
+	return func() error {
+		uw, wid, err := lxdProfileUpgradeClient.WatchLXDProfileUpgradeNotifications("")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = c.catacomb.Add(uw)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for {
+			select {
+			case <-c.catacomb.Dying():
+				return c.catacomb.ErrDying()
+			case <-uw.Changes():
+				err = c.handleLXDProfileUpgradeChange(ctx, lxdProfileUpgradeClient, wid)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+}
+
+func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI, wid string) error {
+	ctx.Infof("something happened!")
+	return nil
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined
