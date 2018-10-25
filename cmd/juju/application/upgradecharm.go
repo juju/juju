@@ -41,16 +41,16 @@ func NewUpgradeCharmCommand() cmd.Command {
 		DeployResources: resourceadapters.DeployResources,
 		ResolveCharm:    resolveCharm,
 		NewCharmAdder:   newCharmAdder,
-		NewCharmClient: func(conn api.Connection) CharmClient {
+		NewCharmClient: func(conn base.APICallCloser) CharmClient {
 			return charms.NewClient(conn)
 		},
-		NewCharmUpgradeClient: func(conn api.Connection) CharmUpgradeClient {
+		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmUpgradeClient {
 			return application.NewClient(conn)
 		},
-		NewModelConfigGetter: func(conn api.Connection) ModelConfigGetter {
+		NewModelConfigGetter: func(conn base.APICallCloser) ModelConfigGetter {
 			return modelconfig.NewClient(conn)
 		},
-		NewResourceLister: func(conn api.Connection) (ResourceLister, error) {
+		NewResourceLister: func(conn base.APICallCloser) (ResourceLister, error) {
 			resclient, err := resourceadapters.NewAPIClient(conn)
 			if err != nil {
 				return nil, err
@@ -99,11 +99,11 @@ type upgradeCharmCommand struct {
 	DeployResources       resourceadapters.DeployResourcesFunc
 	ResolveCharm          ResolveCharmFunc
 	NewCharmAdder         NewCharmAdderFunc
-	NewCharmClient        func(api.Connection) CharmClient
-	NewCharmUpgradeClient func(api.Connection) CharmUpgradeClient
-	NewModelConfigGetter  func(api.Connection) ModelConfigGetter
-	NewResourceLister     func(api.Connection) (ResourceLister, error)
-	CharmStoreURLGetter   func(api.Connection) (string, error)
+	NewCharmClient        func(base.APICallCloser) CharmClient
+	NewCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient
+	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
+	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
+	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
@@ -522,7 +522,7 @@ func (c *upgradeCharmCommand) getCharmStore(
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
-var getCharmStoreAPIURL = func(conAPIRoot api.Connection) (string, error) {
+var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	controllerAPI := controller.NewClient(conAPIRoot)
 	controllerCfg, err := controllerAPI.ControllerConfig()
 	if err != nil {

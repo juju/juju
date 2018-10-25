@@ -14,25 +14,18 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Machine defines machine methods needed for the check.
-type Machine interface {
-	// IsManual returns true if the machine was manually provisioned.
-	IsManual() (bool, error)
+// PersistentBackend defines persisted entities that are accessed
+// during credential validity check.
+type PersistentBackend interface {
+	// Model returns the model entity.
+	Model() (Model, error)
 
-	// IsContainer returns true if the machine is a container.
-	IsContainer() bool
+	// Cloud returns the controller's cloud definition.
+	Cloud(name string) (cloud.Cloud, error)
 
-	// InstanceId returns the provider specific instance id for this
-	// machine, or a NotProvisionedError, if not set.
-	InstanceId() (instance.Id, error)
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 
-	// Id returns the machine id.
-	Id() string
-}
-
-// CloudEntitiesBackend defines what cloud entities where persisted in state
-// and will be accessed during the check.
-type CloudEntitiesBackend interface {
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)
 }
@@ -50,35 +43,47 @@ type Model interface {
 
 	// ValidateCloudCredential validates new cloud credential for this model.
 	ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error
+
+	// Type returns the type of the model.
+	Type() state.ModelType
+
+	// CloudCredential returns the tag of the cloud credential used for managing the
+	// model's cloud resources, and a boolean indicating whether a credential is set.
+	CloudCredential() (names.CloudCredentialTag, bool)
 }
 
-// ModelBackend defines what model specific properties where persisted in state
-// and will be accessed during the check.
-type ModelBackend interface {
-	CloudEntitiesBackend
+// Machine defines machine methods needed for the check.
+type Machine interface {
+	// IsManual returns true if the machine was manually provisioned.
+	IsManual() (bool, error)
 
-	// Model returns the model entity.
-	Model() (Model, error)
+	// IsContainer returns true if the machine is a container.
+	IsContainer() bool
 
-	// Cloud returns the controller's cloud definition.
-	Cloud(name string) (cloud.Cloud, error)
+	// InstanceId returns the provider specific instance id for this
+	// machine, or a NotProvisionedError, if not set.
+	InstanceId() (instance.Id, error)
+
+	// Id returns the machine id.
+	Id() string
+}
+
+// CloudProvider defines methods needed from the cloud provider to perform the check.
+type CloudProvider interface {
+	// AllInstances returns all instances currently known to the cloud provider.
+	AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error)
 }
 
 type stateShim struct {
 	*state.State
 }
 
-// NewCloudEntitiesBackend creates a backend to use based on state.State.
-func NewCloudEntitiesBackend(p *state.State) CloudEntitiesBackend {
+// NewPersistentBackend creates a credential validity backend to use, based on state.State.
+func NewPersistentBackend(p *state.State) PersistentBackend {
 	return stateShim{p}
 }
 
-// NewModelBackend creates a model backend to use based on state.State.
-func NewModelBackend(p *state.State) ModelBackend {
-	return stateShim{p}
-}
-
-// AllMachines implements PersistedBackend.AllMachines.
+// AllMachines implements PersistentBackend.AllMachines.
 func (st stateShim) AllMachines() ([]Machine, error) {
 	machines, err := st.State.AllMachines()
 	if err != nil {
@@ -91,14 +96,8 @@ func (st stateShim) AllMachines() ([]Machine, error) {
 	return result, nil
 }
 
-// Model implements PersistedBackend.Model.
+// Model implements PersistentBackend.Model.
 func (st stateShim) Model() (Model, error) {
 	m, err := st.State.Model()
 	return m, err
-}
-
-// CloudProvider defines methods needed from the cloud provider to perform the check.
-type CloudProvider interface {
-	// AllInstances returns all instances currently known to the cloud provider.
-	AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error)
 }
