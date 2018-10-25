@@ -2938,16 +2938,6 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 	return boundSpace, nil
 }
 
-// LXDProfileStatus returns the lxd profile upgrade status of the units assigned
-// for a machine
-func (u *Unit) LXDProfileUpgradeStatus() (model.LXDProfileUpgradeStatus, error) {
-	machine, err := u.machine()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return machine.LXDProfileUpgradeUnitStatus(u.Name())
-}
-
 // UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
 func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	machine, err := u.machine()

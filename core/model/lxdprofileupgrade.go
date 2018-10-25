@@ -9,17 +9,19 @@ import "github.com/juju/errors"
 type LXDProfileUpgradeStatus string
 
 const (
-	LXDProfileUpgradeNotStarted LXDProfileUpgradeStatus = "not started"
-	LXDProfileUpgradeUpgrading  LXDProfileUpgradeStatus = "upgrading"
-	LXDProfileUpgradeCompleted  LXDProfileUpgradeStatus = "completed"
-	LXDProfileUpgradeError      LXDProfileUpgradeStatus = "error"
+	LXDProfileUpgradeNotStarted  LXDProfileUpgradeStatus = "not started"
+	LXDProfileUpgradeNotRequired LXDProfileUpgradeStatus = "not required"
+	LXDProfileUpgradeUpgrading   LXDProfileUpgradeStatus = "upgrading"
+	LXDProfileUpgradeCompleted   LXDProfileUpgradeStatus = "completed"
+	LXDProfileUpgradeError       LXDProfileUpgradeStatus = "error"
 )
 
 var LXDProfileUpgradeStatusOrder map[LXDProfileUpgradeStatus]int = map[LXDProfileUpgradeStatus]int{
-	LXDProfileUpgradeNotStarted: 0,
-	LXDProfileUpgradeUpgrading:  1,
-	LXDProfileUpgradeCompleted:  2,
-	LXDProfileUpgradeError:      3,
+	LXDProfileUpgradeNotStarted:  0,
+	LXDProfileUpgradeNotRequired: 1,
+	LXDProfileUpgradeUpgrading:   2,
+	LXDProfileUpgradeCompleted:   3,
+	LXDProfileUpgradeError:       4,
 }
 
 // ValidateLXDProfileUpgradeStatus validates a the input status as valid for a

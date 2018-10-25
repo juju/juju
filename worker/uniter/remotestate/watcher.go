@@ -283,17 +283,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		requiredEvents++
 	}
 
-	var seenLXDProfileUpgradeChange bool
-	lxdProfilew, err := w.unit.WatchLXDProfileUpgradeNotifications()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(lxdProfilew); err != nil {
-		return errors.Trace(err)
-	}
-	lxdProfileUpgradeChanges := lxdProfilew.Changes()
-	requiredEvents++
-
 	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage()
 	if err != nil {
@@ -438,15 +427,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
-		case _, ok := <-lxdProfileUpgradeChanges:
-			logger.Debugf("got lxd profile upgrade change")
-			if !ok {
-				return errors.New("lxd profile watcher closed")
-			}
-			if err := w.lxdProfileUpgradeStatusChanged(); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenLXDProfileUpgradeChange)
 		case _, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
@@ -605,33 +585,6 @@ func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, e
 	status, err := model.ValidateUpgradeSeriesStatus(rawStatus)
 	if err != nil {
 		return "", err
-	}
-	return status, nil
-}
-
-// lxdProfileUpgradeStatusChanged is called when the remote status of a lxd
-// profile upgrade changes.
-func (w *RemoteStateWatcher) lxdProfileUpgradeStatusChanged() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	status, err := w.lxdProfileUpgradeStatus()
-	if errors.IsNotFound(err) {
-		// There is no LXD Profile changes started or are on going.
-		logger.Debugf("no lxd profile upgrades in progress")
-	}
-	w.current.LXDProfileUpgradeStatus = status
-	return nil
-}
-
-func (w *RemoteStateWatcher) lxdProfileUpgradeStatus() (model.LXDProfileUpgradeStatus, error) {
-	rawStatus, err := w.unit.LXDProfileUpgradeStatus()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	status, err := model.ValidateLXDProfileUpgradeStatus(rawStatus)
-	if err != nil {
-		return "", errors.Trace(err)
 	}
 	return status, nil
 }
