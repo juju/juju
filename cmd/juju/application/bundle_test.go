@@ -876,7 +876,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--overlay", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle overlay file .*")
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to process overlays: unable to read bundle overlay file .*")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {

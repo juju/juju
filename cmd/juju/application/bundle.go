@@ -57,6 +57,51 @@ type deploymentLogger interface {
 	Infof(string, ...interface{})
 }
 
+// composeBundle adds the overlays and bundle includes into the passed bundle
+// data struct.
+func composeBundle(data *charm.BundleData, ctx *cmd.Context, bundleDir string, overlayFileNames []string) error {
+	if err := processBundleOverlay(data, overlayFileNames...); err != nil {
+		return errors.Annotate(err, "unable to process overlays")
+	}
+	if bundleDir == "" {
+		bundleDir = ctx.Dir
+	}
+	if err := processBundleIncludes(bundleDir, data); err != nil {
+		return errors.Annotate(err, "unable to process includes")
+	}
+	return nil
+}
+
+func verifyBundle(data *charm.BundleData, bundleDir string) error {
+	verifyConstraints := func(s string) error {
+		_, err := constraints.Parse(s)
+		return err
+	}
+	verifyStorage := func(s string) error {
+		_, err := storage.ParseConstraints(s)
+		return err
+	}
+	verifyDevices := func(s string) error {
+		_, err := devices.ParseConstraints(s)
+		return err
+	}
+	var verifyError error
+	if bundleDir == "" {
+		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
+	} else {
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, verifyDevices)
+	}
+
+	if verr, ok := errors.Cause(verifyError).(*charm.VerificationError); ok {
+		errs := make([]string, len(verr.Errors))
+		for i, err := range verr.Errors {
+			errs[i] = err.Error()
+		}
+		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
+	}
+	return errors.Trace(verifyError)
+}
+
 // deployBundle deploys the given bundle data using the given API client and
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
@@ -75,44 +120,11 @@ func deployBundle(
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
 
-	if err := processBundleOverlay(data, bundleOverlayFile...); err != nil {
-		return nil, err
+	if err := composeBundle(data, ctx, bundleDir, bundleOverlayFile); err != nil {
+		return nil, errors.Trace(err)
 	}
-	verifyConstraints := func(s string) error {
-		_, err := constraints.Parse(s)
-		return err
-	}
-	verifyStorage := func(s string) error {
-		_, err := storage.ParseConstraints(s)
-		return err
-	}
-	verifyDevices := func(s string) error {
-		_, err := devices.ParseConstraints(s)
-		return err
-	}
-	var verifyError error
-	if bundleDir == "" {
-		// Process includes in the bundle data.
-		if err := processBundleIncludes(ctx.Dir, data); err != nil {
-			return nil, errors.Annotate(err, "unable to process includes")
-		}
-		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
-	} else {
-		// Process includes in the bundle data.
-		if err := processBundleIncludes(bundleDir, data); err != nil {
-			return nil, errors.Annotate(err, "unable to process includes")
-		}
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, verifyDevices)
-	}
-	if verifyError != nil {
-		if verr, ok := verifyError.(*charm.VerificationError); ok {
-			errs := make([]string, len(verr.Errors))
-			for i, err := range verr.Errors {
-				errs[i] = err.Error()
-			}
-			return nil, errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
-		}
-		return nil, errors.Trace(verifyError)
+	if err := verifyBundle(data, bundleDir); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
@@ -249,13 +261,11 @@ func (h *bundleHandler) makeModel(
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) error {
-
 	// Initialize the unit status.
 	status, err := h.api.Status(nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
-
 	h.model, err = buildModelRepresentation(status, h.api, useExistingMachines, bundleMachines)
 	if err != nil {
 		return errors.Trace(err)
@@ -319,7 +329,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := h.api.Resolve(h.modelConfig, ch)
+		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, h.modelConfig, ch)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -462,7 +472,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := h.api.Resolve(h.modelConfig, ch)
+	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, h.modelConfig, ch)
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -1192,6 +1202,7 @@ func processBundleOverlay(data *charm.BundleData, bundleOverlayFiles ...string) 
 		}
 		// Make sure the filename is absolute.
 		if !filepath.IsAbs(bundleOverlayFile) {
+			// TODO(babbageclunk): pass in ctx.Dir rather than using os.Getwd.
 			cwd, err := os.Getwd()
 			if err != nil {
 				return errors.Trace(err)
@@ -1375,9 +1386,18 @@ func removeRelations(data [][]string, appName string) [][]string {
 	return result
 }
 
+// ModelExtractor provides everything we need to build a
+// bundlechanges.Model from a model API connection.
+type ModelExtractor interface {
+	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
+	GetConstraints(applications ...string) ([]constraints.Value, error)
+	GetConfig(applications ...string) ([]map[string]interface{}, error)
+	Sequences() (map[string]int, error)
+}
+
 func buildModelRepresentation(
 	status *params.FullStatus,
-	apiRoot DeployAPI,
+	apiRoot ModelExtractor,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) (*bundlechanges.Model, error) {
@@ -1388,8 +1408,11 @@ func buildModelRepresentation(
 	)
 	machineMap := make(map[string]string)
 	machines := make(map[string]*bundlechanges.Machine)
-	for id := range status.Machines {
-		machines[id] = &bundlechanges.Machine{ID: id}
+	for id, machineStatus := range status.Machines {
+		machines[id] = &bundlechanges.Machine{
+			ID:     id,
+			Series: machineStatus.Series,
+		}
 		tag := names.NewMachineTag(id)
 		annotationTags = append(annotationTags, tag.String())
 		if useExistingMachines && tag.ContainerType() == "" {
@@ -1403,9 +1426,11 @@ func buildModelRepresentation(
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
 		application := &bundlechanges.Application{
-			Name:    name,
-			Charm:   appStatus.Charm,
-			Exposed: appStatus.Exposed,
+			Name:          name,
+			Charm:         appStatus.Charm,
+			Exposed:       appStatus.Exposed,
+			Series:        appStatus.Series,
+			SubordinateTo: appStatus.SubordinateTo,
 		}
 		for unitName, unit := range appStatus.Units {
 			application.Units = append(application.Units, bundlechanges.Unit{

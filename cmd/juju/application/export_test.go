@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -18,11 +19,11 @@ func NewUpgradeCharmCommandForTest(
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
-	newCharmClient func(api.Connection) CharmClient,
-	newCharmUpgradeClient func(api.Connection) CharmUpgradeClient,
-	newModelConfigGetter func(api.Connection) ModelConfigGetter,
-	newResourceLister func(api.Connection) (ResourceLister, error),
-	charmStoreURLGetter func(api.Connection) (string, error),
+	newCharmClient func(base.APICallCloser) CharmClient,
+	newCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient,
+	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
+	newResourceLister func(base.APICallCloser) (ResourceLister, error),
+	charmStoreURLGetter func(base.APICallCloser) (string, error),
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
 		DeployResources:       deployResources,
@@ -136,6 +137,15 @@ func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStor
 	cmd := &scaleApplicationCommand{newAPIFunc: func() (scaleApplicationAPI, error) {
 		return api, nil
 	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
+func NewBundleDiffCommandForTest(api base.APICallCloser, charmStore BundleResolver, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &bundleDiffCommand{
+		_apiRoot:    api,
+		_charmStore: charmStore,
+	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
