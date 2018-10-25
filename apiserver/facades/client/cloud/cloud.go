@@ -558,7 +558,6 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 
 	modelErrors, err := validateNewCredentialForModelFunc(
 		modelState.Model(),
-		environs.New,
 		api.callContext,
 		tag,
 		credential,

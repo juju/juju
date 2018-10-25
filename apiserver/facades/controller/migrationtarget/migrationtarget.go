@@ -257,33 +257,18 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 // CheckMachines compares the machines in state with the ones reported
 // by the provider and reports any discrepancies.
 func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error) {
-	fail := func(original error) (params.ErrorResults, error) {
-		return params.ErrorResults{}, original
-	}
-
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	st, err := api.pool.Get(tag.Id())
 	if err != nil {
-		return fail(errors.Trace(err))
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	defer st.Release()
 
-	// CAAS models don't have machines.
-	m, err := st.Model()
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	if m.Type() == state.ModelTypeCAAS {
-		return params.ErrorResults{}, nil
-	}
-
-	env, err := api.getEnviron(st.State)
-	return credentialcommon.ValidateModelCredential(
-		credentialcommon.NewCloudEntitiesBackend(st.State),
-		env,
+	return credentialcommon.ValidateExistingModelCredential(
+		credentialcommon.NewPersistentBackend(st.State),
 		api.callContext,
 	)
 }

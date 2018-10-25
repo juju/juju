@@ -10,66 +10,86 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/state"
 )
 
-// ValidateModelCredential checks if a cloud credential is valid for a model.
-func ValidateModelCredential(persisted CloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+// ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
+func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+	model, err := backend.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	credentialTag, isSet := model.CloudCredential()
+	if !isSet {
+		return params.ErrorResults{}, nil
+	}
+
+	storedCredential, err := backend.CloudCredential(credentialTag)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	if !storedCredential.IsValid() {
+		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Name)
+	}
+	credential := cloud.NewCredential(cloud.AuthType(storedCredential.AuthType), storedCredential.Attributes)
+	return ValidateNewModelCredential(backend, callCtx, credentialTag, &credential)
+}
+
+// ValidateNewModelCredential checks if a new cloud credential could be valid for a given model.
+func ValidateNewModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
+	openParams, err := buildOpenParams(backend, credentialTag, credential)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	model, err := backend.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	switch model.Type() {
+	case state.ModelTypeCAAS:
+		return checkCAASModelCredential(openParams)
+	case state.ModelTypeIAAS:
+		return checkIAASModelCredential(openParams, backend, callCtx)
+	default:
+		return params.ErrorResults{}, errors.NotSupportedf("model type %q", model.Type())
+	}
+}
+
+func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorResults, error) {
+	broker, err := newCAASBroker(brokerParams)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	_, err = broker.Namespaces()
+	if err != nil {
+		// If this call could not be made with provided credential, we know that the credential is invalid.
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	return params.ErrorResults{}, nil
+}
+
+func checkIAASModelCredential(openParams environs.OpenParams, backend PersistentBackend, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+	env, err := newEnv(openParams)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	// We only check persisted machines vs known cloud instances.
 	// In the future, this check may be extended to other cloud resources,
 	// entities and operation-level authorisations such as interfaces,
 	// ability to CRUD storage, etc.
-	return CheckMachineInstances(persisted, provider, callCtx)
+	return checkMachineInstances(backend, env, callCtx)
 }
 
-// ValidateNewModelCredential checks if a new cloud credential can be valid
-// for a given model.
-func ValidateNewModelCredential(backend ModelBackend, newEnv NewEnvironFunc, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
-	fail := func(original error) (params.ErrorResults, error) {
-		return params.ErrorResults{}, original
-	}
-
-	model, err := backend.Model()
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	modelCloud, err := backend.Cloud(model.Cloud())
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	err = model.ValidateCloudCredential(credentialTag, *credential)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	tempCloudSpec, err := environs.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	cfg, err := model.Config()
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	tempOpenParams := environs.OpenParams{
-		Cloud:  tempCloudSpec,
-		Config: cfg,
-	}
-	env, err := newEnv(tempOpenParams)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	return ValidateModelCredential(backend, env, callCtx)
-}
-
-// CheckMachineInstances compares model machines from state with
+// checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
-func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
+// This only makes sense for non-k8s providers.
+func checkMachineInstances(backend PersistentBackend, provider CloudProvider, callCtx context.ProviderCallContext) (params.ErrorResults, error) {
 	fail := func(original error) (params.ErrorResults, error) {
 		return params.ErrorResults{}, original
 	}
@@ -130,5 +150,42 @@ func CheckMachineInstances(backend CloudEntitiesBackend, provider CloudProvider,
 	return params.ErrorResults{Results: results}, nil
 }
 
-// NewEnvironFunc defines function that obtains new Environ.
-type NewEnvironFunc func(args environs.OpenParams) (environs.Environ, error)
+var (
+	newEnv        = environs.New
+	newCAASBroker = caas.New
+)
+
+func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (environs.OpenParams, error) {
+	fail := func(original error) (environs.OpenParams, error) {
+		return environs.OpenParams{}, original
+	}
+
+	model, err := backend.Model()
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	modelCloud, err := backend.Cloud(model.Cloud())
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	err = model.ValidateCloudCredential(credentialTag, *credential)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	tempCloudSpec, err := environs.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	cfg, err := model.Config()
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	return environs.OpenParams{
+		Cloud:  tempCloudSpec,
+		Config: cfg,
+	}, nil
+}

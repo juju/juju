@@ -102,7 +102,7 @@ func (s statePoolShim) Get(modelUUID string) (PooledModelBackend, error) {
 // PooledModelBackend defines a model retrieved from the model pool.
 type PooledModelBackend interface {
 	// Model represents the model itself.
-	Model() credentialcommon.ModelBackend
+	Model() credentialcommon.PersistentBackend
 	// Release returns a connection to the model back to the pool.
 	Release() bool
 }
@@ -117,8 +117,8 @@ func NewPooledModelBackend(st *state.PooledState) PooledModelBackend {
 }
 
 // Model implements PooledModelBackend.Model.
-func (s modelShim) Model() credentialcommon.ModelBackend {
-	return credentialcommon.NewModelBackend(s.PooledState.State)
+func (s modelShim) Model() credentialcommon.PersistentBackend {
+	return credentialcommon.NewPersistentBackend(s.PooledState.State)
 }
 
 type User interface {
