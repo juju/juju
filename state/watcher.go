@@ -830,8 +830,8 @@ func (st *State) watchCharmProfiles(regExp string) (StringsWatcher, error) {
 		}
 		return compiled.MatchString(k)
 	}
-	accessor := func(doc machineDoc) string {
-		return doc.UpgradeCharmProfileCharmURL
+	accessor := func(doc machineDoc) (string, bool) {
+		return doc.UpgradeCharmProfileCharmURL, true
 	}
 	return newModelFieldChangeWatcher(st, members, filter, accessor), nil
 }
@@ -849,14 +849,14 @@ type modelFieldChangeWatcher struct {
 	filter func(key interface{}) bool
 	// accessor is used to extract the field from the machine doc in a generic
 	// way.
-	accessor func(machineDoc) string
+	accessor func(machineDoc) (string, bool)
 	known    map[string]string
 	out      chan []string
 }
 
 var _ Watcher = (*modelFieldChangeWatcher)(nil)
 
-func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter func(key interface{}) bool, accessor func(machineDoc) string) StringsWatcher {
+func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter func(key interface{}) bool, accessor func(machineDoc) (string, bool)) StringsWatcher {
 	w := &modelFieldChangeWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		members:       members,
@@ -885,8 +885,11 @@ func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
 		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
 			continue
 		}
-		w.known[doc.Id] = w.accessor(doc)
-		machineIds.Add(doc.Id)
+		field, ok := w.accessor(doc)
+		if ok {
+			w.known[doc.Id] = field
+			machineIds.Add(doc.Id)
+		}
 	}
 	return machineIds, iter.Close()
 }
@@ -905,12 +908,14 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 		return err
 	}
 	// get the document field from the accessor
-	docField := w.accessor(doc)
+	docField, ok := w.accessor(doc)
 	// check the field before adding to the machineId
-	field, isKnown := w.known[machineId]
-	w.known[machineId] = docField
-	if isKnown && docField != field {
-		machineIds.Add(machineId)
+	if ok {
+		field, isKnown := w.known[machineId]
+		w.known[machineId] = docField
+		if isKnown && docField != field {
+			machineIds.Add(machineId)
+		}
 	}
 	return nil
 }
@@ -919,17 +924,19 @@ func (w *modelFieldChangeWatcher) loop() error {
 	ch := make(chan watcher.Change)
 	w.watcher.WatchCollectionWithFilter(machinesC, ch, w.filter)
 	defer w.watcher.UnwatchCollection(machinesC, ch)
+
 	machineIds, err := w.initial()
 	if err != nil {
 		return err
 	}
+
 	out := w.out
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
 		case change := <-ch:
 			if err = w.merge(machineIds, change); err != nil {
 				return err
@@ -1891,7 +1898,7 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (StringsWatcher, err
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		machineIds.Add(m.Id())
+		machineIds.Add(m.doc.DocID)
 	}
 	members := bson.D{{"_id", bson.D{{"$in", machineIds.Values()}}}}
 	filter := func(key interface{}) bool {
@@ -1905,15 +1912,12 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (StringsWatcher, err
 		}
 		return machineIds.Contains(k)
 	}
-	accessor := func(doc machineDoc) string {
-		return doc.UpgradeCharmProfileComplete
+	accessor := func(doc machineDoc) (string, bool) {
+		status := doc.UpgradeCharmProfileComplete
+		return status, status != ""
 	}
 
-	watch := newModelFieldChangeWatcher(a.st, members, filter, accessor)
-	if _, ok := <-watch.Changes(); ok {
-		return watch, nil
-	}
-	return nil, watcher.EnsureErr(watch)
+	return newModelFieldChangeWatcher(a.st, members, filter, accessor), nil
 }
 
 // WatchUpgradeSeriesNotifications returns a watcher that observes the status of

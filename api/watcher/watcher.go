@@ -235,7 +235,7 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 }
 
 // Changes returns a channel that receives a list of strings of watched
-// entites with changes.
+// entities with changes.
 func (w *stringsWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }

@@ -269,6 +269,12 @@ type SetCharmConfig struct {
 	// facade version 2
 	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
 
+	// Force forces the use of the charm in the following scenarios:
+	// overriding a lxd profile upgrade.
+	// In the future, we should deprecate ForceSeries and ForceUnits and just
+	// use Force for all instances.
+	Force bool
+
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
@@ -313,6 +319,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 		Channel:            string(cfg.CharmID.Channel),
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
+		Force:              cfg.Force,
 		ForceSeries:        cfg.ForceSeries,
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,

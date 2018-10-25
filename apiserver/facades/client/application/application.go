@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -625,6 +626,7 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 			"",  // charm settings (YAML)
 			args.ForceSeries,
 			args.ForceCharmURL,
+			args.Force,
 			nil, // resource IDs
 			nil, // storage constraints
 		); err != nil {
@@ -725,6 +727,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		args.ConfigSettingsYAML,
 		args.ForceSeries,
 		args.ForceUnits,
+		args.Force,
 		args.ResourceIDs,
 		args.StorageConstraints,
 	)
@@ -758,9 +761,8 @@ func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) erro
 // WatchLXDProfileUpgradeNotifications returns a watcher that fires on LXD
 // profile events.
 func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.StringsWatchResults, error) {
-	var nothing params.StringsWatchResults
 	if err := api.checkCanRead(); err != nil {
-		return nothing, errors.Trace(err)
+		return params.StringsWatchResults{}, errors.Trace(err)
 	}
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
@@ -768,12 +770,12 @@ func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (p
 	for i, entity := range args.Entities {
 		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		app, err := api.backend.Application(tag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		w, err := app.WatchLXDProfileUpgradeNotifications()
@@ -781,9 +783,16 @@ func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (p
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
+
+		changes, ok := <-w.Changes()
+		if !ok {
+			result.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+
 		id := api.resources.Register(w)
 		result.Results[i].StringsWatcherId = id
-
+		result.Results[i].Changes = changes
 	}
 	return result, nil
 }
@@ -791,9 +800,8 @@ func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (p
 // GetLXDProfileUpgradeMessages returns the lxd profile messages assocatied with
 // a application and set of machines
 func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfileUpgradeMessagesArgs) (params.StringsResults, error) {
-	var nothing params.StringsResults
 	if err := api.checkCanRead(); err != nil {
-		return nothing, errors.Trace(err)
+		return params.StringsResults{}, errors.Trace(err)
 	}
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Args)),
@@ -873,7 +881,8 @@ func (api *APIBase) applicationSetCharm(
 	configSettingsStrings map[string]string,
 	configSettingsYAML string,
 	forceSeries,
-	forceUnits bool,
+	forceUnits,
+	force bool,
 	resourceIDs map[string]string,
 	storageConstraints map[string]params.StorageConstraints,
 ) error {
@@ -914,6 +923,7 @@ func (api *APIBase) applicationSetCharm(
 		ConfigSettings:     settings,
 		ForceSeries:        forceSeries,
 		ForceUnits:         forceUnits,
+		Force:              force,
 		ResourceIDs:        resourceIDs,
 		StorageConstraints: stateStorageConstraints,
 	}

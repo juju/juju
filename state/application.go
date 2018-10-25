@@ -1048,6 +1048,10 @@ type SetCharmConfig struct {
 	// the charm's supported series.
 	ForceSeries bool
 
+	// Force forces the overriding of the lxd profile validation even if the
+	// profile doesn't validate.
+	Force bool
+
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
 	ResourceIDs map[string]string

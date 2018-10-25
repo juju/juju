@@ -326,6 +326,7 @@ type ApplicationUpdate struct {
 	CharmURL        string             `json:"charm-url"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
+	Force           bool               `json:"force"`
 	MinUnits        *int               `json:"min-units,omitempty"`
 	SettingsStrings map[string]string  `json:"settings,omitempty"`
 	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
@@ -371,6 +372,9 @@ type ApplicationSetCharm struct {
 	// over ConfigSettings. This field is only understood by Application
 	// facade version 2
 	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+
+	// Force forces the lxd profile validation overriding even if it's fails.
+	Force bool `json:"force"`
 
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"force-units"`

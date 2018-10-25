@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -53,7 +54,7 @@ func NewUpgradeCharmCommand() cmd.Command {
 		NewCharmClient: func(conn base.APICallCloser) CharmClient {
 			return charms.NewClient(conn)
 		},
-		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmUpgradeClient {
+		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
 			return application.NewClient(conn)
 		},
 		NewModelConfigGetter: func(conn base.APICallCloser) ModelConfigGetter {
@@ -67,11 +68,13 @@ func NewUpgradeCharmCommand() cmd.Command {
 			return resclient, nil
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
-		NewLXDProfileUpgradeClient: func(conn api.Connection) LXDProfileUpgradeAPI {
-			return application.NewClient(conn)
-		},
 	}
 	return modelcmd.Wrap(cmd)
+}
+
+type CharmAPIClient interface {
+	CharmUpgradeClient
+	LXDProfileUpgradeAPI
 }
 
 // CharmUpgradeClient defines a subset of the application facade, as required
@@ -112,7 +115,7 @@ type upgradeCharmCommand struct {
 	ResolveCharm               ResolveCharmFunc
 	NewCharmAdder              NewCharmAdderFunc
 	NewCharmClient             func(api.Connection) CharmClient
-	NewCharmUpgradeClient      func(api.Connection) CharmUpgradeClient
+	NewCharmUpgradeClient      func(api.Connection) CharmAPIClient
 	NewModelConfigGetter       func(api.Connection) ModelConfigGetter
 	NewResourceLister          func(api.Connection) (ResourceLister, error)
 	CharmStoreURLGetter        func(api.Connection) (string, error)
@@ -369,8 +372,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	lxdProfileUpgradeClient := c.NewLXDProfileUpgradeClient(apiRoot)
-	if err := c.handleNotifications(ctx, lxdProfileUpgradeClient); err != nil {
+	if err := c.handleNotifications(ctx, charmUpgradeClient); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -386,6 +388,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ApplicationName:    c.ApplicationName,
 		CharmID:            chID,
 		ConfigSettingsYAML: string(configYAML),
+		Force:              c.Force,
 		ForceSeries:        c.ForceSeries,
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        ids,
@@ -418,11 +421,11 @@ func (c *upgradeCharmCommand) handleNotifications(ctx *cmd.Context, lxdProfileUp
 
 // displayNotifications handles the writing of lxd profile upgrade notifications
 // to standard out.
-func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI) func() error {
+func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDProfileUpgradeAPI) func() error {
 	// We return and anonymous function here to satisfy the catacomb plan's
 	// need for a work function and to close over the commands context.
 	return func() error {
-		uw, wid, err := lxdProfileUpgradeClient.WatchLXDProfileUpgradeNotifications(c.ApplicationName)
+		uw, wid, err := client.WatchLXDProfileUpgradeNotifications(c.ApplicationName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -435,7 +438,7 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileU
 			case <-c.catacomb.Dying():
 				return c.catacomb.ErrDying()
 			case machineIds := <-uw.Changes():
-				err = c.handleLXDProfileUpgradeChange(ctx, lxdProfileUpgradeClient, wid, machineIds)
+				err = c.handleLXDProfileUpgradeChange(ctx, client, wid, machineIds)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -444,12 +447,15 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileU
 	}
 }
 
-func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI, wid string, machineIds []string) error {
-	messages, err := lxdProfileUpgradeClient.GetLXDProfileUpgradeMessages(c.ApplicationName, machineIds, wid)
+func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string, machineIds []string) error {
+	messages, err := client.GetLXDProfileUpgradeMessages(c.ApplicationName, machineIds, wid)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof("something happened with %v %v", machineIds, messages)
+	if len(messages) == 0 {
+		return nil
+	}
+	ctx.Infof(strings.Join(messages, "\n"))
 	return nil
 }
 
