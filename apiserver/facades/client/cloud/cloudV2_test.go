@@ -337,7 +337,7 @@ func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
 		}, nil
 	}
 	calls := 0
-	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistedBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
+	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
 		calls++
 		if calls == 1 {
 			return params.ErrorResults{[]params.ErrorResult{
