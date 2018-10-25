@@ -199,6 +199,7 @@ type mockUnit struct {
 	life                             params.Life
 	resolved                         params.ResolvedMode
 	series                           string
+	hasAddress                       bool
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
 	addressesWatcher                 *mockNotifyWatcher
@@ -228,6 +229,10 @@ func (u *mockUnit) Application() (remotestate.Application, error) {
 
 func (u *mockUnit) Series() string {
 	return u.series
+}
+
+func (u *mockUnit) HasAddress() bool {
+	return u.hasAddress
 }
 
 func (u *mockUnit) Tag() names.UnitTag {

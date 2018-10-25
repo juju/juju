@@ -1004,14 +1004,14 @@ func (u *Unit) AllAddresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var addresses []network.Address
 	serviceInfo, err := app.ServiceInfo()
-	if errors.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	addresses := serviceInfo.Addresses()
+	if err == nil {
+		addresses = serviceInfo.Addresses()
+	}
 
 	// Second the address of the container.
 	addr, err := u.containerAddress()

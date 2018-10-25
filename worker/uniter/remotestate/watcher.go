@@ -623,6 +623,7 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	w.current.Life = w.unit.Life()
 	w.current.ResolvedMode = w.unit.Resolved()
 	w.current.Series = w.unit.Series()
+	w.current.HasAddress = w.unit.HasAddress()
 	return nil
 }
 
@@ -655,8 +656,12 @@ func (w *RemoteStateWatcher) configChanged() error {
 }
 
 func (w *RemoteStateWatcher) addressesChanged() error {
+	if err := w.unit.Refresh(); err != nil {
+		return errors.Trace(err)
+	}
 	w.mu.Lock()
 	w.current.ConfigVersion++
+	w.current.HasAddress = w.unit.HasAddress()
 	w.mu.Unlock()
 	return nil
 }

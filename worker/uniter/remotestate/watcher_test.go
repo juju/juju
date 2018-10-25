@@ -257,9 +257,12 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
+	c.Assert(s.watcher.Snapshot().HasAddress, jc.IsFalse)
+	s.st.unit.hasAddress = true
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
+	c.Assert(s.watcher.Snapshot().HasAddress, jc.IsTrue)
 
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()

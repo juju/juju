@@ -269,7 +269,7 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	remoteState := remotestate.Snapshot{}
+	remoteState := remotestate.Snapshot{HasAddress: true}
 	relationsResolver := relation.NewRelationsResolver(r)
 	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
@@ -335,6 +335,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life:      params.Alive,
@@ -359,6 +360,45 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	return r
 }
 
+func (s *relationsSuite) TestHookDelayRelationJoined(c *gc.C) {
+	unitTag := names.NewUnitTag("wordpress/0")
+	abort := make(chan struct{})
+
+	var numCalls int32
+	apiCaller := mockAPICaller(c, &numCalls, relationJoinedAPICalls()...)
+	st := uniter.NewState(apiCaller, unitTag)
+	r, err := relation.NewRelations(
+		relation.RelationsConfig{
+			State:                st,
+			UnitTag:              unitTag,
+			CharmDir:             s.stateDir,
+			RelationsDir:         s.relationsDir,
+			NewLeadershipContext: s.leadershipContextFunc,
+			Abort:                abort,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: {
+				Life:      params.Alive,
+				Suspended: false,
+				Members: map[string]int64{
+					"wordpress": 1,
+				},
+			},
+		},
+	}
+	relationsResolver := relation.NewRelationsResolver(r)
+	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
+}
+
 func (s *relationsSuite) TestHookRelationJoined(c *gc.C) {
 	var numCalls int32
 	s.assertHookRelationJoined(c, &numCalls, relationJoinedAPICalls()...)
@@ -376,6 +416,7 @@ func (s *relationsSuite) assertHookRelationChanged(
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: remoteRelationSnapshot,
 		},
@@ -452,6 +493,7 @@ func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life:      params.Alive,
@@ -481,6 +523,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life: params.Dying,
@@ -523,6 +566,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life: params.Dying,
@@ -548,6 +592,7 @@ func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life:      params.Alive,
@@ -580,6 +625,7 @@ func (s *relationsSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life:      params.Alive,
@@ -690,6 +736,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life: params.Alive,
@@ -825,6 +872,7 @@ func (s *relationsSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
 	}
 
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life: params.Dying,
@@ -882,6 +930,7 @@ func (s *relationsSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
 	}
 
 	remoteState := remotestate.Snapshot{
+		HasAddress: true,
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
 				Life: params.Alive,

@@ -814,10 +814,11 @@ type ResourceUploadResult struct {
 // UnitRefreshResult is used to return the latest values for attributes
 // on a unit.
 type UnitRefreshResult struct {
-	Life     Life
-	Resolved ResolvedMode
-	Series   string
-	Error    *Error
+	Life       Life
+	Resolved   ResolvedMode
+	Series     string
+	HasAddress bool
+	Error      *Error
 }
 
 // UnitRefreshResults holds the results for any API call which ends

@@ -246,7 +246,7 @@ func (r *relations) NextHook(
 		}
 		// If either the unit or the relation are Dying, or the relation becomes suspended,
 		// then the relation should be broken.
-		hook, err := nextRelationHook(relationer.dir, relationSnapshot, remoteBroken)
+		hook, err := nextRelationHook(relationer.dir, relationSnapshot, remoteBroken, remoteState.HasAddress)
 		if err == resolver.ErrNoOperation {
 			continue
 		}
@@ -263,6 +263,7 @@ func nextRelationHook(
 	dir *StateDir,
 	remote remotestate.RelationSnapshot,
 	remoteBroken bool,
+	hasAddress bool,
 ) (hook.Info, error) {
 
 	local := dir.State()
@@ -326,6 +327,12 @@ func nextRelationHook(
 			continue
 		}
 		if _, found := local.Members[unitName]; !found {
+			// We can't run the relation-joined hook until the unit
+			// has an IP address.
+			if !hasAddress {
+				logger.Debugf("delay join for %v, waiting for address", unitName)
+				return hook.Info{}, resolver.ErrNoOperation
+			}
 			return hook.Info{
 				Kind:          hooks.RelationJoined,
 				RelationId:    relationId,

@@ -38,6 +38,7 @@ type Unit interface {
 	Resolved() params.ResolvedMode
 	Application() (Application, error)
 	Series() string
+	HasAddress() bool
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)

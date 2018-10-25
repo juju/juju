@@ -23,6 +23,7 @@ type Unit struct {
 	life         params.Life
 	resolvedMode params.ResolvedMode
 	series       string
+	hasAddress   bool
 }
 
 // Tag returns the unit's tag.
@@ -55,6 +56,11 @@ func (u *Unit) Resolved() params.ResolvedMode {
 	return u.resolvedMode
 }
 
+// HasAddress returns true if the unit has any IP addresses.
+func (u *Unit) HasAddress() bool {
+	return u.hasAddress
+}
+
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
 	var results params.UnitRefreshResults
@@ -78,6 +84,7 @@ func (u *Unit) Refresh() error {
 	u.life = result.Life
 	u.resolvedMode = result.Resolved
 	u.series = result.Series
+	u.hasAddress = result.HasAddress
 	return nil
 }
 

@@ -2509,6 +2509,43 @@ func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestRefreshCAAS(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c)
+
+	addr := "10.0.0.1"
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		unit.UpdateOperation(state.UnitUpdateProperties{
+			Address: &addr,
+		}),
+	}
+	err := app.UpdateUnits(&updateUnits)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{unit.Tag().String()},
+		},
+	}
+
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             cm.State(),
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expect := params.UnitRefreshResults{
+		Results: []params.UnitRefreshResult{
+			{Life: params.Alive, Resolved: params.ResolvedNone, Series: "kubernetes", HasAddress: true},
+		},
+	}
+	results, err := uniterAPI.Refresh(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, expect)
+}
+
 func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
 	result, err := s.uniter.GetMeterStatus(args)
@@ -3063,7 +3100,7 @@ func (s *uniterSuite) TestRefresh(c *gc.C) {
 	}
 	expect := params.UnitRefreshResults{
 		Results: []params.UnitRefreshResult{
-			{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"},
+			{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal", HasAddress: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

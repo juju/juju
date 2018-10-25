@@ -75,6 +75,9 @@ type Snapshot struct {
 
 	// UpgradeSeriesStatus is the preparation status of any currently running series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// HasAddress is true when the unit's host has an IP address assigned.
+	HasAddress bool
 }
 
 type RelationSnapshot struct {
