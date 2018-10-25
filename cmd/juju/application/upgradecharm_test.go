@@ -35,11 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
-<<<<<<< 59de935095ecabb754f5ca5d7ca11b31319be8ac
-=======
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/feature"
->>>>>>> Reuse the same application client
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"

@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -1901,12 +1902,14 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, erro
 		// will be empty.
 		machineIds.Add(m.doc.DocID)
 	}
-	accessor := func(doc machineDoc) (string, bool) {
-		status := doc.UpgradeCharmProfileComplete
-		return status, status != ""
+	accessor := func(doc machineDoc) string {
+		return doc.UpgradeCharmProfileComplete
+	}
+	completed := func(previousField, currentField string) bool {
+		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
 	}
 
-	return newMachineFieldChangeWatcher(a.st, machineIds, accessor), nil
+	return newMachineFieldChangeWatcher(a.st, machineIds, accessor, completed), nil
 }
 
 // machineFieldChangeWatcher notifies about charm changes where a
@@ -1918,19 +1921,23 @@ type machineFieldChangeWatcher struct {
 	commonWatcher
 	// members is used to select the initial set of interesting entities.
 	members set.Strings
+	known   map[string]string
 	// accessor is used to extract the field from the machine doc in a generic
 	// way.
-	accessor func(machineDoc) (string, bool)
-	out      chan struct{}
+	accessor  func(machineDoc) string
+	completed func(string, string) bool
+	out       chan struct{}
 }
 
 var _ Watcher = (*machineFieldChangeWatcher)(nil)
 
-func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, accessor func(machineDoc) (string, bool)) NotifyWatcher {
+func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, accessor func(machineDoc) string, completed func(string, string) bool) NotifyWatcher {
 	w := &machineFieldChangeWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		members:       members,
+		known:         make(map[string]string),
 		accessor:      accessor,
+		completed:     completed,
 		out:           make(chan struct{}),
 	}
 	w.tomb.Go(func() error {
@@ -1948,13 +1955,13 @@ func (w *machineFieldChangeWatcher) initial() (set.Strings, error) {
 
 	iter := newMachines.Find(bson.D{{"_id", bson.D{{"$in", w.members.Values()}}}}).Iter()
 	for iter.Next(&doc) {
+		w.known[doc.DocID] = w.accessor(doc)
 		machineIds.Add(doc.DocID)
 	}
 	return machineIds, iter.Close()
 }
 
 func (w *machineFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
-	machineId := w.backend.localID(change.Id.(string))
 	if change.Revno == -1 {
 		return nil
 	}
@@ -1965,9 +1972,16 @@ func (w *machineFieldChangeWatcher) merge(machineIds set.Strings, change watcher
 		return err
 	}
 	// check the field before adding to the machineId
-	if _, ok := w.accessor(doc); !ok {
-		machineIds.Remove(machineId)
+	currentField := w.accessor(doc)
+	previousField, ok := w.known[doc.DocID]
+	if !ok || w.completed(previousField, currentField) {
+		machineIds.Remove(doc.DocID)
+		return nil
 	}
+	if !machineIds.Contains(doc.DocID) && currentField != previousField {
+		machineIds.Add(doc.DocID)
+	}
+	w.known[doc.DocID] = currentField
 	return nil
 }
 
@@ -1996,7 +2010,11 @@ func (w *machineFieldChangeWatcher) loop() error {
 			}
 			if !machineIds.IsEmpty() {
 				out = w.out
+				continue
 			}
+			// force a final request from the client
+			w.out <- struct{}{}
+			return nil
 		case out <- struct{}{}:
 			out = nil
 		}

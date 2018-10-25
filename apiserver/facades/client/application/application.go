@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -843,10 +844,11 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 			results.Results[k].Error = common.ServerError(err)
 			continue
 		}
-		if status := machine.UpgradeCharmProfileComplete(); status != "" {
-			results.Results[k].Message = status
+		status := machine.UpgradeCharmProfileComplete()
+		if !lxdprofile.UpgradeStatusTerminal(status) {
 			finished = false
 		}
+		results.Results[k].Message = status
 	}
 	if finished {
 		if resErr := api.resources.Stop(arg.WatcherId); resErr != nil {
@@ -854,7 +856,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 		}
 		// reset the upgrade charm profile complete status so that it's in a
 		// known consistent state.
-		if resErr := api.setUpgradeCharmProfileCompleteStatus(units, ""); resErr != nil {
+		if resErr := api.setUpgradeCharmProfileCompleteStatus(units, lxdprofile.EmptyStatus); resErr != nil {
 			// we maybe in a incomplete status and performing upgrades may not work
 			// correctly. It requires operator intervention.
 			return results, resErr
@@ -876,7 +878,7 @@ func (api *APIBase) setUpgradeCharmProfileCompleteStatus(units []Unit, status st
 		if err != nil {
 			return err
 		}
-		if err := machine.SetUpgradeCharmProfileComplete(""); err != nil {
+		if err := machine.SetUpgradeCharmProfileComplete(status); err != nil {
 			logger.Infof("unable to set the upgrade charm profile complete status for %q :%v", unit.Tag().String(), err)
 			return err
 		}

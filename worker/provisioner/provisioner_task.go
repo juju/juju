@@ -354,9 +354,9 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		m := mResult.Machine
 		if err = task.processOneMachineProfileChange(m, profileBroker); err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
-			m.SetUpgradeCharmProfileComplete(err.Error())
+			m.SetUpgradeCharmProfileComplete(fmt.Sprintf("%s: %s", lxdprofile.ErrorStatus, err.Error()))
 		} else {
-			m.SetUpgradeCharmProfileComplete("Success")
+			m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 		}
 	}
 	return nil
@@ -364,7 +364,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 
 func profileUpgradeNotRequired(machines []apiprovisioner.MachineResult) {
 	for _, mResult := range machines {
-		if err := mResult.Machine.SetUpgradeCharmProfileComplete("Not Required"); err != nil {
+		if err := mResult.Machine.SetUpgradeCharmProfileComplete(lxdprofile.NotRequiredStatus); err != nil {
 			logger.Errorf("cannot set charm profile upgrade not required: %s", err.Error())
 		}
 	}

@@ -424,6 +424,7 @@ func (c *upgradeCharmCommand) handleNotifications(ctx *cmd.Context, lxdProfileUp
 func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDProfileUpgradeAPI) func() error {
 	// We return and anonymous function here to satisfy the catacomb plan's
 	// need for a work function and to close over the commands context.
+	messages := make(map[string]application.LXDProfileUpgradeMessage)
 	return func() error {
 		uw, wid, err := client.WatchLXDProfileUpgradeNotifications(c.ApplicationName)
 		if err != nil {
@@ -438,7 +439,7 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDP
 			case <-c.catacomb.Dying():
 				return c.catacomb.ErrDying()
 			case <-uw.Changes():
-				err = c.handleLXDProfileUpgradeChange(ctx, client, wid)
+				err = c.handleLXDProfileUpgradeChange(ctx, client, wid, messages)
 				if err != nil {
 					if errors.IsNotFound(err) {
 						c.catacomb.Kill(nil)
@@ -451,7 +452,7 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDP
 	}
 }
 
-func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string) error {
+func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string, previous map[string]application.LXDProfileUpgradeMessage) error {
 	messages, err := client.GetLXDProfileUpgradeMessages(c.ApplicationName, wid)
 	if err != nil {
 		return errors.Trace(err)
@@ -467,7 +468,11 @@ func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, cl
 		if message.Message == "" {
 			continue
 		}
+		if p, ok := previous[message.UnitName]; ok && p.Message == message.Message {
+			continue
+		}
 		ctx.Infof(fmt.Sprintf("LXD profile upgrade for %q is %s\n", message.UnitName, message.Message))
+		previous[message.UnitName] = message
 	}
 	return nil
 }
