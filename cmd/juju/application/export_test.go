@@ -20,22 +20,20 @@ func NewUpgradeCharmCommandForTest(
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(api.Connection) CharmClient,
-	newCharmUpgradeClient func(api.Connection) CharmUpgradeClient,
+	newCharmUpgradeClient func(api.Connection) CharmAPIClient,
 	newModelConfigGetter func(api.Connection) ModelConfigGetter,
 	newResourceLister func(api.Connection) (ResourceLister, error),
 	charmStoreURLGetter func(api.Connection) (string, error),
-	newLXDProfileUpgradeClient func(api.Connection) LXDProfileUpgradeAPI,
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
-		DeployResources:            deployResources,
-		ResolveCharm:               resolveCharm,
-		NewCharmAdder:              newCharmAdder,
-		NewCharmClient:             newCharmClient,
-		NewCharmUpgradeClient:      newCharmUpgradeClient,
-		NewModelConfigGetter:       newModelConfigGetter,
-		NewResourceLister:          newResourceLister,
-		CharmStoreURLGetter:        charmStoreURLGetter,
-		NewLXDProfileUpgradeClient: newLXDProfileUpgradeClient,
+		DeployResources:       deployResources,
+		ResolveCharm:          resolveCharm,
+		NewCharmAdder:         newCharmAdder,
+		NewCharmClient:        newCharmClient,
+		NewCharmUpgradeClient: newCharmUpgradeClient,
+		NewModelConfigGetter:  newModelConfigGetter,
+		NewResourceLister:     newResourceLister,
+		CharmStoreURLGetter:   charmStoreURLGetter,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)

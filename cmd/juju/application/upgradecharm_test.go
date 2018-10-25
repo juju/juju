@@ -56,17 +56,16 @@ type UpgradeCharmSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 
-	deployResources         resourceadapters.DeployResourcesFunc
-	resolveCharm            ResolveCharmFunc
-	resolvedCharmURL        *charm.URL
-	apiConnection           mockAPIConnection
-	charmAdder              mockCharmAdder
-	charmClient             mockCharmClient
-	charmUpgradeClient      mockCharmUpgradeClient
-	modelConfigGetter       mockModelConfigGetter
-	resourceLister          mockResourceLister
-	lxdProfileUpgradeClient mockLXDProfileUpgradeClient
-	cmd                     cmd.Command
+	deployResources   resourceadapters.DeployResourcesFunc
+	resolveCharm      ResolveCharmFunc
+	resolvedCharmURL  *charm.URL
+	apiConnection     mockAPIConnection
+	charmAdder        mockCharmAdder
+	charmClient       mockCharmClient
+	charmAPIClient    mockCharmAPIClient
+	modelConfigGetter mockModelConfigGetter
+	resourceLister    mockResourceLister
+	cmd               cmd.Command
 }
 
 var _ = gc.Suite(&UpgradeCharmSuite{})
@@ -121,7 +120,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 			Meta: &charm.Meta{},
 		},
 	}
-	s.charmUpgradeClient = mockCharmUpgradeClient{charmURL: currentCharmURL}
+	s.charmAPIClient = mockCharmAPIClient{charmURL: currentCharmURL}
 	s.modelConfigGetter = mockModelConfigGetter{}
 	s.resourceLister = mockResourceLister{}
 
@@ -138,7 +137,6 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
 	}
-	s.lxdProfileUpgradeClient = mockLXDProfileUpgradeClient{}
 
 	s.cmd = NewUpgradeCharmCommandForTest(
 		store,
@@ -155,10 +153,10 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 			s.PopNoErr()
 			return &s.charmClient
 		},
-		func(conn base.APICallCloser) CharmUpgradeClient {
-			s.AddCall("NewCharmUpgradeClient", conn)
+		func(conn api.APICallCloser) CharmAPIClient {
+			s.AddCall("NewCharmAPIClient", conn)
 			s.PopNoErr()
-			return &s.charmUpgradeClient
+			return &s.charmAPIClient
 		},
 		func(conn base.APICallCloser) ModelConfigGetter {
 			s.AddCall("NewModelConfigGetter", conn)
@@ -172,10 +170,6 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 			s.AddCall("CharmStoreURLGetter", conn)
 			return "testing.api.charmstore", s.NextErr()
 		},
-		func(conn api.Connection) LXDProfileUpgradeAPI {
-			s.AddCall("NewLXDProfileUpgradeClient", conn)
-			return &s.lxdProfileUpgradeClient
-		},
 	)
 }
 
@@ -186,8 +180,8 @@ func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Conte
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -235,8 +229,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -870,30 +864,56 @@ func (m *mockCharmClient) CharmInfo(curl string) (*charms.CharmInfo, error) {
 	return m.charmInfo, nil
 }
 
-type mockCharmUpgradeClient struct {
-	CharmUpgradeClient
+type mockCharmAPIClient struct {
+	CharmAPIClient
 	testing.Stub
 	charmURL *charm.URL
 }
 
-func (m *mockCharmUpgradeClient) GetCharmURL(applicationName string) (*charm.URL, error) {
+func (m *mockCharmAPIClient) GetCharmURL(applicationName string) (*charm.URL, error) {
 	m.MethodCall(m, "GetCharmURL", applicationName)
 	return m.charmURL, m.NextErr()
 }
 
-func (m *mockCharmUpgradeClient) SetCharm(cfg application.SetCharmConfig) error {
+func (m *mockCharmAPIClient) SetCharm(cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmUpgradeClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmAPIClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{}, m.NextErr()
 }
 
-func (m *mockCharmUpgradeClient) SetCharmProfile(appName string, charmID jujucharmstore.CharmID) error {
+func (m *mockCharmAPIClient) SetCharmProfile(appName string, charmID jujucharmstore.CharmID) error {
 	m.MethodCall(m, "SetCharmProfile", appName, charmID)
 	return m.NextErr()
+}
+
+func (m *mockCharmAPIClient) WatchLXDProfileUpgradeNotifications(appName string) (watcher.NotifyWatcher, string, error) {
+	m.MethodCall(m, "WatchLXDProfileUpgradeNotifications", appName)
+	return &mockNotifyWatcher{ch: make(chan struct{})}, "", m.NextErr()
+}
+
+func (m *mockCharmAPIClient) GetLXDProfileUpgradeMessages(appName string, watchId string) ([]string, error) {
+	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, watchId)
+	return nil, m.NextErr()
+}
+
+type mockNotifyWatcher struct {
+	watcher.NotifyWatcher
+	testing.Stub
+	ch chan struct{}
+}
+
+func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
+	return w.ch
+}
+
+func (w *mockNotifyWatcher) Kill() {}
+
+func (w *mockNotifyWatcher) Wait() error {
+	return nil
 }
 
 type mockModelConfigGetter struct {
@@ -909,19 +929,4 @@ func (m *mockModelConfigGetter) ModelGet() (map[string]interface{}, error) {
 type mockResourceLister struct {
 	ResourceLister
 	testing.Stub
-}
-
-type mockLXDProfileUpgradeClient struct {
-	LXDProfileUpgradeAPI
-	testing.Stub
-}
-
-func (m *mockLXDProfileUpgradeClient) WatchLXDProfileUpgradeNotifications(appName string) (watcher.StringsWatcher, string, error) {
-	m.MethodCall(m, "WatchLXDProfileUpgradeNotifications", appName)
-	return nil, "", m.NextErr()
-}
-
-func (m *mockLXDProfileUpgradeClient) GetLXDProfileUpgradeMessages(appName string, machineIds []string, watchId string) ([]string, error) {
-	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, machineIds, watchId)
-	return nil, m.NextErr()
 }

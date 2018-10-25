@@ -876,14 +876,14 @@ func (c *Client) SetCharmProfile(applicationName string, charmID charmstore.Char
 
 // WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the
 // state deploying a lxd profile.
-func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.StringsWatcher, string, error) {
+func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.NotifyWatcher, string, error) {
 	if c.BestAPIVersion() < 8 {
 		return nil, "", errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
 	}
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	var results params.StringsWatchResults
+	var results params.NotifyWatchResults
 	err := c.facade.FacadeCall("WatchLXDProfileUpgradeNotifications", args, &results)
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -895,22 +895,21 @@ func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (wa
 	if result.Error != nil {
 		return nil, "", result.Error
 	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, result.StringsWatcherId, nil
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	return w, result.NotifyWatcherId, nil
 }
 
 // GetLXDProfileUpgradeMessages returns a list of all messages which are
 // associated with the lxd profile upgrade
-func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, machineIds []string, watcherId string) ([]string, error) {
+func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, watcherId string) ([]string, error) {
 	if c.BestAPIVersion() < 8 {
 		return nil, errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
 	}
 	args := params.ApplicationLXDProfileUpgradeMessagesArgs{
 		Args: []params.ApplicationLXDProfileUpgradeMessages{
 			{
-				ApplicationName: applicationName,
-				MachineIds:      machineIds,
-				WatcherId:       watcherId,
+				ApplicationTag: names.NewApplicationTag(applicationName).String(),
+				WatcherId:      watcherId,
 			},
 		},
 	}

@@ -99,12 +99,13 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					},
 				},
 				units: []*mockUnit{
-					{tag: names.NewUnitTag("postgresql/0")},
-					{tag: names.NewUnitTag("postgresql/1")},
+					{tag: names.NewUnitTag("postgresql/0"), machineId: "machine-0"},
+					{tag: names.NewUnitTag("postgresql/1"), machineId: "machine-1"},
 				},
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql/99"),
 				},
+				lxdProfileUpgradeChanges: make(chan struct{}),
 			},
 			"postgresql-subordinate": {
 				name:        "postgresql-subordinate",
@@ -125,6 +126,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql-subordinate/99"),
 				},
+				lxdProfileUpgradeChanges: make(chan struct{}),
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
@@ -1300,6 +1302,9 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 
 func (s *ApplicationSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	app := s.backend.applications["postgresql"]
+	go func() {
+		app.lxdProfileUpgradeChanges <- struct{}{}
+	}()
 	_, err := s.api.WatchLXDProfileUpgradeNotifications(params.Entities{
 		Entities: []params.Entity{
 			{
@@ -1313,20 +1318,21 @@ func (s *ApplicationSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestGetLXDProfileUpgradeMessages(c *gc.C) {
+	app := s.backend.applications["postgresql"]
 	results, err := s.api.GetLXDProfileUpgradeMessages(params.ApplicationLXDProfileUpgradeMessagesArgs{
 		Args: []params.ApplicationLXDProfileUpgradeMessages{
 			{
-				ApplicationName: "postgresql",
-				MachineIds: []string{
-					"machine-0",
-					"machine-1",
-				},
-				WatcherId: "xxx-aaa-yyyy-ccc",
+				ApplicationTag: names.NewApplicationTag("postgresql").String(),
+				WatcherId:      "xxx-aaa-yyyy-ccc",
 			},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "Machine", "Machine")
+	s.backend.CheckCallNames(c, "Application", "Machine", "Machine")
+	app.CheckCallNames(c, "AllUnits")
+	for _, v := range app.units {
+		v.CheckCallNames(c, "AssignedMachineId")
+	}
 	c.Assert(results, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{

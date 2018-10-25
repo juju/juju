@@ -41,8 +41,8 @@ import (
 //go:generate mockgen -package mocks -destination mocks/lxdprofileupgradeapi_mock.go github.com/juju/juju/cmd/juju/application LXDProfileUpgradeAPI
 
 type LXDProfileUpgradeAPI interface {
-	WatchLXDProfileUpgradeNotifications(string) (watcher.StringsWatcher, string, error)
-	GetLXDProfileUpgradeMessages(string, []string, string) ([]string, error)
+	WatchLXDProfileUpgradeNotifications(string) (watcher.NotifyWatcher, string, error)
+	GetLXDProfileUpgradeMessages(string, string) ([]string, error)
 }
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
@@ -437,8 +437,8 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDP
 			select {
 			case <-c.catacomb.Dying():
 				return c.catacomb.ErrDying()
-			case machineIds := <-uw.Changes():
-				err = c.handleLXDProfileUpgradeChange(ctx, client, wid, machineIds)
+			case <-uw.Changes():
+				err = c.handleLXDProfileUpgradeChange(ctx, client, wid)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -447,8 +447,8 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDP
 	}
 }
 
-func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string, machineIds []string) error {
-	messages, err := client.GetLXDProfileUpgradeMessages(c.ApplicationName, machineIds, wid)
+func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string) error {
+	messages, err := client.GetLXDProfileUpgradeMessages(c.ApplicationName, wid)
 	if err != nil {
 		return errors.Trace(err)
 	}

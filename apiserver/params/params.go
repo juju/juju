@@ -492,9 +492,8 @@ type ApplicationGetConfigResults struct {
 // ApplicationLXDProfileUpgradeMessages holds the parameters for an application
 // lxd profile machines
 type ApplicationLXDProfileUpgradeMessages struct {
-	ApplicationName string   `json:"application"`
-	MachineIds      []string `json:"machine-ids"`
-	WatcherId       string   `json:"watcher-id"`
+	ApplicationTag string `json:"application"`
+	WatcherId      string `json:"watcher-id"`
 }
 
 // ApplicationLXDProfileUpgradeMessagesArgs holds the parameters for retrieving

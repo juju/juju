@@ -760,12 +760,12 @@ func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) erro
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that fires on LXD
 // profile events.
-func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.StringsWatchResults, error) {
+func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	if err := api.checkCanRead(); err != nil {
-		return params.StringsWatchResults{}, errors.Trace(err)
+		return params.NotifyWatchResults{}, errors.Trace(err)
 	}
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseApplicationTag(entity.Tag)
@@ -784,15 +784,12 @@ func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (p
 			continue
 		}
 
-		changes, ok := <-w.Changes()
+		_, ok := <-w.Changes()
 		if !ok {
 			result.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-
-		id := api.resources.Register(w)
-		result.Results[i].StringsWatcherId = id
-		result.Results[i].Changes = changes
+		result.Results[i].NotifyWatcherId = api.resources.Register(w)
 	}
 	return result, nil
 }
@@ -806,11 +803,37 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfi
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Args)),
 	}
-	for i, entity := range args.Args {
-		messages := make([]string, len(entity.MachineIds))
+	for i, arg := range args.Args {
+		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		units, err := app.AllUnits()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		messages := make([]string, len(units))
 		finished := true
-		for k, v := range entity.MachineIds {
-			machine, err := api.backend.Machine(v)
+		for k, unit := range units {
+			machineId, err := unit.AssignedMachineId()
+			if err != nil {
+				if errors.IsNotAssigned(err) {
+					continue
+				}
+				result.Results[i].Error = common.ServerError(err)
+				break
+			}
+
+			machine, err := api.backend.Machine(machineId)
 			if err != nil {
 				continue
 			}
@@ -819,11 +842,14 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfi
 				finished = false
 			}
 		}
+		// send back the results
 		result.Results[i].Result = messages
+		// if the messages are all finished or empty, clean up the resources.
 		if finished {
-			err := api.resources.Stop(entity.WatcherId)
+			err := api.resources.Stop(arg.WatcherId)
 			if err != nil {
 				result.Results[i].Error = common.ServerError(err)
+				continue
 			}
 		}
 	}
