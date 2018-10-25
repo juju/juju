@@ -288,7 +288,10 @@ func (p *ProvisionerAPI) watchOneMachineContainersCharmProfiles(arg params.Watch
 	}
 	var watch state.StringsWatcher
 	if arg.ContainerType != "" {
-		watch = machine.WatchContainerCharmProfiles(instance.ContainerType(arg.ContainerType))
+		watch, err = machine.WatchContainerCharmProfiles(instance.ContainerType(arg.ContainerType))
+		if err != nil {
+			return nothing, common.ErrPerm
+		}
 	} else {
 		return nothing, errors.BadRequestf("ContainerType not specified")
 	}
@@ -800,7 +803,10 @@ func (p *ProvisionerAPI) WatchModelMachinesCharmProfiles() (params.StringsWatchR
 	if !p.authorizer.AuthController() {
 		return result, common.ErrPerm
 	}
-	watch := p.st.WatchModelMachinesCharmProfiles()
+	watch, err := p.st.WatchModelMachinesCharmProfiles()
+	if err != nil {
+		return result, common.ErrPerm
+	}
 	// Consume any initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = p.resources.Register(watch)

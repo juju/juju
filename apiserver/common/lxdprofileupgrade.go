@@ -21,7 +21,7 @@ type LXDProfileUpgradeBackend interface {
 
 // LXDProfileUpgradeMachine describes machine-receiver state methods.
 type LXDProfileUpgradeMachine interface {
-	WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error)
+	WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error)
 	LXDProfileUpgradeStatus() (model.LXDProfileUpgradeStatus, error)
 }
 
