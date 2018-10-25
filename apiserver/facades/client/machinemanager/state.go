@@ -52,6 +52,7 @@ type Machine interface {
 	Principals() []string
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	GetUpgradeSeriesMessages() ([]string, bool, error)
+	IsManager() bool
 }
 
 type stateShim struct {
