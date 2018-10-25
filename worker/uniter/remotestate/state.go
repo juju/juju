@@ -50,6 +50,7 @@ type Unit interface {
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	PublicAddress() (string, error)
 }
 
 type Application interface {

@@ -75,8 +75,21 @@ type Snapshot struct {
 
 	// UpgradeSeriesStatus is the preparation status of any currently running series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// ModelType is the model type.
+	ModelType model.ModelType
+
+	// IpAddress
+	IPAddress string
 }
 
+// UnitIPAddressAVailable indicates if unit has a public ip address.
+func (ss *Snapshot) UnitIPAddressAVailable() bool {
+	// only check this for CAAS model.
+	return ss.ModelType == model.IAAS || ss.IPAddress != ""
+}
+
+// RelationSnapshot is a snapshot of the relation.
 type RelationSnapshot struct {
 	Life      params.Life
 	Suspended bool

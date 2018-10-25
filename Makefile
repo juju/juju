@@ -155,7 +155,7 @@ operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requi
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
-	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
+	microk8s.docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image

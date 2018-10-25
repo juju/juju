@@ -246,7 +246,7 @@ func (r *relations) NextHook(
 		}
 		// If either the unit or the relation are Dying, or the relation becomes suspended,
 		// then the relation should be broken.
-		hook, err := nextRelationHook(relationer.dir, relationSnapshot, remoteBroken)
+		hook, err := nextRelationHook(relationer.dir, remoteState, relationSnapshot, remoteBroken)
 		if err == resolver.ErrNoOperation {
 			continue
 		}
@@ -261,6 +261,7 @@ func (r *relations) NextHook(
 // no hooks need to be executed.
 func nextRelationHook(
 	dir *StateDir,
+	snapshot remotestate.Snapshot,
 	remote remotestate.RelationSnapshot,
 	remoteBroken bool,
 ) (hook.Info, error) {
@@ -326,6 +327,13 @@ func nextRelationHook(
 			continue
 		}
 		if _, found := local.Members[unitName]; !found {
+			logger.Criticalf("nextRelationHook requesting RelationJoined, remote -> \n%#v, snapshot -> \n%#v", remote, snapshot)
+			// TODO: how to check if snapshot is requester or provider here!!!!
+			// it's important because we should only ignore here for provider but never requester(requester will never get IP assigned before RelationJoined!!!!).
+			if !snapshot.UnitIPAddressAVailable() {
+				// wait for public ip assigned which is required for RelationJoined hook.
+				return hook.Info{}, resolver.ErrNoOperation
+			}
 			return hook.Info{
 				Kind:          hooks.RelationJoined,
 				RelationId:    relationId,

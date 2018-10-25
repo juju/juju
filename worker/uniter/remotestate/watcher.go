@@ -91,6 +91,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		// so that we coalesce events while the observer is busy.
 		out: make(chan struct{}, 1),
 		current: Snapshot{
+			ModelType: config.ModelType,
 			Relations: make(map[int]RelationSnapshot),
 			Storage:   make(map[names.StorageTag]StorageSnapshot),
 		},
@@ -656,8 +657,13 @@ func (w *RemoteStateWatcher) configChanged() error {
 
 func (w *RemoteStateWatcher) addressesChanged() error {
 	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.current.ConfigVersion++
-	w.mu.Unlock()
+	// try to get the public ip of current unit.
+	if ip, err := w.unit.PublicAddress(); err == nil {
+		w.current.IPAddress = ip
+		logger.Criticalf("addressesChanged, ip -> %#v, current -> \n%#v", ip, w.current)
+	}
 	return nil
 }
 
@@ -737,6 +743,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 func (w *RemoteStateWatcher) watchRelationUnits(
 	rel Relation, relationTag names.RelationTag, ruw watcher.RelationUnitsWatcher,
 ) error {
+	logger.Criticalf("RemoteStateWatcher.watchRelationUnits rel -> \n%#v", rel)
 	relationSnapshot := RelationSnapshot{
 		Life:      rel.Life(),
 		Suspended: rel.Suspended(),
