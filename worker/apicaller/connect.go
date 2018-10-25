@@ -4,7 +4,6 @@
 package apicaller
 
 import (
-	"math/rand"
 	"time"
 
 	"github.com/juju/errors"
@@ -83,9 +82,6 @@ func connectFallback(
 ) (
 	conn api.Connection, didFallback bool, err error,
 ) {
-
-	// Encourage load balancing by defaulting to a different controller each time.
-	rand.Shuffle(len(info.Addrs), func(i, j int) { info.Addrs[i], info.Addrs[j] = info.Addrs[j], info.Addrs[i] })
 	// We expect to assign to `conn`, `err`, *and* `info` in
 	// the course of this operation: wrapping this repeated
 	// atom in a func currently seems to be less treacherous

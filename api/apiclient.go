@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -592,7 +593,10 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		defer cancel()
 		ctx = ctx1
 	}
-	dialInfo, err := dialWebsocketMulti(ctx, info.Addrs, path, opts)
+	// Encourage load balancing by shuffling controller addresses.
+	addrs := info.Addrs[:]
+	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
+	dialInfo, err := dialWebsocketMulti(ctx, addrs, path, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -698,6 +702,7 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 			cacheUsed = nil
 			opts.DNSCache = emptyDNSCache{opts.DNSCache}
 		}
+
 		if len(addrs) == 0 {
 			break
 		}
