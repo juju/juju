@@ -153,7 +153,7 @@ func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{},
 		// We haven't created settings for this region yet.
 		_, err := createSettings(model.st.db(), globalSettingsC, key, attrs)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "model %q", model.UUID())
 		}
 		return nil
 	}

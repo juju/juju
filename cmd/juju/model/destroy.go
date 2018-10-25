@@ -37,6 +37,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 // NewDestroyCommand returns a command used to destroy a model.
 func NewDestroyCommand() cmd.Command {
 	destroyCmd := &destroyCommand{}
+	destroyCmd.CanClearCurrentModel = true
 	destroyCmd.sleepFunc = time.Sleep
 	destroyCmd.CanClearCurrentModel = true
 	return modelcmd.Wrap(

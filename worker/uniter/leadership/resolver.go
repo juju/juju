@@ -5,6 +5,7 @@ package leadership
 
 import (
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -63,7 +64,7 @@ func (l *leadershipResolver) NextOp(
 		// We want to run the leader settings hook if we're
 		// not the leader and the settings have changed.
 		if !localState.Leader && localState.LeaderSettingsVersion != remoteState.LeaderSettingsVersion {
-			return opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
+			return opFactory.NewRunHook(hook.Info{Kind: hooks.LeaderSettingsChanged})
 		}
 	}
 
