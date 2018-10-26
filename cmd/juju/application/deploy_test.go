@@ -542,9 +542,12 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 	repo := testcharms.RepoForSeries("kubernetes")
 	ch := repo.ClonedDirPath(s.CharmsPath, "mysql")
 	err = runDeploy(c, ch, "-m", m.Name())
-	c.Assert(err, gc.ErrorMatches, "must specify OCI images for local charm \\(mysql_image\\) not valid")
+	c.Assert(err, gc.ErrorMatches, "local charm missing OCI images for: [a-z]+_image, [a-z]+_image not valid")
 
 	err = runDeploy(c, ch, "-m", m.Name(), "--resource", "mysql_image=abc")
+	c.Assert(err, gc.ErrorMatches, "local charm missing OCI images for: another_image not valid")
+
+	err = runDeploy(c, ch, "-m", m.Name(), "--resource", "mysql_image=abc", "--resource", "another_image=zxc")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

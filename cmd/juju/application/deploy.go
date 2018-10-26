@@ -1178,12 +1178,16 @@ func (c *DeployCommand) validateResourcesNeededForLocalDeploy(charmMeta *charm.M
 	if modelType != model.CAAS {
 		return nil
 	}
+	var missingImages []string
 	for resName, resMeta := range charmMeta.Resources {
 		if resMeta.Type == resource.TypeContainerImage {
 			if _, ok := c.Resources[resName]; !ok {
-				return errors.NotValidf("must specify OCI images for local charm (%s)", resName)
+				missingImages = append(missingImages, resName)
 			}
 		}
+	}
+	if len(missingImages) > 0 {
+		return errors.NotValidf("local charm missing OCI images for: %v", strings.Join(missingImages, ", "))
 	}
 	return nil
 }
