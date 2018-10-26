@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
@@ -28,14 +29,20 @@ const (
 	CompleteCommand = "complete"
 )
 
-var UpgradeSeriesConfirmationMsg = `
-WARNING This command will mark machine %q as being upgraded to series %q
-This operation cannot be reverted or canceled once started. The units
-of machine %q will also be upgraded. These units include:
-
+var upgradeSeriesConfirmationMsg = `
+WARNING: This command will mark machine %q as being upgraded to series %q.
+This operation cannot be reverted or canceled once started.
 %s
-
 Continue [y/N]?`[1:]
+
+var upgradeSeriesAffectedMsg = `
+Units running on the machine will also be upgraded. These units include:
+  %s
+
+Leadership for the following applications will be pinned and not
+subject to change until the "complete" command is run:
+  %s
+`[1:]
 
 const UpgradeSeriesPrepareFinishedMessage = `
 Juju is now ready for the series to be updated.
@@ -139,8 +146,10 @@ func (c *upgradeSeriesCommand) Info() *cmd.Info {
 
 func (c *upgradeSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Upgrade even if the series is not supported by the charm and/or related subordinate charms.")
-	f.BoolVar(&c.yes, "y", false, "Agree that the operation cannot be reverted or canceled once started without being prompted.")
+	f.BoolVar(&c.force, "force", false,
+		"Upgrade even if the series is not supported by the charm and/or related subordinate charms.")
+	f.BoolVar(&c.yes, "y", false,
+		"Agree that the operation cannot be reverted or canceled once started without being prompted.")
 	f.BoolVar(&c.yes, "yes", false, "")
 }
 
@@ -237,12 +246,26 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 }
 
 func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnits []string) error {
-	formattedUnitNames := strings.Join(affectedUnits, "\n")
 	if c.yes {
 		return nil
 	}
 
-	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series, c.machineNumber, formattedUnitNames)
+	affectedMsg := ""
+	if len(affectedUnits) > 0 {
+		apps := set.NewStrings()
+		for _, unit := range affectedUnits {
+			app, err := names.UnitApplication(unit)
+			if err != nil {
+				return errors.Annotatef(err, "deriving application for unit %q", unit)
+			}
+			apps.Add(app)
+		}
+
+		affectedMsg = fmt.Sprintf(
+			upgradeSeriesAffectedMsg, strings.Join(affectedUnits, "\n  "), strings.Join(apps.SortedValues(), "\n  "))
+	}
+
+	fmt.Fprintf(ctx.Stdout, upgradeSeriesConfirmationMsg, c.machineNumber, c.series, affectedMsg)
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade series")
 	}

@@ -137,7 +137,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 		unitStatuses[name] = UpgradeSeriesUnitStatus{Status: model.UpgradeSeriesPrepareStarted, Timestamp: bson.Now()}
 	}
 	timestamp := bson.Now()
-	message := fmt.Sprintf("started upgrade series from series %s to series %s", m.Series(), toSeries)
+	message := fmt.Sprintf("started upgrade series from %q to %q", m.Series(), toSeries)
 	updateMessage := newUpgradeSeriesMessage(m.Tag().String(), message, timestamp)
 	return &upgradeSeriesLockDoc{
 		Id:            m.Id(),
