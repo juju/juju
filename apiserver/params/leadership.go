@@ -67,11 +67,20 @@ type MergeLeadershipSettingsParam struct {
 	Settings Settings `json:"settings"`
 }
 
+// PinApplicationsResults returns all applications for which pinning or
+// unpinning was attempted, including any errors that occurred.
 type PinApplicationsResults struct {
+	// Results is collection with each application tag and pin/unpin result.
 	Results []PinApplicationResult `json:"results"`
 }
 
+// PinApplicationResult represents the result of a single application
+// leadership pin/unpin operation
 type PinApplicationResult struct {
+	// ApplicationTag is the application for which a leadership pin/unpin
+	// operation was attempted.
 	ApplicationTag string `json:"application-tag"`
-	Error          *Error `json:"error,omitempty"`
+	// Error will container a reference to an error resulting from pin/unpin
+	// if one occurred.
+	Error *Error `json:"error,omitempty"`
 }
