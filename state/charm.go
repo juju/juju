@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -19,7 +18,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/storage"
@@ -117,13 +115,12 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
 	}
-	if featureflag.Enabled(feature.LXDProfile) {
-		lpc, ok := info.Charm.(charm.LXDProfiler)
-		if !ok {
-			return nil, errors.New("charm does no implement LXDProfiler")
-		}
-		doc.LXDProfile = safeLXDProfile(lpc.LXDProfile())
+	lpc, ok := info.Charm.(charm.LXDProfiler)
+	if !ok {
+		return nil, errors.New("charm does no implement LXDProfiler")
 	}
+	doc.LXDProfile = safeLXDProfile(lpc.LXDProfile())
+
 	if err := checkCharmDataIsStorable(doc); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -231,13 +228,13 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"pendingupload", false},
 		{"placeholder", false},
 	}
-	if featureflag.Enabled(feature.LXDProfile) {
-		lpc, ok := info.Charm.(charm.LXDProfiler)
-		if !ok {
-			return nil, errors.New("charm doesn't have LXDCharmProfile()")
-		}
-		data = append(data, bson.DocElem{"lxd-profile", safeLXDProfile(lpc.LXDProfile())})
+
+	lpc, ok := info.Charm.(charm.LXDProfiler)
+	if !ok {
+		return nil, errors.New("charm doesn't have LXDCharmProfile()")
 	}
+	data = append(data, bson.DocElem{"lxd-profile", safeLXDProfile(lpc.LXDProfile())})
+
 	if err := checkCharmDataIsStorable(data); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -378,11 +375,11 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 		}
 		cdoc.Config = unescapedConfig
 	}
-	if featureflag.Enabled(feature.LXDProfile) {
-		if cdoc != nil {
-			cdoc.LXDProfile = unescapeLXDProfile(cdoc.LXDProfile)
-		}
+
+	if cdoc != nil {
+		cdoc.LXDProfile = unescapeLXDProfile(cdoc.LXDProfile)
 	}
+
 	ch := Charm{st: st, doc: *cdoc}
 	return &ch
 }

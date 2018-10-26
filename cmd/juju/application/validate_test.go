@@ -4,20 +4,14 @@
 package application_test
 
 import (
-	"os"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	charm "gopkg.in/juju/charm.v6"
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/application/mocks"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 )
 
 type ValidateLXDProfileCharmSuite struct {
@@ -25,15 +19,6 @@ type ValidateLXDProfileCharmSuite struct {
 }
 
 var _ = gc.Suite(&ValidateLXDProfileCharmSuite{})
-
-func (s *ValidateLXDProfileCharmSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
 
 func (*ValidateLXDProfileCharmSuite) TestRunPreWithNoLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)

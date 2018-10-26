@@ -4,17 +4,12 @@
 package featuretests
 
 import (
-	"os"
-
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 )
@@ -50,11 +45,6 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
 // up once deployed.
 
 func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,11 +56,6 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
 }
 
 func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileWithBadConfigSuccess(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate-fail") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")

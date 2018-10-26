@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -87,12 +85,9 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 	// TODO: lxd-profile 2018-09-18
 	// Add withoutControllerSuite.TestProvisioningInfoWithLXDProfile when
 	// lxd profiles added to ProvisioningInfo.
-	var pNames []string
-	if featureflag.Enabled(feature.LXDProfile) {
-		pNames, err = p.machineLXDProfiles(m, env)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot write lxd profiles")
-		}
+	pNames, err := p.machineLXDProfiles(m, env)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot write lxd profiles")
 	}
 
 	endpointBindings, err := p.machineEndpointBindings(m)

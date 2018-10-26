@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -36,9 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -383,11 +380,6 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
-
-	err = os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *UpgradeCharmSuccessStateSuite) assertLocalRevision(c *gc.C, revision int, path string) {

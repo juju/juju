@@ -23,7 +23,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -35,9 +34,7 @@ import (
 	"github.com/juju/juju/api/common"
 	servercommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -57,11 +54,6 @@ var _ = gc.Suite(&clientSuite{})
 // apiserver/client/*_test.go
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {

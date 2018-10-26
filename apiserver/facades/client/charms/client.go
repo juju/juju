@@ -6,7 +6,6 @@ package charms
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	names "gopkg.in/juju/names.v2"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -97,12 +95,10 @@ func (a *API) CharmInfo(args params.CharmURL) (params.CharmInfo, error) {
 		Metrics:  convertCharmMetrics(aCharm.Metrics()),
 	}
 
-	if featureflag.Enabled(feature.LXDProfile) {
-		// we don't need to check that this is a charm.LXDProfiler, as we can
-		// state that the function exists.
-		if profile := aCharm.LXDProfile(); !profile.Empty() {
-			info.LXDProfile = convertCharmLXDProfile(profile)
-		}
+	// we don't need to check that this is a charm.LXDProfiler, as we can
+	// state that the function exists.
+	if profile := aCharm.LXDProfile(); !profile.Empty() {
+		info.LXDProfile = convertCharmLXDProfile(profile)
 	}
 
 	return info, nil
