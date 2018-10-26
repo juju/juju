@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
@@ -56,12 +56,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
-	"github.com/juju/juju/apiserver/facades/client/keymanager"                  // ModelUser Write
-	leadershipclient "github.com/juju/juju/apiserver/facades/client/leadership" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/machinemanager"              // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/metricsdebug"                // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelconfig"                 // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelmanager"                // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelmanager"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
@@ -88,7 +87,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
-	"github.com/juju/juju/apiserver/facades/controller/migrationtarget" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/resumer"
@@ -199,9 +198,6 @@ func AllFacades() *facade.Registry {
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
 
-	// LeadershipClient is the client API server,
-	// whereas LeadershipService is for agents.
-	reg("LeadershipClient", 1, leadershipclient.NewFacade)
 	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade)
 
 	reg("LifeFlag", 1, lifeflag.NewExternalFacade)

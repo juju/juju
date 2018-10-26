@@ -61,6 +61,19 @@ func (mr *MockFacadeMockRecorder) MachineStatus() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineStatus", reflect.TypeOf((*MockFacade)(nil).MachineStatus))
 }
 
+// PinMachineApplications mocks base method
+func (m *MockFacade) PinMachineApplications() (map[names_v2.ApplicationTag]error, error) {
+	ret := m.ctrl.Call(m, "PinMachineApplications")
+	ret0, _ := ret[0].(map[names_v2.ApplicationTag]error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PinMachineApplications indicates an expected call of PinMachineApplications
+func (mr *MockFacadeMockRecorder) PinMachineApplications() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinMachineApplications", reflect.TypeOf((*MockFacade)(nil).PinMachineApplications))
+}
+
 // SetMachineStatus mocks base method
 func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
 	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1)
@@ -122,6 +135,19 @@ func (m *MockFacade) UnitsPrepared() ([]names_v2.UnitTag, error) {
 // UnitsPrepared indicates an expected call of UnitsPrepared
 func (mr *MockFacadeMockRecorder) UnitsPrepared() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared))
+}
+
+// UnpinMachineApplications mocks base method
+func (m *MockFacade) UnpinMachineApplications() (map[names_v2.ApplicationTag]error, error) {
+	ret := m.ctrl.Call(m, "UnpinMachineApplications")
+	ret0, _ := ret[0].(map[names_v2.ApplicationTag]error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnpinMachineApplications indicates an expected call of UnpinMachineApplications
+func (mr *MockFacadeMockRecorder) UnpinMachineApplications() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinMachineApplications", reflect.TypeOf((*MockFacade)(nil).UnpinMachineApplications))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method

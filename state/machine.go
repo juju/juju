@@ -1244,6 +1244,20 @@ func (m *Machine) AvailabilityZone() (string, error) {
 	return zone, nil
 }
 
+// ApplicationNames returns the names of applications
+// represented by units running on the machine.
+func (m *Machine) ApplicationNames() ([]string, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apps := set.NewStrings()
+	for _, unit := range units {
+		apps.Add(unit.ApplicationName())
+	}
+	return apps.SortedValues(), nil
+}
+
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)

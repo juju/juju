@@ -10,7 +10,7 @@ import (
 // UpgradeSeriesStatus is the current status of a series upgrade for units
 type UpgradeSeriesStatus string
 
-var UpgradeSeriesStatusOrder map[UpgradeSeriesStatus]int = map[UpgradeSeriesStatus]int{
+var UpgradeSeriesStatusOrder = map[UpgradeSeriesStatus]int{
 	UpgradeSeriesNotStarted:       0,
 	UpgradeSeriesPrepareStarted:   1,
 	UpgradeSeriesPrepareRunning:   2,
@@ -25,7 +25,6 @@ const (
 	UpgradeSeriesNotStarted       UpgradeSeriesStatus = "not started"
 	UpgradeSeriesPrepareStarted   UpgradeSeriesStatus = "prepare started"
 	UpgradeSeriesPrepareRunning   UpgradeSeriesStatus = "prepare running"
-	UpgradeSeriesPrepareMachine   UpgradeSeriesStatus = "prepare machine"
 	UpgradeSeriesPrepareCompleted UpgradeSeriesStatus = "prepare completed"
 	UpgradeSeriesCompleteStarted  UpgradeSeriesStatus = "complete started"
 	UpgradeSeriesCompleteRunning  UpgradeSeriesStatus = "complete running"

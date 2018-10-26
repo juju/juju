@@ -12,34 +12,36 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 
-// State exposes methods from state required by this API.
-type State interface {
-	common.UpgradeSeriesBackend
-}
-
 // API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
+	common.LeadershipPinningAPI
 
-	st        State
+	st        common.UpgradeSeriesBackend
 	auth      facade.Authorizer
 	resources facade.Resources
 }
 
-// NewAPI creates a new instance of the API server.
-// It has a signature suitable for external registration.
-func NewAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: st}, resources, authorizer)
+func NewAPI(ctx facade.Context) (*API, error) {
+	leadership, err := common.NewLeadershipPinningFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
 }
 
 // NewUpgradeSeriesAPI creates a new instance of the API server using the
 // dedicated state indirection.
-func NewUpgradeSeriesAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewUpgradeSeriesAPI(
+	st common.UpgradeSeriesBackend,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	leadership common.LeadershipPinningAPI,
+) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -56,10 +58,11 @@ func NewUpgradeSeriesAPI(st State, resources facade.Resources, authorizer facade
 	}
 
 	return &API{
-		st:               st,
-		resources:        resources,
-		auth:             authorizer,
-		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		st:                   st,
+		resources:            resources,
+		auth:                 authorizer,
+		UpgradeSeriesAPI:     common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LeadershipPinningAPI: leadership,
 	}, nil
 }
 

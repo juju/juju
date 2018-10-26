@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/storage"
 )
@@ -62,10 +61,9 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 }
 
 // NewUpgradeSeriesCommand returns an upgrade series command for test
-func NewUpgradeSeriesCommandForTest(upgradeAPI UpgradeMachineSeriesAPI, leaderAPI leadership.Pinner) cmd.Command {
+func NewUpgradeSeriesCommandForTest(upgradeAPI UpgradeMachineSeriesAPI) cmd.Command {
 	command := &upgradeSeriesCommand{
 		upgradeMachineSeriesClient: upgradeAPI,
-		leadershipClient:           leaderAPI,
 	}
 	command.plan = catacomb.Plan{
 		Site: &command.catacomb,
