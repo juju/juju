@@ -4,12 +4,10 @@
 package httpserver_test
 
 import (
-	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -22,15 +20,6 @@ var _ = gc.Suite(&stateFixture{})
 
 func (s *stateFixture) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
-
-	// Patch the mongo in for bionic as we can't bring in the
-	// latest testing repo due to other clock changes.
-	host, err := series.HostSeries()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("os.Series: %v", host)
-	if host == "bionic" {
-		s.IsolationSuite.PatchEnvironment("JUJU_MONGOD", mongo.MongodSystemPath)
-	}
 
 	err = testing.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)

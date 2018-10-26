@@ -5,7 +5,6 @@ package apiserver_test
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,7 +13,6 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/mongo"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
@@ -29,15 +27,6 @@ var _ = gc.Suite(&WorkerStateSuite{})
 
 func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
 	s.workerFixture.SetUpSuite(c)
-
-	// Patch the mongo in for bionic as we can't bring in the
-	// latest testing repo due to other clock changes.
-	host, err := series.HostSeries()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("os.Series: %v", host)
-	if host == "bionic" {
-		s.workerFixture.PatchEnvironment("JUJU_MONGOD", mongo.MongodSystemPath)
-	}
 
 	err = testing.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
