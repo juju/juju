@@ -145,20 +145,30 @@ func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetUpgradeCharmProfile(c *gc.C) {
-	err := s.machine.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
+	m := s.machine
+
+	// SetUpgradeCharmProfile should clear UpgradeCharmProfileComplete value
+	err := m.SetUpgradeCharmProfileComplete("success")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
+
+	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := s.State.Machine(s.machine.Id())
+	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.UpgradeCharmProfileApplication(), gc.Equals, "app-name")
 	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, "local:quantal/riak-7")
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "")
 }
 
 func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
-	err := s.machine.SetUpgradeCharmProfileComplete("success")
+	m := s.machine
+
+	err := m.SetUpgradeCharmProfileComplete("success")
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := s.State.Machine(s.machine.Id())
+	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
 }
