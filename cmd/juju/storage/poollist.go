@@ -44,8 +44,6 @@ If only types are specified, all pools of the specified types will be listed.
 
 Both pool types and names must be valid.
 Valid pool types are pool types that are registered for Juju model.
-
-Note: provider "kubernetes" filter is set for CAAS model by default.
 `
 
 // NewPoolListCommand returns a command that lists storage pools on a model

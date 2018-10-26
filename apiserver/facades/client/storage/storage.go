@@ -299,7 +299,7 @@ func (a *APIv3) ListPools(
 		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
 	}
 	for i, filter := range filters.Filters {
-		pools, err := a.listPools(filter)
+		pools, err := a.listPools(a.ensureStoragePoolFilter(filter))
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -309,10 +309,14 @@ func (a *APIv3) ListPools(
 	return results, nil
 }
 
-func (a *APIv3) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
+func (a *APIv3) ensureStoragePoolFilter(filter params.StoragePoolFilter) params.StoragePoolFilter {
 	if a.modelType == state.ModelTypeCAAS {
 		filter.Providers = append(filter.Providers, "kubernetes")
 	}
+	return filter
+}
+
+func (a *APIv3) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {
 	if err := a.validatePoolListFilter(filter); err != nil {
 		return nil, errors.Trace(err)
 	}

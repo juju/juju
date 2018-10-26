@@ -7,6 +7,7 @@ var (
 	ValidatePoolListFilter   = (*APIv4).validatePoolListFilter
 	ValidateNameCriteria     = (*APIv4).validateNameCriteria
 	ValidateProviderCriteria = (*APIv4).validateProviderCriteria
+	EnsureStoragePoolFilter  = (*APIv4).ensureStoragePoolFilter
 )
 
 type (
