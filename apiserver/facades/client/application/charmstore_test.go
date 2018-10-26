@@ -4,8 +4,6 @@
 package application_test
 
 import (
-	"os"
-
 	"github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
 	charm "gopkg.in/juju/charm.v6"
@@ -13,14 +11,10 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/application/mocks"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 )
@@ -30,15 +24,6 @@ type CharmStoreSuite struct {
 }
 
 var _ = gc.Suite(&CharmStoreSuite{})
-
-func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
 
 func (s *CharmStoreSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	ctrl := gomock.NewController(c)

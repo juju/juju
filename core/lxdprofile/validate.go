@@ -6,10 +6,7 @@ package lxdprofile
 import (
 	"github.com/juju/errors"
 	apicharms "github.com/juju/juju/api/charms"
-	"github.com/juju/utils/featureflag"
 	charm "gopkg.in/juju/charm.v6"
-
-	"github.com/juju/juju/feature"
 )
 
 //go:generate mockgen -package lxdprofile_test -destination lxdprofile_mock_test.go gopkg.in/juju/charm.v6 LXDProfiler
@@ -19,13 +16,11 @@ import (
 // testing to check that it conforms to a LXDProfiler first is required.
 // Failure to conform to the LXDProfiler will return no error.
 func ValidateCharmLXDProfile(ch charm.Charm) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// Check if the charm conforms to the LXDProfiler, as it's optional and in
-		// theory the charm.Charm doesn't have to provide a LXDProfile method we
-		// can ignore it if it's missing and assume it is therefore valid.
-		if profiler, ok := ch.(charm.LXDProfiler); ok {
-			return ValidateLXDProfile(profiler)
-		}
+	// Check if the charm conforms to the LXDProfiler, as it's optional and in
+	// theory the charm.Charm doesn't have to provide a LXDProfile method we
+	// can ignore it if it's missing and assume it is therefore valid.
+	if profiler, ok := ch.(charm.LXDProfiler); ok {
+		return ValidateLXDProfile(profiler)
 	}
 	return nil
 }
@@ -44,11 +39,9 @@ func ValidateLXDProfile(profiler charm.LXDProfiler) error {
 // ValidateCharmInfoLXDProfile will validate the charm info to determin if the
 // information provided is valid or not.
 func ValidateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		if profile := info.LXDProfile; profile != nil {
-			err := profile.ValidateConfigDevices()
-			return errors.Trace(err)
-		}
+	if profile := info.LXDProfile; profile != nil {
+		err := profile.ValidateConfigDevices()
+		return errors.Trace(err)
 	}
 	return nil
 }

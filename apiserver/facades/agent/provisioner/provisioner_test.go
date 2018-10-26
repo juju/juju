@@ -5,7 +5,6 @@ package provisioner_test
 
 import (
 	"fmt"
-	"os"
 	stdtesting "testing"
 	"time"
 
@@ -27,9 +26,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
@@ -1760,10 +1757,6 @@ func (s *withControllerSuite) TestGetContainerProfileInfo(c *gc.C) {
 	// TODO (hml) lxd-profile
 	// enable this test once charmrepo test accepts charms with an lxdprofile
 	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-
 	profileMachine, err := s.State.AddMachineInsideNewMachine(
 		state.MachineTemplate{
 			Series: "quantal",

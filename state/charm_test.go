@@ -6,7 +6,6 @@ package state_test
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -19,8 +18,6 @@ import (
 	"gopkg.in/mgo.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -831,10 +828,6 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 }
 
 func (s *CharmTestHelperSuite) TestLXDProfileCharm(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-
 	chd := testcharms.Repo.CharmDir("lxd-profile")
 	c.Assert(chd.LXDProfile(), jc.DeepEquals, &charm.LXDProfile{
 		Config: map[string]string{

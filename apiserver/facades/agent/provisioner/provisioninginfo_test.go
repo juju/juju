@@ -5,7 +5,6 @@ package provisioner_test
 
 import (
 	"fmt"
-	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,8 +15,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -288,9 +285,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	// TODO (hml) lxd-profile
 	// enable this test once charmrepo test accepts charms with an lxdprofile
 	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 
 	profileMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",

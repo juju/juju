@@ -4,10 +4,7 @@
 package charms_test
 
 import (
-	"os"
-
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,8 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -65,11 +60,6 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	var clientCharmInfoTests = []struct {
 		about    string
 		charm    string

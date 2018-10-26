@@ -66,5 +66,5 @@ func (*LXDProfileSuite) TestValidateCharmInfoWithInvalidConfig(c *gc.C) {
 	}
 
 	err := lxdprofile.ValidateCharmInfoLXDProfile(info)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.NotNil)
 }

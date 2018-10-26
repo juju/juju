@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -450,7 +451,33 @@ func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
 		OldProfileName: "",
 		NewProfileName: "juju-controller-lxd-profile-0",
-		LXDProfile:     nil,
+		LXDProfile: &charm.LXDProfile{
+			Config: map[string]string{
+				"security.nesting":       "true",
+				"security.privileged":    "true",
+				"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+				"environment.http_proxy": "",
+			},
+			Description: "lxd profile for testing, will pass validation",
+			Devices: map[string]map[string]string{
+				"tun": {
+					"path": "/dev/net/tun",
+					"type": "unix-char",
+				},
+				"sony": {
+					"type":      "usb",
+					"vendorid":  "0fce",
+					"productid": "51da",
+				},
+				"bdisk": {
+					"source": "/dev/loop0",
+					"type":   "unix-block",
+				},
+				"gpu": {
+					"type": "gpu",
+				},
+			},
+		},
 	})
 }
 
