@@ -203,7 +203,7 @@ func (s *agentConfSuite) TestCreateAgentConf(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestCreateAgentConfLogPath(c *gc.C) {
-	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir, "xenial")
+	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.Logfile, gc.Equals, "/var/log/juju/machine-2.log")
 }
