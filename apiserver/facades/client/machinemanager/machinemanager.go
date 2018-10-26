@@ -357,13 +357,20 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 
 	results := make([]params.UpgradeSeriesUnitsResult, len(args.Args))
 	for i, arg := range args.Args {
-		machine, err := mm.machineFromTag(arg.Entity.Tag)
+		tag := arg.Entity.Tag
+		machine, err := mm.machineFromTag(tag)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		err = mm.validateSeries(arg.Series, machine.Series(), arg.Entity.Tag)
+		if machine.IsManager() {
+			results[i].Error = common.ServerError(
+				errors.Errorf("%s is a controller and cannot be targeted for series upgrade", tag))
+			continue
+		}
+
+		err = mm.validateSeries(arg.Series, machine.Series(), tag)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue

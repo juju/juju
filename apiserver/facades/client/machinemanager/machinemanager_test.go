@@ -192,6 +192,7 @@ func (s *MachineManagerSuite) setupUpdateMachineSeries(c *gc.C) {
 		"0": {series: "trusty", units: []string{"foo/0", "test/0"}},
 		"1": {series: "trusty", units: []string{"foo/1", "test/1"}},
 		"2": {series: "centos7", units: []string{"foo/1", "test/1"}},
+		"3": {series: "bionic", isManager: true},
 	}
 }
 
@@ -350,6 +351,21 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
 		expectedUnitNames = append(expectedUnitNames, unit)
 	}
 	c.Assert(result.UnitNames, gc.DeepEquals, expectedUnitNames)
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("3").String()},
+		}},
+	}
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"machine-3 is a controller and cannot be targeted for series upgrade")
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
@@ -765,6 +781,7 @@ type mockMachine struct {
 	units          []string
 	unitAgentState status.Status
 	unitState      status.Status
+	isManager      bool
 }
 
 func (m *mockMachine) Destroy() error {
@@ -829,6 +846,10 @@ func (m *mockMachine) RemoveUpgradeSeriesLock() error {
 func (m *mockMachine) CompleteUpgradeSeries() error {
 	m.MethodCall(m, "CompleteUpgradeSeries")
 	return m.NextErr()
+}
+
+func (m *mockMachine) IsManager() bool {
+	return m.isManager
 }
 
 type mockUnit struct {
