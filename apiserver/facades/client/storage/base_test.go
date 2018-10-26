@@ -27,6 +27,7 @@ type baseStorageSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 
 	api             *storage.APIv4
+	apiCaas         *storage.APIv4
 	apiv3           *storage.APIv3
 	storageAccessor *mockStorageAccessor
 	state           *mockState
@@ -67,9 +68,10 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.api, err = storage.NewAPIv4(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.apiCaas, err = storage.NewAPIv4(s.state, state.ModelTypeCAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
+	s.apiv3, err = storage.NewAPIv3(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

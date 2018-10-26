@@ -31,6 +31,7 @@ type APIv3 struct {
 	poolManager   poolmanager.PoolManager
 	authorizer    facade.Authorizer
 	callContext   context.ProviderCallContext
+	modelType     state.ModelType
 }
 
 // APIv4 implements the storage v4 API.
@@ -41,6 +42,7 @@ type APIv4 struct {
 // NewAPIv4 returns a new storage v4 API facade.
 func NewAPIv4(
 	backend backend,
+	modelType state.ModelType,
 	storageAccess storageAccess,
 	registry storage.ProviderRegistry,
 	pm poolmanager.PoolManager,
@@ -48,7 +50,7 @@ func NewAPIv4(
 	authorizer facade.Authorizer,
 	callContext context.ProviderCallContext,
 ) (*APIv4, error) {
-	apiv3, err := NewAPIv3(backend, storageAccess, registry, pm, resources, authorizer, callContext)
+	apiv3, err := NewAPIv3(backend, modelType, storageAccess, registry, pm, resources, authorizer, callContext)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +60,7 @@ func NewAPIv4(
 // NewAPIv3 returns a new storage v4 API facade.
 func NewAPIv3(
 	backend backend,
+	modelType state.ModelType,
 	storageAccess storageAccess,
 	registry storage.ProviderRegistry,
 	pm poolmanager.PoolManager,
@@ -70,6 +73,7 @@ func NewAPIv3(
 	}
 	return &APIv3{
 		backend:       backend,
+		modelType:     modelType,
 		storageAccess: storageAccess,
 		registry:      registry,
 		poolManager:   pm,
@@ -295,7 +299,7 @@ func (a *APIv3) ListPools(
 		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
 	}
 	for i, filter := range filters.Filters {
-		pools, err := a.listPools(filter)
+		pools, err := a.listPools(a.ensureStoragePoolFilter(filter))
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -303,6 +307,13 @@ func (a *APIv3) ListPools(
 		results.Results[i].Result = pools
 	}
 	return results, nil
+}
+
+func (a *APIv3) ensureStoragePoolFilter(filter params.StoragePoolFilter) params.StoragePoolFilter {
+	if a.modelType == state.ModelTypeCAAS {
+		filter.Providers = append(filter.Providers, "kubernetes")
+	}
+	return filter
 }
 
 func (a *APIv3) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, error) {

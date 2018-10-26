@@ -43,6 +43,7 @@ func NewFacadeV4(
 	}
 	return NewAPIv4(
 		stateShim{st},
+		model.Type(),
 		storageAccessor,
 		registry, pm, resources, authorizer,
 		state.CallContext(st))
@@ -54,6 +55,10 @@ func NewFacadeV3(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*APIv3, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ")
@@ -67,6 +72,7 @@ func NewFacadeV3(
 	}
 	return NewAPIv3(
 		stateShim{st},
+		model.Type(),
 		storageAccessor,
 		registry, pm, resources, authorizer,
 		state.CallContext(st))
