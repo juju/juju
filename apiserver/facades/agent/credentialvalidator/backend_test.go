@@ -6,6 +6,7 @@ package credentialvalidator_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -64,7 +65,7 @@ func (s *BackendSuite) TestModelCredentialUnsetNotSupported(c *gc.C) {
 		Credential: names.CloudCredentialTag{},
 		Valid:      false,
 	})
-	s.state.CheckCallNames(c, "Model", "CloudCredential", "ModelTag", "Cloud")
+	s.state.CheckCallNames(c, "Model", "CloudCredential", "ModelTag", "Cloud", "Cloud")
 }
 
 func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
@@ -77,7 +78,15 @@ func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
 		Credential: names.CloudCredentialTag{},
 		Valid:      true,
 	})
-	s.state.CheckCallNames(c, "Model", "CloudCredential", "ModelTag", "Cloud")
+	s.state.CheckCallNames(c, "Model", "CloudCredential", "ModelTag", "Cloud", "Cloud")
+}
+
+func (s *BackendSuite) TestWatchModelCredentialErr(c *gc.C) {
+	s.state.SetErrors(errors.New("no nope niet"))
+	w, err := s.backend.WatchModelCredential()
+	c.Assert(err, gc.ErrorMatches, "no nope niet")
+	c.Assert(w, gc.DeepEquals, nil)
+	s.state.CheckCallNames(c, "Model")
 }
 
 func newMockState() *mockState {
@@ -162,5 +171,11 @@ func (m *mockModel) ModelTag() names.ModelTag {
 }
 
 func (m *mockModel) Cloud() string {
+	m.MethodCall(m, "Cloud")
 	return m.cloud
+}
+
+func (m *mockModel) WatchModelCredential() state.NotifyWatcher {
+	m.MethodCall(m, "WatchModelCredential")
+	return apiservertesting.NewFakeNotifyWatcher()
 }

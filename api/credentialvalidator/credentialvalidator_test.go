@@ -150,3 +150,33 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	err := client.InvalidateModelCredential("")
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
+
+func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{Error: &params.Error{Message: "foo"}}
+		return nil
+	})
+	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 2})
+	_, err := client.WatchModelCredential()
+	c.Assert(err, gc.ErrorMatches, "foo")
+}
+
+func (s *CredentialValidatorSuite) TestWatchModelCredentialCallError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("foo")
+	})
+
+	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 2})
+	_, err := client.WatchModelCredential()
+	c.Assert(err, gc.ErrorMatches, "foo")
+}
+
+func (s *CredentialValidatorSuite) TestWatchModelCredentialCallV1(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("foo")
+	})
+
+	client := credentialvalidator.NewFacade(apitesting.BestVersionCaller{apiCaller, 1})
+	_, err := client.WatchModelCredential()
+	c.Assert(err, gc.ErrorMatches, "WatchModelCredential on CredentialValidator v1 not supported")
+}
