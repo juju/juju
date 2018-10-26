@@ -82,7 +82,6 @@ func (b *backend) WatchModelCredential() (state.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return m.WatchModelCredential(), nil
 }
 
