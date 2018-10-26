@@ -57,6 +57,11 @@ def parse_args(argv=None):
         '--machine-type',
         help='Which virtual machine/container type to test. Defaults to all.',
         choices=[KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
+    parser.add_argument(
+        '--space-constraint',
+        help='The network space to constrain containers to. Default is no space constraints.',
+        default=None,
+        dest='space')
     args = parser.parse_args(argv)
     return args
 
@@ -85,7 +90,7 @@ def ssh(client, machine, cmd):
                 raise
 
 
-def make_machines(client, container_types):
+def make_machines(client, container_types, space):
     """Make a test environment consisting of:
        Two host machines.
        Two of each container_type on one host machine.
@@ -113,9 +118,13 @@ def make_machines(client, container_types):
             required[host].remove(type)
 
     # Start any new containers we need
+    sargs = []
+    if space:
+        sargs = ['--constraints', 'spaces=' + space]
+         
     for host, containers in required.iteritems():
         for container in containers:
-            client.juju('add-machine', ('{}:{}'.format(container, host)))
+            client.juju('add-machine', tuple(['{}:{}'.format(container, host)] + sargs))
 
     status = client.wait_for_started()
 
@@ -313,7 +322,7 @@ def get_uptime(client, host):
         return 0
 
 
-def assess_container_networking(client, types):
+def assess_container_networking(client, types, space):
     """Runs _assess_address_allocation, reboots hosts, repeat.
 
     :param client: Juju client
@@ -321,7 +330,7 @@ def assess_container_networking(client, types):
     :return: None
     """
     log.info("Setting up test.")
-    hosts, containers = make_machines(client, types)
+    hosts, containers = make_machines(client, types, space)
     status = client.wait_for_started().status
     log.info("Setup complete.")
     log.info("Test started.")
@@ -411,7 +420,7 @@ def main(argv=None):
     client = bs_manager.client
     machine_types = _get_container_types(client, args.machine_type)
     with cleaned_bootstrap_context(bs_manager, args):
-        assess_container_networking(bs_manager.client, machine_types)
+        assess_container_networking(bs_manager.client, machine_types, args.space)
     return 0
 
 
