@@ -28,7 +28,7 @@ var _ = gc.Suite(&WorkerStateSuite{})
 func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
 	s.workerFixture.SetUpSuite(c)
 
-	err = testing.MgoServer.Start(nil)
+	err := testing.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.workerFixture.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
 
