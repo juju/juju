@@ -185,6 +185,30 @@ func (w *HubWatcher) UnwatchCollection(collection string, ch chan<- Change) {
 	w.sendReq(reqUnwatch{watchKey{collection, nil}, ch})
 }
 
+func (w *HubWatcher) Stats() HubWatcherStats {
+	ch := make(chan HubWatcherStats, 1)
+	w.sendReq(reqStats{ch: ch})
+	select {
+	case <-w.tomb.Dying():
+		return HubWatcherStats{}
+	case stats := <-ch:
+		return stats
+	}
+}
+
+// Report conforms to the worker.Runner.Report interface for returning information about the active worker.
+func (w *HubWatcher) Report() map[string]interface{} {
+	stats := w.Stats()
+	return map[string]interface{}{
+		"watch-count":       stats.WatchCount,
+		"revno-map-size":    stats.RevnoMapSize,
+		"sync-queue-cap":    stats.SyncQueueCap,
+		"sync-queue-len":    stats.SyncQueueLen,
+		"request-queue-cap": stats.RequestQueueCap,
+		"request-queue-len": stats.RequestQueueLen,
+	}
+}
+
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *HubWatcher) loop() error {
@@ -299,6 +323,20 @@ func (w *HubWatcher) handle(req interface{}) {
 			if r.key.match(e.key) && e.ch == r.ch {
 				e.ch = nil
 			}
+		}
+	case reqStats:
+		stats := HubWatcherStats{
+			WatchCount:      len(w.watches),
+			RevnoMapSize:    len(w.current),
+			SyncQueueCap:    cap(w.syncEvents),
+			SyncQueueLen:    len(w.syncEvents),
+			RequestQueueCap: cap(w.requestEvents),
+			RequestQueueLen: len(w.requestEvents),
+		}
+		select {
+		case <-w.tomb.Dying():
+			return
+		case r.ch <- stats:
 		}
 	default:
 		panic(fmt.Errorf("unknown request: %T", req))

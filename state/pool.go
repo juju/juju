@@ -337,6 +337,7 @@ func (p *StatePool) IntrospectionReport() string {
 			index++
 			fmt.Fprintf(buff, "    [%d]\n%s\n", index, ref)
 		}
+		item.state.workers.Runner.Report()
 	}
 
 	return fmt.Sprintf(""+
