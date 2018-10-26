@@ -6,5 +6,12 @@ provides:
     interface: mysql
   server-admin:
     interface: mysql-root
+resources:
+  mysql_image:
+    type: "oci-image"
+    description: "Image used for gitlab pod."
+  another_image:
+    type: "oci-image"
+    description: "Image used for unit test results."
 series:
   - kubernetes

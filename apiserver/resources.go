@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
@@ -158,11 +157,9 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 		}
 	case charmresource.TypeContainerImage:
-		// Mapping the uploaded 'filename' which is actually the RegistryPath. There is no 'Path', it'll be written to file as content.yaml
-		err := resources.CheckDockerDetails(res.Name, uReq.Filename)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		// At this stage the docker 'filename' could be a reference to
+		// what the user has on their local filesystem that got parsed and
+		// is in the process of being uploaded so it makes no sense to validate uReq.Filename
 		// The uploaded finger print from the CLI will not match what comes in from the API request, do not store it.
 		uReq.Fingerprint = charmresource.Fingerprint{}
 	}

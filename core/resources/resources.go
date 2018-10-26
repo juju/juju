@@ -34,7 +34,7 @@ func ValidateDockerRegistryPath(path string) error {
 }
 
 // CheckDockerDetails validates the provided resource is suitable for use.
-func CheckDockerDetails(name, registryPath string) error {
+func CheckDockerDetails(name string, details DockerImageDetails) error {
 	// TODO (veebers): Validate the URL actually works.
-	return ValidateDockerRegistryPath(registryPath)
+	return ValidateDockerRegistryPath(details.RegistryPath)
 }
