@@ -1352,7 +1352,7 @@
   revision = "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
 
 [[projects]]
-  digest = "1:bbb7e0bd98573d308418eec15224e6c28fcc17debfef6b69210decf5d878345b"
+  digest = "1:88607626f1e84febb15a0f76146c30075e12fffd92836cb3cdc6e6441862c65d"
   name = "gopkg.in/juju/worker.v1"
   packages = [
     ".",
@@ -1362,7 +1362,7 @@
     "workertest",
   ]
   pruneopts = ""
-  revision = "e63ca51523be524b34f05ffa0c62eed10e231f8f"
+  revision = "9becf9b2c7057a1043a513b4a177fa33046f4535"
 
 [[projects]]
   digest = "1:01aef8078808543c15a4cc0e669d92d37215564600e19ebabbd694939b727977"

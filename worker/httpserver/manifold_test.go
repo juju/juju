@@ -83,7 +83,10 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) newTLSConfig(st *state.State, getCertificate func() *tls.Certificate) (*tls.Config, error) {
+func (s *ManifoldSuite) newTLSConfig(
+	st *state.State,
+	getCertificate func() *tls.Certificate,
+) (*tls.Config, error) {
 	s.stub.MethodCall(s, "NewTLSConfig", st)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err

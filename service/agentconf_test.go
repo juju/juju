@@ -202,6 +202,12 @@ func (s *agentConfSuite) TestCreateAgentConf(c *gc.C) {
 	c.Assert(conf.Desc, gc.Equals, "juju agent for machine-2")
 }
 
+func (s *agentConfSuite) TestCreateAgentConfLogPath(c *gc.C) {
+	conf, err := s.manager.CreateAgentConf("machine-2", s.dataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Logfile, gc.Equals, "/var/log/juju/machine-2.log")
+}
+
 func (s *agentConfSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
 	_, err := s.manager.CreateAgentConf("application-fail", s.dataDir)
 	c.Assert(err, gc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
