@@ -32,7 +32,7 @@ def setup(client, series):
         juju_ver=client.version,
         series=series,
         repository=os.environ['JUJU_REPOSITORY'])
-    _, primary = client.deploy(charm_sink, series=series)
+    _, primary = client.deploy(charm_sink, series=series, to="lxd")
     client.wait_for(primary)
 
 def assess_juju_lxdprofile_machine(client, args):
@@ -53,7 +53,7 @@ def lxdprofile_machine_verify(client, profilename):
     status = client.get_status()
     machine_info = dict(status.iter_machines())
 
-    machine_lxdprofile = machine_info["0"]["lxd-profiles"]
+    machine_lxdprofile = machine_info["0"]["containers"]["0/lxd/0"]["lxd-profiles"]
     log.info(
         "profile name {}, machine lxd profile {}".format(profilename, machine_lxdprofile))
 
