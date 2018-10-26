@@ -4,9 +4,9 @@
 package credentialvalidator_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
