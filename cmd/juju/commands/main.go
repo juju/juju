@@ -377,7 +377,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(model.NewDumpCommand())
 		r.Register(model.NewDumpDBCommand())
 	}
-	r.Register(model.NewExportBundleCommand())
 
 	// Manage and control actions
 	r.Register(action.NewStatusCommand())
