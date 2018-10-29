@@ -185,12 +185,12 @@ func (store *Store) UnpinLease(key lease.Key, entity names.Tag) error {
 func (store *Store) Pinned() map[lease.Key][]names.Tag {
 	store.call("Pinned", nil)
 	return map[lease.Key][]names.Tag{
-		lease.Key{
+		{
 			Namespace: "namespace",
 			ModelUUID: "modelUUID",
 			Lease:     "redis",
 		}: {names.NewMachineTag("0")},
-		lease.Key{
+		{
 			Namespace: "ignored-namespace",
 			ModelUUID: "ignored modelUUID",
 			Lease:     "lolwut",
