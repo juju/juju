@@ -175,7 +175,8 @@ func AllFacades() *facade.Registry {
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
 	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
-	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPI)
+	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPIv1)
+	reg("CredentialValidator", 2, credentialvalidator.NewCredentialValidatorAPI) // adds WatchModelCredential
 	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)

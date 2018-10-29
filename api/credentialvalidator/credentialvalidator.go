@@ -86,3 +86,22 @@ func (c *Facade) InvalidateModelCredential(reason string) error {
 	}
 	return nil
 }
+
+// WatchModelCredential provides a notify watcher that is responsive to changes
+// to a given cloud credential.
+func (c *Facade) WatchModelCredential() (watcher.NotifyWatcher, error) {
+	if v := c.facade.BestAPIVersion(); v < 2 {
+		return nil, errors.NotSupportedf("WatchModelCredential on CredentialValidator v%v", v)
+	}
+	var result params.NotifyWatchResult
+	err := c.facade.FacadeCall("WatchModelCredential", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := result.Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
