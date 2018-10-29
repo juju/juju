@@ -33,6 +33,21 @@ func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
 	s.machineApps = []string{"mysql", "redis", "wordpress"}
 }
 
+func (s *LeadershipSuite) TestPinnedLeadership(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	resultSource := params.PinnedLeadershipResult{Result: map[string][]string{
+		"application-redis": {"machine-0", "machine-1"},
+	}}
+	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
+
+	res, err := s.client.PinnedLeadership()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, map[names.ApplicationTag][]names.Tag{
+		names.NewApplicationTag("redis"): {names.NewMachineTag("0"), names.NewMachineTag("1")},
+	})
+}
+
 func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
