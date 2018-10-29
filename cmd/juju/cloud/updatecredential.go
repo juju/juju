@@ -17,31 +17,31 @@ import (
 )
 
 var usageUpdateCredentialSummary = `
-Updates a controller credential for a cloud.`[1:]
+Updates a remote credential.`[1:]
 
 var usageUpdateCredentialDetails = `
-Cloud credentials for controller are used for model operations and manipulations.
-Since it is common to have long-running models, it is also common to 
-have these cloud credentials become invalid during models' lifetime.
-When this happens, a user must update the cloud credential that 
-a model was created with to the new and valid details on controller.
+This command updates a credential cached on a controller. It does this by
+uploading the identically named local credential and validating it against the
+cloud. Use the ` + "`credentials`" + ` and ` + "`show-credential`" + ` commands to view local and
+remote credentials respectively.
 
-This command allows to update an existing, already-stored, named,
-cloud-specific controller credential.
+This command does not affect what models the updated credential may be related
+to. See command ` + "`set-credential`" + ` for that.
 
-NOTE: 
-This is the only command that will allow you to manipulate cloud
-credential for a controller. 
-All other credential related commands, such as 
-` + "`add-credential`" + `, ` + "`remove-credential`" + ` and  ` + "`credentials`" + ` 
-deal with credentials stored locally on the client not on the controller.
+This is the only command that can change the contents of an active credential.
+It is typically preceded by the ` + "`add-credential --replace`" + `  command.
 
 Examples:
-    juju update-credential aws mysecrets
+
+For cloud 'google', update remote credential 'jen':
+
+    juju update-credential google jen
 
 See also: 
     add-credential
-    credentials`[1:]
+    credentials
+    set-credential
+    show-credential`[1:]
 
 type updateCredentialCommand struct {
 	modelcmd.ControllerCommandBase
