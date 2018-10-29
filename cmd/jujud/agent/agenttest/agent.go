@@ -25,6 +25,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -210,6 +211,16 @@ func (s *AgentSuite) WriteStateAgentConfig(
 ) agent.ConfigSetterWriter {
 	stateInfo := s.MongoInfo(c)
 	apiPort := gitjujutesting.FindTCPPort()
+	// Need to update the controller config with this new API port as
+	// well - this is a nasty hack but... oh well!
+	controller.AllowedUpdateConfigAttributes.Add("api-port")
+	defer func() {
+		controller.AllowedUpdateConfigAttributes.Remove("api-port")
+	}()
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"api-port": apiPort,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
