@@ -5,7 +5,6 @@ package maas
 
 import (
 	"fmt"
-	"github.com/juju/juju/provider/common"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/common"
 )
 
 var cloudSchema = &jsonschema.Schema{

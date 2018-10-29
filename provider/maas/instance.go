@@ -5,7 +5,6 @@ package maas
 
 import (
 	"fmt"
-	"github.com/juju/juju/provider/common"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
 
