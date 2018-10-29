@@ -84,3 +84,9 @@ func (m leadershipPinner) PinLeadership(applicationId string, entity names.Tag) 
 func (m leadershipPinner) UnpinLeadership(applicationId string, entity names.Tag) error {
 	return errors.Trace(m.pinner.Unpin(applicationId, entity))
 }
+
+// PinnedLeadership (leadership.Pinner) returns applications and vested
+// entities for which leadership is pinned.
+func (m leadershipPinner) PinnedLeadership() map[string][]names.Tag {
+	return m.pinner.Pinned()
+}
