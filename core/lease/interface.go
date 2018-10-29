@@ -61,7 +61,10 @@ type Pinner interface {
 	// Unpin reverses a Pin operation for the same application and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	Unpin(leaseName string, tag names.Tag) error
+	Unpin(leaseName string, entity names.Tag) error
+
+	// Pinned returns all applications and vested entities for pinned leases.
+	Pinned() map[string][]names.Tag
 }
 
 // Checker exposes facts about lease ownership.

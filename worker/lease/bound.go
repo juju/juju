@@ -76,6 +76,12 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 	}
 }
 
+// Pinned (lease.Pinner) returns applications and vested entities for
+// pinned leases in the bound namespace/model.
+func (b *boundManager) Pinned() map[string][]names.Tag {
+	return b.manager.pinned(b.namespace, b.modelUUID)
+}
+
 // Pin (lease.Pinner) sends a pin message to the worker loop.
 func (b *boundManager) Pin(leaseName string, entity names.Tag) error {
 	return errors.Trace(b.pinOp(leaseName, entity, b.manager.pins))
