@@ -5,6 +5,7 @@ package maas
 
 import (
 	"fmt"
+	"github.com/juju/juju/provider/common"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -134,7 +135,7 @@ func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error 
 		return nil
 	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if _, denied := MaybeHandleCredentialError(err, ctx); denied {
+	if _, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 
