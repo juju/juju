@@ -311,7 +311,11 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	var remove []params.MachineStorageId
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
-		filesystemSource := filesystemSources[sourceName]
+		filesystemSource, ok := filesystemSources[sourceName]
+		if !ok {
+			// CAAS does not have filesystem source ?
+			continue
+		}
 		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
@@ -422,7 +426,7 @@ func validateFilesystemParams(
 // filesystemAttachmentParamsBySource separates the filesystem attachment parameters by filesystem source.
 func filesystemAttachmentParamsBySource(
 	baseStorageDir string,
-	params []storage.FilesystemAttachmentParams,
+	filesystemAttachmentParams []storage.FilesystemAttachmentParams,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 	managedFilesystemSource storage.FilesystemSource,
 	registry storage.ProviderRegistry,
@@ -433,7 +437,7 @@ func filesystemAttachmentParamsBySource(
 	// configuration.
 	filesystemSources := make(map[string]storage.FilesystemSource)
 	paramsBySource := make(map[string][]storage.FilesystemAttachmentParams)
-	for _, params := range params {
+	for _, params := range filesystemAttachmentParams {
 		sourceName := string(params.Provider)
 		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 		if _, ok := filesystemSources[sourceName]; ok {

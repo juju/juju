@@ -158,7 +158,7 @@ func (st *State) Cleanup() (err error) {
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			logger.Errorf(
+			logger.Warningf(
 				"cleanup failed in model %v for %v(%q): %v",
 				modelUUID, doc.Kind, doc.Prefix, err,
 			)

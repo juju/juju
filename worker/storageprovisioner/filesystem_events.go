@@ -77,7 +77,7 @@ func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStor
 	if len(dead) != 0 {
 		// We should not see dead filesystem attachments;
 		// attachments go directly from Dying to removed.
-		logger.Warningf("unexpected dead filesystem attachments: %v", dead)
+		logger.Warningf("dead filesystem attachments: %v", dead)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil

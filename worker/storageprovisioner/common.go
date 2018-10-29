@@ -23,13 +23,17 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
 	}
 	for i, result := range lifeResults {
+		life := result.Life
 		if result.Error != nil {
-			return nil, nil, nil, errors.Annotatef(
-				result.Error, "getting life of %s",
-				names.ReadableString(tags[i]),
-			)
+			if !params.IsCodeNotFound(result.Error) {
+				return nil, nil, nil, errors.Annotatef(
+					result.Error, "getting life of %s",
+					names.ReadableString(tags[i]),
+				)
+			}
+			life = params.Dead
 		}
-		switch result.Life {
+		switch life {
 		case params.Alive:
 			alive = append(alive, tags[i])
 		case params.Dying:

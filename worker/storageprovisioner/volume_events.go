@@ -182,7 +182,7 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 	if len(dead) != 0 {
 		// We should not see dead volume attachments;
 		// attachments go directly from Dying to removed.
-		logger.Warningf("unexpected dead volume attachments: %v", dead)
+		logger.Warningf("dead volume attachments: %v", dead)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil

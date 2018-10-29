@@ -1084,7 +1084,7 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 	one := func(arg params.MachineStorageId) (params.FilesystemAttachmentParams, error) {
 		filesystemAttachment, err := s.oneFilesystemAttachment(arg, canAccess)
 		if err != nil {
-			return params.FilesystemAttachmentParams{}, err
+			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}
 		hostTag := filesystemAttachment.Host()
 		// Filesystems can be attached to units (caas models) or machines.
@@ -1096,12 +1096,12 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 				// The worker must watch for machine provisioning events.
 				instanceId = ""
 			} else if err != nil {
-				return params.FilesystemAttachmentParams{}, err
+				return params.FilesystemAttachmentParams{}, errors.Trace(err)
 			}
 		}
 		filesystem, err := s.sb.Filesystem(filesystemAttachment.Filesystem())
 		if err != nil {
-			return params.FilesystemAttachmentParams{}, err
+			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}
 		var filesystemId string
 		var pool string
@@ -1110,7 +1110,7 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 		} else {
 			filesystemInfo, err := filesystem.Info()
 			if err != nil {
-				return params.FilesystemAttachmentParams{}, err
+				return params.FilesystemAttachmentParams{}, errors.Trace(err)
 			}
 			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
