@@ -1329,6 +1329,19 @@ type DumpModelRequest struct {
 	Simplified bool     `json:"simplified"`
 }
 
+// LXDProfileUpgradeStatusResult contains the lxd profile upgrade status result
+// for a machine or unit
+type LXDProfileUpgradeStatusResult struct {
+	Error  *Error                        `json:"error,omitempty"`
+	Status model.LXDProfileUpgradeStatus `json:"status,omitempty"`
+}
+
+// LXDProfileUpgradeStatusResults contains the lxd profile upgrade status results
+// for a machine or unit
+type LXDProfileUpgradeStatusResults struct {
+	Results []LXDProfileUpgradeStatusResult `json:"results,omitempty"`
+}
+
 // UpgradeSeriesStatusResult contains the upgrade series status result for an upgrading
 // machine or unit
 type UpgradeSeriesStatusResult struct {

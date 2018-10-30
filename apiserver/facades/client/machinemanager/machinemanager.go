@@ -473,6 +473,38 @@ func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg)
 	return machine.RemoveUpgradeSeriesLock()
 }
 
+// WatchLXDProfileUpgradeNotifications returns a watcher that fires on LXD profile
+// events.
+func (mm *MachineManagerAPI) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+	err := mm.checkCanRead()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := mm.st.Machine(tag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		w, err := machine.WatchLXDProfileUpgradeNotifications()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		id := mm.resources.Register(w)
+		result.Results[i].NotifyWatcherId = id
+	}
+	return result, nil
+}
+
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	err := mm.checkCanRead()

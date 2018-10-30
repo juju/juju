@@ -43,6 +43,7 @@ type Unit interface {
 	WatchAddresses() (watcher.NotifyWatcher, error)
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
 	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
+	WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
@@ -50,6 +51,7 @@ type Unit interface {
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
+	LXDProfileUpgradeStatus() (model.LXDProfileUpgradeStatus, error)
 }
 
 type Application interface {

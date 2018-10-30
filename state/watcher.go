@@ -1861,8 +1861,22 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 	})
 }
 
-// WatchUpgradeStatus returns a watcher that observes the status of a series
-// upgrade by monitoring changes to its parent machine's upgrade series lock.
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status of
+// a series upgrade by monitoring changes to its parent machine's upgrade series
+// lock.
+func (m *Machine) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
+	// TODO (Simon) - This is wrong!
+	watch := newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
+	if _, ok := <-watch.Changes(); ok {
+		return watch, nil
+	}
+
+	return nil, watcher.EnsureErr(watch)
+}
+
+// WatchUpgradeSeriesNotifications returns a watcher that observes the status of
+// a series upgrade by monitoring changes to its parent machine's upgrade series
+// lock.
 func (m *Machine) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 	watch := newEntityWatcher(m.st, machineUpgradeSeriesLocksC, m.doc.DocID)
 	if _, ok := <-watch.Changes(); ok {

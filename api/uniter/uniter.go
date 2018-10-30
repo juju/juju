@@ -28,6 +28,7 @@ type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
 	*common.UpgradeSeriesAPI
+	*common.LXDProfileUpgradeWatcher
 	*StorageAccessor
 
 	LeadershipSettings *LeadershipSettingsAccessor
@@ -49,12 +50,13 @@ func newStateForVersion(
 		version,
 	)
 	state := &State{
-		ModelWatcher:     common.NewModelWatcher(facadeCaller),
-		APIAddresser:     common.NewAPIAddresser(facadeCaller),
-		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
-		StorageAccessor:  NewStorageAccessor(facadeCaller),
-		facade:           facadeCaller,
-		unitTag:          authTag,
+		ModelWatcher:             common.NewModelWatcher(facadeCaller),
+		APIAddresser:             common.NewAPIAddresser(facadeCaller),
+		UpgradeSeriesAPI:         common.NewUpgradeSeriesAPI(facadeCaller, authTag),
+		LXDProfileUpgradeWatcher: common.NewLXDProfileUpgradeWatcher(facadeCaller, authTag),
+		StorageAccessor:          NewStorageAccessor(facadeCaller),
+		facade:                   facadeCaller,
+		unitTag:                  authTag,
 	}
 
 	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {

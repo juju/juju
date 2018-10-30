@@ -217,7 +217,7 @@ func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]strin
 	return results.Results[0].UnitNames, nil
 }
 
-// WatchUpgadeSeriesNotifications returns a NotifyWatcher for observing the state of
+// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the state of
 // a series upgrade.
 func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watcher.NotifyWatcher, string, error) {
 	if client.BestAPIVersion() < 5 {

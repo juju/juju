@@ -45,6 +45,7 @@ type UniterAPI struct {
 	*common.ModelWatcher
 	*common.RebootRequester
 	*common.UpgradeSeriesAPI
+	*common.LXDProfileUpgradeAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
 	m                 *state.Model
@@ -233,6 +234,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		LXDProfileUpgradeAPI:       common.NewExternalLXDProfileUpgradeAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its

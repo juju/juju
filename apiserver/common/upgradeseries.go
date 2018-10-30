@@ -128,7 +128,6 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 			continue
 		}
 
-		watcherId := ""
 		if !canAccess(tag) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
@@ -143,7 +142,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		watcherId = u.resources.Register(w)
+		watcherId := u.resources.Register(w)
 		result.Results[i].NotifyWatcherId = watcherId
 	}
 	return result, nil

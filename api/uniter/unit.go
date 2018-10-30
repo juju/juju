@@ -643,8 +643,27 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchActionNotifications returns a StringsWatcher for observing the state of
-// a series upgrade.
+// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing the
+// state of a lxd profile upgrade.
+func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error) {
+	return u.st.WatchLXDProfileUpgradeNotifications()
+}
+
+// LXDProfileUpgradeStatus returns the lxd profile upgrade status of a unit from
+// remote state
+func (u *Unit) LXDProfileUpgradeStatus() (model.LXDProfileUpgradeStatus, error) {
+	res, err := u.st.LXDProfileUpgradeUnitStatus()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(res) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(res))
+	}
+	return res[0], nil
+}
+
+// WatchUpgradeSeriesNotifications returns a StringsWatcher for observing the
+// state of a series upgrade.
 func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
 	return u.st.WatchUpgradeSeriesNotifications()
 }
