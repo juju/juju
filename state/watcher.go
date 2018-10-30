@@ -805,10 +805,10 @@ func (st *State) WatchModelMachinesCharmProfiles() (StringsWatcher, error) {
 	return st.watchCharmProfiles(isMachineRegexp)
 }
 
-// WatchContainerCharmProfiles starts a StringsWatcher to notify when
-// the provisioner should update the charm profiles used by a container on
+// WatchContainersCharmProfiles starts a StringsWatcher to notify when
+// the provisioner should update the charm profiles used by any container on
 // the machine.
-func (m *Machine) WatchContainerCharmProfiles(ctype instance.ContainerType) (StringsWatcher, error) {
+func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (StringsWatcher, error) {
 	isChildRegexp := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, ctype, names.NumberSnippet)
 	return m.st.watchCharmProfiles(isChildRegexp)
 }
@@ -1912,7 +1912,7 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, erro
 	return newMachineFieldChangeWatcher(a.st, machineIds, accessor, completed), nil
 }
 
-// machineFieldChangeWatcher notifies about charm changes where a
+// machineFieldChangeWatcher notifies about machine changes where a
 // machine or container's field may need to be changed. At startup, the
 // watcher gathers current values for a machine's field, no events are returned.
 // Events are generated when there are changes to a machine or container's

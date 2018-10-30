@@ -29,6 +29,10 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *gc.C) {
 			output: true,
 		},
 		{
+			input:  lxdprofile.NotRequiredStatus,
+			output: true,
+		},
+		{
 			input:  lxdprofile.ErrorStatus,
 			output: false,
 		},
@@ -50,6 +54,10 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *gc.C) {
 		},
 		{
 			input:  lxdprofile.SuccessStatus,
+			output: true,
+		},
+		{
+			input:  lxdprofile.NotRequiredStatus,
 			output: true,
 		},
 		{

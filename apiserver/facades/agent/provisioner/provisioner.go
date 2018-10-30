@@ -288,7 +288,7 @@ func (p *ProvisionerAPI) watchOneMachineContainersCharmProfiles(arg params.Watch
 	}
 	var watch state.StringsWatcher
 	if arg.ContainerType != "" {
-		watch, err = machine.WatchContainerCharmProfiles(instance.ContainerType(arg.ContainerType))
+		watch, err = machine.WatchContainersCharmProfiles(instance.ContainerType(arg.ContainerType))
 		if err != nil {
 			return nothing, common.ErrPerm
 		}

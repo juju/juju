@@ -21,7 +21,7 @@ const (
 	ErrorStatus = "Error"
 )
 
-// UpgradeStatusFinished defines if the upgrade status has completed
+// UpgradeStatusFinished defines if the upgrade has completed
 func UpgradeStatusFinished(status string) bool {
 	if status == SuccessStatus || status == NotRequiredStatus {
 		return true

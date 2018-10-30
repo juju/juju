@@ -99,8 +99,16 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					},
 				},
 				units: []*mockUnit{
-					{tag: names.NewUnitTag("postgresql/0"), machineId: "machine-0"},
-					{tag: names.NewUnitTag("postgresql/1"), machineId: "machine-1"},
+					{
+						name:      "postgresql/0",
+						tag:       names.NewUnitTag("postgresql/0"),
+						machineId: "machine-0",
+					},
+					{
+						name:      "postgresql/1",
+						tag:       names.NewUnitTag("postgresql/1"),
+						machineId: "machine-1",
+					},
 				},
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql/99"),
@@ -1316,23 +1324,25 @@ func (s *ApplicationSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 func (s *ApplicationSuite) TestGetLXDProfileUpgradeMessages(c *gc.C) {
 	app := s.backend.applications["postgresql"]
 	results, err := s.api.GetLXDProfileUpgradeMessages(params.LXDProfileUpgradeMessages{
-		ApplicationTag: names.NewApplicationTag("postgresql").String(),
-		WatcherId:      "xxx-aaa-yyyy-ccc",
+		ApplicationTag: params.Entity{
+			Tag: names.NewApplicationTag("postgresql").String(),
+		},
+		WatcherId: "xxx-aaa-yyyy-ccc",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Machine", "Machine")
 	app.CheckCallNames(c, "AllUnits")
 	for _, v := range app.units {
-		v.CheckCallNames(c, "AssignedMachineId")
+		v.CheckCallNames(c, "Name", "AssignedMachineId")
 	}
 	c.Assert(results, jc.DeepEquals, params.LXDProfileUpgradeMessagesResults{
 		Results: []params.LXDProfileUpgradeMessagesResult{
 			{
-				UnitName: "unit-postgresql-0",
+				UnitName: "postgresql/0",
 				Message:  "",
 			},
 			{
-				UnitName: "unit-postgresql-1",
+				UnitName: "postgresql/1",
 				Message:  "not required",
 			},
 		},

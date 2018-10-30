@@ -123,6 +123,7 @@ type Relation interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
+	Name() string
 	Tag() names.Tag
 	UnitTag() names.UnitTag
 	Destroy() error

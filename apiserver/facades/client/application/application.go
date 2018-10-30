@@ -807,8 +807,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 		return
 	}
 
-	var tag names.Tag
-	tag, err = names.ParseApplicationTag(arg.ApplicationTag)
+	tag, err := names.ParseApplicationTag(arg.ApplicationTag.Tag)
 	if err != nil {
 		return
 	}
@@ -829,7 +828,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 	}
 	for k, unit := range units {
 		// always set the unit name on the result.
-		results.Results[k].UnitName = unit.Tag().String()
+		results.Results[k].UnitName = unit.Name()
 
 		machineId, err := unit.AssignedMachineId()
 		if err != nil {
@@ -841,7 +840,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 		}
 		machine, err := api.backend.Machine(machineId)
 		if err != nil {
-			results.Results[k].Error = common.ServerError(err)
+			results.Results[k].Error = common.ServerError(errors.Annotatef(err, "machine %q failure", machineId))
 			continue
 		}
 		status := machine.UpgradeCharmProfileComplete()
@@ -879,7 +878,7 @@ func (api *APIBase) setUpgradeCharmProfileCompleteStatus(units []Unit, status st
 			return err
 		}
 		if err := machine.SetUpgradeCharmProfileComplete(status); err != nil {
-			logger.Infof("unable to set the upgrade charm profile complete status for %q :%v", unit.Tag().String(), err)
+			logger.Debugf("unable to set the upgrade charm profile complete status for %q :%v", unit.Tag().String(), err)
 			return err
 		}
 	}

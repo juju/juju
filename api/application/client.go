@@ -273,6 +273,8 @@ type SetCharmConfig struct {
 	// overriding a lxd profile upgrade.
 	// In the future, we should deprecate ForceSeries and ForceUnits and just
 	// use Force for all instances.
+	// TODO (stickupkid): deprecate ForceSeries and ForceUnits in favour of
+	// just using Force.
 	Force bool
 
 	// ForceSeries forces the use of the charm even if it doesn't match the
@@ -909,8 +911,10 @@ func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, watcherId 
 		return nil, errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
 	}
 	arg := params.LXDProfileUpgradeMessages{
-		ApplicationTag: names.NewApplicationTag(applicationName).String(),
-		WatcherId:      watcherId,
+		ApplicationTag: params.Entity{
+			Tag: names.NewApplicationTag(applicationName).String(),
+		},
+		WatcherId: watcherId,
 	}
 	var results params.LXDProfileUpgradeMessagesResults
 	err := c.facade.FacadeCall("GetLXDProfileUpgradeMessages", arg, &results)
