@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -102,10 +101,13 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	charm := s.AddTestingCharm(c, "lxd-profile")
 	app := s.AddTestingApplication(c, "lxd-profile", charm)
 
+	c.Assert(charm.LXDProfile(), gc.NotNil)
+
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
 	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
 	c.Assert(url, gc.DeepEquals, charm.URL())
@@ -126,16 +128,46 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	url, force = app.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 }
 
-func (s *ApplicationSuite) TestLXDProfileForceSetCharm(c *gc.C) {
+func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 	charm := s.AddTestingCharm(c, "lxd-profile-fail")
 	app := s.AddTestingApplication(c, "lxd-profile-fail", charm)
+
+	c.Assert(charm.LXDProfile(), gc.NotNil)
 
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
 	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
+
+	url, force := app.CharmURL()
+	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, ".*validating lxd profile: invalid lxd-profile\\.yaml.*")
+}
+
+func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
+	charm := s.AddTestingCharm(c, "lxd-profile-fail")
+	app := s.AddTestingApplication(c, "lxd-profile-fail", charm)
+
+	c.Assert(charm.LXDProfile(), gc.NotNil)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
 	c.Assert(url, gc.DeepEquals, charm.URL())
@@ -157,6 +189,7 @@ func (s *ApplicationSuite) TestLXDProfileForceSetCharm(c *gc.C) {
 	url, force = app.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
+	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 }
 
 func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
