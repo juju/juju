@@ -325,7 +325,7 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }
 
-func (s DeploySuite) TestDeployDockerResourceRegPathString(c *gc.C) {
+func (s DeploySuite) TestDeployDockerResourceRegistryPathString(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
 	chID := charmstore.CharmID{

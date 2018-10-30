@@ -1187,7 +1187,7 @@ func (c *DeployCommand) validateResourcesNeededForLocalDeploy(charmMeta *charm.M
 		}
 	}
 	if len(missingImages) > 0 {
-		return errors.NotValidf("local charm missing OCI images for: %v", strings.Join(missingImages, ", "))
+		return errors.Errorf("local charm missing OCI images for: %v", strings.Join(missingImages, ", "))
 	}
 	return nil
 }

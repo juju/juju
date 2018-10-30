@@ -284,23 +284,21 @@ func (d deployUploader) checkExpectedResources(filenames map[string]string, revi
 // getDockerDetailsData determines if path is a local file path and extracts the
 // details from that otherwise path is considered to be a registry path.
 func getDockerDetailsData(path string) (resources.DockerImageDetails, error) {
-	var details resources.DockerImageDetails
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		f, err := os.Open(path)
-		if err != nil {
-			return details, errors.Trace(err)
-		}
+	f, err := os.Open(path)
+	if err == nil {
 		defer f.Close()
-		details, err = unMarshalDockerDetails(f)
+		details, err := unMarshalDockerDetails(f)
 		if err != nil {
 			return details, errors.Trace(err)
 		}
+		return details, nil
 	} else if err := resources.ValidateDockerRegistryPath(path); err == nil {
-		details.RegistryPath = path
-	} else {
-		return details, errors.NotValidf("filepath or registry path: %s", path)
+		return resources.DockerImageDetails{
+			RegistryPath: path,
+		}, nil
 	}
-	return details, nil
+	return resources.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
+
 }
 
 func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error) {
