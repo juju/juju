@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -2036,7 +2034,6 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 
 func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
 	m, _, subApp := s.assertCharmProfileSubordinate(c)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 
 	subCharm, _, err := subApp.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2045,15 +2042,14 @@ func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
 	m, profileApp, subApp := s.assertCharmProfileSubordinate(c)
-	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 
-	err := profileApp.SetCharmProfile("string for testing")
+	err := profileApp.SetCharmProfile("local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
-	assertUpgradeCharmProfile(c, m, profileApp.Name(), "string for testing")
+	assertUpgradeCharmProfile(c, m, profileApp.Name(), "local:quantal/lxd-profile-0")
 
-	err = subApp.SetCharmProfile("different string for testing")
+	err = subApp.SetCharmProfile("local:quantal/lxd-profile-subordinate-0")
 	c.Assert(err, jc.ErrorIsNil)
-	assertUpgradeCharmProfile(c, m, subApp.Name(), "different string for testing")
+	assertUpgradeCharmProfile(c, m, subApp.Name(), "local:quantal/lxd-profile-subordinate-0")
 }
 
 func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machine, *state.Application, *state.Application) {

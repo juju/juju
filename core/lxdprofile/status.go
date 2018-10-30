@@ -4,6 +4,7 @@
 package lxdprofile
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -21,6 +22,11 @@ const (
 	ErrorStatus = "Error"
 )
 
+// AnnotateErrorStatus annotates an existing error with the correct status
+func AnnotateErrorStatus(err error) string {
+	return fmt.Sprintf("%s: %s", ErrorStatus, err.Error())
+}
+
 // UpgradeStatusFinished defines if the upgrade has completed
 func UpgradeStatusFinished(status string) bool {
 	if status == SuccessStatus || status == NotRequiredStatus {
@@ -36,5 +42,10 @@ func UpgradeStatusTerminal(status string) bool {
 		return true
 	}
 
+	return UpgradeStatusErrorred(status)
+}
+
+// UpgradeStatusErrorred defines if the status is in a error state.
+func UpgradeStatusErrorred(status string) bool {
 	return strings.HasPrefix(status, ErrorStatus)
 }

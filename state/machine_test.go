@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -148,9 +149,9 @@ func (s *MachineSuite) TestSetUpgradeCharmProfile(c *gc.C) {
 	m := s.machine
 
 	// SetUpgradeCharmProfile should clear UpgradeCharmProfileComplete value
-	err := m.SetUpgradeCharmProfileComplete("success")
+	err := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, lxdprofile.SuccessStatus)
 
 	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,12 +166,12 @@ func (s *MachineSuite) TestSetUpgradeCharmProfile(c *gc.C) {
 func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	m := s.machine
 
-	err := m.SetUpgradeCharmProfileComplete("success")
+	err := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, lxdprofile.SuccessStatus)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {

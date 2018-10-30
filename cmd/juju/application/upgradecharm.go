@@ -460,9 +460,10 @@ func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, cl
 	if len(messages) == 0 {
 		return errors.NotFoundf("messages")
 	}
+	var msgErrors []string
 	for _, message := range messages {
 		if message.Error != "" {
-			logger.Tracef("lxd profile upgrade error for %q: %v", message.UnitName, message.Error)
+			msgErrors = append(msgErrors, message.Error)
 			continue
 		}
 		if message.Message == "" {
@@ -471,8 +472,14 @@ func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, cl
 		if p, ok := previous[message.UnitName]; ok && p.Message == message.Message {
 			continue
 		}
-		ctx.Infof(fmt.Sprintf("LXD profile upgrade for %q is %s\n", message.UnitName, message.Message))
+		ctx.Infof(fmt.Sprintf("LXD Profile upgrade %s for %q\n", message.Message, message.UnitName))
 		previous[message.UnitName] = message
+	}
+	if len(msgErrors) > 0 {
+		for _, v := range msgErrors {
+			cmd.WriteError(ctx.Stderr, errors.New(v))
+		}
+		return errors.New("lxd profile upgrade error")
 	}
 	return nil
 }

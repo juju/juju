@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
+	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -2175,7 +2177,42 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
-		return []txn.Op{m.SetUpgradeCharmProfileOp(appName, chURL)}, nil
+
+		provisioned := true
+		profiles, err := m.CharmProfiles()
+		if err != nil {
+			if !errors.IsNotProvisioned(err) {
+				return nil, errors.Trace(err)
+			}
+			provisioned = false
+		}
+		charmURL, err := charm.ParseURL(chURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ch, err := m.st.Charm(charmURL)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		// we need to ensure that the machine is provisioned before we attempt
+		// to set that the upgrade charm profile complete to not required.
+		if provisioned && ch != nil {
+			// If the profiles are empty and there is nothing to apply, we can
+			// assume that nothing is required.
+			if len(profiles) == 0 && (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
+				return []txn.Op{
+					m.CheckCharmProfilesIsEmptyOp(),
+					m.SetUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus),
+				}, nil
+			}
+		}
+
+		return []txn.Op{
+			m.SetUpgradeCharmProfileOp(appName, chURL),
+		}, nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2196,7 +2233,7 @@ func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
 		Update: bson.D{{"$set", bson.D{
 			{"upgradecharmprofilecharmurl", chURL},
 			{"upgradecharmprofileapplication", appName},
-			{"upgradecharmprofilecomplete", ""},
+			{"upgradecharmprofilecomplete", lxdprofile.EmptyStatus},
 		}}},
 	}
 }
@@ -2212,15 +2249,9 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
-
-		ops := []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"life", Alive}},
-			Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
-		}}
-
-		return ops, nil
+		return []txn.Op{
+			m.SetUpgradeCharmProfileCompleteOp(msg),
+		}, nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2228,6 +2259,32 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 	}
 	m.doc.UpgradeCharmProfileComplete = msg
 	return nil
+}
+
+// CheckCharmProfilesIsEmptyOp ensures that the charm-profiles on the instance
+// data is empty
+func (m *Machine) CheckCharmProfilesIsEmptyOp() txn.Op {
+	return txn.Op{
+		C:  instanceDataC,
+		Id: m.doc.DocID,
+		Assert: bson.D{{
+			"$or", []bson.D{
+				{{"charm-profiles", bson.D{{"$size", 0}}}},
+				{{"charm-profiles", bson.D{{"$exists", false}}}},
+			},
+		}},
+	}
+}
+
+// SetUpgradeCharmProfileCompleteOp updates the upgradecharmprofilecomplete
+// field with the correct message.
+func (m *Machine) SetUpgradeCharmProfileCompleteOp(msg string) txn.Op {
+	return txn.Op{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: bson.D{{"life", Alive}},
+		Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
+	}
 }
 
 // UpdateOperation returns a model operation that will update the machine.

@@ -354,7 +354,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		m := mResult.Machine
 		if err = task.processOneMachineProfileChange(m, profileBroker); err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
-			m.SetUpgradeCharmProfileComplete(fmt.Sprintf("%s: %s", lxdprofile.ErrorStatus, err.Error()))
+			m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err))
 		} else {
 			m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 		}

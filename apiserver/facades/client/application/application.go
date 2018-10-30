@@ -807,7 +807,8 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 		return
 	}
 
-	tag, err := names.ParseApplicationTag(arg.ApplicationTag.Tag)
+	var tag names.Tag
+	tag, err = names.ParseApplicationTag(arg.ApplicationTag.Tag)
 	if err != nil {
 		return
 	}
@@ -825,6 +826,14 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 	finished := true
 	results = params.LXDProfileUpgradeMessagesResults{
 		Results: make([]params.LXDProfileUpgradeMessagesResult, len(units)),
+	}
+	resultsHasErrors := func(results []params.LXDProfileUpgradeMessagesResult) bool {
+		for _, v := range results {
+			if v.Error != nil {
+				return true
+			}
+		}
+		return false
 	}
 	for k, unit := range units {
 		// always set the unit name on the result.
@@ -847,9 +856,16 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 		if !lxdprofile.UpgradeStatusTerminal(status) {
 			finished = false
 		}
+		if lxdprofile.UpgradeStatusErrorred(status) {
+			results.Results[k].Error = common.ServerError(errors.New(status))
+			continue
+		}
 		results.Results[k].Message = status
 	}
-	if finished {
+	// if any of the results has an error, then close the resource and bail out.
+	// this way we can close the watcher early and prevent a application
+	// completing.
+	if finished || resultsHasErrors(results.Results) {
 		if resErr := api.resources.Stop(arg.WatcherId); resErr != nil {
 			return results, resErr
 		}
