@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -115,7 +116,8 @@ func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]
 	// Fetch a fresh copy of the instance JSON first.
 	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
-		return nil, HandleCredentialError(errors.Annotate(err, "getting instance details"), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Annotate(err, "getting instance details")
 	}
 
 	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)

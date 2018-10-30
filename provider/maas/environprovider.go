@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/common"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -134,7 +135,7 @@ func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error 
 		return nil
 	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if _, denied := MaybeHandleCredentialError(err, ctx); denied {
+	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 

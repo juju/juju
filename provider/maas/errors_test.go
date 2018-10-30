@@ -30,8 +30,7 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestNilContext(c *gc.C) {
-	err, denied := MaybeHandleCredentialError(s.maasError, nil)
-	c.Assert(err, gc.DeepEquals, s.maasError)
+	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, nil)
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -41,8 +40,8 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		return errors.New("kaboom")
 	}
-	_, denied := MaybeHandleCredentialError(s.maasError, ctx)
-	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored maas cloud credential on the controller")
+	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
+	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(denied, jc.IsTrue)
 }
 
@@ -81,13 +80,12 @@ func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
 	ctx := context.NewCloudCallContext()
 	called := false
 	ctx.InvalidateCredentialFunc = func(msg string) error {
-		c.Assert(msg, gc.DeepEquals, "maas cloud denied access")
+		c.Assert(msg, gc.DeepEquals, "cloud denied access")
 		called = true
 		return nil
 	}
 
-	_, denied := MaybeHandleCredentialError(s.maasError, ctx)
+	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
 	c.Assert(called, gc.Equals, handled)
 	c.Assert(denied, gc.Equals, handled)
-
 }
