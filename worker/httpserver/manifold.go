@@ -15,9 +15,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -26,7 +26,6 @@ import (
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName       string
 	CertWatcherName string
 	HubName         string
 	MuxName         string
@@ -42,15 +41,13 @@ type ManifoldConfig struct {
 	Clock                clock.Clock
 	PrometheusRegisterer prometheus.Registerer
 
-	NewTLSConfig func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
-	NewWorker    func(Config) (worker.Worker, error)
+	GetControllerConfig func(*state.State) (controller.Config, error)
+	NewTLSConfig        func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
+	NewWorker           func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.CertWatcherName == "" {
 		return errors.NotValidf("empty CertWatcherName")
 	}
@@ -78,6 +75,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
+	if config.GetControllerConfig == nil {
+		return errors.NotValidf("nil GetControllerConfig")
+	}
 	if config.NewTLSConfig == nil {
 		return errors.NotValidf("nil NewTLSConfig")
 	}
@@ -93,7 +93,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.CertWatcherName,
 			config.HubName,
 			config.StateName,
@@ -109,11 +108,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var agent agent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -167,7 +161,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := systemState.ControllerConfig()
+	controllerConfig, err := config.GetControllerConfig(systemState)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -192,7 +186,6 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}
 
 	w, err := config.NewWorker(Config{
-		AgentConfig:          agent.CurrentConfig(),
 		Clock:                config.Clock,
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		Hub:                  hub,

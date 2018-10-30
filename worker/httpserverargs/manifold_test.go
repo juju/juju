@@ -4,7 +4,6 @@
 package httpserverargs_test
 
 import (
-	"crypto/tls"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,7 +31,6 @@ type ManifoldSuite struct {
 	clock         *testing.Clock
 	state         stubStateTracker
 	authenticator mockLocalMacaroonAuthenticator
-	tlsConfig     *tls.Config
 
 	stub testing.Stub
 }
@@ -50,6 +48,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = httpserverargs.ManifoldConfig{
 		ClockName:             "clock",
 		StateName:             "state",
+		ControllerPortName:    "controller-port",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
@@ -57,8 +56,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"clock": s.clock,
-		"state": &s.state,
+		"clock":           s.clock,
+		"state":           &s.state,
+		"controller-port": nil,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -79,7 +79,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock"}
+var expectedInputs = []string{"state", "clock", "controller-port"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -169,6 +169,9 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 	}, {
 		func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
 		"empty ClockName not valid",
+	}, {
+		func(cfg *httpserverargs.ManifoldConfig) { cfg.ControllerPortName = "" },
+		"empty ControllerPortName not valid",
 	}, {
 		func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
 		"nil NewStateAuthenticator not valid",

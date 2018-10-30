@@ -211,16 +211,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 ) agent.ConfigSetterWriter {
 	stateInfo := s.MongoInfo(c)
 	apiPort := gitjujutesting.FindTCPPort()
-	// Need to update the controller config with this new API port as
-	// well - this is a nasty hack but... oh well!
-	controller.AllowedUpdateConfigAttributes.Add("api-port")
-	defer func() {
-		controller.AllowedUpdateConfigAttributes.Remove("api-port")
-	}()
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"api-port": apiPort,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
@@ -248,6 +239,25 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
+}
+
+// SetControllerConfigAPIPort resets the API port in controller config
+// to the value provided - this is useful in tests that create
+// multiple agents and only start one, so that the API port the http
+// server listens on matches the one the agent tries to connect to.
+func (s *AgentSuite) SetControllerConfigAPIPort(c *gc.C, apiPort int) {
+	// Need to update the controller config with this new API port as
+	// well - this is a nasty hack but... oh well!
+	controller.AllowedUpdateConfigAttributes.Add("api-port")
+	defer func() {
+		controller.AllowedUpdateConfigAttributes.Remove("api-port")
+	}()
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"api-port": apiPort,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that the local controller config is also up to date.
+	s.ControllerConfig["api-port"] = apiPort
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {

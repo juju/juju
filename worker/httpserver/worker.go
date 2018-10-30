@@ -21,7 +21,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/pubsub/apiserver"
 )
@@ -30,7 +29,6 @@ var logger = loggo.GetLogger("juju.worker.httpserver")
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	AgentConfig          agent.Config
 	Clock                clock.Clock
 	TLSConfig            *tls.Config
 	AutocertHandler      http.Handler
@@ -45,9 +43,6 @@ type Config struct {
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
-	if config.AgentConfig == nil {
-		return errors.NotValidf("nil AgentConfig")
-	}
 	if config.TLSConfig == nil {
 		return errors.NotValidf("nil TLSConfig")
 	}

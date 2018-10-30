@@ -85,7 +85,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	// Consume apt-get commands that get run before upgrades.
 	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
-		for _ = range aptCmds {
+		for range aptCmds {
 		}
 	}()
 
@@ -177,11 +177,18 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 
 	// Create 3 controllers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
+	// We're not going to start the agents for machines A or B - we
+	// need to make sure the API port is still set to the one picked
+	// for this machine after we create the other machines.
+	apiPort := s.ControllerConfig.APIPort()
+
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)
 	s.configureMachine(c, changes.Added[1], s.oldVersion)
+
+	s.SetControllerConfigAPIPort(c, apiPort)
 
 	// One of the other controllers is ready for upgrade (but machine C isn't).
 	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, jujuversion.Current)
@@ -223,6 +230,13 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	// UpgradeInfo doc should now be archived.
 	err = info.Refresh()
 	c.Assert(err, gc.ErrorMatches, "current upgrade info not found")
+}
+
+func (s *upgradeSuite) logAPIPort(c *gc.C, tag string) {
+	agentConf := agentcmd.NewAgentConf(s.DataDir())
+	agentConf.ReadConfig(tag)
+	info, ok := agentConf.CurrentConfig().StateServingInfo()
+	c.Logf("\n\nok=%v, API port is %d\n\n", ok, info.APIPort)
 }
 
 // TODO(mjs) - the following should maybe be part of AgentSuite

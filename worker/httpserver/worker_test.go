@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,28 +21,22 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/httpserver"
 )
 
 type workerFixture struct {
 	testing.IsolationSuite
-	agentConfig          mockAgentConfig
 	prometheusRegisterer stubPrometheusRegisterer
 	mux                  *apiserverhttp.Mux
+	clock                *testing.Clock
+	hub                  *pubsub.StructuredHub
 	config               httpserver.Config
 	stub                 testing.Stub
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	s.agentConfig = mockAgentConfig{
-		info: &params.StateServingInfo{
-			APIPort: 0, // listen on any port
-		},
-	}
 	certPool, err := api.CreateCertPool(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	tlsConfig := api.NewTLSConfig(certPool)
@@ -49,12 +44,18 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.mux = apiserverhttp.NewMux()
+	s.clock = testing.NewClock(time.Now())
+	s.hub = pubsub.NewStructuredHub(nil)
 
 	s.config = httpserver.Config{
-		AgentConfig:          &s.agentConfig,
+		Clock:                s.clock,
 		TLSConfig:            tlsConfig,
 		Mux:                  s.mux,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		Hub:                  s.hub,
+		APIPort:              0,
+		APIPortOpenDelay:     0,
+		ControllerAPIPort:    0,
 	}
 }
 
@@ -70,9 +71,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserver.Config) { cfg.AgentConfig = nil },
-		"nil AgentConfig not valid",
-	}, {
 		func(cfg *httpserver.Config) { cfg.TLSConfig = nil },
 		"nil TLSConfig not valid",
 	}, {

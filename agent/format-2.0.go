@@ -53,7 +53,7 @@ type format_2_0Serialization struct {
 	ControllerKey      string `yaml:"controllerkey,omitempty"`
 	CAPrivateKey       string `yaml:"caprivatekey,omitempty"`
 	APIPort            int    `yaml:"apiport,omitempty"`
-	ControllerAPIPort  int    `yaml:"controller-apiport,omitempty"`
+	ControllerAPIPort  int    `yaml:"controllerapiport,omitempty"`
 	StatePort          int    `yaml:"stateport,omitempty"`
 	SharedSecret       string `yaml:"sharedsecret,omitempty"`
 	SystemIdentity     string `yaml:"systemidentity,omitempty"`
