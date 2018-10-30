@@ -372,7 +372,8 @@ func (s *systemdServiceManager) startAgent(name string, kind AgentKind, dataDir 
 		return errors.Trace(err)
 	}
 
-	info := NewAgentInfo(kind, name, dataDir, paths.NixLogDir)
+	srvPath := path.Join(paths.NixLogDir, "juju")
+	info := NewAgentInfo(kind, name, dataDir, srvPath)
 	conf := AgentConf(info, renderer)
 
 	svc, err := s.newService(serviceName(name), conf)
