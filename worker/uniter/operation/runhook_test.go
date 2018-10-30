@@ -114,6 +114,29 @@ func (s *RunHookSuite) TestPrepareHookError_Skip(c *gc.C) {
 	s.testPrepareHookError(c, operation.Factory.NewSkipHook, true, true)
 }
 
+func (s *RunHookSuite) TestPrepareHookError_LeaderElectedNotLeader(c *gc.C) {
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook: &MockPrepareHook{nil, string(hook.LeaderElected), nil},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{isLeader: false},
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
+
+	op, err := operation.Factory.NewRunHook(factory, hook.Info{Kind: hooks.LeaderElected})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
+}
+
 func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
 	callbacks := NewPrepareHookCallbacks()
 	runnerFactory := &MockRunnerFactory{
@@ -431,18 +454,6 @@ func (s *RunHookSuite) TestBeforeHookStatus(c *gc.C) {
 		c.Logf("hook %v", kind)
 		s.testBeforeHookExecute(c, operation.Factory.NewRunHook, kind)
 	}
-}
-
-func (s *RunHookSuite) TestLeaderElectedBeforeHookNotLeader(c *gc.C) {
-	notLeader := func(ctx *MockContext) { ctx.isLeader = false }
-
-	op, _, _ := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hook.LeaderElected, nil, notLeader)
-	_, err := op.Prepare(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err := op.Execute(operation.State{})
-	c.Assert(err, gc.Equals, context.ErrIsNotLeader)
-	c.Assert(newState, gc.IsNil)
 }
 
 func (s *RunHookSuite) testExecuteHookWithSetStatus(c *gc.C, kind hooks.Kind, setStatusCalled bool) {
