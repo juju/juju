@@ -116,7 +116,8 @@ func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]
 	// Fetch a fresh copy of the instance JSON first.
 	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Annotate(err, "getting instance details"), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Annotate(err, "getting instance details")
 	}
 
 	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)

@@ -135,7 +135,7 @@ func verifyCredentials(env *maasEnviron, ctx context.ProviderCallContext) error 
 		return nil
 	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if _, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 

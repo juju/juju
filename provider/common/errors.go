@@ -86,7 +86,7 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 // MaybeHandleCredentialError determines if a given error relates to an invalid credential.
 //  If it is, the credential is invalidated and the return bool is true.
 // Original error is returned untouched.
-func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) (error, bool) {
+func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) bool {
 	denied := isAuthError(errors.Cause(err))
 	if ctx != nil && denied {
 		invalidateErr := ctx.InvalidateCredential("cloud denied access")
@@ -94,12 +94,11 @@ func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx con
 			logger.Warningf("could not invalidate stored cloud credential on the controller: %v", invalidateErr)
 		}
 	}
-	return err, denied
+	return denied
 }
 
 // HandleCredentialError determines if a given error relates to an invalid credential.
 // If it is, the credential is invalidated. Original error is returned untouched.
-func HandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) error {
+func HandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) {
 	MaybeHandleCredentialError(isAuthError, err, ctx)
-	return err
 }

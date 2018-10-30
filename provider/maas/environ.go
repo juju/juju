@@ -340,7 +340,8 @@ func (env *maasEnviron) SupportsContainerAddresses(ctx context.ProviderCallConte
 func (env *maasEnviron) allArchitectures2(ctx context.ProviderCallContext) ([]string, error) {
 	resources, err := env.maasController.BootResources()
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	architectures := set.NewStrings()
 	for _, resource := range resources {
@@ -391,11 +392,13 @@ func (env *maasEnviron) getNodegroups(ctx context.ProviderCallContext) ([]string
 	nodegroupsListing := env.getMAASClient().GetSubObject("nodegroups")
 	nodegroupsResult, err := nodegroupsListing.CallGet("list", nil)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, err
 	}
 	list, err := nodegroupsResult.GetArray()
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, err
 	}
 	nodegroups := make([]string, len(list))
 	for i, obj := range list {
@@ -423,7 +426,8 @@ func (env *maasEnviron) nodegroupBootImages(ctx context.ProviderCallContext, nod
 	bootImagesObject := nodegroupObject.GetSubObject("boot-images/")
 	result, err := bootImagesObject.CallGet("", nil)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, err
 	}
 	list, err := result.GetArray()
 	if err != nil {
@@ -526,7 +530,8 @@ func (env *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) ([]c
 		return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
 	}
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Annotate(err, "cannot query "), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Annotate(err, "cannot query ")
 	}
 	list, err := result.GetArray()
 	if err != nil {
@@ -551,7 +556,8 @@ func (env *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) ([]c
 func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	zones, err := env.maasController.Zones()
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	availabilityZones := make([]common.AvailabilityZone, len(zones))
 	for i, zone := range zones {
@@ -766,7 +772,8 @@ func (env *maasEnviron) acquireNode2(
 	positiveSpaces, negativeSpaces, err := env.spaceNamesToSpaceInfo(ctx, positiveSpaceNames, negativeSpaceNames)
 	// If spaces aren't supported the constraints should be empty anyway.
 	if err != nil && !errors.IsNotSupported(err) {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	err = addInterfaces2(&acquireParams, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
@@ -786,7 +793,8 @@ func (env *maasEnviron) acquireNode2(
 	machine, constraintMatches, err := env.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	return &maas2Instance{
 		machine:           machine,
@@ -1175,7 +1183,8 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 			return nil
 		}
 		if err != nil {
-			return common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			return errors.Trace(err)
 		}
 		if statusValues[systemId] == "Deployed" {
 			return nil
@@ -1199,7 +1208,7 @@ func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, 
 		machine, err := env.getInstance(ctx, id)
 		if err != nil {
 			logger.Warningf("failed to get instance from provider attempt %d", retryCount)
-			if _, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
 
@@ -1272,7 +1281,8 @@ func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ..
 		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
 			return nil, errors.NewNotImplemented(err, "deployment status")
 		}
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	resultMap, err := result.GetMap()
 	if err != nil {
@@ -1398,7 +1408,7 @@ func (env *maasEnviron) releaseNodes1(ctx context.ProviderCallContext, nodes gom
 	if err == nil {
 		return nil
 	}
-	if _, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+	if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 		return errors.Annotate(err, "cannot release nodes")
 	}
 	maasErr, ok := gomaasapi.GetServerError(err)
@@ -1437,7 +1447,7 @@ func (env *maasEnviron) releaseNodes1(ctx context.ProviderCallContext, nodes gom
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
-			if _, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
 		}
@@ -1453,7 +1463,7 @@ func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []ins
 	}
 	err := env.maasController.ReleaseMachines(args)
 
-	_, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
+	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
 	switch {
 	case err == nil:
 		return nil
@@ -1489,8 +1499,7 @@ func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
-			_, denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
-			if denied {
+			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
 		}
@@ -1593,11 +1602,13 @@ func (env *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.V
 	nodeListing := env.getMAASClient().GetSubObject("nodes")
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, err
 	}
 	listNodes, err := listNodeObjects.GetArray()
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, err
 	}
 	instances := make([]instance.Instance, len(listNodes))
 	for index, nodeObj := range listNodes {
@@ -1617,7 +1628,8 @@ func (env *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.V
 func (env *maasEnviron) instances2(ctx context.ProviderCallContext, args gomaasapi.MachinesArgs) ([]instance.Instance, error) {
 	machines, err := env.maasController.Machines(args)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	instances := make([]instance.Instance, len(machines))
 	for index, machine := range machines {
@@ -1634,7 +1646,8 @@ func (env *maasEnviron) subnetsFromNode(ctx context.ProviderCallContext, nodeId 
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("intance %q", nodeId)
 		}
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	nodeMap, err := json.GetMap()
 	if err != nil {
@@ -1802,7 +1815,8 @@ func (env *maasEnviron) fetchAllSubnets(ctx context.ProviderCallContext) ([]goma
 
 	json, err := client.CallGet("", nil)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	return json.GetArray()
 }
@@ -1837,7 +1851,8 @@ func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.Spac
 	spacesClient := env.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	spacesArray, err := spacesJson.GetArray()
 	if err != nil {
@@ -1882,7 +1897,8 @@ func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.Spac
 func (env *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	spaces, err := env.maasController.Spaces()
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	var result []network.SpaceInfo
 	for _, space := range spaces {
@@ -1989,7 +2005,8 @@ func (env *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, instId
 	}
 	machines, err := env.maasController.Machines(args)
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	if len(machines) == 0 {
 		return nil, errors.NotFoundf("machine %v", instId)
@@ -2262,7 +2279,8 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 	}
 	result, err := devicesAPI.CallGet("list", values)
 	if err != nil {
-		return common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
 	}
 	devicesArray, err := result.GetArray()
 	if err != nil {
@@ -2290,7 +2308,8 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 	for _, id := range deviceIds {
 		err := devicesAPI.GetSubObject(id).Delete()
 		if err != nil {
-			return common.HandleCredentialError(IsAuthorisationFailure, errors.Annotatef(err, "deleting device %s", id), ctx)
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			return errors.Annotatef(err, "deleting device %s", id)
 		}
 	}
 	return nil
@@ -2299,7 +2318,8 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 func (env *maasEnviron) releaseContainerAddresses2(ctx context.ProviderCallContext, macAddresses []string) error {
 	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: macAddresses})
 	if err != nil {
-		return common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
 	}
 	// If one device matched on multiple MAC addresses (like for
 	// multi-nic containers) it will be in the slice multiple
@@ -2380,7 +2400,8 @@ func (*maasEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, err
 func (env *maasEnviron) Domains(ctx context.ProviderCallContext) ([]string, error) {
 	maasDomains, err := env.maasController.Domains()
 	if err != nil {
-		return nil, common.HandleCredentialError(IsAuthorisationFailure, errors.Trace(err), ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, errors.Trace(err)
 	}
 	result := []string{}
 	for _, domain := range maasDomains {
