@@ -607,7 +607,9 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	return &lock, nil
 }
 
-func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeriesStatus, message UpgradeSeriesMessage, timestamp time.Time) []txn.Op {
+func setMachineUpgradeSeriesTxnOps(
+	machineDocID string, status model.UpgradeSeriesStatus, message UpgradeSeriesMessage, timestamp time.Time,
+) []txn.Op {
 	field := "machine-status"
 
 	return []txn.Op{
@@ -625,4 +627,24 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.UpgradeSeri
 			},
 		},
 	}
+}
+
+// upgradeSeriesMachineIds returns the IDs of all machines
+// currently locked for series-upgrade.
+func (st *State) upgradeSeriesMachineIds() ([]string, error) {
+	coll, closer := st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var locks []struct {
+		Id string `bson:"machine-id"`
+	}
+	if err := coll.Find(nil).Select(bson.M{"machine-id": 1}).All(&locks); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ids := make([]string, len(locks))
+	for i, l := range locks {
+		ids[i] = l.Id
+	}
+	return ids, nil
 }
