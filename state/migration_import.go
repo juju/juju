@@ -721,6 +721,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 		StatusInfo: statusVal.Message(),
 		StatusData: statusVal.Data(),
 		Updated:    statusVal.Updated().UnixNano(),
+		NeverSet:   statusVal.NeverSet(),
 	}
 }
 
@@ -740,8 +741,7 @@ func (i *importer) application(a description.Application) error {
 	if status == nil {
 		return errors.NotValidf("missing status")
 	}
-	statusDoc := i.makeStatusDoc(status)
-	// TODO: update never set malarky... maybe...
+	appStatusDoc := i.makeStatusDoc(status)
 
 	// When creating the settings, we ignore nils.  In other circumstances, nil
 	// means to delete the value (reset to default), so creating with nil should
@@ -751,14 +751,20 @@ func (i *importer) application(a description.Application) error {
 	removeNils(a.CharmConfig())
 	removeNils(a.ApplicationConfig())
 
+	var operatorStatusDoc *statusDoc
+	if i.dbModel.Type() == ModelTypeCAAS {
+		operatorStatus := i.makeStatusDoc(a.OperatorStatus())
+		operatorStatusDoc = &operatorStatus
+	}
 	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
-		statusDoc:          statusDoc,
+		statusDoc:          appStatusDoc,
 		constraints:        i.constraints(a.Constraints()),
 		storage:            i.storageConstraints(a.StorageConstraints()),
 		charmConfig:        a.CharmConfig(),
 		applicationConfig:  a.ApplicationConfig(),
 		leadershipSettings: a.LeadershipSettings(),
+		operatorStatus:     operatorStatusDoc,
 	})
 	if err != nil {
 		return errors.Trace(err)
