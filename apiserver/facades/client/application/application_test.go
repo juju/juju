@@ -487,6 +487,41 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
+func (s *applicationSuite) TestApplicationDeployWithMachinePlacementLockedError(c *gc.C) {
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"#", "0"})
+}
+
+func (s *applicationSuite) TestApplicationDeployWithMachineContainerPlacementLockedError(c *gc.C) {
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"lxd", "0"})
+}
+
+func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(c *gc.C, placement instance.Placement) {
+	m, err := s.BackingState.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
+
+	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var cons constraints.Value
+	args := params.ApplicationDeploy{
+		ApplicationName: "application",
+		CharmURL:        curl.String(),
+		NumUnits:        1,
+		Constraints:     cons,
+		Placement:       []*instance.Placement{&placement},
+	}
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.NotNil)
+	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* machine is locked for series upgrade")
+}
+
 func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFailure(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy-resource")
 	resources, err := s.State.Resources()
@@ -2203,7 +2238,7 @@ func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 		NumUnits:        3,
 		Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
 	})
-	c.Assert(err, gc.ErrorMatches, `adding new machine to host unit "dummy/0": machine 42 not found`)
+	c.Assert(err, gc.ErrorMatches, `acquiring machine to host unit "dummy/0": machine 42 not found`)
 }
 
 func (s *applicationSuite) TestApplicationExpose(c *gc.C) {

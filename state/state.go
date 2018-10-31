@@ -1675,6 +1675,25 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 	// transaction as adding a machine.  See bug
 	// https://launchpad.net/bugs/1506994
 
+	mId := data.machineId
+	var machine *Machine
+	if data.machineId != "" {
+		machine, err = st.Machine(mId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Check if an upgrade-series lock is present for the requested
+		// machine. If one exists, return an error to prevent deployment.
+		locked, err := machine.IsLocked()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if locked {
+			return nil, errors.Errorf("machine %q is locked for series upgrade", mId)
+		}
+	}
+
 	switch data.placementType() {
 	case containerPlacement:
 		// If a container is to be used, create it.
@@ -1684,8 +1703,8 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 			Dirty:       true,
 			Constraints: *unitCons,
 		}
-		if data.machineId != "" {
-			return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		if mId != "" {
+			return st.AddMachineInsideMachine(template, mId, data.containerType)
 		}
 		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
@@ -1699,8 +1718,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		}
 		return st.AddOneMachine(template)
 	default:
-		// Otherwise use an existing machine.
-		return st.Machine(data.machineId)
+		return machine, nil
 	}
 }
 
