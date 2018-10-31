@@ -24,7 +24,7 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
-	GetContainerProfileInfo(names.MachineTag) ([]apiprovisioner.LXDProfileResult, error)
+	GetContainerProfileInfo(names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
 	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)

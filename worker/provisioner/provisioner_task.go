@@ -377,20 +377,16 @@ func (task *provisionerTask) processOneMachineProfileChange(
 	logger.Debugf("processOneMachineProfileChange(%s)", m.Id())
 	info, err := m.CharmProfileChangeInfo()
 	if err != nil {
-		logger.Debugf("processOneMachineProfileChange(%s) CharmProfileChangeInfo failed with %v", m.Id(), err)
 		return err
 	}
-	logger.Debugf("processOneMachineProfileChange(%s) CharmProfileChangeInfo results(%#v)", m.Id(), info)
 	instId, err := m.InstanceId()
 	if err != nil {
 		return err
 	}
 	newProfiles, err := profileBroker.ReplaceOrAddInstanceProfile(string(instId), info.OldProfileName, info.NewProfileName, info.LXDProfile)
 	if err != nil {
-		logger.Debugf("processOneMachineProfileChange(%s) profileBroker.ReplaceOrAddInstanceProfile failed with %v", m.Id(), err)
 		return err
 	}
-	logger.Debugf("processOneMachineProfileChange(%s) profileBroker.ReplaceOrAddInstanceProfile results(%#v)", m.Id(), newProfiles)
 	// newProfiles:
 	//   default
 	//   juju-<model>      <-- not included on containers

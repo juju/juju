@@ -85,7 +85,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 	// TODO: lxd-profile 2018-09-18
 	// Add withoutControllerSuite.TestProvisioningInfoWithLXDProfile when
 	// lxd profiles added to ProvisioningInfo.
-	pNames, err := p.machineLXDProfiles(m, env)
+	pNames, err := p.machineLXDProfileNames(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot write lxd profiles")
 	}
@@ -312,7 +312,11 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 	return subnetsToZones, nil
 }
 
-func (p *ProvisionerAPI) machineLXDProfiles(m *state.Machine, env environs.Environ) ([]string, error) {
+// machineLXDProfileNames give the environ info to write lxd profiles needed for
+// the given machine and returns the names of profiles. Unlike
+// containerLXDProfilesInfo which returns the info necessary to write lxd profiles
+// via the lxd broker.
+func (p *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
 		return nil, nil
