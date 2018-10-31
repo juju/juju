@@ -436,14 +436,31 @@ func deployApplication(
 		}
 	}
 
-	// Do a quick but not complete validation check before going any further.
+	// Do a quick, incomplete validation check before going any further.
+	// If the placement scope is for a machine, ensure that the machine exists.
+	// If the placement is for a machine or a container on an existing machine,
+	// check that the machine is not locked for series upgrade.
+	errTemplate := "cannot deploy %q to machine %s"
 	for _, p := range args.Placement {
-		if p.Scope != instance.MachineScope {
+		machineMustExist := p.Scope == instance.MachineScope
+		if !machineMustExist && p.Directive == "" {
 			continue
 		}
-		_, err = backend.Machine(p.Directive)
+
+		m, err := backend.Machine(p.Directive)
 		if err != nil {
-			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ApplicationName, p.Directive)
+			if errors.IsNotFound(err) && !machineMustExist {
+				continue
+			}
+			return errors.Annotatef(err, errTemplate, args.ApplicationName, p.Directive)
+		}
+
+		locked, err := m.IsLocked()
+		if locked {
+			err = errors.New("machine is locked for series upgrade")
+		}
+		if err != nil {
+			return errors.Annotatef(err, errTemplate, args.ApplicationName, p.Directive)
 		}
 	}
 

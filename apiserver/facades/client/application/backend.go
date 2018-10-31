@@ -97,6 +97,7 @@ type Charm interface {
 // details on the methods, see the methods on state.Machine with
 // the same names.
 type Machine interface {
+	IsLocked() (bool, error)
 }
 
 // Relation defines a subset of the functionality provided by the

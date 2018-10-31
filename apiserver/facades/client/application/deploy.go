@@ -194,7 +194,7 @@ func addUnits(
 			continue
 		}
 		if err := unit.AssignWithPlacement(placement[i]); err != nil {
-			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.UnitTag().Id())
+			return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
 		}
 	}
 	return units, nil

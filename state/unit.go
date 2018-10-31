@@ -2385,6 +2385,9 @@ var hasNoContainersTerm = bson.DocElem{
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
+	// TODO (manadart 2018-10-25): Modify the generated query here to omit
+	// machines with upgrade-series locks.
+
 	db, closer := u.st.newDB()
 	defer closer()
 	containerRefsCollection, closer := db.GetCollection(containerRefsC)
