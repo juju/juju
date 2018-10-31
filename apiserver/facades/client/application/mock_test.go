@@ -345,10 +345,19 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 }
 
 type mockMachine struct {
+	jtesting.Stub
+
+	id                          string
 	upgradeCharmProfileComplete string
 }
 
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
+}
+
 func (m *mockMachine) UpgradeCharmProfileComplete() string {
+	m.MethodCall(m, "UpgradeCharmProfileComplete")
 	return m.upgradeCharmProfileComplete
 }
 

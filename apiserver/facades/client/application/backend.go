@@ -99,6 +99,7 @@ type Charm interface {
 // the same names.
 type Machine interface {
 	IsLocked() (bool, error)
+	Id() string
 	UpgradeCharmProfileComplete() string
 }
 

@@ -171,8 +171,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			"pgdata/1": {detachable: false},
 		},
 		machines: map[string]*mockMachine{
-			"machine-0": {upgradeCharmProfileComplete: ""},
-			"machine-1": {upgradeCharmProfileComplete: "not required"},
+			"machine-0": {id: "0", upgradeCharmProfileComplete: ""},
+			"machine-1": {id: "1", upgradeCharmProfileComplete: "not required"},
 		},
 	}
 	s.blockChecker = mockBlockChecker{}
@@ -1336,7 +1336,7 @@ func (s *ApplicationSuite) TestGetLXDProfileUpgradeMessages(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{
-				Result: []string{"", "not required"},
+				Result: []string{"", "LXD profile upgrade for \"1\" is not required"},
 			},
 		},
 	})

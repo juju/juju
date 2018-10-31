@@ -1258,6 +1258,6 @@ func (s *applicationSuite) TestGetLXDProfileUpgradeMessagesError(c *gc.C) {
 		},
 	)
 	client := newClient(apiCaller)
-	_, err := client.GetLXDProfileUpgradeMessages("foo", []string{"machine-0", "machine-2"}, "xxx-aaa-yyy-ccc")
+	_, err := client.GetLXDProfileUpgradeMessages("foo", "xxx-aaa-yyy-ccc")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

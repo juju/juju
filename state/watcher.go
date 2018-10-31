@@ -1893,7 +1893,6 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, erro
 		m, err := v.machine()
 		if err != nil {
 			if errors.IsNotAssigned(err) {
-				logger.Criticalf("Not assigned")
 				continue
 			}
 			return nil, errors.Trace(err)

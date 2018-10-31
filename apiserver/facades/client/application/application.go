@@ -803,20 +803,29 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfi
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Args)),
 	}
+	stop := func(index int, watcherId string) {
+		err := api.resources.Stop(watcherId)
+		if err != nil {
+			result.Results[index].Error = common.ServerError(err)
+		}
+	}
 	for i, arg := range args.Args {
 		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
+			stop(i, arg.WatcherId)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		app, err := api.backend.Application(tag.Id())
 		if err != nil {
+			stop(i, arg.WatcherId)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
 		units, err := app.AllUnits()
 		if err != nil {
+			stop(i, arg.WatcherId)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -829,6 +838,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfi
 				if errors.IsNotAssigned(err) {
 					continue
 				}
+				stop(i, arg.WatcherId)
 				result.Results[i].Error = common.ServerError(err)
 				break
 			}
@@ -837,8 +847,8 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfi
 			if err != nil {
 				continue
 			}
-			messages[k] = machine.UpgradeCharmProfileComplete()
-			if messages[k] != "" {
+			if status := machine.UpgradeCharmProfileComplete(); status != "" {
+				messages[k] = fmt.Sprintf("LXD profile upgrade for %q is %s", machine.Id(), status)
 				finished = false
 			}
 		}
@@ -846,13 +856,10 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfi
 		result.Results[i].Result = messages
 		// if the messages are all finished or empty, clean up the resources.
 		if finished {
-			err := api.resources.Stop(arg.WatcherId)
-			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
+			stop(i, arg.WatcherId)
 		}
 	}
+
 	return result, nil
 }
 

@@ -180,8 +180,8 @@ func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Conte
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
-	s.charmAPIClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "WatchLXDProfileUpgradeNotifications", "GetLXDProfileUpgradeMessages", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 5, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -229,8 +229,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
-	s.charmAPIClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "WatchLXDProfileUpgradeNotifications", "GetLXDProfileUpgradeMessages", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 5, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -892,12 +892,16 @@ func (m *mockCharmAPIClient) SetCharmProfile(appName string, charmID jujucharmst
 
 func (m *mockCharmAPIClient) WatchLXDProfileUpgradeNotifications(appName string) (watcher.NotifyWatcher, string, error) {
 	m.MethodCall(m, "WatchLXDProfileUpgradeNotifications", appName)
-	return &mockNotifyWatcher{ch: make(chan struct{})}, "", m.NextErr()
+	ch := make(chan struct{})
+	go func() {
+		ch <- struct{}{}
+	}()
+	return &mockNotifyWatcher{ch: ch}, "", m.NextErr()
 }
 
 func (m *mockCharmAPIClient) GetLXDProfileUpgradeMessages(appName string, watchId string) ([]string, error) {
 	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, watchId)
-	return nil, m.NextErr()
+	return []string{}, m.NextErr()
 }
 
 type mockNotifyWatcher struct {

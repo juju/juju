@@ -6,7 +6,6 @@ package application
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -72,6 +71,8 @@ func NewUpgradeCharmCommand() cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
+// CharmAPIClient defines a subset of the application facade that deals with
+// charm related upgrades.
 type CharmAPIClient interface {
 	CharmUpgradeClient
 	LXDProfileUpgradeAPI
@@ -440,6 +441,10 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDP
 			case <-uw.Changes():
 				err = c.handleLXDProfileUpgradeChange(ctx, client, wid)
 				if err != nil {
+					if errors.IsNotFound(err) {
+						c.catacomb.Kill(nil)
+						continue
+					}
 					return errors.Trace(err)
 				}
 			}
@@ -453,9 +458,14 @@ func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, cl
 		return errors.Trace(err)
 	}
 	if len(messages) == 0 {
-		return nil
+		return errors.NotFoundf("messages")
 	}
-	ctx.Infof(strings.Join(messages, "\n"))
+	for _, message := range messages {
+		if message == "" {
+			continue
+		}
+		ctx.Infof(fmt.Sprintf("%s\n", message))
+	}
 	return nil
 }
 
