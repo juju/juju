@@ -57,6 +57,21 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if hooks.Kind(name) == hooks.LeaderElected {
+		// Check if leadership has changed between queueing of the hook and
+		// Actual execution. Skip execution if we are no longer the leader.
+		isLeader := false
+		isLeader, err = rnr.Context().IsLeader()
+		if err == nil && !isLeader {
+			logger.Infof("unit is no longer the leader; skipping %q execution", name)
+			return nil, ErrSkipExecute
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err = rnr.Context().Prepare()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -154,6 +169,7 @@ func (rh *runHook) beforeHook(state State) error {
 			Info:   "cleaning up prior to charm deletion",
 		})
 	}
+
 	if err != nil {
 		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
 		return err

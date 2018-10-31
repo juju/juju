@@ -201,16 +201,17 @@ func (s *LeaderSuite) TestWriteLeaderSettingsMinion(c *gc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeader",
 	}}, func() {
-		// The first call fails...
+		// We are not the leader.
 		s.tracker.results = []StubTicket{false}
 		err := s.context.WriteLeaderSettings(map[string]string{"blah": "blah"})
-		c.Check(err, gc.ErrorMatches, "cannot write settings: not the leader")
+		// No error, no call to Merge.
+		c.Check(err, jc.ErrorIsNil)
 	})
 
 	s.CheckCalls(c, nil, func() {
-		// The second doesn't even try.
+		// ctx.isMinion is now true. No call to claim leader.
 		err := s.context.WriteLeaderSettings(map[string]string{"blah": "blah"})
-		c.Check(err, gc.ErrorMatches, "cannot write settings: not the leader")
+		c.Check(err, jc.ErrorIsNil)
 	})
 }
 
