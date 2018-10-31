@@ -476,10 +476,10 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
-	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "lxd-profile")
-	err := runDeploy(c, path, "lxd-profile", "--to", "lxd")
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "lxd-profile-alt")
+	err := runDeploy(c, path, "lxd-profile-alt", "--to", "lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("lxd-profile")
+	application, err := s.State.Application("lxd-profile-alt")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -521,26 +521,15 @@ config:
   security.privileged: "true"
   linux.kernel_modules: openvswitch,nbd,ip_tables,ip6_tables
   environment.http_proxy: ""
-  limits.memory: "256MB"
+  boot.autostart.delay: 1
 devices: {}
 `
 	if _, err := file.WriteString(lxdProfile); err != nil {
 		c.Fatal(errors.Annotate(err, "cannot write to lxd-profile.yaml"))
 	}
 
-	err = runUpgradeCharm(c, "lxd-profile", "--path", path)
-	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains config value "limits.memory"`)
-
-	err = runUpgradeCharm(c, "lxd-profile", "--path", path, "--force")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = application.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	ch, force, err := application.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch.Revision(), gc.Equals, 1)
-	c.Check(force, gc.Equals, false)
+	err = runUpgradeCharm(c, "lxd-profile-alt", "--path", path)
+	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains config value "boot.autostart.delay"`)
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
