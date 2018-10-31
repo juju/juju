@@ -106,6 +106,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv8 {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		pm,
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &application.APIv8{api}

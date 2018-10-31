@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -64,6 +65,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			return nil, nil
 		},
 		s.storagePoolManager,
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = &application.APIv8{api}
@@ -165,6 +167,10 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		storageInstanceFilesystems: map[string]*mockFilesystem{
 			"pgdata/0": {detachable: true},
 			"pgdata/1": {detachable: false},
+		},
+		machines: map[string]*mockMachine{
+			"machine-0": {upgradeCharmProfileComplete: ""},
+			"machine-1": {upgradeCharmProfileComplete: "not required"},
 		},
 	}
 	s.blockChecker = mockBlockChecker{}
@@ -1290,4 +1296,42 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
+}
+
+func (s *ApplicationSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
+	app := s.backend.applications["postgresql"]
+	_, err := s.api.WatchLXDProfileUpgradeNotifications(params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: names.NewApplicationTag("postgresql").String(),
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application")
+	app.CheckCallNames(c, "WatchLXDProfileUpgradeNotifications")
+}
+
+func (s *ApplicationSuite) TestGetLXDProfileUpgradeMessages(c *gc.C) {
+	results, err := s.api.GetLXDProfileUpgradeMessages(params.ApplicationLXDProfileUpgradeMessagesArgs{
+		Args: []params.ApplicationLXDProfileUpgradeMessages{
+			{
+				ApplicationName: "postgresql",
+				MachineIds: []string{
+					"machine-0",
+					"machine-1",
+				},
+				WatcherId: "xxx-aaa-yyyy-ccc",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Machine", "Machine")
+	c.Assert(results, jc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{
+				Result: []string{"", "not required"},
+			},
+		},
+	})
 }

@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -154,11 +153,7 @@ type machineDoc struct {
 
 	// UpgradeCharmProfileComplete holds the outcome of charm upgrade event
 	// with a charm profile in play.  Success, Not Required or the Error.
-<<<<<<< 7c28abe0d2eefdf32c9f5ead72f0124dd83361d9
 	UpgradeCharmProfileComplete string `bson:",omitempty"`
-=======
-	UpgradeCharmProfileComplete model.LXDProfileUpgradeStatus `bson:",omitempty"`
->>>>>>> Remove unit
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {

@@ -1766,7 +1766,7 @@ func (m *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
 }
 
-// Watch returns a watcher for observing changes to a model.
+// WatchInstanceData returns a watcher for observing changes to a model.
 func (m *Machine) WatchInstanceData() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
 }
@@ -1880,24 +1880,36 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes to its machine's lxd profile
 // upgrade completed field.
-func (m *Machine) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
-	regExp := fmt.Sprintf("^%s:%s$", m.st.ModelUUID(), names.NumberSnippet)
-	compiled, err := regexp.Compile(regExp)
+func (a *Application) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
+	units, err := a.AllUnits()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	members := bson.D{{"_id", bson.D{{"$regex", compiled}}}}
+	machineIds := set.NewStrings()
+	for _, v := range units {
+		m, err := v.machine()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		machineIds.Add(m.Id())
+	}
+	members := bson.D{{"_id", bson.D{{"$in", machineIds.Values()}}}}
 	filter := func(key interface{}) bool {
 		k, ok := key.(string)
 		if !ok {
 			return false
 		}
-		return compiled.MatchString(k)
+		_, err := a.st.strictLocalID(k)
+		if err != nil {
+			return false
+		}
+		return machineIds.Contains(k)
 	}
 	accessor := func(doc machineDoc) string {
-		return string(doc.UpgradeCharmProfileComplete)
+		return doc.UpgradeCharmProfileComplete
 	}
-	watch := newModelFieldChangeWatcher(m.st, members, filter, accessor)
+
+	watch := newModelFieldChangeWatcher(a.st, members, filter, accessor)
 	if _, ok := <-watch.Changes(); ok {
 		return watch, nil
 	}

@@ -485,6 +485,20 @@ type ApplicationGetConfigResults struct {
 	Results []ConfigResult
 }
 
+// ApplicationLXDProfileUpgradeMessages holds the parameters for an application
+// lxd profile machines
+type ApplicationLXDProfileUpgradeMessages struct {
+	ApplicationName string   `json:"application"`
+	MachineIds      []string `json:"machine-ids"`
+	WatcherId       string   `json:"watcher-id"`
+}
+
+// ApplicationLXDProfileUpgradeMessagesArgs holds the parameters for retrieving
+// the associated lxd profile messages from a machine for a application
+type ApplicationLXDProfileUpgradeMessagesArgs struct {
+	Args []ApplicationLXDProfileUpgradeMessages `json:"args"`
+}
+
 // ConfigResults holds configuration values for an entity.
 type ConfigResult struct {
 	Config map[string]interface{} `json:"config"`
@@ -1332,8 +1346,8 @@ type DumpModelRequest struct {
 // LXDProfileUpgradeStatusResult contains the lxd profile upgrade status result
 // for a machine or unit
 type LXDProfileUpgradeStatusResult struct {
-	Error  *Error                        `json:"error,omitempty"`
-	Status model.LXDProfileUpgradeStatus `json:"status,omitempty"`
+	Error  *Error `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 // LXDProfileUpgradeStatusResults contains the lxd profile upgrade status results

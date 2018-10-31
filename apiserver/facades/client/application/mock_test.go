@@ -183,6 +183,11 @@ func (a *mockApplication) SetExposed() error {
 	return a.NextErr()
 }
 
+func (a *mockApplication) WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error) {
+	a.MethodCall(a, "WatchLXDProfileUpgradeNotifications")
+	return nil, a.NextErr()
+}
+
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string
@@ -250,6 +255,7 @@ type mockBackend struct {
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
+	machines                   map[string]*mockMachine
 }
 
 type mockFilesystemAccess struct {
@@ -310,6 +316,24 @@ func (m *mockBackend) UnitsInError() ([]application.Unit, error) {
 	return []application.Unit{
 		m.applications["postgresql"].units[0],
 	}, nil
+}
+
+func (m *mockBackend) Machine(id string) (application.Machine, error) {
+	m.MethodCall(m, "Machine", id)
+	for machineId, machine := range m.machines {
+		if id == machineId {
+			return machine, nil
+		}
+	}
+	return nil, errors.NotFoundf("machine %q", id)
+}
+
+type mockMachine struct {
+	upgradeCharmProfileComplete string
+}
+
+func (m *mockMachine) UpgradeCharmProfileComplete() string {
+	return m.upgradeCharmProfileComplete
 }
 
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {

@@ -643,12 +643,6 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing the
-// state of a lxd profile upgrade.
-func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error) {
-	return u.st.WatchLXDProfileUpgradeNotifications()
-}
-
 // WatchUpgradeSeriesNotifications returns a StringsWatcher for observing the
 // state of a series upgrade.
 func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {

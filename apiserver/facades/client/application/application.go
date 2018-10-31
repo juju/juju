@@ -80,6 +80,8 @@ type APIBase struct {
 	modelTag  names.ModelTag
 	modelType state.ModelType
 
+	resources facade.Resources
+
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
 	// should pass a charm.Charm and charm.URL back into
@@ -160,6 +162,8 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), storageProviderRegistry)
 	}
 
+	resources := ctx.Resources()
+
 	return NewAPIBase(
 		&stateShim{ctx.State()},
 		storageAccess,
@@ -170,6 +174,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		stateCharm,
 		DeployApplication,
 		storagePoolManager,
+		resources,
 	)
 }
 
@@ -184,6 +189,7 @@ func NewAPIBase(
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
+	resources facade.Resources,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -198,6 +204,7 @@ func NewAPIBase(
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 		storagePoolManager:    storagePoolManager,
+		resources:             resources,
 	}, nil
 }
 
@@ -746,6 +753,73 @@ func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) erro
 		return errors.Trace(err)
 	}
 	return application.SetCharmProfile(args.CharmURL)
+}
+
+// WatchLXDProfileUpgradeNotifications returns a watcher that fires on LXD
+// profile events.
+func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.StringsWatchResults, error) {
+	var nothing params.StringsWatchResults
+	if err := api.checkCanRead(); err != nil {
+		return nothing, errors.Trace(err)
+	}
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		w, err := app.WatchLXDProfileUpgradeNotifications()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		id := api.resources.Register(w)
+		result.Results[i].StringsWatcherId = id
+
+	}
+	return result, nil
+}
+
+// GetLXDProfileUpgradeMessages returns the lxd profile messages assocatied with
+// a application and set of machines
+func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfileUpgradeMessagesArgs) (params.StringsResults, error) {
+	var nothing params.StringsResults
+	if err := api.checkCanRead(); err != nil {
+		return nothing, errors.Trace(err)
+	}
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Args)),
+	}
+	for i, entity := range args.Args {
+		messages := make([]string, len(entity.MachineIds))
+		finished := true
+		for k, v := range entity.MachineIds {
+			machine, err := api.backend.Machine(v)
+			if err != nil {
+				continue
+			}
+			messages[k] = machine.UpgradeCharmProfileComplete()
+			if messages[k] != "" {
+				finished = false
+			}
+		}
+		result.Results[i].Result = messages
+		if finished {
+			err := api.resources.Stop(entity.WatcherId)
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+			}
+		}
+	}
+	return result, nil
 }
 
 // GetConfig returns the charm config for each of the

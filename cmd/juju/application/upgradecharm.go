@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -41,7 +40,8 @@ import (
 //go:generate mockgen -package mocks -destination mocks/lxdprofileupgradeapi_mock.go github.com/juju/juju/cmd/juju/application LXDProfileUpgradeAPI
 
 type LXDProfileUpgradeAPI interface {
-	WatchLXDProfileUpgradeNotifications(string) (watcher.NotifyWatcher, string, error)
+	WatchLXDProfileUpgradeNotifications(string) (watcher.StringsWatcher, string, error)
+	GetLXDProfileUpgradeMessages(string, []string, string) ([]string, error)
 }
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
@@ -68,7 +68,7 @@ func NewUpgradeCharmCommand() cmd.Command {
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 		NewLXDProfileUpgradeClient: func(conn api.Connection) LXDProfileUpgradeAPI {
-			return machinemanager.NewClient(conn)
+			return application.NewClient(conn)
 		},
 	}
 	return modelcmd.Wrap(cmd)
@@ -422,7 +422,7 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileU
 	// We return and anonymous function here to satisfy the catacomb plan's
 	// need for a work function and to close over the commands context.
 	return func() error {
-		uw, wid, err := lxdProfileUpgradeClient.WatchLXDProfileUpgradeNotifications("")
+		uw, wid, err := lxdProfileUpgradeClient.WatchLXDProfileUpgradeNotifications(c.ApplicationName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -434,8 +434,8 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileU
 			select {
 			case <-c.catacomb.Dying():
 				return c.catacomb.ErrDying()
-			case <-uw.Changes():
-				err = c.handleLXDProfileUpgradeChange(ctx, lxdProfileUpgradeClient, wid)
+			case machineIds := <-uw.Changes():
+				err = c.handleLXDProfileUpgradeChange(ctx, lxdProfileUpgradeClient, wid, machineIds)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -444,8 +444,12 @@ func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, lxdProfileU
 	}
 }
 
-func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI, wid string) error {
-	ctx.Infof("something happened!")
+func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI, wid string, machineIds []string) error {
+	messages, err := lxdProfileUpgradeClient.GetLXDProfileUpgradeMessages(c.ApplicationName, machineIds, wid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctx.Infof("something happened with %v %v", machineIds, messages)
 	return nil
 }
 

@@ -75,6 +75,7 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	SetExposed() error
 	SetCharmProfile(string) error
+	WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error)
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
@@ -98,6 +99,7 @@ type Charm interface {
 // the same names.
 type Machine interface {
 	IsLocked() (bool, error)
+	UpgradeCharmProfileComplete() string
 }
 
 // Relation defines a subset of the functionality provided by the
@@ -126,6 +128,7 @@ type Unit interface {
 	Life() state.Life
 	Resolve(retryHooks bool) error
 
+	AssignedMachineId() (string, error)
 	AssignWithPolicy(state.AssignmentPolicy) error
 	AssignWithPlacement(*instance.Placement) error
 }

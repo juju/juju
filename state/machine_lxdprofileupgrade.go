@@ -5,12 +5,11 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	"gopkg.in/mgo.v2"
 )
 
 // LXDProfileUpgradeStatus returns the lxd profile upgrade status.
-func (m *Machine) LXDProfileUpgradeStatus() (model.LXDProfileUpgradeStatus, error) {
+func (m *Machine) LXDProfileUpgradeStatus() (string, error) {
 	// TODO: (Simon) - how do we get this back?
 	coll, closer := m.st.db().GetCollection(machinesC)
 	defer closer()

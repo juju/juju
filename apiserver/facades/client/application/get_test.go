@@ -56,6 +56,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = &application.APIv8{api}
@@ -194,6 +195,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
+		common.NewResources(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	apiV8 := &application.APIv8{api}

@@ -35,6 +35,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
+<<<<<<< 59de935095ecabb754f5ca5d7ca11b31319be8ac
+=======
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/feature"
+>>>>>>> Reuse the same application client
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -51,16 +56,17 @@ type UpgradeCharmSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 
-	deployResources    resourceadapters.DeployResourcesFunc
-	resolveCharm       ResolveCharmFunc
-	resolvedCharmURL   *charm.URL
-	apiConnection      mockAPIConnection
-	charmAdder         mockCharmAdder
-	charmClient        mockCharmClient
-	charmUpgradeClient mockCharmUpgradeClient
-	modelConfigGetter  mockModelConfigGetter
-	resourceLister     mockResourceLister
-	cmd                cmd.Command
+	deployResources         resourceadapters.DeployResourcesFunc
+	resolveCharm            ResolveCharmFunc
+	resolvedCharmURL        *charm.URL
+	apiConnection           mockAPIConnection
+	charmAdder              mockCharmAdder
+	charmClient             mockCharmClient
+	charmUpgradeClient      mockCharmUpgradeClient
+	modelConfigGetter       mockModelConfigGetter
+	resourceLister          mockResourceLister
+	lxdProfileUpgradeClient mockLXDProfileUpgradeClient
+	cmd                     cmd.Command
 }
 
 var _ = gc.Suite(&UpgradeCharmSuite{})
@@ -132,6 +138,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
 	}
+	s.lxdProfileUpgradeClient = mockLXDProfileUpgradeClient{}
 
 	s.cmd = NewUpgradeCharmCommandForTest(
 		store,
@@ -164,6 +171,10 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		func(conn base.APICallCloser) (string, error) {
 			s.AddCall("CharmStoreURLGetter", conn)
 			return "testing.api.charmstore", s.NextErr()
+		},
+		func(conn api.Connection) LXDProfileUpgradeAPI {
+			s.AddCall("NewLXDProfileUpgradeClient", conn)
+			return &s.lxdProfileUpgradeClient
 		},
 	)
 }
@@ -898,4 +909,19 @@ func (m *mockModelConfigGetter) ModelGet() (map[string]interface{}, error) {
 type mockResourceLister struct {
 	ResourceLister
 	testing.Stub
+}
+
+type mockLXDProfileUpgradeClient struct {
+	LXDProfileUpgradeAPI
+	testing.Stub
+}
+
+func (m *mockLXDProfileUpgradeClient) WatchLXDProfileUpgradeNotifications(appName string) (watcher.StringsWatcher, string, error) {
+	m.MethodCall(m, "WatchLXDProfileUpgradeNotifications", appName)
+	return nil, "", m.NextErr()
+}
+
+func (m *mockLXDProfileUpgradeClient) GetLXDProfileUpgradeMessages(appName string, machineIds []string, watchId string) ([]string, error) {
+	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, machineIds, watchId)
+	return nil, m.NextErr()
 }

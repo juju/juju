@@ -50,7 +50,6 @@ type Machine interface {
 	CompleteUpgradeSeries() error
 	VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error)
 	Principals() []string
-	WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error)
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	GetUpgradeSeriesMessages() ([]string, bool, error)
 	IsManager() bool

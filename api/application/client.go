@@ -15,11 +15,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -851,8 +853,8 @@ func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
 	return errors.Trace(results.Combine())
 }
 
-// SetCharmProfile a new charm's url on deployed machines for changing the profile used
-// on those machine.
+// SetCharmProfile a new charm's url on deployed machines for changing the
+// profile used on those machine.
 func (c *Client) SetCharmProfile(applicationName string, charmID charmstore.CharmID) error {
 	if c.BestAPIVersion() < 8 {
 		return errors.NotSupportedf("SetCharmProfile not supported by this version of Juju")
@@ -863,4 +865,59 @@ func (c *Client) SetCharmProfile(applicationName string, charmID charmstore.Char
 	}
 	var results params.ErrorResults
 	return c.facade.FacadeCall("SetCharmProfile", args, &results)
+}
+
+// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the
+// state deploying a lxd profile.
+func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.StringsWatcher, string, error) {
+	if c.BestAPIVersion() < 8 {
+		return nil, "", errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
+	}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	}
+	var results params.StringsWatchResults
+	err := c.facade.FacadeCall("WatchLXDProfileUpgradeNotifications", args, &results)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, "", result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, result.StringsWatcherId, nil
+}
+
+// GetLXDProfileUpgradeMessages returns a list of all messages which are
+// associated with the lxd profile upgrade
+func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, machineIds []string, watcherId string) ([]string, error) {
+	if c.BestAPIVersion() < 8 {
+		return nil, errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
+	}
+	args := params.ApplicationLXDProfileUpgradeMessagesArgs{
+		Args: []params.ApplicationLXDProfileUpgradeMessages{
+			{
+				ApplicationName: applicationName,
+				MachineIds:      machineIds,
+				WatcherId:       watcherId,
+			},
+		},
+	}
+	var results params.StringsResults
+	err := c.facade.FacadeCall("GetLXDProfileUpgradeMessages", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
 }
