@@ -103,20 +103,33 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
+func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
+	s.addLockedMachine(c)
 
+	charm := s.AddTestingCharm(c, "dummy")
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:     "dummy",
+		Charm:    charm,
+		NumUnits: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+
+	unit := units[0]
+	_, err = unit.AssignToCleanEmptyMachine()
+	c.Assert(err, gc.ErrorMatches, "all eligible machines in use")
+}
+
+func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {
+	machine := s.addLockedMachine(c)
 	// As in --to 0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "#", Directive: machine.Id()})
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitContainerOnMachinePlacementUpgradeSeriesLockError(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
-
+	machine := s.addLockedMachine(c)
 	// As in --to lxd:0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "lxd", Directive: machine.Id()})
 }
@@ -137,4 +150,11 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 	unit := units[0]
 	err = s.State.AssignUnitWithPlacement(unit, placement)
 	c.Assert(err, gc.ErrorMatches, `machine "\d" is locked for series upgrade`)
+}
+
+func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C) *state.Machine {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
+	return machine
 }

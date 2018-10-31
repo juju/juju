@@ -2382,12 +2382,9 @@ var hasNoContainersTerm = bson.DocElem{
 		{{"children", bson.D{{"$exists", false}}}},
 	}}
 
-// findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
-// characteristics matching the specified constraints.
+// findCleanMachineQuery returns a Mongo query to find clean (and maybe empty)
+// machines with characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
-	// TODO (manadart 2018-10-25): Modify the generated query here to omit
-	// machines with upgrade-series locks.
-
 	db, closer := u.st.newDB()
 	defer closer()
 	containerRefsCollection, closer := db.GetCollection(containerRefsC)
@@ -2395,24 +2392,32 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
-	// If we need empty machines, first build up a list of machine ids which have containers
-	// so we can exclude those.
+	// If we need empty machines, first build up a list of machine ids which
+	// have containers so we can exclude those.
 	if requireEmpty {
 		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
-	var machinesWithContainers = make([]string, len(containerRefs))
+	omitMachineIds := make([]string, len(containerRefs))
 	for i, cref := range containerRefs {
-		machinesWithContainers[i] = cref.Id
+		omitMachineIds[i] = cref.Id
 	}
+
+	// Exclude machines that are locked for series upgrade.
+	locked, err := u.st.upgradeSeriesMachineIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	omitMachineIds = append(omitMachineIds, locked...)
+
 	terms := bson.D{
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
-		{"machineid", bson.D{{"$nin", machinesWithContainers}}},
+		{"machineid", bson.D{{"$nin", omitMachineIds}}},
 	}
 	// Add the container filter term if necessary.
 	var containerType instance.ContainerType
