@@ -351,6 +351,11 @@ type mockMachine struct {
 	upgradeCharmProfileComplete string
 }
 
+func (m *mockMachine) IsLocked() (bool, error) {
+	m.MethodCall(m, "IsLocked")
+	return false, m.NextErr()
+}
+
 func (m *mockMachine) Id() string {
 	m.MethodCall(m, "Id")
 	return m.id

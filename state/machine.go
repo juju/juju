@@ -2167,6 +2167,21 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 // SetUpgradeCharmProfile sets a application name and a charm url for
 // machine's needing a charm profile change.  For a container only.
 func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
+	charmURL, err := charm.ParseURL(chURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, err := m.st.Charm(charmURL)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	var emptyProfile bool
+	if ch != nil && (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
+		emptyProfile = true
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2186,35 +2201,22 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 			}
 			provisioned = false
 		}
-		charmURL, err := charm.ParseURL(chURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ch, err := m.st.Charm(charmURL)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
-		}
-
 		// we need to ensure that the machine is provisioned before we attempt
 		// to set that the upgrade charm profile complete to not required.
-		if provisioned && ch != nil {
-			// If the profiles are empty and there is nothing to apply, we can
-			// assume that nothing is required.
-			if len(profiles) == 0 && (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
-				return []txn.Op{
-					m.CheckCharmProfilesIsEmptyOp(),
-					m.SetUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus),
-				}, nil
+		// If the profiles are empty and there is nothing to apply, we can
+		// assume that nothing is required.
+		if len(profiles) == 0 && emptyProfile {
+			var ops []txn.Op
+			if provisioned {
+				ops = append(ops, m.CheckCharmProfilesIsEmptyOp())
 			}
+			return append(ops, m.SetUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus)), nil
 		}
-
 		return []txn.Op{
 			m.SetUpgradeCharmProfileOp(appName, chURL),
 		}, nil
 	}
-	err := m.st.db().Run(buildTxn)
+	err = m.st.db().Run(buildTxn)
 	if err != nil {
 		return err
 	}
