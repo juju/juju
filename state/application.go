@@ -1291,6 +1291,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 		return &ErrIncompatibleSeries{
 			SeriesList: ch.Meta().Series,
 			Series:     series,
+			CharmName:  ch.String(),
 		}
 	}
 	return nil

@@ -273,6 +273,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C)
 	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
 		SeriesList: []string{"yakkety", "zesty"},
 		Series:     "xenial",
+		CharmName:  "TestCharm",
 	})
 	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
@@ -288,7 +289,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C)
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"TestCharm\", supported series are: yakkety,zesty",
 		},
 	})
 }
@@ -585,6 +586,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
 		SeriesList: []string{"yakkety", "zesty"},
 		Series:     "xenial",
+		CharmName:  "TestCharm",
 	})
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	result, err := apiV5.UpgradeSeriesPrepare(
@@ -598,7 +600,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	c.Assert(result, jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"TestCharm\", supported series are: yakkety,zesty",
 		},
 	})
 }

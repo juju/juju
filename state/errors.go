@@ -165,11 +165,12 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 type ErrIncompatibleSeries struct {
 	SeriesList []string
 	Series     string
+	CharmName  string
 }
 
 func (e *ErrIncompatibleSeries) Error() string {
-	return fmt.Sprintf("series %q not supported by charm, supported series are: %s",
-		e.Series, strings.Join(e.SeriesList, ","))
+	return fmt.Sprintf("series %q not supported by charm '%s', supported series are: %s",
+		e.Series, e.CharmName, strings.Join(e.SeriesList, ","))
 }
 
 // IsIncompatibleSeriesError returns if the given error or its cause is
