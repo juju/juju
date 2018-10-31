@@ -760,107 +760,128 @@ func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) erro
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that fires on LXD
 // profile events.
-func (api *APIBase) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+func (api *APIBase) WatchLXDProfileUpgradeNotifications(entity params.Entity) (params.NotifyWatchResult, error) {
+	var nothing params.NotifyWatchResult
 	if err := api.checkCanRead(); err != nil {
-		return params.NotifyWatchResults{}, errors.Trace(err)
+		return nothing, errors.Trace(err)
 	}
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		app, err := api.backend.Application(tag.Id())
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		w, err := app.WatchLXDProfileUpgradeNotifications()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
 
-		_, ok := <-w.Changes()
-		if !ok {
-			result.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
-			continue
-		}
-		result.Results[i].NotifyWatcherId = api.resources.Register(w)
+	tag, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return nothing, errors.Trace(err)
 	}
-	return result, nil
+
+	app, err := api.backend.Application(tag.Id())
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+	w, err := app.WatchLXDProfileUpgradeNotifications()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
+
+	_, ok := <-w.Changes()
+	if !ok {
+		return params.NotifyWatchResult{
+			Error: common.ServerError(watcher.EnsureErr(w)),
+		}, nil
+	}
+	return params.NotifyWatchResult{
+		NotifyWatcherId: api.resources.Register(w),
+	}, nil
 }
 
-// GetLXDProfileUpgradeMessages returns the lxd profile messages assocatied with
+// GetLXDProfileUpgradeMessages returns the lxd profile messages associated with
 // a application and set of machines
-func (api *APIBase) GetLXDProfileUpgradeMessages(args params.ApplicationLXDProfileUpgradeMessagesArgs) (params.StringsResults, error) {
-	if err := api.checkCanRead(); err != nil {
-		return params.StringsResults{}, errors.Trace(err)
-	}
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Args)),
-	}
-	stop := func(index int, watcherId string) {
-		err := api.resources.Stop(watcherId)
+func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMessages) (results params.LXDProfileUpgradeMessagesResults, err error) {
+	defer func() {
 		if err != nil {
-			result.Results[index].Error = common.ServerError(err)
-		}
-	}
-	for i, arg := range args.Args {
-		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
-		if err != nil {
-			stop(i, arg.WatcherId)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		app, err := api.backend.Application(tag.Id())
-		if err != nil {
-			stop(i, arg.WatcherId)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		units, err := app.AllUnits()
-		if err != nil {
-			stop(i, arg.WatcherId)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		messages := make([]string, len(units))
-		finished := true
-		for k, unit := range units {
-			machineId, err := unit.AssignedMachineId()
-			if err != nil {
-				if errors.IsNotAssigned(err) {
-					continue
-				}
-				stop(i, arg.WatcherId)
-				result.Results[i].Error = common.ServerError(err)
-				break
+			if resErr := api.resources.Stop(arg.WatcherId); resErr != nil {
+				logger.Errorf("unable stop resource %+v", resErr)
 			}
+		}
+	}()
 
-			machine, err := api.backend.Machine(machineId)
-			if err != nil {
+	if err = api.checkCanRead(); err != nil {
+		return
+	}
+
+	var tag names.Tag
+	tag, err = names.ParseApplicationTag(arg.ApplicationTag)
+	if err != nil {
+		return
+	}
+	var app Application
+	app, err = api.backend.Application(tag.Id())
+	if err != nil {
+		return
+	}
+	var units []Unit
+	units, err = app.AllUnits()
+	if err != nil {
+		return
+	}
+
+	finished := true
+	results = params.LXDProfileUpgradeMessagesResults{
+		Results: make([]params.LXDProfileUpgradeMessagesResult, len(units)),
+	}
+	for k, unit := range units {
+		// always set the unit name on the result.
+		results.Results[k].UnitName = unit.Tag().String()
+
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			if errors.IsNotAssigned(err) {
 				continue
 			}
-			if status := machine.UpgradeCharmProfileComplete(); status != "" {
-				messages[k] = fmt.Sprintf("LXD profile upgrade for %q is %s", machine.Id(), status)
-				finished = false
-			}
+			results.Results[k].Error = common.ServerError(err)
+			continue
 		}
-		// send back the results
-		result.Results[i].Result = messages
-		// if the messages are all finished or empty, clean up the resources.
-		if finished {
-			stop(i, arg.WatcherId)
+		machine, err := api.backend.Machine(machineId)
+		if err != nil {
+			results.Results[k].Error = common.ServerError(err)
+			continue
+		}
+		if status := machine.UpgradeCharmProfileComplete(); status != "" {
+			results.Results[k].Message = status
+			finished = false
 		}
 	}
+	if finished {
+		if resErr := api.resources.Stop(arg.WatcherId); resErr != nil {
+			return results, resErr
+		}
+		// reset the upgrade charm profile complete status so that it's in a
+		// known consistent state.
+		if resErr := api.setUpgradeCharmProfileCompleteStatus(units, ""); resErr != nil {
+			// we maybe in a incomplete status and performing upgrades may not work
+			// correctly. It requires operator intervention.
+			return results, resErr
+		}
+	}
+	return results, nil
+}
 
-	return result, nil
+func (api *APIBase) setUpgradeCharmProfileCompleteStatus(units []Unit, status string) error {
+	for _, unit := range units {
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			if errors.IsNotAssigned(err) {
+				continue
+			}
+			return err
+		}
+		machine, err := api.backend.Machine(machineId)
+		if err != nil {
+			return err
+		}
+		if err := machine.SetUpgradeCharmProfileComplete(""); err != nil {
+			logger.Infof("unable to set the upgrade charm profile complete status for %q :%v", unit.Tag().String(), err)
+			return err
+		}
+	}
+	return nil
 }
 
 // GetConfig returns the charm config for each of the

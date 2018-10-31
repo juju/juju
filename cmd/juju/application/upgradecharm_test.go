@@ -153,7 +153,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 			s.PopNoErr()
 			return &s.charmClient
 		},
-		func(conn api.APICallCloser) CharmAPIClient {
+		func(conn base.APICallCloser) CharmAPIClient {
 			s.AddCall("NewCharmAPIClient", conn)
 			s.PopNoErr()
 			return &s.charmAPIClient
@@ -899,9 +899,9 @@ func (m *mockCharmAPIClient) WatchLXDProfileUpgradeNotifications(appName string)
 	return &mockNotifyWatcher{ch: ch}, "", m.NextErr()
 }
 
-func (m *mockCharmAPIClient) GetLXDProfileUpgradeMessages(appName string, watchId string) ([]string, error) {
+func (m *mockCharmAPIClient) GetLXDProfileUpgradeMessages(appName string, watchId string) ([]application.LXDProfileUpgradeMessage, error) {
 	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, watchId)
-	return []string{}, m.NextErr()
+	return make([]application.LXDProfileUpgradeMessage, 0), m.NextErr()
 }
 
 type mockNotifyWatcher struct {

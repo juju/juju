@@ -489,17 +489,25 @@ type ApplicationGetConfigResults struct {
 	Results []ConfigResult
 }
 
-// ApplicationLXDProfileUpgradeMessages holds the parameters for an application
+// LXDProfileUpgradeMessages holds the parameters for an application
 // lxd profile machines
-type ApplicationLXDProfileUpgradeMessages struct {
+type LXDProfileUpgradeMessages struct {
 	ApplicationTag string `json:"application"`
 	WatcherId      string `json:"watcher-id"`
 }
 
-// ApplicationLXDProfileUpgradeMessagesArgs holds the parameters for retrieving
+// LXDProfileUpgradeMessagesResult holds the result for an application
+// lxd profile upgrade message
+type LXDProfileUpgradeMessagesResult struct {
+	UnitName string `json:"unit-name"`
+	Message  string `json:"message"`
+	Error    *Error `json:"error,omitempty"`
+}
+
+// LXDProfileUpgradeMessagesResults holds the parameters for retrieving
 // the associated lxd profile messages from a machine for a application
-type ApplicationLXDProfileUpgradeMessagesArgs struct {
-	Args []ApplicationLXDProfileUpgradeMessages `json:"args"`
+type LXDProfileUpgradeMessagesResults struct {
+	Results []LXDProfileUpgradeMessagesResult `json:"args"`
 }
 
 // ConfigResults holds configuration values for an entity.
@@ -1344,19 +1352,6 @@ type ScaleApplicationInfo struct {
 type DumpModelRequest struct {
 	Entities   []Entity `json:"entities"`
 	Simplified bool     `json:"simplified"`
-}
-
-// LXDProfileUpgradeStatusResult contains the lxd profile upgrade status result
-// for a machine or unit
-type LXDProfileUpgradeStatusResult struct {
-	Error  *Error `json:"error,omitempty"`
-	Status string `json:"status,omitempty"`
-}
-
-// LXDProfileUpgradeStatusResults contains the lxd profile upgrade status results
-// for a machine or unit
-type LXDProfileUpgradeStatusResults struct {
-	Results []LXDProfileUpgradeStatusResult `json:"results,omitempty"`
 }
 
 // UpgradeSeriesStatusResult contains the upgrade series status result for an upgrading

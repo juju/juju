@@ -880,18 +880,14 @@ func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (wa
 	if c.BestAPIVersion() < 8 {
 		return nil, "", errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
 	}
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	arg := params.Entity{
+		Tag: names.NewApplicationTag(applicationName).String(),
 	}
-	var results params.NotifyWatchResults
-	err := c.facade.FacadeCall("WatchLXDProfileUpgradeNotifications", args, &results)
+	var result params.NotifyWatchResult
+	err := c.facade.FacadeCall("WatchLXDProfileUpgradeNotifications", arg, &result)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return nil, "", errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
 	if result.Error != nil {
 		return nil, "", result.Error
 	}
@@ -899,31 +895,36 @@ func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (wa
 	return w, result.NotifyWatcherId, nil
 }
 
+// LXDProfileUpgradeMessage defines a single message from an individual machine
+type LXDProfileUpgradeMessage struct {
+	UnitName string
+	Message  string
+	Error    string
+}
+
 // GetLXDProfileUpgradeMessages returns a list of all messages which are
 // associated with the lxd profile upgrade
-func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, watcherId string) ([]string, error) {
+func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, watcherId string) ([]LXDProfileUpgradeMessage, error) {
 	if c.BestAPIVersion() < 8 {
 		return nil, errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
 	}
-	args := params.ApplicationLXDProfileUpgradeMessagesArgs{
-		Args: []params.ApplicationLXDProfileUpgradeMessages{
-			{
-				ApplicationTag: names.NewApplicationTag(applicationName).String(),
-				WatcherId:      watcherId,
-			},
-		},
+	arg := params.LXDProfileUpgradeMessages{
+		ApplicationTag: names.NewApplicationTag(applicationName).String(),
+		WatcherId:      watcherId,
 	}
-	var results params.StringsResults
-	err := c.facade.FacadeCall("GetLXDProfileUpgradeMessages", args, &results)
+	var results params.LXDProfileUpgradeMessagesResults
+	err := c.facade.FacadeCall("GetLXDProfileUpgradeMessages", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	messages := make([]LXDProfileUpgradeMessage, len(results.Results))
+	for k, v := range results.Results {
+		if v.Error != nil {
+			messages[k].Error = v.Error.Message
+			continue
+		}
+		messages[k].UnitName = v.UnitName
+		messages[k].Message = v.Message
 	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return result.Result, nil
+	return messages, nil
 }

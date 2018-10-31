@@ -41,7 +41,7 @@ import (
 
 type LXDProfileUpgradeAPI interface {
 	WatchLXDProfileUpgradeNotifications(string) (watcher.NotifyWatcher, string, error)
-	GetLXDProfileUpgradeMessages(string, string) ([]string, error)
+	GetLXDProfileUpgradeMessages(string, string) ([]application.LXDProfileUpgradeMessage, error)
 }
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
@@ -112,15 +112,14 @@ type NewCharmAdderFunc func(
 type upgradeCharmCommand struct {
 	modelcmd.ModelCommandBase
 
-	DeployResources            resourceadapters.DeployResourcesFunc
-	ResolveCharm               ResolveCharmFunc
-	NewCharmAdder              NewCharmAdderFunc
-	NewCharmClient             func(api.Connection) CharmClient
-	NewCharmUpgradeClient      func(api.Connection) CharmAPIClient
-	NewModelConfigGetter       func(api.Connection) ModelConfigGetter
-	NewResourceLister          func(api.Connection) (ResourceLister, error)
-	CharmStoreURLGetter        func(api.Connection) (string, error)
-	NewLXDProfileUpgradeClient func(api.Connection) LXDProfileUpgradeAPI
+	DeployResources       resourceadapters.DeployResourcesFunc
+	ResolveCharm          ResolveCharmFunc
+	NewCharmAdder         NewCharmAdderFunc
+	NewCharmClient        func(base.APICallCloser) CharmClient
+	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
+	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
+	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
+	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
@@ -461,10 +460,14 @@ func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, cl
 		return errors.NotFoundf("messages")
 	}
 	for _, message := range messages {
-		if message == "" {
+		if message.Error != "" {
+			logger.Tracef("lxd profile upgrade error for %q: %v", message.UnitName, message.Error)
 			continue
 		}
-		ctx.Infof(fmt.Sprintf("%s\n", message))
+		if message.Message == "" {
+			continue
+		}
+		ctx.Infof(fmt.Sprintf("LXD profile upgrade for %q is %s\n", message.UnitName, message.Message))
 	}
 	return nil
 }

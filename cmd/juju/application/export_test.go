@@ -19,11 +19,11 @@ func NewUpgradeCharmCommandForTest(
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
-	newCharmClient func(api.Connection) CharmClient,
-	newCharmUpgradeClient func(api.Connection) CharmAPIClient,
-	newModelConfigGetter func(api.Connection) ModelConfigGetter,
-	newResourceLister func(api.Connection) (ResourceLister, error),
-	charmStoreURLGetter func(api.Connection) (string, error),
+	newCharmClient func(base.APICallCloser) CharmClient,
+	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
+	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
+	newResourceLister func(base.APICallCloser) (ResourceLister, error),
+	charmStoreURLGetter func(base.APICallCloser) (string, error),
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
 		DeployResources:       deployResources,

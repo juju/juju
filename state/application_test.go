@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -41,6 +43,7 @@ import (
 
 type ApplicationSuite struct {
 	ConnSuite
+
 	charm *state.Charm
 	mysql *state.Application
 }
@@ -57,6 +60,11 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.charm = s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
+
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
@@ -94,6 +102,67 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = s.mysql.CharmURL()
+	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
+	charm := s.AddTestingCharm(c, "lxd-profile")
+	app := s.AddTestingApplication(c, "lxd-profile", charm)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	url, force := app.CharmURL()
+	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err = app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+	url, force = app.CharmURL()
+	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestLXDProfileForceSetCharm(c *gc.C) {
+	charm := s.AddTestingCharm(c, "lxd-profile-fail")
+	app := s.AddTestingApplication(c, "lxd-profile-fail", charm)
+
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	url, force := app.CharmURL()
+	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(force, jc.IsFalse)
+
+	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		Force:      true,
+		ForceUnits: true,
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err = app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+	url, force = app.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 }
@@ -326,6 +395,11 @@ requires:
 peers:
   cluster: mysql
   just: me
+`
+var lxdProfileMetaBase = `
+name: lxd-profile
+summary: "Fake LXDProfile"
+description: "Fake description"
 `
 
 var setCharmEndpointsTests = []struct {

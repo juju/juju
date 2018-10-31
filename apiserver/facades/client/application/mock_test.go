@@ -361,6 +361,12 @@ func (m *mockMachine) UpgradeCharmProfileComplete() string {
 	return m.upgradeCharmProfileComplete
 }
 
+func (m *mockMachine) SetUpgradeCharmProfileComplete(s string) error {
+	m.MethodCall(m, "SetUpgradeCharmProfileComplete", s)
+	m.upgradeCharmProfileComplete = s
+	return m.NextErr()
+}
+
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
 	m.MethodCall(m, "InferEndpoints", endpoints)
 	if err := m.NextErr(); err != nil {
@@ -596,6 +602,11 @@ type mockUnit struct {
 	jtesting.Stub
 	tag       names.UnitTag
 	machineId string
+	name      string
+}
+
+func (u *mockUnit) Tag() names.Tag {
+	return u.tag
 }
 
 func (u *mockUnit) UnitTag() names.UnitTag {
@@ -631,6 +642,11 @@ func (u *mockUnit) Resolve(retryHooks bool) error {
 func (u *mockUnit) AssignedMachineId() (string, error) {
 	u.MethodCall(u, "AssignedMachineId")
 	return u.machineId, u.NextErr()
+}
+
+func (u *mockUnit) Name() string {
+	u.MethodCall(u, "Name")
+	return u.name
 }
 
 type mockStorageAttachment struct {

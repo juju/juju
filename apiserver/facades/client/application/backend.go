@@ -101,6 +101,7 @@ type Machine interface {
 	IsLocked() (bool, error)
 	Id() string
 	UpgradeCharmProfileComplete() string
+	SetUpgradeCharmProfileComplete(string) error
 }
 
 // Relation defines a subset of the functionality provided by the
@@ -122,6 +123,7 @@ type Relation interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
+	Tag() names.Tag
 	UnitTag() names.UnitTag
 	Destroy() error
 	DestroyOperation() *state.DestroyUnitOperation

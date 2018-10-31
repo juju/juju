@@ -1305,12 +1305,8 @@ func (s *ApplicationSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	go func() {
 		app.lxdProfileUpgradeChanges <- struct{}{}
 	}()
-	_, err := s.api.WatchLXDProfileUpgradeNotifications(params.Entities{
-		Entities: []params.Entity{
-			{
-				Tag: names.NewApplicationTag("postgresql").String(),
-			},
-		},
+	_, err := s.api.WatchLXDProfileUpgradeNotifications(params.Entity{
+		Tag: names.NewApplicationTag("postgresql").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application")
@@ -1319,13 +1315,9 @@ func (s *ApplicationSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 
 func (s *ApplicationSuite) TestGetLXDProfileUpgradeMessages(c *gc.C) {
 	app := s.backend.applications["postgresql"]
-	results, err := s.api.GetLXDProfileUpgradeMessages(params.ApplicationLXDProfileUpgradeMessagesArgs{
-		Args: []params.ApplicationLXDProfileUpgradeMessages{
-			{
-				ApplicationTag: names.NewApplicationTag("postgresql").String(),
-				WatcherId:      "xxx-aaa-yyyy-ccc",
-			},
-		},
+	results, err := s.api.GetLXDProfileUpgradeMessages(params.LXDProfileUpgradeMessages{
+		ApplicationTag: names.NewApplicationTag("postgresql").String(),
+		WatcherId:      "xxx-aaa-yyyy-ccc",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Machine", "Machine")
@@ -1333,10 +1325,15 @@ func (s *ApplicationSuite) TestGetLXDProfileUpgradeMessages(c *gc.C) {
 	for _, v := range app.units {
 		v.CheckCallNames(c, "AssignedMachineId")
 	}
-	c.Assert(results, jc.DeepEquals, params.StringsResults{
-		Results: []params.StringsResult{
+	c.Assert(results, jc.DeepEquals, params.LXDProfileUpgradeMessagesResults{
+		Results: []params.LXDProfileUpgradeMessagesResult{
 			{
-				Result: []string{"", "LXD profile upgrade for \"1\" is not required"},
+				UnitName: "unit-postgresql-0",
+				Message:  "",
+			},
+			{
+				UnitName: "unit-postgresql-1",
+				Message:  "not required",
 			},
 		},
 	})
