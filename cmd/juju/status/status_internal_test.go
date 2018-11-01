@@ -3409,7 +3409,7 @@ var statusTests = []testCase{
 		setApplicationCharm{"lxd-profile", "local:quantal/lxd-profile-1"},
 		addCharmPlaceholder{"lxd-profile", 23},
 		expect{
-			what: "applications and units with correct charm status",
+			what: "applications and units with correct lxd profile charm status",
 			output: M{
 				"model": model,
 				"machines": M{

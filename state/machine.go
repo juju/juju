@@ -2178,10 +2178,9 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		}
 	}
 	var emptyProfile bool
-	if ch != nil && (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
+	if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
 		emptyProfile = true
 	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2208,9 +2207,9 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		if len(profiles) == 0 && emptyProfile {
 			var ops []txn.Op
 			if provisioned {
-				ops = append(ops, m.CheckCharmProfilesIsEmptyOp())
+				ops = append(ops, m.checkCharmProfilesIsEmptyOp())
 			}
-			return append(ops, m.SetUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus)), nil
+			return append(ops, m.setUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus)), nil
 		}
 		return []txn.Op{
 			m.SetUpgradeCharmProfileOp(appName, chURL),
@@ -2252,7 +2251,7 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 			return nil, ErrDead
 		}
 		return []txn.Op{
-			m.SetUpgradeCharmProfileCompleteOp(msg),
+			m.setUpgradeCharmProfileCompleteOp(msg),
 		}, nil
 	}
 	err := m.st.db().Run(buildTxn)
@@ -2263,9 +2262,9 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 	return nil
 }
 
-// CheckCharmProfilesIsEmptyOp ensures that the charm-profiles on the instance
+// checkCharmProfilesIsEmptyOp ensures that the charm-profiles on the instance
 // data is empty
-func (m *Machine) CheckCharmProfilesIsEmptyOp() txn.Op {
+func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
 	return txn.Op{
 		C:  instanceDataC,
 		Id: m.doc.DocID,
@@ -2278,9 +2277,9 @@ func (m *Machine) CheckCharmProfilesIsEmptyOp() txn.Op {
 	}
 }
 
-// SetUpgradeCharmProfileCompleteOp updates the upgradecharmprofilecomplete
+// setUpgradeCharmProfileCompleteOp updates the upgradecharmprofilecomplete
 // field with the correct message.
-func (m *Machine) SetUpgradeCharmProfileCompleteOp(msg string) txn.Op {
+func (m *Machine) setUpgradeCharmProfileCompleteOp(msg string) txn.Op {
 	return txn.Op{
 		C:      machinesC,
 		Id:     m.doc.DocID,

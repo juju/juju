@@ -881,22 +881,30 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 }
 
 func (api *APIBase) setUpgradeCharmProfileCompleteStatus(units []Unit, status string) error {
+	var errs []error
 	for _, unit := range units {
 		machineId, err := unit.AssignedMachineId()
 		if err != nil {
 			if errors.IsNotAssigned(err) {
 				continue
 			}
-			return err
+			logger.Debugf("unable to locate assigned machine id %q: %v", unit.UnitTag(), err)
+			errs = append(errs, err)
+			continue
 		}
 		machine, err := api.backend.Machine(machineId)
 		if err != nil {
-			return err
+			logger.Debugf("unable to find machine %q: %v", unit.UnitTag(), err)
+			errs = append(errs, err)
+			continue
 		}
 		if err := machine.SetUpgradeCharmProfileComplete(status); err != nil {
-			logger.Debugf("unable to set the upgrade charm profile complete status for %q :%v", unit.Tag().String(), err)
-			return err
+			logger.Debugf("unable to set the upgrade charm profile complete status for %q :%v", unit.UnitTag(), err)
+			errs = append(errs, err)
 		}
+	}
+	if len(errs) > 0 {
+		return errs[0]
 	}
 	return nil
 }

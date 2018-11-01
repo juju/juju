@@ -422,7 +422,7 @@ func (c *upgradeCharmCommand) handleNotifications(ctx *cmd.Context, lxdProfileUp
 // displayNotifications handles the writing of lxd profile upgrade notifications
 // to standard out.
 func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDProfileUpgradeAPI) func() error {
-	// We return and anonymous function here to satisfy the catacomb plan's
+	// We return an anonymous function here to satisfy the catacomb plan's
 	// need for a work function and to close over the commands context.
 	messages := make(map[string]application.LXDProfileUpgradeMessage)
 	return func() error {
