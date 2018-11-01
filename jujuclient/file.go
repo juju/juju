@@ -405,9 +405,6 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 				models.CurrentModel = ""
 				return true, nil
 			}
-			if models.CurrentModel == modelName {
-				return false, nil
-			}
 			if _, ok := models.Models[modelName]; !ok {
 				return false, errors.NotFoundf(
 					"model %s:%s",
