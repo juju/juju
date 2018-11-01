@@ -417,6 +417,12 @@ func (w *modelCommandWrapper) inner() cmd.Command {
 	return w.ModelCommand
 }
 
+type modelSpecificCommand interface {
+	// IncompatibleModel returns an error if the command is being run against
+	// a model with which it is not compatible.
+	IncompatibleModel(err error) error
+}
+
 // IAASOnlyCommand is used as a marker and is embedded
 // by commands which should only run in IAAS models.
 type IAASOnlyCommand interface {
@@ -450,12 +456,16 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 		return nil
 	}
 	if modelType == model.CAAS && iaasOnly {
-		return errors.Errorf("Juju command %q not supported on kubernetes models", w.Info().Name)
+		err = errors.Errorf("Juju command %q not supported on kubernetes models", w.Info().Name)
 	}
 	if modelType == model.IAAS && caasOnly {
-		return errors.Errorf("Juju command %q not supported on non-container models", w.Info().Name)
+		err = errors.Errorf("Juju command %q not supported on non-container models", w.Info().Name)
 	}
-	return nil
+
+	if c, ok := w.inner().(modelSpecificCommand); ok {
+		return c.IncompatibleModel(err)
+	}
+	return err
 }
 
 func (w *modelCommandWrapper) Init(args []string) error {

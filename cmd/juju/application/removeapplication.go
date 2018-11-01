@@ -81,6 +81,7 @@ type removeApplicationAPI interface {
 	DestroyUnitsDeprecated(unitNames ...string) error
 	GetCharmURL(appName string) (*charm.URL, error)
 	ModelUUID() string
+	BestAPIVersion() int
 }
 
 type storageAPI interface {
