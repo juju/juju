@@ -277,7 +277,6 @@ func (w *storageProvisioner) loop() error {
 	if err := w.catacomb.Add(volumeAttachmentsWatcher); err != nil {
 		return errors.Trace(err)
 	}
-
 	volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
 
 	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments(w.config.Scope)
@@ -530,4 +529,8 @@ type context struct {
 	// manages filesystems backed by volumes attached to the host
 	// machine.
 	managedFilesystemSource storage.FilesystemSource
+}
+
+func (c *context) IsCAASModel() bool {
+	return c.config.Scope.Kind() == names.ApplicationTagKind
 }

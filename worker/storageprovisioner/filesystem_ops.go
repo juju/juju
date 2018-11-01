@@ -312,8 +312,8 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource, ok := filesystemSources[sourceName]
-		if !ok {
-			// CAAS does not have filesystem source ?
+		if !ok && ctx.IsCAASModel() {
+			logger.Criticalf("sfsdfsdfsdfdsfds filesystemSource -> %+v", filesystemSource)
 			continue
 		}
 		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
@@ -393,15 +393,15 @@ func filesystemParamsBySource(
 		filesystemSources[sourceName] = filesystemSource
 	}
 	paramsBySource := make(map[string][]storage.FilesystemParams)
-	for _, params := range params {
-		sourceName := string(params.Provider)
+	for _, param := range params {
+		sourceName := string(param.Provider)
 		filesystemSource := filesystemSources[sourceName]
 		if filesystemSource == nil {
 			// Ignore nil filesystem sources; this means that the
 			// filesystem should be created by the machine-provisioner.
 			continue
 		}
-		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		paramsBySource[sourceName] = append(paramsBySource[sourceName], param)
 	}
 	return paramsBySource, filesystemSources, nil
 }
@@ -444,10 +444,7 @@ func filesystemAttachmentParamsBySource(
 			continue
 		}
 		filesystem, ok := filesystems[params.Filesystem]
-		if !ok {
-			continue
-		}
-		if filesystem.Volume != (names.VolumeTag{}) {
+		if !ok || filesystem.Volume != (names.VolumeTag{}) {
 			filesystemSources[sourceName] = managedFilesystemSource
 			continue
 		}
