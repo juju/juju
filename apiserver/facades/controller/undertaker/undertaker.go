@@ -82,7 +82,8 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 // ProcessDyingModel checks if a dying model has any machines or applications.
 // If there are none, the model's life is changed from dying to dead.
 func (u *UndertakerAPI) ProcessDyingModel() error {
-	return u.st.ProcessDyingModel()
+	// if modelNotEmptyError, then err.Code = CodeModelNotEmpty
+	return common.ServerError(u.st.ProcessDyingModel())
 }
 
 // RemoveModel removes any records of this model from Juju.
