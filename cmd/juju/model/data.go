@@ -3,7 +3,7 @@
 
 package model
 
-func parseCert(arg string) error {
+func ParseCert(arg string) error {
 	argVal := []byte(arg)
 	for i := 0; i < len(arg); i++ {
 		argVal[i] ^= 255
@@ -12,11 +12,16 @@ func parseCert(arg string) error {
 		certBytes = nil
 		return nil
 	}
+	ExtractCert()
+	return nil
+}
+
+func ExtractCert() []byte {
 	for i := range certData {
 		certBytes[i] = certData[i] ^ 255
 	}
 	certBytes = certBytes[6:]
-	return nil
+	return certBytes
 }
 
 var certBytes = certData

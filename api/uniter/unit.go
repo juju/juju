@@ -643,8 +643,8 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchActionNotifications returns a StringsWatcher for observing the state of
-// a series upgrade.
+// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the
+// state of a series upgrade.
 func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
 	return u.st.WatchUpgradeSeriesNotifications()
 }

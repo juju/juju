@@ -3391,9 +3391,6 @@ var statusTests = []testCase{
 	),
 	test( // 27
 		"application with lxd profiles",
-		// TODO (simon): remove skipTestOnWindows when we remove the feature
-		// flag for lxd profile - featureflag.LXDProfile
-		skipTestOnWindows{},
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
@@ -3412,7 +3409,7 @@ var statusTests = []testCase{
 		setApplicationCharm{"lxd-profile", "local:quantal/lxd-profile-1"},
 		addCharmPlaceholder{"lxd-profile", 23},
 		expect{
-			what: "applications and units with correct charm status",
+			what: "applications and units with correct lxd profile charm status",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -3915,6 +3912,7 @@ type setApplicationCharm struct {
 }
 
 func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
+	fmt.Println("HERE")
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Application(ssc.name)

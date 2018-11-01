@@ -10,14 +10,16 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/juju/names"
 )
+
+// AppName here is used as the application prefix name. We can't use names.Juju
+// as that changes depending on platform.
+const AppName = "juju"
 
 // Prefix is used to prefix all the lxd profile programmable profiles. If a
 // profile doesn't have the prefix, then it will be removed when ensuring the
 // the validity of the names (see LXDProfileNames)
-var Prefix = fmt.Sprintf("%s-", names.Juju)
+var Prefix = fmt.Sprintf("%s-", AppName)
 
 // Name returns a serialisable name that we can use to identify profiles
 // juju-<model>-<application>-<charm-revision>

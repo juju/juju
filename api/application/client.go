@@ -15,11 +15,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -267,6 +269,14 @@ type SetCharmConfig struct {
 	// facade version 2
 	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
 
+	// Force forces the use of the charm in the following scenarios:
+	// overriding a lxd profile upgrade.
+	// In the future, we should deprecate ForceSeries and ForceUnits and just
+	// use Force for all instances.
+	// TODO (stickupkid): deprecate ForceSeries and ForceUnits in favour of
+	// just using Force.
+	Force bool
+
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
@@ -311,6 +321,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 		Channel:            string(cfg.CharmID.Channel),
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
+		Force:              cfg.Force,
 		ForceSeries:        cfg.ForceSeries,
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
@@ -851,8 +862,8 @@ func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
 	return errors.Trace(results.Combine())
 }
 
-// SetCharmProfile a new charm's url on deployed machines for changing the profile used
-// on those machine.
+// SetCharmProfile a new charm's url on deployed machines for changing the
+// profile used on those machine.
 func (c *Client) SetCharmProfile(applicationName string, charmID charmstore.CharmID) error {
 	if c.BestAPIVersion() < 8 {
 		return errors.NotSupportedf("SetCharmProfile not supported by this version of Juju")
@@ -863,4 +874,61 @@ func (c *Client) SetCharmProfile(applicationName string, charmID charmstore.Char
 	}
 	var results params.ErrorResults
 	return c.facade.FacadeCall("SetCharmProfile", args, &results)
+}
+
+// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the
+// state deploying a lxd profile.
+func (c *Client) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.NotifyWatcher, string, error) {
+	if c.BestAPIVersion() < 8 {
+		return nil, "", errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
+	}
+	arg := params.Entity{
+		Tag: names.NewApplicationTag(applicationName).String(),
+	}
+	var result params.NotifyWatchResult
+	err := c.facade.FacadeCall("WatchLXDProfileUpgradeNotifications", arg, &result)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, "", result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	return w, result.NotifyWatcherId, nil
+}
+
+// LXDProfileUpgradeMessage defines a single message from an individual machine
+type LXDProfileUpgradeMessage struct {
+	UnitName string
+	Message  string
+	Error    string
+}
+
+// GetLXDProfileUpgradeMessages returns a list of all messages which are
+// associated with the lxd profile upgrade
+func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, watcherId string) ([]LXDProfileUpgradeMessage, error) {
+	if c.BestAPIVersion() < 8 {
+		return nil, errors.NotSupportedf("WatchLXDProfileUpgradeNotifications")
+	}
+	arg := params.LXDProfileUpgradeMessages{
+		ApplicationTag: params.Entity{
+			Tag: names.NewApplicationTag(applicationName).String(),
+		},
+		WatcherId: watcherId,
+	}
+	var results params.LXDProfileUpgradeMessagesResults
+	err := c.facade.FacadeCall("GetLXDProfileUpgradeMessages", arg, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	messages := make([]LXDProfileUpgradeMessage, len(results.Results))
+	for k, v := range results.Results {
+		if v.Error != nil {
+			messages[k].Error = v.Error.Message
+			continue
+		}
+		messages[k].UnitName = v.UnitName
+		messages[k].Message = v.Message
+	}
+	return messages, nil
 }

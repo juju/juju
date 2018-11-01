@@ -22,7 +22,7 @@ func NewUpgradeCharmCommandForTest(
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) CharmClient,
-	newCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient,
+	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
 	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
 	newResourceLister func(base.APICallCloser) (ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),

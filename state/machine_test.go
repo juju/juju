@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -144,33 +145,52 @@ func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
 	c.Assert(expectedProfiles, jc.SameContents, obtainedProfiles)
 }
 
-func (s *MachineSuite) TestSetUpgradeCharmProfile(c *gc.C) {
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C) {
 	m := s.machine
 
 	// SetUpgradeCharmProfile should clear UpgradeCharmProfileComplete value
-	err := m.SetUpgradeCharmProfileComplete("success")
+	err := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, lxdprofile.SuccessStatus)
 
 	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.UpgradeCharmProfileApplication(), gc.Equals, "")
+	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, "")
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "Not Required")
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithLXDProfile(c *gc.C) {
+	m := s.machine
+
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/quantal-lxd-profile-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.UpgradeCharmProfileApplication(), gc.Equals, "app-name")
-	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, "local:quantal/riak-7")
+	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, "local:quantal/quantal-lxd-profile-0")
 	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "")
 }
 
 func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	m := s.machine
 
-	err := m.SetUpgradeCharmProfileComplete("success")
+	err := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, "success")
+	c.Assert(m.UpgradeCharmProfileComplete(), gc.Equals, lxdprofile.SuccessStatus)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {

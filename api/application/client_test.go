@@ -263,6 +263,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"c": "d",
 		})
 		c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
+		c.Assert(args.Force, gc.Equals, true)
 		c.Assert(args.ForceSeries, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		c.Assert(args.StorageConstraints, jc.DeepEquals, map[string]params.StorageConstraints{
@@ -283,6 +284,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"c": "d",
 		},
 		ConfigSettingsYAML: "yaml",
+		Force:              true,
 		ForceSeries:        true,
 		ForceUnits:         true,
 		StorageConstraints: map[string]storage.Constraints{
@@ -1233,5 +1235,29 @@ func (s *applicationSuite) TestSetCharmProfileError(c *gc.C) {
 	err := client.SetCharmProfile("foo", charmstore.CharmID{
 		URL: charm.MustParseURL("local:testing-1"),
 	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestWatchLXDProfileUpgradeNotificationsError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "WatchLXDProfileUpgradeNotifications")
+			return errors.New("boom")
+		},
+	)
+	client := newClient(apiCaller)
+	_, _, err := client.WatchLXDProfileUpgradeNotifications("foo")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestGetLXDProfileUpgradeMessagesError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "GetLXDProfileUpgradeMessages")
+			return errors.New("boom")
+		},
+	)
+	client := newClient(apiCaller)
+	_, err := client.GetLXDProfileUpgradeMessages("foo", "xxx-aaa-yyy-ccc")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

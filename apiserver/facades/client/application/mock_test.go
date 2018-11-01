@@ -71,16 +71,17 @@ type mockApplication struct {
 	jtesting.Stub
 	application.Application
 
-	bindings    map[string]string
-	charm       *mockCharm
-	curl        *charm.URL
-	endpoints   []state.Endpoint
-	name        string
-	subordinate bool
-	series      string
-	units       []*mockUnit
-	addedUnit   mockUnit
-	config      coreapplication.ConfigAttributes
+	bindings                 map[string]string
+	charm                    *mockCharm
+	curl                     *charm.URL
+	endpoints                []state.Endpoint
+	name                     string
+	subordinate              bool
+	series                   string
+	units                    []*mockUnit
+	addedUnit                mockUnit
+	config                   coreapplication.ConfigAttributes
+	lxdProfileUpgradeChanges chan struct{}
 }
 
 func (m *mockApplication) Name() string {
@@ -183,6 +184,26 @@ func (a *mockApplication) SetExposed() error {
 	return a.NextErr()
 }
 
+func (a *mockApplication) WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error) {
+	a.MethodCall(a, "WatchLXDProfileUpgradeNotifications")
+	return &mockNotifyWatcher{ch: a.lxdProfileUpgradeChanges}, a.NextErr()
+}
+
+type mockNotifyWatcher struct {
+	state.NotifyWatcher
+	jtesting.Stub
+	ch chan struct{}
+}
+
+func (m *mockNotifyWatcher) Changes() <-chan struct{} {
+	m.MethodCall(m, "Changes")
+	return m.ch
+}
+
+func (m *mockNotifyWatcher) Err() error {
+	return m.NextErr()
+}
+
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string
@@ -250,6 +271,7 @@ type mockBackend struct {
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
+	machines                   map[string]*mockMachine
 }
 
 type mockFilesystemAccess struct {
@@ -310,6 +332,44 @@ func (m *mockBackend) UnitsInError() ([]application.Unit, error) {
 	return []application.Unit{
 		m.applications["postgresql"].units[0],
 	}, nil
+}
+
+func (m *mockBackend) Machine(id string) (application.Machine, error) {
+	m.MethodCall(m, "Machine", id)
+	for machineId, machine := range m.machines {
+		if id == machineId {
+			return machine, nil
+		}
+	}
+	return nil, errors.NotFoundf("machine %q", id)
+}
+
+type mockMachine struct {
+	jtesting.Stub
+
+	id                          string
+	upgradeCharmProfileComplete string
+}
+
+func (m *mockMachine) IsLocked() (bool, error) {
+	m.MethodCall(m, "IsLocked")
+	return false, m.NextErr()
+}
+
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
+}
+
+func (m *mockMachine) UpgradeCharmProfileComplete() string {
+	m.MethodCall(m, "UpgradeCharmProfileComplete")
+	return m.upgradeCharmProfileComplete
+}
+
+func (m *mockMachine) SetUpgradeCharmProfileComplete(s string) error {
+	m.MethodCall(m, "SetUpgradeCharmProfileComplete", s)
+	m.upgradeCharmProfileComplete = s
+	return m.NextErr()
 }
 
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
@@ -545,7 +605,13 @@ func (r *mockRelation) Destroy() error {
 type mockUnit struct {
 	application.Unit
 	jtesting.Stub
-	tag names.UnitTag
+	tag       names.UnitTag
+	machineId string
+	name      string
+}
+
+func (u *mockUnit) Tag() names.Tag {
+	return u.tag
 }
 
 func (u *mockUnit) UnitTag() names.UnitTag {
@@ -576,6 +642,16 @@ func (u *mockUnit) AssignWithPlacement(placement *instance.Placement) error {
 func (u *mockUnit) Resolve(retryHooks bool) error {
 	u.MethodCall(u, "Resolve", retryHooks)
 	return u.NextErr()
+}
+
+func (u *mockUnit) AssignedMachineId() (string, error) {
+	u.MethodCall(u, "AssignedMachineId")
+	return u.machineId, u.NextErr()
+}
+
+func (u *mockUnit) Name() string {
+	u.MethodCall(u, "Name")
+	return u.name
 }
 
 type mockStorageAttachment struct {

@@ -1047,6 +1047,10 @@ type SetCharmConfig struct {
 	// the charm's supported series.
 	ForceSeries bool
 
+	// Force forces the overriding of the lxd profile validation even if the
+	// profile doesn't validate.
+	Force bool
+
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
 	ResourceIDs map[string]string
@@ -1122,10 +1126,13 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		return errors.Annotate(err, "validating config settings")
 	}
 
-	// TODO (hml) lxd-profile 15-oct-2018
-	// Do we need to validate the lxd profile here?
-	// Need force threaded thru in state.SetCharmConfig &
-	// params.ApplicationSetCharm
+	// we don't need to check that this is a charm.LXDProfiler, as we can
+	// state that the function exists.
+	if profile := cfg.Charm.LXDProfile(); profile != nil {
+		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
+			return errors.Annotate(err, "validating lxd profile")
+		}
+	}
 
 	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)
