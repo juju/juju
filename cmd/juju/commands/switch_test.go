@@ -323,3 +323,32 @@ func (s *SwitchSimpleSuite) addController(c *gc.C, name string) {
 		User: "admin",
 	}
 }
+
+func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *gc.C) {
+	s.store.CurrentControllerName = "same"
+	s.addController(c, "same")
+	s.store.Models["same"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/mymodel": {},
+		},
+		CurrentModel: "admin/mymodel",
+	}
+	context, err := s.run(c, "mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same:admin/mymodel (no change)\n")
+	s.stubStore.CheckCalls(c, []testing.StubCall{
+		{"CurrentController", nil},
+		{"CurrentModel", []interface{}{"same"}},
+		{"ControllerByName", []interface{}{"mymodel"}},
+		{"AccountDetails", []interface{}{"same"}},
+		{"SetCurrentModel", []interface{}{"same", "admin/mymodel"}},
+	})
+}
+
+func (s *SwitchSimpleSuite) TestSwitchCurrentModelNoLongerInStore(c *gc.C) {
+	s.store.CurrentControllerName = "same"
+	s.addController(c, "same")
+	s.store.Models["same"] = &jujuclient.ControllerModels{CurrentModel: "admin/mymodel"}
+	_, err := s.run(c, "mymodel")
+	c.Assert(err, gc.ErrorMatches, `"mymodel" is not the name of a model or controller`)
+}
