@@ -105,7 +105,8 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 		return errors.Annotate(err, "removing attachments")
 	}
 	for i, result := range errorResults {
-		if result.Error != nil {
+		if result.Error != nil && !params.IsCodeNotFound(result.Error) {
+			// ignore not found error.
 			return errors.Annotatef(
 				result.Error, "removing attachment of %s to %s from state",
 				ids[i].AttachmentTag, ids[i].MachineTag,
