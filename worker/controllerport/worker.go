@@ -64,8 +64,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	unsub, err := config.Hub.Subscribe(controller.ConfigChanged,
 		func(topic string, data controller.ConfigChangedMessage, err error) {
-			w.updateControllerPort(data.Config.ControllerAPIPort())
-			w.tomb.Kill(dependency.ErrBounce)
+			if w.updateControllerPort(data.Config.ControllerAPIPort()) {
+				w.tomb.Kill(dependency.ErrBounce)
+			}
 		})
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to subscribe to details topic")
@@ -100,14 +101,16 @@ func (w *Worker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *Worker) updateControllerPort(port int) {
-	if w.controllerAPIPort != port {
-		// The local cache is out of date, update it.
-		w.logger.Infof("updating controller API port to %v", port)
-		err := w.update(port)
-		if err != nil {
-			w.logger.Errorf("unable to update agent.conf with new controller API port: %v", err)
-		}
-		w.controllerAPIPort = port
+func (w *Worker) updateControllerPort(port int) bool {
+	if w.controllerAPIPort == port {
+		return false
 	}
+	// The local cache is out of date, update it.
+	w.logger.Infof("updating controller API port to %v", port)
+	err := w.update(port)
+	if err != nil {
+		w.logger.Errorf("unable to update agent.conf with new controller API port: %v", err)
+	}
+	w.controllerAPIPort = port
+	return true
 }

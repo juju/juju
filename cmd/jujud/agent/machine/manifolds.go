@@ -700,6 +700,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			Logger:                  loggo.GetLogger("juju.worker.controllerport"),
 			UpdateControllerAPIPort: config.UpdateControllerAPIPort,
+			GetControllerConfig:     controllerport.GetControllerConfig,
 			NewWorker:               controllerport.NewWorker,
 		}),
 

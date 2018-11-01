@@ -10,6 +10,8 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/state"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -30,7 +32,8 @@ type ManifoldConfig struct {
 	Logger                  Logger
 	UpdateControllerAPIPort func(int) error
 
-	NewWorker func(Config) (worker.Worker, error)
+	GetControllerConfig func(*state.State) (controller.Config, error)
+	NewWorker           func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -49,6 +52,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.UpdateControllerAPIPort == nil {
 		return errors.NotValidf("nil UpdateControllerAPIPort")
+	}
+	if config.GetControllerConfig == nil {
+		return errors.NotValidf("nil GetControllerConfig")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -97,7 +103,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	defer stTracker.Done()
 
 	systemState := statePool.SystemState()
-	controllerConfig, err := systemState.ControllerConfig()
+	controllerConfig, err := config.GetControllerConfig(systemState)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -114,4 +120,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	return w, nil
+}
+
+// GetControllerConfig gets the controller config from the given state
+// - it's a shim so we can test the manifold without a state suite.
+func GetControllerConfig(st *state.State) (controller.Config, error) {
+	return st.ControllerConfig()
 }
