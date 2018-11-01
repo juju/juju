@@ -41,9 +41,8 @@ var _ = gc.Suite(&UnitSuite{})
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
-	var err error
 	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
-	c.Assert(err, jc.ErrorIsNil)
+	var err error
 	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
@@ -444,6 +443,26 @@ func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 			c.Assert(tc.host.Destroy(), gc.NotNil)
 		}
 	}
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
+	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
+	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	target, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
+
+	c.Assert(colocated.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+	c.Assert(host.UpgradeCharmProfileApplication(), gc.Equals, "lxd-profile")
+	c.Assert(host.UpgradeCharmProfileCharmURL(), gc.Equals, "")
+	c.Assert(host.Destroy(), gc.NotNil)
 }
 
 func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {

@@ -697,6 +697,8 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
+		// Remove the charm profile.
+		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), ""))
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can

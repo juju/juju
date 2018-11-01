@@ -1442,9 +1442,17 @@ func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAc
 	}
 
 	url := machine.UpgradeCharmProfileCharmURL()
-	if url == "" {
-		return nothing, errors.Trace(errors.New("no url for profile charm upgrade"))
+	switch {
+	case url == "" && oldProfileName != "":
+		// Remove the old profile from the machine,
+		// the unit is being removed.
+		return params.ProfileChangeResult{
+			OldProfileName: oldProfileName,
+		}, nil
+	case url == "":
+		return nothing, errors.Trace(errors.New("no url for profile charm upgrade, no profile to remove"))
 	}
+
 	chURL, err := charm.ParseURL(url)
 	if err != nil {
 		return nothing, errors.Trace(err)

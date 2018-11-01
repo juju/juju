@@ -878,14 +878,13 @@ func (a *Application) SetCharmProfile(charmURL string) error {
 		return errors.Trace(err)
 	}
 	for _, u := range units {
-		principal, ok := u.PrincipalName()
-		if ok {
-			u, err = a.st.Unit(principal)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		// AssignedMachineId returns the correct machine whether
+		// principal or subordinate
+		id, err := u.AssignedMachineId()
+		if err != nil {
+			return errors.Trace(err)
 		}
-		m, err := u.machine()
+		m, err := a.st.Machine(id)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -1718,8 +1718,30 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		}
 		return st.AddOneMachine(template)
 	default:
+		// Otherwise use an existing machine.
+		if err = st.maybeApplyCharmProfileToMachine(unit, machine); err != nil {
+			return nil, err
+		}
 		return machine, nil
 	}
+}
+
+func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) error {
+	application, err := unit.Application()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, _, err := application.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	profile := ch.LXDProfile()
+	if profile == nil || (profile != nil && profile.Empty()) {
+		// no profile to add
+		return nil
+	}
+	logger.Debugf("set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
+	return machine.SetUpgradeCharmProfile(application.Name(), ch.URL().String())
 }
 
 // Application returns a application state by name.
