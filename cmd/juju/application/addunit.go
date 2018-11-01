@@ -155,6 +155,20 @@ func (c *addUnitCommand) Info() *cmd.Info {
 	}
 }
 
+// IncompatibleModel returns an error if the command is being run against
+// a model with which it is not compatible.
+func (c *addUnitCommand) IncompatibleModel(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := `
+add-unit is not allowed on Kubernetes models.
+Instead, use juju scale-application.
+See juju help scale-application.
+`[1:]
+	return errors.New(msg)
+}
+
 func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of units to add")

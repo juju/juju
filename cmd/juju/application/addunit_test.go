@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
@@ -227,4 +228,20 @@ func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer("0/lxd/01", false)
 	assertMachineOrNewContainer("0/lxd/10", true)
 	assertMachineOrNewContainer("0/kvm/4", true)
+}
+
+func (s *AddUnitSuite) TestCAASDisallowed(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+	err := s.runAddUnit(c)
+	c.Assert(err, gc.NotNil)
+	expected := `
+add-unit is not allowed on Kubernetes models.
+Instead, use juju scale-application.
+See juju help scale-application.
+`
+	expected = strings.Replace(expected, "\n", "", -1)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Equals, expected)
 }

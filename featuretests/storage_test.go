@@ -48,8 +48,8 @@ func createUnitWithStorage(c *gc.C, s *jujutesting.JujuConnSuite, poolName strin
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(poolName, 1024, 1),
 	}
-	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -628,8 +628,8 @@ func createUnitWithFileSystemStorage(c *gc.C, s *jujutesting.JujuConnSuite, pool
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(poolName, 1024, 1),
 	}
-	service := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	app := s.AddTestingApplicationWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)

@@ -27,6 +27,7 @@ type removeUnitCommand struct {
 	modelcmd.IAASOnlyCommand
 	DestroyStorage bool
 	UnitNames      []string
+	api            removeApplicationAPI
 }
 
 const removeUnitDoc = `
@@ -61,6 +62,20 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 	}
 }
 
+// IncompatibleModel returns an error if the command is being run against
+// a model with which it is not compatible.
+func (c *removeUnitCommand) IncompatibleModel(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := `
+remove-unit is not allowed on Kubernetes models.
+Instead, use juju scale-application.
+See juju help scale-application.
+`[1:]
+	return errors.New(msg)
+}
+
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
@@ -80,12 +95,15 @@ func (c *removeUnitCommand) Init(args []string) error {
 }
 
 func (c *removeUnitCommand) getAPI() (removeApplicationAPI, int, error) {
+	if c.api != nil {
+		return c.api, c.api.BestAPIVersion(), nil
+	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
-	version := root.BestFacadeVersion("Application")
-	return application.NewClient(root), version, nil
+	api := application.NewClient(root)
+	return api, api.BestAPIVersion(), nil
 }
 
 func (c *removeUnitCommand) getStorageAPI() (storageAPI, error) {
