@@ -76,8 +76,8 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 	}
 }
 
-// Pinned (lease.Pinner) returns applications and vested entities for
-// pinned leases in the bound namespace/model.
+// Pinned (lease.Pinner) returns applications and the entities requiring their
+// pinned behaviour, for pinned leases in the bound namespace/model.
 func (b *boundManager) Pinned() map[string][]names.Tag {
 	return b.manager.pinned(b.namespace, b.modelUUID)
 }

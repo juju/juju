@@ -90,7 +90,7 @@ type PinApplicationResult struct {
 type PinnedLeadershipResult struct {
 	// Result has:
 	// - Application tag keys representing the application pinned.
-	// - Tag slice values representing the entities vested in the pinned
+	// - Tag slice values representing the entities requiring pinned
 	//   behaviour for each application.
-	Result map[string][]string `json:"pinned,omitempty"`
+	Result map[string][]string `json:"result,omitempty"`
 }

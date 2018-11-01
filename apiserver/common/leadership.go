@@ -86,8 +86,8 @@ type leadershipPinningAPI struct {
 	authorizer facade.Authorizer
 }
 
-// PinnedLeadership returns all applications and their vested entities that
-// currently have their leadership pinned in the current model.
+// PinnedLeadership returns all pinned applications and the entities that
+// require their pinned behaviour, for leadership in the current model.
 func (a *leadershipPinningAPI) PinnedLeadership() (params.PinnedLeadershipResult, error) {
 	result := params.PinnedLeadershipResult{}
 

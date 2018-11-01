@@ -58,7 +58,7 @@ type Pinner interface {
 	UnpinLeadership(applicationId string, entity names.Tag) error
 
 	// PinnedLeadership returns a map keyed on pinned application names,
-	// with their corresponding vested entities.
+	// with entities that require the application's pinned behaviour.
 	PinnedLeadership() map[string][]names.Tag
 }
 

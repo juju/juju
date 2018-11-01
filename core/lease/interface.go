@@ -63,7 +63,8 @@ type Pinner interface {
 	// pins for the application.
 	Unpin(leaseName string, entity names.Tag) error
 
-	// Pinned returns all applications and vested entities for pinned leases.
+	// Pinned returns all names for pinned leases, with the entities requiring
+	// their pinned behaviour
 	Pinned() map[string][]names.Tag
 }
 

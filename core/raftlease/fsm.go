@@ -75,7 +75,8 @@ type FSM struct {
 	entries    map[lease.Key]*entry
 
 	// Pinned leases are denoted by having a non-empty collection of tags
-	// representing vested "pinners" against their key.
+	// representing the applications requiring pinned behaviour,
+	// against their key.
 	// This allows different Juju concerns to pin leases, but remove only
 	// their own pins. It is done to avoid restoring normal expiration
 	// to a lease pinned by another concern operating under under the
@@ -183,7 +184,8 @@ func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
 	return results
 }
 
-// Pinned returns all of the currently known lease pins and vested entities.
+// Pinned returns all of the currently known lease pins and applications
+// requiring the pinned behaviour.
 func (f *FSM) Pinned() map[lease.Key][]names.Tag {
 	f.mu.Lock()
 	pinned := make(map[lease.Key][]names.Tag)

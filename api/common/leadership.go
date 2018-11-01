@@ -36,8 +36,9 @@ func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinn
 	}
 }
 
-// PinnedLeadership returns a collection of application tags and corresponding
-// vested entity tags for which leadership is currently pinned.
+// PinnedLeadership returns a collection of application tags for which
+// leadership is currently pinned, with the applications requiring each
+// application's pinned behaviour.
 func (a *LeadershipPinningAPI) PinnedLeadership() (map[names.ApplicationTag][]names.Tag, error) {
 	var callResult params.PinnedLeadershipResult
 	err := a.facade.FacadeCall("PinnedLeadership", nil, &callResult)

@@ -458,8 +458,8 @@ func (manager *Manager) handleUnpin(p pin) {
 	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity)))
 }
 
-// pinned returns lease names and their vested entities from the input
-// namespace/model for which leases are pinned.
+// pinned returns lease names and the entities requiring their pinned
+// behaviour, from the input namespace/model for which leases are pinned.
 func (manager *Manager) pinned(namespace, modelUUID string) map[string][]names.Tag {
 	pinned := make(map[string][]names.Tag)
 	for key, entities := range manager.config.Store.Pinned() {
