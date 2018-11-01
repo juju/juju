@@ -3912,6 +3912,7 @@ type setApplicationCharm struct {
 }
 
 func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
+	fmt.Println("HERE")
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Application(ssc.name)
