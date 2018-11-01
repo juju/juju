@@ -616,9 +616,6 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 		for modelName := range storedModels.Models {
 			if _, ok := models[modelName]; !ok {
 				delete(storedModels.Models, modelName)
-				if storedModels.CurrentModel == modelName {
-					storedModels.CurrentModel = ""
-				}
 			}
 		}
 		return changed, nil
