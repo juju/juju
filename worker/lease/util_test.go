@@ -182,8 +182,20 @@ func (store *Store) UnpinLease(key lease.Key, entity names.Tag) error {
 	return store.call("UnpinLease", []interface{}{key, entity})
 }
 
-func (Store *Store) Pinned() map[lease.Key][]names.Tag {
-	return nil
+func (store *Store) Pinned() map[lease.Key][]names.Tag {
+	store.call("Pinned", nil)
+	return map[lease.Key][]names.Tag{
+		{
+			Namespace: "namespace",
+			ModelUUID: "modelUUID",
+			Lease:     "redis",
+		}: {names.NewMachineTag("0")},
+		{
+			Namespace: "ignored-namespace",
+			ModelUUID: "ignored modelUUID",
+			Lease:     "lolwut",
+		}: {names.NewMachineTag("666")},
+	}
 }
 
 // call defines a expected method call on a Store; it encodes:

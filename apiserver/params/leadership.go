@@ -84,3 +84,13 @@ type PinApplicationResult struct {
 	// if one occurred.
 	Error *Error `json:"error,omitempty"`
 }
+
+// PinnedLeadershipResults holds data representing the current applications for
+// which leadership is pinned
+type PinnedLeadershipResult struct {
+	// Result has:
+	// - Application tag keys representing the application pinned.
+	// - Tag slice values representing the entities requiring pinned
+	//   behaviour for each application.
+	Result map[string][]string `json:"result,omitempty"`
+}

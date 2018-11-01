@@ -94,6 +94,18 @@ func (s *PinSuite) TestUnpinLease_Error(c *gc.C) {
 	})
 }
 
+func (s *PinSuite) TestPinned(c *gc.C) {
+	fix := &Fixture{
+		expectCalls: []call{{
+			method: "Pinned",
+		}},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
+		pinned := getPinner(c, manager).Pinned()
+		c.Check(pinned, gc.DeepEquals, map[string][]names.Tag{"redis": {s.machineTag}})
+	})
+}
+
 func getPinner(c *gc.C, manager *lease.Manager) corelease.Pinner {
 	pinner, err := manager.Pinner("namespace", "modelUUID")
 	c.Assert(err, jc.ErrorIsNil)

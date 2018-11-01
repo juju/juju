@@ -36,6 +36,37 @@ func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinn
 	}
 }
 
+// PinnedLeadership returns a collection of application tags for which
+// leadership is currently pinned, with the applications requiring each
+// application's pinned behaviour.
+func (a *LeadershipPinningAPI) PinnedLeadership() (map[names.ApplicationTag][]names.Tag, error) {
+	var callResult params.PinnedLeadershipResult
+	err := a.facade.FacadeCall("PinnedLeadership", nil, &callResult)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	pinned := make(map[names.ApplicationTag][]names.Tag, len(callResult.Result))
+	for app, entities := range callResult.Result {
+		appTag, err := names.ParseApplicationTag(app)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		entityTags := make([]names.Tag, len(entities))
+		for i, e := range entities {
+			tag, err := names.ParseTag(e)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			entityTags[i] = tag
+		}
+
+		pinned[appTag] = entityTags
+	}
+	return pinned, nil
+}
+
 // PinMachineApplications pins leadership for applications represented by units
 // running on the local machine.
 // If the caller is not a machine agent, an error will be returned.

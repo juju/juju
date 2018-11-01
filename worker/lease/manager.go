@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -454,6 +456,18 @@ func (manager *Manager) handlePin(p pin) {
 
 func (manager *Manager) handleUnpin(p pin) {
 	p.respond(errors.Trace(manager.config.Store.UnpinLease(p.leaseKey, p.entity)))
+}
+
+// pinned returns lease names and the entities requiring their pinned
+// behaviour, from the input namespace/model for which leases are pinned.
+func (manager *Manager) pinned(namespace, modelUUID string) map[string][]names.Tag {
+	pinned := make(map[string][]names.Tag)
+	for key, entities := range manager.config.Store.Pinned() {
+		if key.Namespace == namespace && key.ModelUUID == modelUUID {
+			pinned[key.Lease] = entities
+		}
+	}
+	return pinned
 }
 
 func keysLess(a, b lease.Key) bool {

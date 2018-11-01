@@ -56,6 +56,10 @@ type Pinner interface {
 	// application and entity. Normal expiry behaviour is restored when no
 	// entities remain with pins for the application.
 	UnpinLeadership(applicationId string, entity names.Tag) error
+
+	// PinnedLeadership returns a map keyed on pinned application names,
+	// with entities that require the application's pinned behaviour.
+	PinnedLeadership() map[string][]names.Tag
 }
 
 // Token represents a unit's leadership of its application.

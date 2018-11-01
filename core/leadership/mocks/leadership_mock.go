@@ -45,6 +45,18 @@ func (mr *MockPinnerMockRecorder) PinLeadership(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinLeadership", reflect.TypeOf((*MockPinner)(nil).PinLeadership), arg0, arg1)
 }
 
+// PinnedLeadership mocks base method
+func (m *MockPinner) PinnedLeadership() map[string][]names_v2.Tag {
+	ret := m.ctrl.Call(m, "PinnedLeadership")
+	ret0, _ := ret[0].(map[string][]names_v2.Tag)
+	return ret0
+}
+
+// PinnedLeadership indicates an expected call of PinnedLeadership
+func (mr *MockPinnerMockRecorder) PinnedLeadership() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinnedLeadership", reflect.TypeOf((*MockPinner)(nil).PinnedLeadership))
+}
+
 // UnpinLeadership mocks base method
 func (m *MockPinner) UnpinLeadership(arg0 string, arg1 names_v2.Tag) error {
 	ret := m.ctrl.Call(m, "UnpinLeadership", arg0, arg1)

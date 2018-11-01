@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -47,6 +48,7 @@ func (s leadershipPinningBackend) Machine(name string) (LeadershipMachine, error
 type LeadershipPinningAPI interface {
 	PinMachineApplications() (params.PinApplicationsResults, error)
 	UnpinMachineApplications() (params.PinApplicationsResults, error)
+	PinnedLeadership() (params.PinnedLeadershipResult, error)
 }
 
 // NewLeadershipPinningFacade creates and returns a new leadership API.
@@ -83,6 +85,36 @@ type leadershipPinningAPI struct {
 	pinner     leadership.Pinner
 	authorizer facade.Authorizer
 }
+
+// PinnedLeadership returns all pinned applications and the entities that
+// require their pinned behaviour, for leadership in the current model.
+func (a *leadershipPinningAPI) PinnedLeadership() (params.PinnedLeadershipResult, error) {
+	result := params.PinnedLeadershipResult{}
+
+	canAccess, err := a.authorizer.HasPermission(permission.ReadAccess, a.modelTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !canAccess {
+		return result, ErrPerm
+	}
+
+	pinTags := a.pinner.PinnedLeadership()
+	pinned := make(map[string][]string, len(pinTags))
+	for app, tags := range pinTags {
+		entities := make([]string, len(tags))
+		for i, tag := range tags {
+			entities[i] = tag.String()
+		}
+		pinned[names.NewApplicationTag(app).String()] = entities
+	}
+	result.Result = pinned
+	return result, nil
+}
+
+// TODO (manadart 2018-10-29): Rename the two methods below (and on the client
+// side) to be [Un]PinApplicationLeaders, and derive the list of applications
+// based on the authenticating entity.
 
 // PinMachineApplications pins leadership for applications represented by units
 // running on the auth'd machine.

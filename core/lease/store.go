@@ -61,7 +61,7 @@ type Store interface {
 
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
-	// vested in its pinned behaviour.
+	// requiring its pinned behaviour.
 	Pinned() map[Key][]names.Tag
 }
 
