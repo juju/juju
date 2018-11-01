@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -56,16 +55,16 @@ type Pinner interface {
 	// the recipient of the pin behaviour.
 	// The input entity denotes the party responsible for the
 	// pinning operation.
-	Pin(leaseName string, entity names.Tag) error
+	Pin(leaseName string, entity string) error
 
 	// Unpin reverses a Pin operation for the same application and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	Unpin(leaseName string, entity names.Tag) error
+	Unpin(leaseName string, entity string) error
 
 	// Pinned returns all names for pinned leases, with the entities requiring
-	// their pinned behaviour
-	Pinned() map[string][]names.Tag
+	// their pinned behaviour.
+	Pinned() map[string][]string
 }
 
 // Checker exposes facts about lease ownership.

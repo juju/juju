@@ -36,16 +36,13 @@ func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
 func (s *LeadershipSuite) TestPinnedLeadership(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	resultSource := params.PinnedLeadershipResult{Result: map[string][]string{
-		"application-redis": {"machine-0", "machine-1"},
-	}}
+	pinned := map[string][]string{"redis": {"machine-0", "machine-1"}}
+	resultSource := params.PinnedLeadershipResult{Result: pinned}
 	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
 
 	res, err := s.client.PinnedLeadership()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, map[names.ApplicationTag][]names.Tag{
-		names.NewApplicationTag("redis"): {names.NewMachineTag("0"), names.NewMachineTag("1")},
-	})
+	c.Check(res, gc.DeepEquals, map[string][]names.Tag{"redis": {names.NewMachineTag("0"), names.NewMachineTag("1")}})
 }
 
 func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
@@ -72,7 +69,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := s.pinApplicationsClientSuccessResults()
-	exp[names.NewApplicationTag("wordpress")] = errorRes
+	exp["wordpress"] = errorRes
 	c.Check(res, gc.DeepEquals, exp)
 }
 
@@ -109,22 +106,22 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := s.pinApplicationsClientSuccessResults()
-	exp[names.NewApplicationTag("redis")] = errorRes
+	exp["redis"] = errorRes
 	c.Check(res, gc.DeepEquals, exp)
 }
 
 func (s *LeadershipSuite) pinApplicationsServerSuccessResults() []params.PinApplicationResult {
 	results := make([]params.PinApplicationResult, len(s.machineApps))
 	for i, app := range s.machineApps {
-		results[i] = params.PinApplicationResult{ApplicationTag: names.NewApplicationTag(app).String()}
+		results[i] = params.PinApplicationResult{ApplicationName: app}
 	}
 	return results
 }
 
-func (s *LeadershipSuite) pinApplicationsClientSuccessResults() map[names.ApplicationTag]error {
-	results := make(map[names.ApplicationTag]error, len(s.machineApps))
+func (s *LeadershipSuite) pinApplicationsClientSuccessResults() map[string]error {
+	results := make(map[string]error, len(s.machineApps))
 	for _, app := range s.machineApps {
-		results[names.NewApplicationTag(app)] = nil
+		results[app] = nil
 	}
 	return results
 }

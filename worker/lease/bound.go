@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/lease"
 )
@@ -78,23 +77,23 @@ func (b *boundManager) Token(leaseName, holderName string) lease.Token {
 
 // Pinned (lease.Pinner) returns applications and the entities requiring their
 // pinned behaviour, for pinned leases in the bound namespace/model.
-func (b *boundManager) Pinned() map[string][]names.Tag {
+func (b *boundManager) Pinned() map[string][]string {
 	return b.manager.pinned(b.namespace, b.modelUUID)
 }
 
 // Pin (lease.Pinner) sends a pin message to the worker loop.
-func (b *boundManager) Pin(leaseName string, entity names.Tag) error {
+func (b *boundManager) Pin(leaseName string, entity string) error {
 	return errors.Trace(b.pinOp(leaseName, entity, b.manager.pins))
 }
 
 // Unpin (lease.Pinner) sends an unpin message to the worker loop.
-func (b *boundManager) Unpin(leaseName string, entity names.Tag) error {
+func (b *boundManager) Unpin(leaseName string, entity string) error {
 	return errors.Trace(b.pinOp(leaseName, entity, b.manager.unpins))
 }
 
 // pinOp creates a pin instance from the input lease name,
 // then sends it on the input channel.
-func (b *boundManager) pinOp(leaseName string, entity names.Tag, ch chan pin) error {
+func (b *boundManager) pinOp(leaseName string, entity string, ch chan pin) error {
 	return errors.Trace(pin{
 		leaseKey: b.leaseKey(leaseName),
 		entity:   entity,

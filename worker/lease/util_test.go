@@ -173,28 +173,28 @@ func (store *Store) Refresh() error {
 }
 
 // PinLease is part of the corelease.Store interface.
-func (store *Store) PinLease(key lease.Key, entity names.Tag) error {
+func (store *Store) PinLease(key lease.Key, entity string) error {
 	return store.call("PinLease", []interface{}{key, entity})
 }
 
 // UnpinLease is part of the corelease.Store interface.
-func (store *Store) UnpinLease(key lease.Key, entity names.Tag) error {
+func (store *Store) UnpinLease(key lease.Key, entity string) error {
 	return store.call("UnpinLease", []interface{}{key, entity})
 }
 
-func (store *Store) Pinned() map[lease.Key][]names.Tag {
+func (store *Store) Pinned() map[lease.Key][]string {
 	store.call("Pinned", nil)
-	return map[lease.Key][]names.Tag{
+	return map[lease.Key][]string{
 		{
 			Namespace: "namespace",
 			ModelUUID: "modelUUID",
 			Lease:     "redis",
-		}: {names.NewMachineTag("0")},
+		}: {names.NewMachineTag("0").String()},
 		{
 			Namespace: "ignored-namespace",
 			ModelUUID: "ignored modelUUID",
 			Lease:     "lolwut",
-		}: {names.NewMachineTag("666")},
+		}: {names.NewMachineTag("666").String()},
 	}
 }
 

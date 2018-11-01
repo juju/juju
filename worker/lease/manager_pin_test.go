@@ -18,23 +18,23 @@ import (
 type PinSuite struct {
 	testing.IsolationSuite
 
-	appName    string
-	machineTag names.MachineTag
-	pinArgs    []interface{}
+	appName string
+	machine string
+	pinArgs []interface{}
 }
 
 func (s *PinSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.appName = "redis"
-	s.machineTag = names.NewMachineTag("0")
+	s.machine = names.NewMachineTag("0").String()
 	s.pinArgs = []interface{}{
 		corelease.Key{
 			Namespace: "namespace",
 			ModelUUID: "modelUUID",
 			Lease:     s.appName,
 		},
-		s.machineTag,
+		s.machine,
 	}
 }
 
@@ -48,7 +48,7 @@ func (s *PinSuite) TestPinLease_Success(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		err := getPinner(c, manager).Pin(s.appName, s.machineTag)
+		err := getPinner(c, manager).Pin(s.appName, s.machine)
 		c.Assert(err, jc.ErrorIsNil)
 	})
 }
@@ -62,7 +62,7 @@ func (s *PinSuite) TestPinLease_Error(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		err := getPinner(c, manager).Pin(s.appName, s.machineTag)
+		err := getPinner(c, manager).Pin(s.appName, s.machine)
 		c.Check(err, gc.ErrorMatches, "boom")
 	})
 }
@@ -75,7 +75,7 @@ func (s *PinSuite) TestUnpinLease_Success(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		err := getPinner(c, manager).Unpin(s.appName, s.machineTag)
+		err := getPinner(c, manager).Unpin(s.appName, s.machine)
 		c.Assert(err, jc.ErrorIsNil)
 	})
 }
@@ -89,7 +89,7 @@ func (s *PinSuite) TestUnpinLease_Error(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		err := getPinner(c, manager).Unpin(s.appName, s.machineTag)
+		err := getPinner(c, manager).Unpin(s.appName, s.machine)
 		c.Check(err, gc.ErrorMatches, "boom")
 	})
 }
@@ -102,7 +102,7 @@ func (s *PinSuite) TestPinned(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		pinned := getPinner(c, manager).Pinned()
-		c.Check(pinned, gc.DeepEquals, map[string][]names.Tag{"redis": {s.machineTag}})
+		c.Check(pinned, gc.DeepEquals, map[string][]string{"redis": {s.machine}})
 	})
 }
 

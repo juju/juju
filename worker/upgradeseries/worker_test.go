@@ -275,9 +275,9 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
 	exp.FinishUpgradeSeries("xenial").Return(nil)
-	exp.UnpinMachineApplications().Return(map[names.ApplicationTag]error{
-		names.NewApplicationTag("mysql"):     nil,
-		names.NewApplicationTag("wordpress"): nil,
+	exp.UnpinMachineApplications().Return(map[string]error{
+		"mysql":     nil,
+		"wordpress": nil,
 	}, nil)
 }
 
@@ -332,9 +332,9 @@ func (s *workerSuite) expectUnitsPrepared(units ...string) {
 // often be in the Test... method instead of its partner expectation
 // method.
 func (s *workerSuite) expectPinLeadership() {
-	s.facade.EXPECT().PinMachineApplications().Return(map[names.ApplicationTag]error{
-		names.NewApplicationTag("mysql"):     nil,
-		names.NewApplicationTag("wordpress"): nil,
+	s.facade.EXPECT().PinMachineApplications().Return(map[string]error{
+		"mysql":     nil,
+		"wordpress": nil,
 	}, nil)
 }
 

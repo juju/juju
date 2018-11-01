@@ -36,23 +36,18 @@ func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinn
 	}
 }
 
-// PinnedLeadership returns a collection of application tags for which
-// leadership is currently pinned, with the applications requiring each
+// PinnedLeadership returns a collection of application names for which
+// leadership is currently pinned, with the entities requiring each
 // application's pinned behaviour.
-func (a *LeadershipPinningAPI) PinnedLeadership() (map[names.ApplicationTag][]names.Tag, error) {
+func (a *LeadershipPinningAPI) PinnedLeadership() (map[string][]names.Tag, error) {
 	var callResult params.PinnedLeadershipResult
 	err := a.facade.FacadeCall("PinnedLeadership", nil, &callResult)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	pinned := make(map[names.ApplicationTag][]names.Tag, len(callResult.Result))
+	pinned := make(map[string][]names.Tag, len(callResult.Result))
 	for app, entities := range callResult.Result {
-		appTag, err := names.ParseApplicationTag(app)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		entityTags := make([]names.Tag, len(entities))
 		for i, e := range entities {
 			tag, err := names.ParseTag(e)
@@ -62,7 +57,7 @@ func (a *LeadershipPinningAPI) PinnedLeadership() (map[names.ApplicationTag][]na
 			entityTags[i] = tag
 		}
 
-		pinned[appTag] = entityTags
+		pinned[app] = entityTags
 	}
 	return pinned, nil
 }
@@ -72,7 +67,7 @@ func (a *LeadershipPinningAPI) PinnedLeadership() (map[names.ApplicationTag][]na
 // If the caller is not a machine agent, an error will be returned.
 // The return is a collection of applications determined to be running on the
 // machine, with the result of each individual pin operation.
-func (a *LeadershipPinningAPI) PinMachineApplications() (map[names.ApplicationTag]error, error) {
+func (a *LeadershipPinningAPI) PinMachineApplications() (map[string]error, error) {
 	res, err := a.pinMachineAppsOps("PinMachineApplications")
 	return res, errors.Trace(err)
 }
@@ -82,14 +77,14 @@ func (a *LeadershipPinningAPI) PinMachineApplications() (map[names.ApplicationTa
 // If the caller is not a machine agent, an error will be returned.
 // The return is a collection of applications determined to be running on the
 // machine, with the result of each individual unpin operation.
-func (a *LeadershipPinningAPI) UnpinMachineApplications() (map[names.ApplicationTag]error, error) {
+func (a *LeadershipPinningAPI) UnpinMachineApplications() (map[string]error, error) {
 	res, err := a.pinMachineAppsOps("UnpinMachineApplications")
 	return res, errors.Trace(err)
 }
 
 // pinMachineAppsOps makes a facade call to the input method name and
 // transforms the response into map.
-func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[names.ApplicationTag]error, error) {
+func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[string]error, error) {
 	var callResult params.PinApplicationsResults
 	err := a.facade.FacadeCall(callName, nil, &callResult)
 	if err != nil {
@@ -97,17 +92,13 @@ func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[names.App
 	}
 
 	callResults := callResult.Results
-	result := make(map[names.ApplicationTag]error, len(callResults))
+	result := make(map[string]error, len(callResults))
 	for _, res := range callResults {
 		var appErr error
 		if res.Error != nil {
 			appErr = res.Error
 		}
-		tag, err := names.ParseApplicationTag(res.ApplicationTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result[tag] = appErr
+		result[res.ApplicationName] = appErr
 	}
 	return result, nil
 }

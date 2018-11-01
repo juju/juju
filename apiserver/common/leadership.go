@@ -99,16 +99,7 @@ func (a *leadershipPinningAPI) PinnedLeadership() (params.PinnedLeadershipResult
 		return result, ErrPerm
 	}
 
-	pinTags := a.pinner.PinnedLeadership()
-	pinned := make(map[string][]string, len(pinTags))
-	for app, tags := range pinTags {
-		entities := make([]string, len(tags))
-		for i, tag := range tags {
-			entities[i] = tag.String()
-		}
-		pinned[names.NewApplicationTag(app).String()] = entities
-	}
-	result.Result = pinned
+	result.Result = a.pinner.PinnedLeadership()
 	return result, nil
 }
 
@@ -138,26 +129,28 @@ func (a *leadershipPinningAPI) UnpinMachineApplications() (params.PinApplication
 // applications represented by units on the authorised machine.
 // An assumption is made that the validity of the auth tag has been verified
 // by the caller.
-func (a *leadershipPinningAPI) pinMachineAppsOps(op func(string, names.Tag) error) (params.PinApplicationsResults, error) {
-	tag := a.authorizer.GetAuthTag()
+func (a *leadershipPinningAPI) pinMachineAppsOps(op func(string, string) error) (params.PinApplicationsResults, error) {
+	result := params.PinApplicationsResults{}
 
+	tag := a.authorizer.GetAuthTag()
 	m, err := a.st.Machine(tag.Id())
 	if err != nil {
-		return params.PinApplicationsResults{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	apps, err := m.ApplicationNames()
 	if err != nil {
-		return params.PinApplicationsResults{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 
 	results := make([]params.PinApplicationResult, len(apps))
 	for i, app := range apps {
 		results[i] = params.PinApplicationResult{
-			ApplicationTag: names.NewApplicationTag(app).String(),
+			ApplicationName: app,
 		}
-		if err := op(app, tag); err != nil {
+		if err := op(app, tag.String()); err != nil {
 			results[i].Error = ServerError(err)
 		}
 	}
-	return params.PinApplicationsResults{Results: results}, nil
+	result.Results = results
+	return result, nil
 }

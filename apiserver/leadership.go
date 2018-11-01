@@ -6,8 +6,6 @@ package apiserver
 import (
 	"time"
 
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/leadership"
@@ -75,19 +73,19 @@ type leadershipPinner struct {
 
 // PinLeadership (leadership.Pinner) pins the lease
 // for the input application and entity.
-func (m leadershipPinner) PinLeadership(applicationId string, entity names.Tag) error {
-	return errors.Trace(m.pinner.Pin(applicationId, entity))
+func (m leadershipPinner) PinLeadership(applicationName string, entity string) error {
+	return errors.Trace(m.pinner.Pin(applicationName, entity))
 }
 
 // UnpinLeadership (leadership.Pinner) unpins the lease
 // for the input application and entity.
-func (m leadershipPinner) UnpinLeadership(applicationId string, entity names.Tag) error {
-	return errors.Trace(m.pinner.Unpin(applicationId, entity))
+func (m leadershipPinner) UnpinLeadership(applicationName string, entity string) error {
+	return errors.Trace(m.pinner.Unpin(applicationName, entity))
 }
 
 // PinnedLeadership (leadership.Pinner) returns applications for which
 // leadership is pinned, along with the entities requiring the
 // pinned behaviour.
-func (m leadershipPinner) PinnedLeadership() map[string][]names.Tag {
+func (m leadershipPinner) PinnedLeadership() map[string][]string {
 	return m.pinner.Pinned()
 }

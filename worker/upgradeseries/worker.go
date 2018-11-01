@@ -356,12 +356,12 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 	}
 
 	var lastErr error
-	for appTag, err := range results {
+	for app, err := range results {
 		if err == nil {
-			w.logger.Infof("unpin leader for application %q", appTag.Id())
+			w.logger.Infof("unpin leader for application %q", app)
 			continue
 		}
-		w.logger.Errorf("failed to pin leader for application %q: %s", appTag.Id(), err.Error())
+		w.logger.Errorf("failed to pin leader for application %q: %s", app, err.Error())
 		lastErr = err
 	}
 
@@ -381,12 +381,12 @@ func (w *upgradeSeriesWorker) unpinLeaders() error {
 	}
 
 	var lastErr error
-	for appTag, err := range results {
+	for app, err := range results {
 		if err == nil {
-			w.logger.Infof("unpinned leader for application %q", appTag.Id())
+			w.logger.Infof("unpinned leader for application %q", app)
 			continue
 		}
-		w.logger.Errorf("failed to unpin leader for application %q: %s", appTag.Id(), err.Error())
+		w.logger.Errorf("failed to unpin leader for application %q: %s", app, err.Error())
 		lastErr = err
 	}
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 )
 
 // Store manipulates leases directly, and is most likely to be seen set on a
@@ -52,17 +51,17 @@ type Store interface {
 	// the recipient of the pin behaviour.
 	// The input entity denotes the party responsible for the
 	// pinning operation.
-	PinLease(lease Key, entity names.Tag) error
+	PinLease(lease Key, entity string) error
 
 	// Unpin reverses a Pin operation for the same key and entity.
 	// Normal expiry behaviour is restored when no entities remain with
 	// pins for the application.
-	UnpinLease(lease Key, tag names.Tag) error
+	UnpinLease(lease Key, entity string) error
 
 	// Pinned returns a snapshot of pinned leases.
 	// The return consists of each pinned lease and the collection of entities
 	// requiring its pinned behaviour.
-	Pinned() map[Key][]names.Tag
+	Pinned() map[Key][]string
 }
 
 // Key fully identifies a lease, including the namespace and
