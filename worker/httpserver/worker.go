@@ -170,42 +170,41 @@ func (w *Worker) loop() error {
 type heldListener struct {
 	net.Listener
 	clock clock.Clock
-	mu    sync.Mutex
+	cond  *sync.Cond
 	held  bool
 }
 
 func newHeldListener(l net.Listener, c clock.Clock) *heldListener {
+	var mu sync.Mutex
 	return &heldListener{
 		Listener: l,
 		clock:    c,
+		cond:     sync.NewCond(&mu),
 	}
 }
 
 func (h *heldListener) hold() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.cond.L.Lock()
+	defer h.cond.L.Unlock()
 	h.held = true
+	// No need to signal the cond here, since nothing that's waiting
+	// for the listener to be unheld can run.
 }
 
 func (h *heldListener) release() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.cond.L.Lock()
+	defer h.cond.L.Unlock()
 	h.held = false
+	// Wake up any goroutines waiting for held to be false.
+	h.cond.Broadcast()
 }
 
 func (h *heldListener) Accept() (net.Conn, error) {
-	// Normally we'd use a channel to signal between goroutines,
-	// but in this case where we want accept to be fast in almost all cases,
-	// but wait when held, we can't have it selecting on a channel outside
-	// of the mutex lock without a race condition. So the safe and slightly
-	// icky method is to wait in a for loop.
-	h.mu.Lock()
+	h.cond.L.Lock()
 	for h.held {
-		h.mu.Unlock()
-		<-h.clock.After(100 * time.Millisecond)
-		h.mu.Lock()
+		h.cond.Wait()
 	}
-	h.mu.Unlock()
+	h.cond.L.Unlock()
 	return h.Listener.Accept()
 }
 
@@ -352,10 +351,9 @@ func (d *dualListener) URL() string {
 
 // openAPIPort opens the api port and starts accepting connections.
 func (d *dualListener) openAPIPort(_ string, _ map[string]interface{}) {
+	d.unsub()
 	logger.Infof("waiting for %s before allowing api connections", d.delay)
 	<-d.clock.After(d.delay)
-
-	defer d.unsub()
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -379,5 +377,6 @@ func (d *dualListener) openAPIPort(_ string, _ map[string]interface{}) {
 	}
 
 	logger.Infof("listening for api connections on %q", listener.Addr())
+	d.apiListener = listener
 	go d.accept(listener)
 }
