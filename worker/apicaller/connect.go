@@ -82,7 +82,6 @@ func connectFallback(
 ) (
 	conn api.Connection, didFallback bool, err error,
 ) {
-
 	// We expect to assign to `conn`, `err`, *and* `info` in
 	// the course of this operation: wrapping this repeated
 	// atom in a func currently seems to be less treacherous
@@ -95,7 +94,10 @@ func connectFallback(
 			// controller such that the round trip time could be as high
 			// as 500ms.
 			DialTimeout: 3 * time.Second,
-			RetryDelay:  200 * time.Millisecond,
+			// The delay between connecting to a different controller. Setting this to 0 means we try all controllers
+			// simultaneously. We set it to approximately how long the TLS handshake takes, to avoid doing TLS
+			// handshakes to a controller that we are going to end up ignoring.
+			DialAddressInterval: 200 * time.Millisecond,
 			// The timeout is for the complete login handshake.
 			// If the server is rate limiting, it will normally pause
 			// before responding to the login request, but the pause is
