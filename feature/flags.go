@@ -43,12 +43,6 @@ const StrictMigration = "strict-migration"
 // This value is only checked using the controller config "features" attrubite.
 const OldPresence = "old-presence"
 
-// DisableRaft will prevent the raft workers from running. At the
-// moment the raft cluster isn't managing leadership, so we want the
-// ability to stop the workers from running if they cause any issues
-// (or just unwanted noise).
-const DisableRaft = "disable-raft"
-
 // LegacyLeases will switch all lease management to be handled by the
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"
