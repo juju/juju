@@ -137,7 +137,7 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	cleanup()
 	defer cleanup()
 	apiPort := 34567 // Default 17070
-	group, err := openstack.SetUpGlobalGroup(t.Env, groupName, apiPort)
+	group, err := openstack.SetUpGlobalGroup(t.Env, t.ProviderCallContext, groupName, apiPort)
 	c.Assert(err, jc.ErrorIsNil)
 	// We default to exporting 22, apiPort, and icmp/udp/tcp on
 	// all ports to other machines inside the same group

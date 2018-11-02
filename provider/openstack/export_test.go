@@ -12,6 +12,7 @@ import (
 	"gopkg.in/goose.v2/swift"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -60,17 +61,17 @@ func (fakeNamespace) Value(s string) string {
 	return "juju-" + s
 }
 
-func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (neutron.SecurityGroupV2, error) {
+func SetUpGlobalGroup(e environs.Environ, ctx context.ProviderCallContext, name string, apiPort int) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	if err := switching.initFirewaller(); err != nil {
+	if err := switching.initFirewaller(ctx); err != nil {
 		return neutron.SecurityGroupV2{}, err
 	}
 	return switching.fw.(*neutronFirewaller).setUpGlobalGroup(name, apiPort)
 }
 
-func EnsureGroup(e environs.Environ, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
+func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	if err := switching.initFirewaller(); err != nil {
+	if err := switching.initFirewaller(ctx); err != nil {
 		return neutron.SecurityGroupV2{}, err
 	}
 	return switching.fw.(*neutronFirewaller).ensureGroup(name, rules)
@@ -86,12 +87,12 @@ func MachineGroupName(e environs.Environ, controllerUUID, machineId string) stri
 	return switching.fw.(*neutronFirewaller).machineGroupName(controllerUUID, machineId)
 }
 
-func MatchingGroup(e environs.Environ, nameRegExp string) (neutron.SecurityGroupV2, error) {
+func MatchingGroup(e environs.Environ, ctx context.ProviderCallContext, nameRegExp string) (neutron.SecurityGroupV2, error) {
 	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	if err := switching.initFirewaller(); err != nil {
+	if err := switching.initFirewaller(ctx); err != nil {
 		return neutron.SecurityGroupV2{}, err
 	}
-	return switching.fw.(*neutronFirewaller).matchingGroup(nameRegExp)
+	return switching.fw.(*neutronFirewaller).matchingGroup(ctx, nameRegExp)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
