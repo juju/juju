@@ -114,19 +114,19 @@ run beforehand.
 
 Examples:
 
-Prepare <machine> for upgrade to series <series>:
+Prepare machine 3 for upgrade to series "bionic"":
 
-	juju upgrade-series <machine> prepare <series>
+	juju upgrade-series 3 prepare bionic
 
-Prepare <machine> for upgrade to series <series> even if there are applications
+Prepare machine 4 for upgrade to series "cosmic" even if there are applications
 running units that do not support the target series:
 
-	juju upgrade-series <machine> prepare <series> --force
+	juju upgrade-series 4 prepare cosmic --force
 
-Complete upgrade of <machine> to <series> indicating that all automatic and any
+Complete upgrade of machine 5, indicating that all automatic and any
 necessary manual upgrade steps have completed successfully:
 
-	juju upgrade-series <machine> complete
+	juju upgrade-series 5 complete
 
 See also:
     machines
