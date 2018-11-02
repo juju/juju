@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
 // ResolverConfig defines configuration for the uniter resolver.
@@ -23,6 +24,7 @@ type ResolverConfig struct {
 	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
+	UpgradeSeries       resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
 	Relations           resolver.Resolver
@@ -52,12 +54,15 @@ func (s *uniterResolver) NextOp(
 		return nil, resolver.ErrTerminate
 	}
 
-	// If the unit has completed a pre-series-upgrade hook (as noted by its
-	// state) then the uniter should idle in the face of all remote state
-	// changes accept for those which indicate termination - the unit is
-	// waiting to be shutdown.
-	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
-		return nil, resolver.ErrNoOperation
+	// Operations for series-upgrade need to be resolved early,
+	// in particular because no other operations should be run when the unit
+	// has completed preparation and is waiting for upgrade completion.
+	op, err := s.config.UpgradeSeries.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		if errors.Cause(err) == upgradeseries.ErrDoNotProceed {
+			return nil, resolver.ErrNoOperation
+		}
+		return op, err
 	}
 
 	if localState.Kind == operation.Upgrade {
@@ -83,7 +88,7 @@ func (s *uniterResolver) NextOp(
 		s.retryHookTimerStarted = false
 	}
 
-	op, err := s.config.Leadership.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Leadership.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
@@ -269,17 +274,6 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
-	// This is checked early so that after a series upgrade, it is the first
-	// hook to be run. The uniter's local state will be in the "not started" state
-	// if the uniter was stopped, for whatever reason, when performing a
-	// series upgrade. If the uniter was not stopped then it will be in the
-	// "prepare completed" state and should fire the hook likewise.
-	if (localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted ||
-		localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted) &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
-		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
-	}
-
 	// Only IAAS models will react to a charm modified change.
 	// For CAAS models, the operator will unpack the new charm and
 	// inform the uniter workers to run the upgrade hook.
@@ -294,19 +288,6 @@ func (s *uniterResolver) nextOp(
 	if localState.ConfigVersion != remoteState.ConfigVersion ||
 		localState.Series != remoteState.Series {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-	}
-
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareStarted {
-		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
-	}
-
-	// If the local state is completed but the remote state is not started,
-	// then this means that the lock has been removed and the local uniter
-	// state should be reset.
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesCompleted &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted {
-		return opFactory.NewNoOpFinishUpgradeSeries()
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
