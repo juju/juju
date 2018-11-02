@@ -309,7 +309,10 @@ func (d *dualListener) Accept() (net.Conn, error) {
 	case <-d.done:
 		return nil, errors.New("listener has been closed")
 	case err := <-d.errors:
-		return nil, errors.Trace(err)
+		// Don't wrap this error with errors.Trace - the stdlib http
+		// server code has handling for various net error types (like
+		// temporary failures) that we don't want to interfere with.
+		return nil, err
 	case conn := <-d.connections:
 		return conn, nil
 	}
@@ -352,8 +355,10 @@ func (d *dualListener) URL() string {
 // openAPIPort opens the api port and starts accepting connections.
 func (d *dualListener) openAPIPort(_ string, _ map[string]interface{}) {
 	d.unsub()
-	logger.Infof("waiting for %s before allowing api connections", d.delay)
-	<-d.clock.After(d.delay)
+	if d.delay > 0 {
+		logger.Infof("waiting for %s before allowing api connections", d.delay)
+		<-d.clock.After(d.delay)
+	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()

@@ -371,6 +371,8 @@ func (c Config) ControllerAPIPort() int {
 	if value, ok := c[ControllerAPIPort].(float64); ok {
 		return int(value)
 	}
+	// If the value isn't an int, this conversion will fail and value
+	// will be 0, which is what we want here.
 	value, _ := c[ControllerAPIPort].(int)
 	return value
 }

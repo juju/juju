@@ -232,13 +232,6 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	c.Assert(err, gc.ErrorMatches, "current upgrade info not found")
 }
 
-func (s *upgradeSuite) logAPIPort(c *gc.C, tag string) {
-	agentConf := agentcmd.NewAgentConf(s.DataDir())
-	agentConf.ReadConfig(tag)
-	info, ok := agentConf.CurrentConfig().StateServingInfo()
-	c.Logf("\n\nok=%v, API port is %d\n\n", ok, info.APIPort)
-}
-
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgent {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
