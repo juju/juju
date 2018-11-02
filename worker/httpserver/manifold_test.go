@@ -29,7 +29,6 @@ type ManifoldSuite struct {
 	agent                *mockAgent
 	state                stubStateTracker
 	mux                  *apiserverhttp.Mux
-	raftEnabled          *mockFlag
 	prometheusRegisterer stubPrometheusRegisterer
 	certWatcher          stubCertWatcher
 	tlsConfig            *tls.Config
@@ -45,7 +44,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.agent = &mockAgent{}
 	s.state = stubStateTracker{}
 	s.mux = &apiserverhttp.Mux{}
-	s.raftEnabled = &mockFlag{set: true}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}
 	s.tlsConfig = &tls.Config{}
@@ -59,7 +57,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		MuxName:              "mux",
 		APIServerName:        "api-server",
 		RaftTransportName:    "raft-transport",
-		RaftEnabledName:      "raft-enabled",
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		NewTLSConfig:         s.newTLSConfig,
 		NewWorker:            s.newWorker,
@@ -73,7 +70,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"cert-watcher":   s.certWatcher.get,
 		"state":          &s.state,
 		"mux":            s.mux,
-		"raft-enabled":   s.raftEnabled,
 		"raft-transport": nil,
 		"api-server":     nil,
 	}
@@ -107,7 +103,6 @@ var expectedInputs = []string{
 	"cert-watcher",
 	"state",
 	"mux",
-	"raft-enabled",
 	"raft-transport",
 	"api-server",
 }
@@ -168,9 +163,6 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		func(cfg *httpserver.ManifoldConfig) { cfg.APIServerName = "" },
 		"empty APIServerName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.RaftEnabledName = "" },
-		"empty RaftEnabledName not valid",
-	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
 	}, {
@@ -191,17 +183,6 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestStartWithRaftDisabled(c *gc.C) {
-	s.raftEnabled.set = false
-	s.context = s.newContext(map[string]interface{}{
-		"raft-transport": dependency.ErrMissing,
-	})
-	// If raft is disabled raft-transport isn't needed to start
-	// up.
-	w := s.startWorkerClean(c)
-	workertest.CleanKill(c, w)
-}
-
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
@@ -217,12 +198,4 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
-}
-
-type mockFlag struct {
-	set bool
-}
-
-func (f *mockFlag) Check() bool {
-	return f.set
 }

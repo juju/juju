@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -32,7 +31,6 @@ type ManifoldConfig struct {
 	// their handlers are registered.
 	RaftTransportName string
 	APIServerName     string
-	RaftEnabledName   string
 
 	PrometheusRegisterer prometheus.Registerer
 
@@ -53,9 +51,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
-	}
-	if config.RaftEnabledName == "" {
-		return errors.NotValidf("empty RaftEnabledName")
 	}
 	if config.RaftTransportName == "" {
 		return errors.NotValidf("empty RaftTransportName")
@@ -85,7 +80,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.CertWatcherName,
 			config.StateName,
 			config.MuxName,
-			config.RaftEnabledName,
 			config.RaftTransportName,
 			config.APIServerName,
 		},
@@ -119,15 +113,8 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err := context.Get(config.APIServerName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Only check for the raft transport if raft is enabled.
-	var raftEnabled engine.Flag
-	if err := context.Get(config.RaftEnabledName, &raftEnabled); err != nil {
+	if err := context.Get(config.RaftTransportName, nil); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if raftEnabled.Check() {
-		if err := context.Get(config.RaftTransportName, nil); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	var stTracker workerstate.StateTracker
