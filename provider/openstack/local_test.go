@@ -1706,7 +1706,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 		},
 	}
 
-	group, err := openstack.EnsureGroup(s.env, "test group", rule)
+	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
 
@@ -1742,7 +1742,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			EthernetType: "IPv6",
 		},
 	}
-	group, err = openstack.EnsureGroup(s.env, "test group", rules)
+	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", rules)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1752,7 +1752,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
 
 	// 3rd time with same name, should be back to the original now
-	group, err = openstack.EnsureGroup(s.env, "test group", rule)
+	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1776,24 +1776,24 @@ func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	}
 
 	err := bootstrapEnv(c, s.env)
-	group1, err := openstack.EnsureGroup(s.env,
+	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
 	c.Assert(err, jc.ErrorIsNil)
-	group2, err := openstack.EnsureGroup(s.env,
+	group2, err := openstack.EnsureGroup(s.env, s.callCtx,
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), rule)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
+	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
+	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
-	groupMatched, err := openstack.MatchingGroup(s.env, machineNameRegexp)
+	groupMatched, err := openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
 
 	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
-	groupMatched, err = openstack.MatchingGroup(s.env, machineNameRegexp)
+	groupMatched, err = openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
 }
