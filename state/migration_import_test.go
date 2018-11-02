@@ -418,7 +418,7 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) setupSourceApplications(
-	c *gc.C, st *state.State, cons constraints.Value,
+	c *gc.C, st *state.State, cons constraints.Value, primeStatusHistory bool,
 ) (*state.Charm, *state.Application, string) {
 	f := factory.NewFactory(st, s.StatePool)
 
@@ -461,13 +461,15 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	if model.Type() == state.ModelTypeCAAS {
 		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
 	}
-	s.primeStatusHistory(c, application, status.Active, 5)
+	if primeStatusHistory {
+		s.primeStatusHistory(c, application, status.Active, 5)
+	}
 	return charm, application, pwd
 }
 
 func (s *MigrationImportSuite) assertImportedApplication(
 	c *gc.C, application *state.Application, pwd string, cons constraints.Value,
-	exported *state.Application, newModel *state.Model, newSt *state.State,
+	exported *state.Application, newModel *state.Model, newSt *state.State, checkStatusHistory bool,
 ) {
 	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,7 +501,9 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
 	s.assertAnnotations(c, newModel, imported)
-	s.checkStatusHistory(c, application, imported, 5)
+	if checkStatusHistory {
+		s.checkStatusHistory(c, application, imported, 5)
+	}
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -527,7 +531,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	charm, application, pwd := s.setupSourceApplications(c, s.State, cons)
+	charm, application, pwd := s.setupSourceApplications(c, s.State, cons, true)
 
 	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -543,7 +547,41 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 		URL:      charm.URL().String(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
-	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt)
+	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
+}
+
+func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	charm, application, pwd := s.setupSourceApplications(c, s.State, cons, false)
+
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: application,
+		Status: &status.StatusInfo{
+			Status:  status.Active,
+			Message: "unit active",
+		},
+	})
+
+	allApplications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 1)
+	exported := allApplications[0]
+
+	newModel, newSt := s.importModel(c, s.State)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt, s.StatePool)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      charm.URL().String(),
+		Revision: strconv.Itoa(charm.Revision()),
+	})
+	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
+	newApp, err := newSt.Application(application.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	appStatus, err := newApp.Status()
+	c.Assert(appStatus.Status, gc.Equals, status.Active)
+	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
 
 func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
@@ -551,7 +589,8 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons)
+	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, true)
+
 	model, err := caasSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	caasModel, err := model.CAASModel()
@@ -576,7 +615,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 		URL:      charm.URL().String(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
-	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt)
+	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
 	newCAASModel, err := newModel.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec, err := newCAASModel.PodSpec(application.ApplicationTag())
@@ -590,6 +629,69 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(cloudService.Addresses(), jc.DeepEquals, []network.Address{addr})
 	c.Assert(newApp.GetScale(), gc.Equals, 3)
 	c.Assert(newApp.GetPlacement(), gc.Equals, "foo=bar")
+}
+
+func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
+	// Caas application status that is derived from unit statuses must survive migration.
+	caasSt := s.Factory.MakeCAASModel(c, nil)
+	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
+
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	charm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
+	ss, err := application.Status()
+	c.Logf("status: %s", ss)
+
+	addUnitFactory := factory.NewFactory(caasSt, s.StatePool)
+	unit := addUnitFactory.MakeUnit(c, &factory.UnitParams{
+		Application: application,
+		Status: &status.StatusInfo{
+			Status:  status.Active,
+			Message: "unit active",
+		},
+	})
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		unit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("provider-id"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"80"},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "cloud container active",
+			},
+		})}
+	err = application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := caasSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	caasModel, err := model.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
+	c.Assert(err, jc.ErrorIsNil)
+	addr := network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal)
+	err = application.UpdateCloudService("provider-id", []network.Address{addr})
+	c.Assert(err, jc.ErrorIsNil)
+
+	allApplications, err := caasSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 1)
+
+	_, newSt := s.importModel(c, caasSt)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt, s.StatePool)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      charm.URL().String(),
+		Revision: strconv.Itoa(charm.Revision()),
+	})
+	newApp, err := newSt.Application(application.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	// Must use derived status
+	appStatus, err := newApp.Status()
+	c.Assert(appStatus.Status, gc.Equals, status.Active)
+	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {

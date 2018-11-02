@@ -2457,6 +2457,7 @@ type addApplicationOpsArgs struct {
 	// These are nil when adding a new application, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
+	operatorStatus     *statusDoc
 }
 
 // addApplicationOps returns the operations required to add an application to the
@@ -2491,7 +2492,11 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == ModelTypeCAAS {
-		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.Name()), args.statusDoc))
+		operatorStatusDoc := args.statusDoc
+		if args.operatorStatus != nil {
+			operatorStatusDoc = *args.operatorStatus
+		}
+		ops = append(ops, createStatusOp(mb, applicationGlobalOperatorKey(app.Name()), operatorStatusDoc))
 	}
 
 	ops = append(ops, charmRefOps...)

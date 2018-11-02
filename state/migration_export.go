@@ -745,15 +745,14 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exApplication.SetAnnotations(e.getAnnotations(globalKey))
 
-	// TODO(caas) - Actually use the exported application operator details and status history.
-	// Currently these are only grabbed to make the MigrationExportSuite tests happy.
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
-	_, err = e.statusArgs(globalAppWorkloadKey)
+	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "application operator status for applucation %s", appName)
+			return errors.Annotatef(err, "application operator status for application %s", appName)
 		}
 	}
+	exApplication.SetOperatorStatus(operatorStatusArgs)
 	e.statusHistoryArgs(globalAppWorkloadKey)
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
@@ -1559,11 +1558,16 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	if !ok {
 		return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
 	}
+	neverset, ok := statusDoc["neverset"].(bool)
+	if !ok {
+		return result, errors.Errorf("expected neverset for updated, got %T", statusDoc["neverset"])
+	}
 
 	result.Value = status
 	result.Message = info
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
+	result.NeverSet = neverset
 	return result, nil
 }
 
