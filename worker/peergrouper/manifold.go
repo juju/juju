@@ -20,6 +20,7 @@ import (
 type ManifoldConfig struct {
 	AgentName                string
 	ClockName                string
+	ControllerPortName       string
 	StateName                string
 	Hub                      Hub
 	NewWorker                func(Config) (worker.Worker, error)
@@ -33,6 +34,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
+	}
+	if config.ControllerPortName == "" {
+		return errors.NotValidf("empty ControllerPortName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -55,6 +59,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.ClockName,
+			config.ControllerPortName,
 			config.StateName,
 		},
 		Start: config.start,
@@ -74,6 +79,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var clock clock.Clock
 	if err := context.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ensure that the controller-port worker is running.
+	if err := context.Get(config.ControllerPortName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -108,6 +118,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		SupportsSpaces:     supportsSpaces,
 		MongoPort:          stateServingInfo.StatePort,
 		APIPort:            stateServingInfo.APIPort,
+		ControllerAPIPort:  stateServingInfo.ControllerAPIPort,
 	})
 	if err != nil {
 		stTracker.Done()

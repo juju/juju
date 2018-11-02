@@ -25,8 +25,9 @@ type desiredPeerGroupSuite struct {
 var _ = gc.Suite(&desiredPeerGroupSuite{})
 
 const (
-	mongoPort = 1234
-	apiPort   = 5678
+	mongoPort         = 1234
+	apiPort           = 5678
+	controllerAPIPort = 9876
 )
 
 type desiredPeerGroupTest struct {

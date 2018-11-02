@@ -111,7 +111,7 @@ stateaddresses:
 - localhost:37017
 statepassword: NB5imrDaWCCRW/4akSSvUxhX
 apiaddresses:
-- localhost:17070
+- localhost:17071
 apipassword: NB5imrDaWCCRW/4akSSvUxhX
 oldpassword: oBlMbFUGvCb2PMFgYVzjS6GD
 values:
@@ -213,6 +213,7 @@ caprivatekey: '-----BEGIN RSA PRIVATE KEY-----
 
 '
 apiport: 17070
+controllerapiport: 17071
 `[1:]
 
 var agentConfig2_0NotStateMachine = `

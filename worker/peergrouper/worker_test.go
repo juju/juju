@@ -505,6 +505,48 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
+	st := NewFakeState()
+	InitState(c, st, 3, testIPv4)
+
+	hub := pubsub.NewStructuredHub(nil)
+	event := make(chan apiserver.Details)
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		event <- data
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.hub = hub
+
+	w := s.newWorkerWithConfig(c, Config{
+		Clock:              s.clock,
+		State:              st,
+		MongoSession:       st.session,
+		APIHostPortsSetter: nopAPIHostPortsSetter{},
+		MongoPort:          mongoPort,
+		APIPort:            apiPort,
+		ControllerAPIPort:  controllerAPIPort,
+		Hub:                s.hub,
+	})
+	defer workertest.CleanKill(c, w)
+
+	expected := apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:9876"},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}, InternalAddress: "0.1.2.11:9876"},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}, InternalAddress: "0.1.2.12:9876"},
+		},
+		LocalOnly: true,
+	}
+
+	select {
+	case obtained := <-event:
+		c.Assert(obtained, jc.DeepEquals, expected)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
+}
+
 func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	st := NewFakeState()
 	var ids []string
@@ -1036,16 +1078,27 @@ func (nopHub) Subscribe(topic string, handler interface{}) (func(), error) {
 	return func() {}, nil
 }
 
+func (s *workerSuite) newWorkerWithConfig(
+	c *gc.C,
+	config Config,
+) worker.Worker {
+	// We create a new clock for the worker so we can wait on alarms even when
+	// a single test tests both ipv4 and 6 so is creating two workers.
+	s.clock = testing.NewClock(time.Now())
+	config.Clock = s.clock
+	w, err := New(config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	return w
+}
+
 func (s *workerSuite) newWorker(
 	c *gc.C,
 	st State,
 	session MongoSession,
 	apiHostPortsSetter APIHostPortsSetter,
 ) worker.Worker {
-	// We create a new clock for the worker so we can wait on alarms even when
-	// a single test tests both ipv4 and 6 so is creating two workers.
-	s.clock = testing.NewClock(time.Now())
-	w, err := New(Config{
+	return s.newWorkerWithConfig(c, Config{
 		Clock:              s.clock,
 		State:              st,
 		MongoSession:       session,
@@ -1054,7 +1107,4 @@ func (s *workerSuite) newWorker(
 		APIPort:            apiPort,
 		Hub:                s.hub,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
-	return w
 }

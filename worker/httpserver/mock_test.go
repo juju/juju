@@ -9,32 +9,9 @@ import (
 	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
-
-type mockAgent struct {
-	agent.Agent
-	conf mockAgentConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	info *params.StateServingInfo
-}
-
-func (c *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
-	if c.info != nil {
-		return *c.info, true
-	}
-	return params.StateServingInfo{}, false
-}
 
 type stubStateTracker struct {
 	testing.Stub
