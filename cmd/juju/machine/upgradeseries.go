@@ -78,7 +78,7 @@ type upgradeSeriesCommand struct {
 
 	upgradeMachineSeriesClient UpgradeMachineSeriesAPI
 
-	prepCommand   string
+	subCommand    string
 	force         bool
 	machineNumber string
 	series        string
@@ -114,19 +114,19 @@ run beforehand.
 
 Examples:
 
-Prepare <machine> for upgrade to series <series>:
+Prepare machine 3 for upgrade to series "bionic"":
 
-	juju upgrade-series prepare <machine> <series>
+	juju upgrade-series 3 prepare bionic
 
-Prepare <machine> for upgrade to series <series> even if there are applications
+Prepare machine 4 for upgrade to series "cosmic" even if there are applications
 running units that do not support the target series:
 
-	juju upgrade-series prepare <machine> <series> --force
+	juju upgrade-series 4 prepare cosmic --force
 
-Complete upgrade of <machine> to <series> indicating that all automatic and any
+Complete upgrade of machine 5, indicating that all automatic and any
 necessary manual upgrade steps have completed successfully:
 
-	juju upgrade-series complete <machine>
+	juju upgrade-series 5 complete
 
 See also:
     machines
@@ -138,8 +138,8 @@ See also:
 func (c *upgradeSeriesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-series",
-		Args:    "<command> [args]",
-		Purpose: "Upgrade a machine's series.",
+		Args:    "<machine> <command> [args]",
+		Purpose: "Upgrade the Ubuntu series of a machine.",
 		Doc:     upgradeSeriesDoc,
 	}
 }
@@ -155,34 +155,31 @@ func (c *upgradeSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements cmd.Command.
 func (c *upgradeSeriesCommand) Init(args []string) error {
-	numArguments := 3
-
 	if len(args) < 1 {
 		return errors.Errorf("wrong number of arguments")
 	}
 
-	prepCommandStrings := []string{PrepareCommand, CompleteCommand}
-	prepCommand, err := checkPrepCommands(prepCommandStrings, args[0])
+	subCommand, err := checkSubCommands([]string{PrepareCommand, CompleteCommand}, args[1])
 	if err != nil {
 		return errors.Annotate(err, "invalid argument")
 	}
-	c.prepCommand = prepCommand
+	c.subCommand = subCommand
 
-	if c.prepCommand == CompleteCommand {
+	numArguments := 3
+	if c.subCommand == CompleteCommand {
 		numArguments = 2
 	}
-
 	if len(args) != numArguments {
 		return errors.Errorf("wrong number of arguments")
 	}
 
-	if names.IsValidMachine(args[1]) {
-		c.machineNumber = args[1]
+	if names.IsValidMachine(args[0]) {
+		c.machineNumber = args[0]
 	} else {
-		return errors.Errorf("%q is an invalid machine name", args[1])
+		return errors.Errorf("%q is an invalid machine name", args[0])
 	}
 
-	if c.prepCommand == PrepareCommand {
+	if c.subCommand == PrepareCommand {
 		s, err := checkSeries(series.SupportedSeries(), args[2])
 		if err != nil {
 			return err
@@ -195,13 +192,13 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 
 // Run implements cmd.Run.
 func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
-	if c.prepCommand == PrepareCommand {
+	if c.subCommand == PrepareCommand {
 		err := c.UpgradeSeriesPrepare(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-	if c.prepCommand == CompleteCommand {
+	if c.subCommand == CompleteCommand {
 		err := c.UpgradeSeriesComplete(ctx)
 		if err != nil {
 			return errors.Trace(err)
@@ -377,15 +374,15 @@ func (c *upgradeSeriesCommand) ensureAPIClient() (api.Connection, error) {
 	return apiRoot, nil
 }
 
-func checkPrepCommands(prepCommands []string, argCommand string) (string, error) {
-	for _, prepCommand := range prepCommands {
-		if prepCommand == argCommand {
-			return prepCommand, nil
+func checkSubCommands(validCommands []string, argCommand string) (string, error) {
+	for _, subCommand := range validCommands {
+		if subCommand == argCommand {
+			return subCommand, nil
 		}
 	}
 
 	return "", errors.Errorf("%q is an invalid upgrade-series command; valid commands are: %s.",
-		argCommand, strings.Join(prepCommands, ", "))
+		argCommand, strings.Join(validCommands, ", "))
 }
 
 func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {

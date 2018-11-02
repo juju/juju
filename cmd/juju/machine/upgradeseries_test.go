@@ -81,75 +81,75 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(
 
 func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{machineArg, seriesArg, gomock.Eq(false)}
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg)
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) {
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{machineArg, seriesArg, gomock.Eq(true)}
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--force")
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAbortOnFailedConfirmation(c *gc.C) {
-	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg)
+	_, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "upgrade series: aborted")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommands(c *gc.C) {
 	invalidPrepCommand := "actuate"
-	err := s.runUpgradeSeriesCommand(c, invalidPrepCommand, machineArg, seriesArg)
+	err := s.runUpgradeSeriesCommand(c, machineArg, invalidPrepCommand, seriesArg)
 	c.Assert(err, gc.ErrorMatches,
 		".* \"actuate\" is an invalid upgrade-series command; valid commands are: prepare, complete.")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
 	invalidMachineArg := "machine5"
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, invalidMachineArg, seriesArg)
+	err := s.runUpgradeSeriesCommand(c, invalidMachineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "\"machine5\" is an invalid machine name")
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
 	BadSeries := "Combative Caribou"
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, BadSeries)
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, BadSeries)
 	c.Assert(err, gc.ErrorMatches, ".* is an unsupported series")
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldSupportSeriesRegardlessOfCase(c *gc.C) {
 	capitalizedCaseXenial := "Xenial"
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, capitalizedCaseXenial)
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, capitalizedCaseXenial)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestCompleteCommand(c *gc.C) {
 	s.completeExpectation.machineNumber = machineArg
-	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg)
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.CompleteCommand)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg, seriesArg)
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.CompleteCommand, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYes(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--yes")
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "--yes")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesAbbreviation(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "-y")
+	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "-y")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c *gc.C) {
-	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machine.PrepareCommand, machineArg, seriesArg)
+	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machineArg, machine.PrepareCommand, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), jc.HasSuffix, "Continue [y/N]?")
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c *gc.C) {
-	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg, "-y")
+	ctx, err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machineArg, machine.PrepareCommand, seriesArg, "-y")
 	c.Assert(err, jc.ErrorIsNil)
 
 	//There is no confirmation message since the `-y/--yes` flag is being used to avoid the prompt.
