@@ -531,6 +531,6 @@ type context struct {
 	managedFilesystemSource storage.FilesystemSource
 }
 
-func (c *context) IsCAASModel() bool {
+func (c *context) IsApplicationKind() bool {
 	return c.config.Scope.Kind() == names.ApplicationTagKind
 }

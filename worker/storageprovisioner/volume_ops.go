@@ -310,14 +310,10 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 		}
 		destroyTags, destroyIds, releaseTags, releaseIds := partitionRemoveVolumeParams(removeTags, removeParams)
 		if err := removeVolumes(destroyTags, destroyIds, volumeSource.DestroyVolumes); err != nil {
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 		if err := removeVolumes(releaseTags, releaseIds, volumeSource.ReleaseVolumes); err != nil {
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 	}
 	scheduleOperations(ctx, reschedule...)

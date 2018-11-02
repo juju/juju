@@ -307,7 +307,6 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
-
 	storage, err := sb.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)

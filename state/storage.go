@@ -541,7 +541,6 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-
 	return ops, nil
 }
 
@@ -930,7 +929,7 @@ func (sb *storageBackend) storageAttachments(query bson.D) ([]StorageAttachment,
 	return storageAttachments, nil
 }
 
-// StorageAttachment returns the StorageAttachment wit hthe specified tags.
+// StorageAttachment returns the StorageAttachment with the specified tags.
 func (sb *storageBackend) StorageAttachment(storage names.StorageTag, unit names.UnitTag) (StorageAttachment, error) {
 	att, err := sb.storageAttachment(storage, unit)
 	if err != nil {
