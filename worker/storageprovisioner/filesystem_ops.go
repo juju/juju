@@ -312,7 +312,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource, ok := filesystemSources[sourceName]
-		if !ok && ctx.IsApplicationKind() {
+		if !ok && ctx.isApplicationKind() {
 			continue
 		}
 		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)

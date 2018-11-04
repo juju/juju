@@ -248,9 +248,35 @@ func (w *storageProvisioner) loop() error {
 		volumeAttachmentPlansChanges = volumeAttachmentPlansWatcher.Changes()
 	}
 
+	ctx := context{
+		kill:                                 w.catacomb.Kill,
+		addWorker:                            w.catacomb.Add,
+		config:                               w.config,
+		volumes:                              make(map[names.VolumeTag]storage.Volume),
+		volumeAttachments:                    make(map[params.MachineStorageId]storage.VolumeAttachment),
+		volumeBlockDevices:                   make(map[names.VolumeTag]storage.BlockDevice),
+		filesystems:                          make(map[names.FilesystemTag]storage.Filesystem),
+		filesystemAttachments:                make(map[params.MachineStorageId]storage.FilesystemAttachment),
+		machines:                             make(map[names.MachineTag]*machineWatcher),
+		machineChanges:                       machineChanges,
+		schedule:                             schedule.NewSchedule(w.config.Clock),
+		incompleteVolumeParams:               make(map[names.VolumeTag]storage.VolumeParams),
+		incompleteVolumeAttachmentParams:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
+		incompleteFilesystemParams:           make(map[names.FilesystemTag]storage.FilesystemParams),
+		incompleteFilesystemAttachmentParams: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
+		pendingVolumeBlockDevices:            names.NewSet(),
+	}
+	ctx.managedFilesystemSource = newManagedFilesystemSource(
+		ctx.volumeBlockDevices, ctx.filesystems,
+	)
+	// Units don't use managed volume backed filesystems.
+	if ctx.isApplicationKind() {
+		ctx.managedFilesystemSource = &noopFilesystemSource{}
+	}
+
 	// Units don't have unit-scoped volumes - all volumes are
 	// associated with the model (namespace).
-	if w.config.Scope.Kind() != names.ApplicationTagKind {
+	if !ctx.isApplicationKind() {
 		volumesWatcher, err := w.config.Volumes.WatchVolumes(w.config.Scope)
 		if err != nil {
 			return errors.Annotate(err, "watching volumes")
@@ -288,31 +314,6 @@ func (w *storageProvisioner) loop() error {
 	}
 	filesystemAttachmentsChanges = filesystemAttachmentsWatcher.Changes()
 
-	ctx := context{
-		kill:                                 w.catacomb.Kill,
-		addWorker:                            w.catacomb.Add,
-		config:                               w.config,
-		volumes:                              make(map[names.VolumeTag]storage.Volume),
-		volumeAttachments:                    make(map[params.MachineStorageId]storage.VolumeAttachment),
-		volumeBlockDevices:                   make(map[names.VolumeTag]storage.BlockDevice),
-		filesystems:                          make(map[names.FilesystemTag]storage.Filesystem),
-		filesystemAttachments:                make(map[params.MachineStorageId]storage.FilesystemAttachment),
-		machines:                             make(map[names.MachineTag]*machineWatcher),
-		machineChanges:                       machineChanges,
-		schedule:                             schedule.NewSchedule(w.config.Clock),
-		incompleteVolumeParams:               make(map[names.VolumeTag]storage.VolumeParams),
-		incompleteVolumeAttachmentParams:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
-		incompleteFilesystemParams:           make(map[names.FilesystemTag]storage.FilesystemParams),
-		incompleteFilesystemAttachmentParams: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
-		pendingVolumeBlockDevices:            names.NewSet(),
-	}
-	ctx.managedFilesystemSource = newManagedFilesystemSource(
-		ctx.volumeBlockDevices, ctx.filesystems,
-	)
-	// Units don't use managed volume backed filesystems.
-	if w.config.Scope.Kind() == names.ApplicationTagKind {
-		ctx.managedFilesystemSource = &noopFilesystemSource{}
-	}
 	for {
 
 		// Check if block devices need to be refreshed.
@@ -531,6 +532,6 @@ type context struct {
 	managedFilesystemSource storage.FilesystemSource
 }
 
-func (c *context) IsApplicationKind() bool {
+func (c *context) isApplicationKind() bool {
 	return c.config.Scope.Kind() == names.ApplicationTagKind
 }

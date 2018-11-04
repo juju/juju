@@ -182,7 +182,7 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 	if len(dead) != 0 {
 		// We should not see dead volume attachments;
 		// attachments go directly from Dying to removed.
-		logger.Warningf("dead volume attachments: %v", dead)
+		logger.Warningf("unexpected dead volume attachments: %v", dead)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil
@@ -214,7 +214,8 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 // processDyingVolumes processes the VolumeResults for Dying volumes,
 // removing them from provisioning-pending as necessary.
 func processDyingVolumes(ctx *context, tags []names.Tag) error {
-	if ctx.IsApplicationKind() {
+	if ctx.isApplicationKind() {
+		// only care dead for application.
 		return nil
 	}
 	for _, tag := range tags {
@@ -379,7 +380,8 @@ func processDyingVolumeAttachments(
 // processAliveVolumes processes the VolumeResults for Alive volumes,
 // provisioning volumes and setting the info in state as necessary.
 func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.VolumeResult) error {
-	if ctx.IsApplicationKind() {
+	if ctx.isApplicationKind() {
+		// only care dead for application kind.
 		return nil
 	}
 
