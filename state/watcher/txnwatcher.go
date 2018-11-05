@@ -167,6 +167,13 @@ func (w *TxnWatcher) Err() error {
 	return w.tomb.Err()
 }
 
+// Report is part of the watcher/runner Reporting interface, to expose runtime details of the watcher.
+func (w *TxnWatcher) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"sync-events": len(w.syncEvents),
+	}
+}
+
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *TxnWatcher) loop() error {

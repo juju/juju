@@ -124,3 +124,14 @@ func assertStateNotClosed(c *gc.C, st *state.State) {
 func assertStateClosed(c *gc.C, st *state.State) {
 	c.Assert(st.Ping, gc.PanicMatches, "Session already closed")
 }
+
+func (s *StateTrackerSuite) TestReport(c *gc.C) {
+	pool, err := s.stateTracker.Use()
+	c.Assert(err, jc.ErrorIsNil)
+	report := pool.Report()
+	c.Check(report, gc.NotNil)
+	// We don't have any State models in the pool, but we do have the txn-watcher report.
+	c.Check(report, gc.HasLen, 2)
+	c.Check(report["pool-size"], gc.Equals, 2)
+	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
+}

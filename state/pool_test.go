@@ -195,3 +195,8 @@ func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %v has been removed", s.ModelUUID1))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *statePoolSuite) TestReport(c *gc.C) {
+	report := s.StatePool.Report()
+	c.Check(report, gc.HasLen, 5)
+}

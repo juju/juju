@@ -26,6 +26,7 @@ type StateTracker interface {
 	// called too many times).
 	Done() error
 
+	// Report is used to give details about what is going on with this state tracker.
 	Report() map[string]interface{}
 }
 
@@ -83,5 +84,7 @@ func (c *stateTracker) Done() error {
 }
 
 func (c *stateTracker) Report() map[string]interface{} {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.pool.Report()
 }

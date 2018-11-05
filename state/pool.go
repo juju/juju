@@ -350,8 +350,11 @@ func (p *StatePool) Report() map[string]interface{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	report := make(map[string]interface{})
+	report["txn-watcher"] = p.watcherRunner.Report()
+	report["system"] = p.systemState.Report()
+	report["pool-size"] = len(p.pool)
 	for uuid, item := range p.pool {
-		modelReport := make(map[string]interface{})
+		modelReport := item.state.Report()
 		modelReport["ref-count"] = item.refCount()
 		modelReport["to-remove"] = item.remove
 		report[uuid] = modelReport
