@@ -347,5 +347,14 @@ func (p *StatePool) IntrospectionReport() string {
 }
 
 func (p *StatePool) Report() map[string]interface{} {
-	return nil
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	report := make(map[string]interface{})
+	for uuid, item := range p.pool {
+		modelReport := make(map[string]interface{})
+		modelReport["ref-count"] = item.refCount()
+		modelReport["to-remove"] = item.remove
+		report[uuid] = modelReport
+	}
+	return report
 }
