@@ -311,7 +311,10 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	var remove []params.MachineStorageId
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
-		filesystemSource := filesystemSources[sourceName]
+		filesystemSource, ok := filesystemSources[sourceName]
+		if !ok && ctx.isApplicationKind() {
+			continue
+		}
 		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
@@ -389,15 +392,15 @@ func filesystemParamsBySource(
 		filesystemSources[sourceName] = filesystemSource
 	}
 	paramsBySource := make(map[string][]storage.FilesystemParams)
-	for _, params := range params {
-		sourceName := string(params.Provider)
+	for _, param := range params {
+		sourceName := string(param.Provider)
 		filesystemSource := filesystemSources[sourceName]
 		if filesystemSource == nil {
 			// Ignore nil filesystem sources; this means that the
 			// filesystem should be created by the machine-provisioner.
 			continue
 		}
-		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		paramsBySource[sourceName] = append(paramsBySource[sourceName], param)
 	}
 	return paramsBySource, filesystemSources, nil
 }
@@ -422,7 +425,7 @@ func validateFilesystemParams(
 // filesystemAttachmentParamsBySource separates the filesystem attachment parameters by filesystem source.
 func filesystemAttachmentParamsBySource(
 	baseStorageDir string,
-	params []storage.FilesystemAttachmentParams,
+	filesystemAttachmentParams []storage.FilesystemAttachmentParams,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 	managedFilesystemSource storage.FilesystemSource,
 	registry storage.ProviderRegistry,
@@ -433,17 +436,14 @@ func filesystemAttachmentParamsBySource(
 	// configuration.
 	filesystemSources := make(map[string]storage.FilesystemSource)
 	paramsBySource := make(map[string][]storage.FilesystemAttachmentParams)
-	for _, params := range params {
+	for _, params := range filesystemAttachmentParams {
 		sourceName := string(params.Provider)
 		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 		if _, ok := filesystemSources[sourceName]; ok {
 			continue
 		}
 		filesystem, ok := filesystems[params.Filesystem]
-		if !ok {
-			continue
-		}
-		if filesystem.Volume != (names.VolumeTag{}) {
+		if !ok || filesystem.Volume != (names.VolumeTag{}) {
 			filesystemSources[sourceName] = managedFilesystemSource
 			continue
 		}

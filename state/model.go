@@ -1311,7 +1311,6 @@ func (m *Model) destroyOps(
 		if m.Type() == ModelTypeIAAS {
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
 		}
-
 		if args.DestroyStorage != nil {
 			// The user has specified that the storage should be destroyed
 			// or released, which we can do in a cleanup. If the user did

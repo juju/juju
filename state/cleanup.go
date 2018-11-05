@@ -158,7 +158,7 @@ func (st *State) Cleanup() (err error) {
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			logger.Errorf(
+			logger.Warningf(
 				"cleanup failed in model %v for %v(%q): %v",
 				modelUUID, doc.Kind, doc.Prefix, err,
 			)
@@ -307,7 +307,6 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
-
 	storage, err := sb.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)

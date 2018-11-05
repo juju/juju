@@ -214,6 +214,10 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 // processDyingVolumes processes the VolumeResults for Dying volumes,
 // removing them from provisioning-pending as necessary.
 func processDyingVolumes(ctx *context, tags []names.Tag) error {
+	if ctx.isApplicationKind() {
+		// only care dead for application.
+		return nil
+	}
 	for _, tag := range tags {
 		removePendingVolume(ctx, tag.(names.VolumeTag))
 	}
@@ -376,6 +380,11 @@ func processDyingVolumeAttachments(
 // processAliveVolumes processes the VolumeResults for Alive volumes,
 // provisioning volumes and setting the info in state as necessary.
 func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.VolumeResult) error {
+	if ctx.isApplicationKind() {
+		// only care dead for application kind.
+		return nil
+	}
+
 	// Filter out the already-provisioned volumes.
 	pending := make([]names.VolumeTag, 0, len(tags))
 	for i, result := range volumeResults {

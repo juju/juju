@@ -23,13 +23,17 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
 	}
 	for i, result := range lifeResults {
+		life := result.Life
 		if result.Error != nil {
-			return nil, nil, nil, errors.Annotatef(
-				result.Error, "getting life of %s",
-				names.ReadableString(tags[i]),
-			)
+			if !params.IsCodeNotFound(result.Error) {
+				return nil, nil, nil, errors.Annotatef(
+					result.Error, "getting life of %s",
+					names.ReadableString(tags[i]),
+				)
+			}
+			life = params.Dead
 		}
-		switch result.Life {
+		switch life {
 		case params.Alive:
 			alive = append(alive, tags[i])
 		case params.Dying:
@@ -53,7 +57,7 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 	for i, result := range lifeResults {
 		life := result.Life
 		if result.Error != nil {
-			if !params.IsCodeNotFound(err) {
+			if !params.IsCodeNotFound(result.Error) {
 				return nil, nil, nil, errors.Annotatef(
 					result.Error, "getting life of %s attached to %s",
 					ids[i].AttachmentTag, ids[i].MachineTag,
@@ -101,7 +105,8 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 		return errors.Annotate(err, "removing attachments")
 	}
 	for i, result := range errorResults {
-		if result.Error != nil {
+		if result.Error != nil && !params.IsCodeNotFound(result.Error) {
+			// ignore not found error.
 			return errors.Annotatef(
 				result.Error, "removing attachment of %s to %s from state",
 				ids[i].AttachmentTag, ids[i].MachineTag,

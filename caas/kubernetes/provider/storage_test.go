@@ -120,6 +120,24 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
 
+func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
+	)
+
+	p := s.k8sProvider(c, ctrl)
+	vs, err := p.VolumeSource(&storage.Config{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	errs, err := vs.DestroyVolumes(&context.CloudCallContext{}, []string{"vol-1"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+}
+
 func (s *storageSuite) TestListVolumes(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()

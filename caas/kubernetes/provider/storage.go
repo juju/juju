@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	core "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/environs/context"
@@ -228,9 +229,13 @@ func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []
 	logger.Debugf("destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
-		return pVolumes.Delete(volumeId, &v1.DeleteOptions{
-			PropagationPolicy: &defaultPropagationPolicy,
-		})
+		if err := pVolumes.Delete(
+			volumeId,
+			&v1.DeleteOptions{PropagationPolicy: &defaultPropagationPolicy},
+		); !k8serrors.IsNotFound(err) {
+			return errors.Annotate(err, "destroying k8s volumes")
+		}
+		return nil
 	}), nil
 }
 
