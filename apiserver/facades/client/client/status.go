@@ -915,7 +915,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 			}
 		}
 	} else {
-		logger.Debugf("error fetching lxd profiles for %s: %q", machine.String(), err.Error())
+		logger.Tracef("error fetching lxd profiles for %s: %q", machine.String(), err.Error())
 	}
 	status.LXDProfiles = lxdProfiles
 

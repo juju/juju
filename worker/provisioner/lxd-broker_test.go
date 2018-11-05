@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"fmt"
 	"runtime"
 
 	"github.com/golang/mock/gomock"
@@ -259,12 +260,12 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 			},
 		},
 	}
-	result := apiprovisioner.LXDProfileResult{
+	result := &apiprovisioner.LXDProfileResult{
 		Config:  put.Config,
 		Devices: put.Devices,
 		Name:    "juju-test-profile",
 	}
-	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]apiprovisioner.LXDProfileResult{result}, nil)
+	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
 
 	mockManager := testing.NewMockTestLXDManager(ctlr)
 	mockManager.EXPECT().MaybeWriteLXDProfile("juju-test-profile", gomock.Eq(put)).Return(nil)
@@ -282,6 +283,39 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.startInstance(c, broker, machineId)
+}
+
+func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
+	ctlr := gomock.NewController(c)
+	defer ctlr.Finish()
+
+	machineId := "1/lxd/0"
+	containerTag := names.NewMachineTag("1-lxd-0")
+
+	mockApi := mocks.NewMockAPICalls(ctlr)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]network.InterfaceInfo{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
+
+	put := &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+	}
+	result := &apiprovisioner.LXDProfileResult{
+		Config: put.Config,
+		Name:   "",
+	}
+	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
+
+	mockManager := testing.NewMockTestLXDManager(ctlr)
+
+	broker, err := provisioner.NewLXDBroker(
+		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
+		mockApi, mockManager, s.agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.startInstance(c, broker, machineId)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot write charm profile: request to write LXD profile for machine %s with no profile name", machineId))
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c *gc.C) {

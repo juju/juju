@@ -1229,7 +1229,7 @@ func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.C
 			continue
 		}
 
-		profiles, err := p.containerProfiles(container)
+		profiles, err := p.containerLXDProfilesInfo(container)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -1239,14 +1239,17 @@ func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.C
 	return result, nil
 }
 
-func (p *ProvisionerAPI) containerProfiles(m *state.Machine) (params.ContainerProfileResult, error) {
+// containerLXDProfilesInfo returns the info necessary to write lxd profiles
+// via the lxd broker. Unlike machineLXDProfileNames which has the environ
+// write the lxd profiles and returns the names of profiles already written.
+func (p *ProvisionerAPI) containerLXDProfilesInfo(m *state.Machine) (params.ContainerProfileResult, error) {
 	var result params.ContainerProfileResult
 	units, err := m.Units()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.LXDProfiles = make([]params.ContainerLXDProfile, len(units))
-	for i, unit := range units {
+	var resPro []*params.ContainerLXDProfile
+	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
 			return result, errors.Trace(err)
@@ -1257,18 +1260,19 @@ func (p *ProvisionerAPI) containerProfiles(m *state.Machine) (params.ContainerPr
 		}
 		profile := ch.LXDProfile()
 		if profile == nil || (profile != nil && profile.Empty()) {
+			logger.Tracef("no profile to return for %q", unit.Name())
 			continue
 		}
-		paramProfile := params.ContainerLXDProfile{
+		resPro = append(resPro, &params.ContainerLXDProfile{
 			Profile: params.CharmLXDProfile{
 				Config:      profile.Config,
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
 			Name: lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision()),
-		}
-		result.LXDProfiles[i] = paramProfile
+		})
 	}
+	result.LXDProfiles = resPro
 	return result, nil
 }
 

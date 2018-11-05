@@ -185,8 +185,8 @@ type ContainerLXDProfile struct {
 // ContainerProfileResult returns the result of finding the CharmLXDProfile and name of
 // the lxd profile to be used for 1 unit on the container
 type ContainerProfileResult struct {
-	Error       *Error                `json:"error,omitempty"`
-	LXDProfiles []ContainerLXDProfile `json:"lxd-profiles,omitempty"`
+	Error       *Error                 `json:"error,omitempty"`
+	LXDProfiles []*ContainerLXDProfile `json:"lxd-profiles,omitempty"`
 }
 
 // ContainerProfileResults returns the ContainerProfileResult for each unit to be placed

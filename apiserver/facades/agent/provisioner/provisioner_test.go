@@ -1790,29 +1790,30 @@ func (s *withControllerSuite) TestGetContainerProfileInfo(c *gc.C) {
 	pName := fmt.Sprintf("juju-%s-lxd-profile-0", coretesting.ModelConfig(c).Name())
 	expected := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{{
-			LXDProfiles: []params.ContainerLXDProfile{{
-				Profile: params.CharmLXDProfile{
-					Config: map[string]string{
-						"security.nesting":       "true",
-						"security.privileged":    "true",
-						"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
-						"environment.http_proxy": "",
-					},
-					Description: "lxd profile for testing, black list items grouped commented out",
-					Devices: map[string]map[string]string{
-						"tun": {
-							"path": "/dev/net/tun",
-							"type": "unix-char",
+			LXDProfiles: []*params.ContainerLXDProfile{
+				{
+					Profile: params.CharmLXDProfile{
+						Config: map[string]string{
+							"security.nesting":       "true",
+							"security.privileged":    "true",
+							"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+							"environment.http_proxy": "",
 						},
-						"sony": {
-							"type":      "usb",
-							"vendorid":  "0fce",
-							"productid": "51da",
+						Description: "lxd profile for testing, black list items grouped commented out",
+						Devices: map[string]map[string]string{
+							"tun": {
+								"path": "/dev/net/tun",
+								"type": "unix-char",
+							},
+							"sony": {
+								"type":      "usb",
+								"vendorid":  "0fce",
+								"productid": "51da",
+							},
 						},
 					},
-				},
-				Name: pName,
-			}},
+					Name: pName,
+				}},
 		}},
 	}
 

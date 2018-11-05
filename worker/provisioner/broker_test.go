@@ -223,12 +223,12 @@ func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger, a
 	return nil
 }
 
-func (f *fakeAPI) GetContainerProfileInfo(containerTag names.MachineTag) ([]apiprovisioner.LXDProfileResult, error) {
+func (f *fakeAPI) GetContainerProfileInfo(containerTag names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error) {
 	f.MethodCall(f, "GetContainerProfileInfo", containerTag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}
-	return []apiprovisioner.LXDProfileResult{}, nil
+	return []*apiprovisioner.LXDProfileResult{}, nil
 }
 
 type fakeContainerManager struct {

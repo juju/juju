@@ -47,7 +47,7 @@ type DistributionGroupResult struct {
 	Err        *params.Error
 }
 
-// ContainerLXDProfile provides a charm.LXDProfile, adding the name.
+// LXDProfileResult provides a charm.LXDProfile, adding the name.
 type LXDProfileResult struct {
 	Config      map[string]string            `json:"config" yaml:"config"`
 	Description string                       `json:"description" yaml:"description"`
@@ -407,27 +407,32 @@ func (a *State) CACert() (string, error) {
 
 // GetContainerProfileInfo returns a slice of ContainerLXDProfile, 1 for each unit's charm
 // which contains an lxd-profile.yaml.
-func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]LXDProfileResult, error) {
+func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDProfileResult, error) {
 	var result params.ContainerProfileResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
 	if err := st.facade.FacadeCall("GetContainerProfileInfo", args, &result); err != nil {
-		return []LXDProfileResult{}, err
+		return nil, err
 	}
 	if len(result.Results) != 1 {
-		return []LXDProfileResult{}, errors.Errorf("expected 1 result, got %d", len(result.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
-		return []LXDProfileResult{}, err
+		return nil, err
 	}
 	profiles := result.Results[0].LXDProfiles
-	res := make([]LXDProfileResult, len(profiles))
-	for i, p := range profiles {
-		res[i].Config = p.Profile.Config
-		res[i].Description = p.Profile.Description
-		res[i].Devices = p.Profile.Devices
-		res[i].Name = p.Name
+	var res []*LXDProfileResult
+	for _, p := range profiles {
+		if p == nil {
+			continue
+		}
+		res = append(res, &LXDProfileResult{
+			Config:      p.Profile.Config,
+			Description: p.Profile.Description,
+			Devices:     p.Profile.Devices,
+			Name:        p.Name,
+		})
 	}
 	return res, nil
 }

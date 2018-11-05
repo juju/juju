@@ -1094,25 +1094,27 @@ func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
 	results := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{
 			{
-				LXDProfiles: []params.ContainerLXDProfile{{
-					Profile: params.CharmLXDProfile{
-						Config: map[string]string{
-							"security.nesting":    "true",
-							"security.privileged": "true",
-						},
-					},
-					Name: "one",
-				}, {
-					Profile: params.CharmLXDProfile{
-						Devices: map[string]map[string]string{
-							"bdisk": {
-								"source": "/dev/loop0",
-								"type":   "unix-block",
+				LXDProfiles: []*params.ContainerLXDProfile{
+					{
+						Profile: params.CharmLXDProfile{
+							Config: map[string]string{
+								"security.nesting":    "true",
+								"security.privileged": "true",
 							},
 						},
+						Name: "one",
 					},
-					Name: "two",
-				}},
+					{
+						Profile: params.CharmLXDProfile{
+							Devices: map[string]map[string]string{
+								"bdisk": {
+									"source": "/dev/loop0",
+									"type":   "unix-block",
+								},
+							},
+						},
+						Name: "two",
+					}},
 				Error: nil,
 			}},
 	}
@@ -1125,20 +1127,22 @@ func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
 
 	obtainedResults, err := provisionerApi.GetContainerProfileInfo(s.containerTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedResults, gc.DeepEquals, []provisioner.LXDProfileResult{{
-		Config: map[string]string{
-			"security.nesting":    "true",
-			"security.privileged": "true",
-		},
-		Name: "one",
-	}, {
-		Devices: map[string]map[string]string{
-			"bdisk": {
-				"source": "/dev/loop0",
-				"type":   "unix-block",
+	c.Assert(obtainedResults, gc.DeepEquals, []*provisioner.LXDProfileResult{
+		{
+			Config: map[string]string{
+				"security.nesting":    "true",
+				"security.privileged": "true",
 			},
+			Name: "one",
 		},
-		Name: "two",
-	}})
+		{
+			Devices: map[string]map[string]string{
+				"bdisk": {
+					"source": "/dev/loop0",
+					"type":   "unix-block",
+				},
+			},
+			Name: "two",
+		}})
 
 }

@@ -205,8 +205,14 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, len(profileInfo))
-	for i, profile := range profileInfo {
+	var names []string
+	for _, profile := range profileInfo {
+		if profile == nil {
+			continue
+		}
+		if profile.Name == "" {
+			return nil, errors.Errorf("request to write LXD profile for machine %s with no profile name", machineID)
+		}
 		err := broker.MaybeWriteLXDProfile(profile.Name, &charm.LXDProfile{
 			Config:      profile.Config,
 			Description: profile.Description,
@@ -215,7 +221,7 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		names[i] = profile.Name
+		names = append(names, profile.Name)
 	}
 	return names, nil
 }

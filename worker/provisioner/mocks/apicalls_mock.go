@@ -63,9 +63,9 @@ func (mr *MockAPICallsMockRecorder) GetContainerInterfaceInfo(arg0 interface{}) 
 }
 
 // GetContainerProfileInfo mocks base method
-func (m *MockAPICalls) GetContainerProfileInfo(arg0 names_v2.MachineTag) ([]provisioner.LXDProfileResult, error) {
+func (m *MockAPICalls) GetContainerProfileInfo(arg0 names_v2.MachineTag) ([]*provisioner.LXDProfileResult, error) {
 	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0)
-	ret0, _ := ret[0].([]provisioner.LXDProfileResult)
+	ret0, _ := ret[0].([]*provisioner.LXDProfileResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
