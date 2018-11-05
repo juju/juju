@@ -46,7 +46,6 @@ func CreateUnit(st *State, tag names.UnitTag) *Unit {
 		tag:          tag,
 		life:         params.Alive,
 		resolvedMode: params.ResolvedNone,
-		series:       "trusty",
 	}
 }
 

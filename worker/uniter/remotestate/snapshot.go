@@ -70,9 +70,6 @@ type Snapshot struct {
 	// executed by this unit.
 	Commands []string
 
-	// Series is the current series running on the unit
-	Series string
-
 	// UpgradeSeriesStatus is the preparation status of any currently running
 	// series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus

@@ -198,7 +198,6 @@ type mockUnit struct {
 	tag                              names.UnitTag
 	life                             params.Life
 	resolved                         params.ResolvedMode
-	series                           string
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
 	addressesWatcher                 *mockNotifyWatcher
@@ -224,10 +223,6 @@ func (u *mockUnit) Resolved() params.ResolvedMode {
 
 func (u *mockUnit) Application() (remotestate.Application, error) {
 	return &u.application, nil
-}
-
-func (u *mockUnit) Series() string {
-	return u.series
 }
 
 func (u *mockUnit) Tag() names.UnitTag {

@@ -96,10 +96,6 @@ type LocalState struct {
 	// controller.
 	CompletedActions map[string]struct{}
 
-	// Series is the current series running on the unit from remotestate.Snapshot
-	// for which a config-changed hook has been committed.
-	Series string
-
 	// UpgradeSeriesStatus is the current state of any currently running
 	// upgrade series.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus

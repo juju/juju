@@ -22,7 +22,6 @@ type Unit struct {
 	tag          names.UnitTag
 	life         params.Life
 	resolvedMode params.ResolvedMode
-	series       string
 }
 
 // Tag returns the unit's tag.
@@ -43,11 +42,6 @@ func (u *Unit) String() string {
 // Life returns the unit's lifecycle value.
 func (u *Unit) Life() params.Life {
 	return u.life
-}
-
-// Series returns the unit's series value.
-func (u *Unit) Series() string {
-	return u.series
 }
 
 // Resolved returns the unit's resolved mode value.
@@ -77,7 +71,6 @@ func (u *Unit) Refresh() error {
 
 	u.life = result.Life
 	u.resolvedMode = result.Resolved
-	u.series = result.Series
 	return nil
 }
 
@@ -785,7 +778,11 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 	all := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
 		for _, one := range cons {
-			all = append(all, params.StorageAddParams{u.Tag().String(), storage, one})
+			all = append(all, params.StorageAddParams{
+				UnitTag:     u.Tag().String(),
+				StorageName: storage,
+				Constraints: one,
+			})
 		}
 	}
 

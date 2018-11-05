@@ -69,9 +69,9 @@ func (s *ResolverOpFactorySuite) TestConfigChanged(c *gc.C) {
 func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 
-	// The initial state
-	f.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted      // Local state is not started
-	f.RemoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareStarted // Remote state is in the prepare started state
+	// The initial state.
+	f.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
+	f.RemoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareStarted
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,13 +106,11 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ConfigVersion = 1
 	f.RemoteState.UpdateStatusVersion = 3
-	f.RemoteState.Series = "trusty"
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.ConfigVersion = 2
 	f.RemoteState.UpdateStatusVersion = 4
-	f.RemoteState.Series = "xenial"
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +120,6 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	// was constructed.
 	c.Assert(f.LocalState.ConfigVersion, gc.Equals, 1)
 	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
-	c.Assert(f.LocalState.Series, gc.Equals, "trusty")
 }
 
 func (s *ResolverOpFactorySuite) TestLeaderSettingsChanged(c *gc.C) {
@@ -193,12 +190,12 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	curl := charm.MustParseURL("cs:trusty/mysql")
 	s.opFactory.op.commit = func(operation.State) (*operation.State, error) {
-		return nil, errors.New("Commit fails")
+		return nil, errors.New("commit fails")
 	}
 	op, err := f.NewUpgrade(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
-	c.Assert(err, gc.ErrorMatches, "Commit fails")
+	c.Assert(err, gc.ErrorMatches, "commit fails")
 	// Local state should not have been updated. We use the same code
 	// internally for all operations, so it suffices to test just the
 	// upgrade case.

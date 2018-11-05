@@ -203,7 +203,6 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		ConfigVersion:         expectedVersion,
 		LeaderSettingsVersion: 1,
 		Leader:                true,
-		Series:                "",
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
 	})
 }
@@ -227,7 +226,6 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ConfigVersion:         expectedVersion,
 		LeaderSettingsVersion: 1,
 		Leader:                true,
-		Series:                "",
 		UpgradeSeriesStatus:   "",
 	})
 }
@@ -246,11 +244,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, params.Dying)
-
-	s.st.unit.series = "trusty"
-	s.st.unit.unitWatcher.changes <- struct{}{}
-	assertOneChange()
-	c.Assert(s.watcher.Snapshot().Series, gc.Equals, "trusty")
 
 	s.st.unit.resolved = params.ResolvedRetryHooks
 	s.st.unit.unitWatcher.changes <- struct{}{}
