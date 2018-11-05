@@ -184,6 +184,10 @@ func (w *stateWorker) loop() error {
 	}
 }
 
+func (w *stateWorker) Report() map[string]interface{} {
+	return w.stTracker.Report()
+}
+
 func (w *stateWorker) processModelLifeChange(
 	modelUUID string,
 	modelStateWorkers map[string]worker.Worker,

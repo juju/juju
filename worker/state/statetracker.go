@@ -25,6 +25,8 @@ type StateTracker interface {
 	// if the StatePool has already been closed (indicating that Done has
 	// called too many times).
 	Done() error
+
+	Report() map[string]interface{}
 }
 
 // stateTracker wraps a *state.State, keeping a reference count and
@@ -78,4 +80,8 @@ func (c *stateTracker) Done() error {
 		}
 	}
 	return nil
+}
+
+func (c *stateTracker) Report() map[string]interface{} {
+	return c.pool.Report()
 }

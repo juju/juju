@@ -345,3 +345,7 @@ func (p *StatePool) IntrospectionReport() string {
 		"Marked for removal: %d models\n"+
 		"\n%s", len(p.pool), removeCount, buff)
 }
+
+func (p *StatePool) Report() map[string]interface{} {
+	return nil
+}
