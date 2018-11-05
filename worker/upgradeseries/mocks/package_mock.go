@@ -62,9 +62,9 @@ func (mr *MockFacadeMockRecorder) MachineStatus() *gomock.Call {
 }
 
 // PinMachineApplications mocks base method
-func (m *MockFacade) PinMachineApplications() (map[names_v2.ApplicationTag]error, error) {
+func (m *MockFacade) PinMachineApplications() (map[string]error, error) {
 	ret := m.ctrl.Call(m, "PinMachineApplications")
-	ret0, _ := ret[0].(map[names_v2.ApplicationTag]error)
+	ret0, _ := ret[0].(map[string]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -138,9 +138,9 @@ func (mr *MockFacadeMockRecorder) UnitsPrepared() *gomock.Call {
 }
 
 // UnpinMachineApplications mocks base method
-func (m *MockFacade) UnpinMachineApplications() (map[names_v2.ApplicationTag]error, error) {
+func (m *MockFacade) UnpinMachineApplications() (map[string]error, error) {
 	ret := m.ctrl.Call(m, "UnpinMachineApplications")
-	ret0, _ := ret[0].(map[names_v2.ApplicationTag]error)
+	ret0, _ := ret[0].(map[string]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

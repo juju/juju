@@ -50,13 +50,12 @@ func (s *LeadershipSuite) TestPinnedLeadershipSuccess(c *gc.C) {
 	s.authTag = names.NewUserTag("admin")
 	defer s.setup(c).Finish()
 
-	s.pinner.EXPECT().PinnedLeadership().Return(map[string][]names.Tag{
-		"redis": {names.NewMachineTag("0"), names.NewMachineTag("1")},
-	})
+	pinned := map[string][]string{"redis": {"machine-0", "machine-1"}}
+	s.pinner.EXPECT().PinnedLeadership().Return(pinned)
 
 	res, err := s.api.PinnedLeadership()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.Result, gc.DeepEquals, map[string][]string{"application-redis": {"machine-0", "machine-1"}})
+	c.Check(res.Result, gc.DeepEquals, pinned)
 }
 
 func (s *LeadershipSuite) TestPinnedLeadershipPermissionDenied(c *gc.C) {
@@ -70,7 +69,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
-		s.pinner.EXPECT().PinLeadership(app, s.authTag).Return(nil)
+		s.pinner.EXPECT().PinLeadership(app, s.authTag.String()).Return(nil)
 	}
 
 	res, err := s.api.PinMachineApplications()
@@ -82,9 +81,9 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
-	s.pinner.EXPECT().PinLeadership("mysql", s.authTag).Return(nil)
-	s.pinner.EXPECT().PinLeadership("redis", s.authTag).Return(nil)
-	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag).Return(errorRes)
+	s.pinner.EXPECT().PinLeadership("mysql", s.authTag.String()).Return(nil)
+	s.pinner.EXPECT().PinLeadership("redis", s.authTag.String()).Return(nil)
+	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag.String()).Return(errorRes)
 
 	res, err := s.api.PinMachineApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,7 +97,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
-		s.pinner.EXPECT().UnpinLeadership(app, s.authTag).Return(nil)
+		s.pinner.EXPECT().UnpinLeadership(app, s.authTag.String()).Return(nil)
 	}
 
 	res, err := s.api.UnpinMachineApplications()
@@ -110,9 +109,9 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
-	s.pinner.EXPECT().UnpinLeadership("mysql", s.authTag).Return(nil)
-	s.pinner.EXPECT().UnpinLeadership("redis", s.authTag).Return(errorRes)
-	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag).Return(nil)
+	s.pinner.EXPECT().UnpinLeadership("mysql", s.authTag.String()).Return(nil)
+	s.pinner.EXPECT().UnpinLeadership("redis", s.authTag.String()).Return(errorRes)
+	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag.String()).Return(nil)
 
 	res, err := s.api.UnpinMachineApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,7 +161,7 @@ func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 func (s *LeadershipSuite) pinApplicationsSuccessResults() []params.PinApplicationResult {
 	results := make([]params.PinApplicationResult, len(s.machineApps))
 	for i, app := range s.machineApps {
-		results[i] = params.PinApplicationResult{ApplicationTag: names.NewApplicationTag(app).String()}
+		results[i] = params.PinApplicationResult{ApplicationName: app}
 	}
 	return results
 }

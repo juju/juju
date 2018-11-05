@@ -226,12 +226,12 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 }
 
 func (s *storeSuite) TestPin(c *gc.C) {
-	machineTag := names.NewMachineTag("0")
+	machine := names.NewMachineTag("0").String()
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.PinLease(
 				lease.Key{"warframe", "frost", "prime"},
-				machineTag,
+				machine,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -241,7 +241,7 @@ func (s *storeSuite) TestPin(c *gc.C) {
 			Namespace: "warframe",
 			ModelUUID: "frost",
 			Lease:     "prime",
-			PinEntity: machineTag.String(),
+			PinEntity: machine,
 		},
 		func(req raftlease.ForwardRequest) {
 			_, err := s.hub.Publish(
@@ -254,12 +254,12 @@ func (s *storeSuite) TestPin(c *gc.C) {
 }
 
 func (s *storeSuite) TestUnpin(c *gc.C) {
-	machineTag := names.NewMachineTag("0")
+	machine := names.NewMachineTag("0").String()
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.UnpinLease(
 				lease.Key{"warframe", "frost", "prime"},
-				machineTag,
+				machine,
 			)
 			c.Assert(err, jc.ErrorIsNil)
 		},
@@ -269,7 +269,7 @@ func (s *storeSuite) TestUnpin(c *gc.C) {
 			Namespace: "warframe",
 			ModelUUID: "frost",
 			Lease:     "prime",
-			PinEntity: machineTag.String(),
+			PinEntity: machine,
 		},
 		func(req raftlease.ForwardRequest) {
 			_, err := s.hub.Publish(
@@ -282,7 +282,7 @@ func (s *storeSuite) TestUnpin(c *gc.C) {
 }
 
 func (s *storeSuite) TestPinned(c *gc.C) {
-	s.fsm.pinned = map[lease.Key][]names.Tag{}
+	s.fsm.pinned = map[lease.Key][]string{}
 	c.Check(s.store.Pinned(), gc.DeepEquals, s.fsm.pinned)
 	s.fsm.CheckCallNames(c, "Pinned")
 }
@@ -462,7 +462,7 @@ type fakeFSM struct {
 	testing.Stub
 	leases     map[lease.Key]lease.Info
 	globalTime time.Time
-	pinned     map[lease.Key][]names.Tag
+	pinned     map[lease.Key][]string
 }
 
 func (f *fakeFSM) Leases(t time.Time) map[lease.Key]lease.Info {
@@ -470,7 +470,7 @@ func (f *fakeFSM) Leases(t time.Time) map[lease.Key]lease.Info {
 	return f.leases
 }
 
-func (f *fakeFSM) Pinned() map[lease.Key][]names.Tag {
+func (f *fakeFSM) Pinned() map[lease.Key][]string {
 	f.AddCall("Pinned")
 	return f.pinned
 }

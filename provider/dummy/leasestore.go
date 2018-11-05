@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
@@ -126,16 +125,16 @@ func (s *leaseStore) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *leaseStore) PinLease(key lease.Key, entity names.Tag) error {
+func (s *leaseStore) PinLease(key lease.Key, entity string) error {
 	return errors.NotImplementedf("lease pinning")
 }
 
 // UnpinLease is part of lease.Store.
-func (s *leaseStore) UnpinLease(key lease.Key, entity names.Tag) error {
+func (s *leaseStore) UnpinLease(key lease.Key, entity string) error {
 	return errors.NotImplementedf("lease unpinning")
 }
 
 // Pinned is part of the Store interface.
-func (s *leaseStore) Pinned() map[lease.Key][]names.Tag {
+func (s *leaseStore) Pinned() map[lease.Key][]string {
 	return nil
 }

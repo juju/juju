@@ -77,9 +77,9 @@ type PinApplicationsResults struct {
 // PinApplicationResult represents the result of a single application
 // leadership pin/unpin operation
 type PinApplicationResult struct {
-	// ApplicationTag is the application for which a leadership pin/unpin
+	// ApplicationName is the application for which a leadership pin/unpin
 	// operation was attempted.
-	ApplicationTag string `json:"application-tag"`
+	ApplicationName string `json:"application-name"`
 	// Error will container a reference to an error resulting from pin/unpin
 	// if one occurred.
 	Error *Error `json:"error,omitempty"`
@@ -89,7 +89,7 @@ type PinApplicationResult struct {
 // which leadership is pinned
 type PinnedLeadershipResult struct {
 	// Result has:
-	// - Application tag keys representing the application pinned.
+	// - Application name keys representing the application pinned.
 	// - Tag slice values representing the entities requiring pinned
 	//   behaviour for each application.
 	Result map[string][]string `json:"result,omitempty"`

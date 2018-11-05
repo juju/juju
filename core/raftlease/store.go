@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -43,7 +42,7 @@ type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 type ReadonlyFSM interface {
 	Leases(time.Time) map[lease.Key]lease.Info
 	GlobalTime() time.Time
-	Pinned() map[lease.Key][]names.Tag
+	Pinned() map[lease.Key][]string
 }
 
 // StoreConfig holds resources and settings needed to run the Store.
@@ -131,28 +130,28 @@ func (s *Store) Refresh() error {
 }
 
 // PinLease is part of lease.Store.
-func (s *Store) PinLease(key lease.Key, entity names.Tag) error {
+func (s *Store) PinLease(key lease.Key, entity string) error {
 	return errors.Trace(s.pinOp(OperationPin, key, entity))
 }
 
 // UnpinLease is part of lease.Store.
-func (s *Store) UnpinLease(key lease.Key, entity names.Tag) error {
+func (s *Store) UnpinLease(key lease.Key, entity string) error {
 	return errors.Trace(s.pinOp(OperationUnpin, key, entity))
 }
 
 // Pinned is part of the Store interface.
-func (s *Store) Pinned() map[lease.Key][]names.Tag {
+func (s *Store) Pinned() map[lease.Key][]string {
 	return s.fsm.Pinned()
 }
 
-func (s *Store) pinOp(operation string, key lease.Key, entity names.Tag) error {
+func (s *Store) pinOp(operation string, key lease.Key, entity string) error {
 	return errors.Trace(s.runOnLeader(&Command{
 		Version:   CommandVersion,
 		Operation: operation,
 		Namespace: key.Namespace,
 		ModelUUID: key.ModelUUID,
 		Lease:     key.Lease,
-		PinEntity: entity.String(),
+		PinEntity: entity,
 	}))
 }
 

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 )
 
 // TODO (manadart 2010-10-05) Add interfaces to the end of this line,
@@ -50,16 +49,16 @@ type Pinner interface {
 	// PinLeadership ensures that the leadership of the input application will
 	// not expire. The input entity records the party responsible for the
 	// pinning operation.
-	PinLeadership(applicationId string, entity names.Tag) error
+	PinLeadership(applicationId string, entity string) error
 
 	// UnpinLeadership reverses a PinLeadership operation for the same
 	// application and entity. Normal expiry behaviour is restored when no
 	// entities remain with pins for the application.
-	UnpinLeadership(applicationId string, entity names.Tag) error
+	UnpinLeadership(applicationId string, entity string) error
 
 	// PinnedLeadership returns a map keyed on pinned application names,
 	// with entities that require the application's pinned behaviour.
-	PinnedLeadership() map[string][]names.Tag
+	PinnedLeadership() map[string][]string
 }
 
 // Token represents a unit's leadership of its application.

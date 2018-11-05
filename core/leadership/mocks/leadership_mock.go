@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
 )
 
@@ -34,7 +33,7 @@ func (m *MockPinner) EXPECT() *MockPinnerMockRecorder {
 }
 
 // PinLeadership mocks base method
-func (m *MockPinner) PinLeadership(arg0 string, arg1 names_v2.Tag) error {
+func (m *MockPinner) PinLeadership(arg0, arg1 string) error {
 	ret := m.ctrl.Call(m, "PinLeadership", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -46,9 +45,9 @@ func (mr *MockPinnerMockRecorder) PinLeadership(arg0, arg1 interface{}) *gomock.
 }
 
 // PinnedLeadership mocks base method
-func (m *MockPinner) PinnedLeadership() map[string][]names_v2.Tag {
+func (m *MockPinner) PinnedLeadership() map[string][]string {
 	ret := m.ctrl.Call(m, "PinnedLeadership")
-	ret0, _ := ret[0].(map[string][]names_v2.Tag)
+	ret0, _ := ret[0].(map[string][]string)
 	return ret0
 }
 
@@ -58,7 +57,7 @@ func (mr *MockPinnerMockRecorder) PinnedLeadership() *gomock.Call {
 }
 
 // UnpinLeadership mocks base method
-func (m *MockPinner) UnpinLeadership(arg0 string, arg1 names_v2.Tag) error {
+func (m *MockPinner) UnpinLeadership(arg0, arg1 string) error {
 	ret := m.ctrl.Call(m, "UnpinLeadership", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
