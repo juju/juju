@@ -175,6 +175,7 @@ func (w *TxnWatcher) Err() error {
 
 // Report is part of the watcher/runner Reporting interface, to expose runtime details of the watcher.
 func (w *TxnWatcher) Report() map[string]interface{} {
+	// TODO: (jam) do we need to synchronize with the loop?
 	return map[string]interface{}{
 		"sync-events-len":     len(w.syncEvents),
 		"sync-events-cap":     cap(w.syncEvents),

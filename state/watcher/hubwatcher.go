@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
@@ -235,6 +236,7 @@ func (w *HubWatcher) Report() map[string]interface{} {
 		"watch-count":           stats.WatchCount,
 		"watch-key-count":       stats.WatchKeyCount,
 		"revno-map-size":        stats.RevnoMapSize,
+		"revno-map-bytes":       stats.RevnoMapBytes,
 		"sync-queue-cap":        stats.SyncQueueCap,
 		"sync-queue-len":        stats.SyncQueueLen,
 		"sync-event-doc-count":  stats.SyncEventDocCount,
@@ -367,15 +369,20 @@ func (w *HubWatcher) handle(req interface{}) {
 		for _, watches := range w.watches {
 			watchCount += uint64(len(watches))
 		}
-		var revnoMapBytes uint64
+		var revnoMapBytes uintptr
 		// TODO: (jam) 2018-11-05 there would be ways to be more accurate about the sizes,
 		// but this is a rough approximation. We should also include the size overhead of all the objects.
 		// watchKey, str pointer and size overhead, map etc.
+		revnoMapBytes += reflect.TypeOf(w.current).Size()
 		for wKey, _ := range w.current {
-			revnoMapBytes += uint64(len(wKey.c))
+			revnoMapBytes += 8 // for the int64 value
+			revnoMapBytes += reflect.TypeOf(wKey).Size()
+			revnoMapBytes += reflect.TypeOf(wKey.c).Size()
+			revnoMapBytes += uintptr(len(wKey.c))
+			revnoMapBytes += reflect.TypeOf(wKey.id).Size()
 			switch id := wKey.id.(type) {
 			case string:
-				revnoMapBytes += uint64(len(id))
+				revnoMapBytes += uintptr(len(id))
 			case int64, uint64:
 				revnoMapBytes += 8
 			case int32, uint32:
@@ -387,7 +394,7 @@ func (w *HubWatcher) handle(req interface{}) {
 			WatchKeyCount:      len(w.watches),
 			WatchCount:         watchCount,
 			RevnoMapSize:       len(w.current),
-			RevnoMapBytes:      revnoMapBytes,
+			RevnoMapBytes:      uint64(revnoMapBytes),
 			SyncQueueCap:       cap(w.syncEvents),
 			SyncQueueLen:       len(w.syncEvents),
 			SyncEventCollCount: w.syncEventCollectionCount,
