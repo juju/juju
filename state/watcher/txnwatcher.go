@@ -71,6 +71,12 @@ type TxnWatcher struct {
 	// handled in reverse order due to the way the algorithm works.
 	syncEvents []Change
 
+	// iteratorStepCount tracks how many documents we've read from the database
+	iteratorStepCount uint64
+
+	// syncEventsCount tracks all sync events that we have processed
+	syncEventsCount uint64
+
 	// lastId is the most recent transaction id observed by a sync.
 	lastId interface{}
 }
@@ -170,7 +176,10 @@ func (w *TxnWatcher) Err() error {
 // Report is part of the watcher/runner Reporting interface, to expose runtime details of the watcher.
 func (w *TxnWatcher) Report() map[string]interface{} {
 	return map[string]interface{}{
-		"sync-events": len(w.syncEvents),
+		"sync-events-len":     len(w.syncEvents),
+		"sync-events-cap":     cap(w.syncEvents),
+		"total-sync-events":   w.syncEventsCount,
+		"iterator-step-count": w.iteratorStepCount,
 	}
 }
 
@@ -252,6 +261,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 	lastId := w.lastId
 	var entry bson.D
 	for iter.Next(&entry) {
+		w.iteratorStepCount++
 		if len(entry) == 0 {
 			w.logger.Tracef("got empty changelog document")
 		}
@@ -303,6 +313,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 					Id:    d[i],
 					Revno: revno,
 				})
+				w.syncEventsCount++
 				added = true
 			}
 		}

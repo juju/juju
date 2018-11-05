@@ -206,19 +206,6 @@ type reqUnwatch struct {
 
 type reqSync struct{}
 
-type HubWatcherStats struct {
-	WatchCount      int
-	RevnoMapSize    int
-	SyncQueueCap    int
-	SyncQueueLen    int
-	RequestQueueCap int
-	RequestQueueLen int
-}
-
-type reqStats struct {
-	ch chan<- HubWatcherStats
-}
-
 func (w *Watcher) sendReq(req interface{}) {
 	select {
 	case w.request <- req:

@@ -45,6 +45,18 @@ type HubWatcher struct {
 
 	// changes are events published to the hub.
 	changes chan Change
+
+	// syncEventDocCount is all sync events that we've ever processed for individual docs
+	syncEventDocCount uint64
+
+	// syncEventCollectionCount is all the sync events we've processed for collection watches
+	syncEventCollectionCount uint64
+
+	// requestCount is all requests that we've ever processed
+	requestCount uint64
+
+	// changeCount is the number of change events we've processed
+	changeCount uint64
 }
 
 // NewHubWatcher returns a new watcher observing Change events published to the
@@ -98,7 +110,7 @@ func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	case txnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
-			w.logger.Warningf("incoming event not a Chage")
+			w.logger.Warningf("incoming event not a Change")
 			return
 		}
 		select {
@@ -185,6 +197,26 @@ func (w *HubWatcher) UnwatchCollection(collection string, ch chan<- Change) {
 	w.sendReq(reqUnwatch{watchKey{collection, nil}, ch})
 }
 
+// HubWatcherStats defines a few metrics that the hub watcher tracks
+type HubWatcherStats struct {
+	WatchKeyCount      int
+	WatchCount         uint64
+	RevnoMapSize       int
+	RevnoMapBytes      uint64
+	SyncQueueCap       int
+	SyncQueueLen       int
+	SyncEventDocCount  uint64
+	SyncEventCollCount uint64
+	RequestQueueCap    int
+	RequestQueueLen    int
+	RequestCount       uint64
+	ChangeCount        uint64
+}
+
+type reqStats struct {
+	ch chan<- HubWatcherStats
+}
+
 func (w *HubWatcher) Stats() HubWatcherStats {
 	ch := make(chan HubWatcherStats, 1)
 	w.sendReq(reqStats{ch: ch})
@@ -200,12 +232,17 @@ func (w *HubWatcher) Stats() HubWatcherStats {
 func (w *HubWatcher) Report() map[string]interface{} {
 	stats := w.Stats()
 	return map[string]interface{}{
-		"watch-count":       stats.WatchCount,
-		"revno-map-size":    stats.RevnoMapSize,
-		"sync-queue-cap":    stats.SyncQueueCap,
-		"sync-queue-len":    stats.SyncQueueLen,
-		"request-queue-cap": stats.RequestQueueCap,
-		"request-queue-len": stats.RequestQueueLen,
+		"watch-count":           stats.WatchCount,
+		"watch-key-count":       stats.WatchKeyCount,
+		"revno-map-size":        stats.RevnoMapSize,
+		"sync-queue-cap":        stats.SyncQueueCap,
+		"sync-queue-len":        stats.SyncQueueLen,
+		"sync-event-doc-count":  stats.SyncEventDocCount,
+		"sync-event-coll-count": stats.SyncEventCollCount,
+		"request-queue-cap":     stats.RequestQueueCap,
+		"request-queue-len":     stats.RequestQueueLen,
+		"request-event-count":   stats.RequestCount,
+		"change-count":          stats.ChangeCount,
 	}
 }
 
@@ -286,6 +323,7 @@ func (w *HubWatcher) flush() {
 // onto the background watcher goroutine.
 func (w *HubWatcher) handle(req interface{}) {
 	w.logger.Tracef("got request: %#v", req)
+	w.requestCount++
 	switch r := req.(type) {
 	case reqWatch:
 		for _, info := range w.watches[r.key] {
@@ -325,13 +363,38 @@ func (w *HubWatcher) handle(req interface{}) {
 			}
 		}
 	case reqStats:
+		var watchCount uint64
+		for _, watches := range w.watches {
+			watchCount += uint64(len(watches))
+		}
+		var revnoMapBytes uint64
+		// TODO: (jam) 2018-11-05 there would be ways to be more accurate about the sizes,
+		// but this is a rough approximation. We should also include the size overhead of all the objects.
+		// watchKey, str pointer and size overhead, map etc.
+		for wKey, _ := range w.current {
+			revnoMapBytes += uint64(len(wKey.c))
+			switch id := wKey.id.(type) {
+			case string:
+				revnoMapBytes += uint64(len(id))
+			case int64, uint64:
+				revnoMapBytes += 8
+			case int32, uint32:
+				revnoMapBytes += 4
+			}
+		}
 		stats := HubWatcherStats{
-			WatchCount:      len(w.watches),
-			RevnoMapSize:    len(w.current),
-			SyncQueueCap:    cap(w.syncEvents),
-			SyncQueueLen:    len(w.syncEvents),
-			RequestQueueCap: cap(w.requestEvents),
-			RequestQueueLen: len(w.requestEvents),
+			ChangeCount:        w.changeCount,
+			WatchKeyCount:      len(w.watches),
+			WatchCount:         watchCount,
+			RevnoMapSize:       len(w.current),
+			RevnoMapBytes:      revnoMapBytes,
+			SyncQueueCap:       cap(w.syncEvents),
+			SyncQueueLen:       len(w.syncEvents),
+			SyncEventCollCount: w.syncEventCollectionCount,
+			SyncEventDocCount:  w.syncEventDocCount,
+			RequestQueueCap:    cap(w.requestEvents),
+			RequestQueueLen:    len(w.requestEvents),
+			RequestCount:       w.requestCount,
 		}
 		select {
 		case <-w.tomb.Dying():
@@ -345,6 +408,7 @@ func (w *HubWatcher) handle(req interface{}) {
 
 // queueChange queues up the change for the registered watchers.
 func (w *HubWatcher) queueChange(change Change) {
+	w.changeCount++
 	w.logger.Tracef("got change document: %#v", change)
 	key := watchKey{change.C, change.Id}
 	revno := change.Revno
@@ -356,6 +420,7 @@ func (w *HubWatcher) queueChange(change Change) {
 			continue
 		}
 		w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+		w.syncEventCollectionCount++
 		w.logger.Tracef("adding collection watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
 	}
 
@@ -365,6 +430,7 @@ func (w *HubWatcher) queueChange(change Change) {
 		if revno > info.revno || revno < 0 && info.revno >= 0 {
 			infos[i].revno = revno
 			w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+			w.syncEventDocCount++
 			w.logger.Tracef("adding document watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}
 	}
