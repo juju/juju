@@ -282,10 +282,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
-	// TODO (hml) lxd-profile
-	// enable this test once charmrepo test accepts charms with an lxdprofile
-	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
-
 	profileMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -310,7 +306,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	apiPort := dummy.APIPort(s.Environ.Provider())
 	controllerCfg["api-port"] = apiPort
 
-	pName := fmt.Sprintf("juju-%s-lxd-profile-0", coretesting.ModelConfig(c).Name())
+	pName := fmt.Sprintf("juju-%s-lxd-profile-0", profileMachine.ModelName())
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
