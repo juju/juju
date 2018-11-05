@@ -1260,7 +1260,6 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 		if canRead(tag) {
 			var unit *state.Unit
 			if unit, err = u.getUnit(tag); err == nil {
-				result.Results[i].Series = unit.Series()
 				result.Results[i].Life = params.Life(unit.Life().String())
 				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
 			}

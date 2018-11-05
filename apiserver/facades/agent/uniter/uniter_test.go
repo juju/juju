@@ -3063,7 +3063,7 @@ func (s *uniterSuite) TestRefresh(c *gc.C) {
 	}
 	expect := params.UnitRefreshResults{
 		Results: []params.UnitRefreshResult{
-			{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"},
+			{Life: params.Alive, Resolved: params.ResolvedNone},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -816,7 +816,6 @@ type ResourceUploadResult struct {
 type UnitRefreshResult struct {
 	Life     Life
 	Resolved ResolvedMode
-	Series   string
 	Error    *Error
 }
 
