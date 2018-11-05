@@ -499,17 +499,45 @@ func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
 	}
 	err := s.ControllerStore.SetModels("kontroll", otherModels)
 	c.Assert(err, jc.ErrorIsNil)
-	args := []string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"}
-	err = cmdtesting.InitCommand(NewDeployCommand(), args)
-	c.Assert(err, gc.ErrorMatches, "--attach-storage cannot be used on kubernetes models")
 
-	args = []string{"-m", "caas-model", "some-application-name", "--to", "a=b,c=d"}
-	err = cmdtesting.InitCommand(NewDeployCommand(), args)
-	c.Assert(err, gc.ErrorMatches, "only 1 placement directive is supported, got 2")
+	for i, t := range caasTests {
+		c.Logf("Running %d with args %v", i, t.args)
+		err = cmdtesting.InitCommand(NewDeployCommand(), t.args)
+		c.Assert(err, gc.ErrorMatches, t.message)
+	}
+}
 
-	args = []string{"-m", "caas-model", "some-application-name", "--to", "#:2"}
-	err = cmdtesting.InitCommand(NewDeployCommand(), args)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`placement directive "#:2" not supported`))
+var caasTests = []struct {
+	args    []string
+	message string
+}{
+	{[]string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"},
+		"--attach-storage cannot be used on kubernetes models"},
+	{[]string{"-m", "caas-model", "some-application-name", "--to", "a=b,c=d"},
+		"only 1 placement directive is supported, got 2"},
+	{[]string{"-m", "caas-model", "some-application-name", "--to", "#:2"},
+		regexp.QuoteMeta(`placement directive "#:2" not supported`)},
+}
+
+func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {
+	for i, t := range caasTests {
+		c.Logf("Running %d with args %v", i, t.args)
+		mycmd := NewDeployCommand()
+		err := cmdtesting.InitCommand(mycmd, t.args)
+		c.Assert(err, jc.ErrorIsNil)
+
+		otherModels := map[string]jujuclient.ModelDetails{
+			"admin/caas-model": {ModelUUID: "test.caas.model.uuid", ModelType: model.CAAS},
+		}
+		err = s.ControllerStore.SetModels("kontroll", otherModels)
+		c.Assert(err, jc.ErrorIsNil)
+
+		ctx := cmdtesting.Context(c)
+		err = mycmd.Run(ctx)
+		c.Assert(err, gc.ErrorMatches, t.message)
+		err = s.ControllerStore.SetModels("kontroll", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
