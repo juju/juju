@@ -47,6 +47,9 @@ type HubWatcher struct {
 	// changes are events published to the hub.
 	changes chan Change
 
+	// lastSyncLen was the length of syncEvents in the last flush()
+	lastSyncLen int
+
 	// syncEventDocCount is all sync events that we've ever processed for individual docs
 	syncEventDocCount uint64
 
@@ -200,18 +203,35 @@ func (w *HubWatcher) UnwatchCollection(collection string, ch chan<- Change) {
 
 // HubWatcherStats defines a few metrics that the hub watcher tracks
 type HubWatcherStats struct {
-	WatchKeyCount      int
-	WatchCount         uint64
-	RevnoMapSize       int
-	RevnoMapBytes      uint64
-	SyncQueueCap       int
-	SyncQueueLen       int
-	SyncEventDocCount  uint64
+	// WatchKeyCount is the number of keys being watched
+	WatchKeyCount int
+	// WatchCount is the number of watchers (keys can be watched by multiples)
+	WatchCount uint64
+	// RevnoMapSize is the number of keys stored in the 'current' map
+	RevnoMapSize int
+	// RevnoMapBytes is an approximation of the number of bytes being stored by 'current'
+	RevnoMapBytes uint64
+	// SyncQueueCap is the maximum buffer size for synchronization events
+	SyncQueueCap int
+	// SyncQueueLen is the current number of events being queued
+	SyncQueueLen int
+	// LastSyncLen was the length of SyncQueue the last time we flushed.
+	LastSyncLen int
+	// SyncEventDocCount is the number of sync events we've generated for specific documents
+	SyncEventDocCount uint64
+	// SyncEventDocCount is the number of sync events we've generated for documents changed in collections
 	SyncEventCollCount uint64
-	RequestQueueCap    int
-	RequestQueueLen    int
-	RequestCount       uint64
-	ChangeCount        uint64
+	// RequestEventCount is the number of request events we've generated
+	// (documents being watched that changed since the request came in)
+	RequestEventCount uint64
+	// RequestQueueCap is the maximum size of the request queue buffer
+	RequestQueueCap int
+	// RequestQueueCap is the current number of requested events
+	RequestQueueLen int
+	// RequestCount is the number of requests (reqWatch/reqUnwatch, etc) that we've seen
+	RequestCount uint64
+	// ChangeCount is the number of changes we've processed
+	ChangeCount uint64
 }
 
 type reqStats struct {
@@ -239,11 +259,13 @@ func (w *HubWatcher) Report() map[string]interface{} {
 		"revno-map-bytes":       stats.RevnoMapBytes,
 		"sync-queue-cap":        stats.SyncQueueCap,
 		"sync-queue-len":        stats.SyncQueueLen,
+		"last-sync-len":         stats.LastSyncLen,
 		"sync-event-doc-count":  stats.SyncEventDocCount,
 		"sync-event-coll-count": stats.SyncEventCollCount,
 		"request-queue-cap":     stats.RequestQueueCap,
 		"request-queue-len":     stats.RequestQueueLen,
-		"request-event-count":   stats.RequestCount,
+		"request-event-count":   stats.RequestEventCount,
+		"request-count":         stats.RequestCount,
 		"change-count":          stats.ChangeCount,
 	}
 }
@@ -295,6 +317,7 @@ func (w *HubWatcher) flush() {
 			break
 		}
 	}
+	w.lastSyncLen = len(w.syncEvents)
 	w.syncEvents = w.syncEvents[:0]
 	w.logger.Tracef("syncEvents: len(%d), cap(%d)", len(w.syncEvents), cap(w.syncEvents))
 
@@ -397,6 +420,7 @@ func (w *HubWatcher) handle(req interface{}) {
 			RevnoMapBytes:      uint64(revnoMapBytes),
 			SyncQueueCap:       cap(w.syncEvents),
 			SyncQueueLen:       len(w.syncEvents),
+			LastSyncLen:        w.lastSyncLen,
 			SyncEventCollCount: w.syncEventCollectionCount,
 			SyncEventDocCount:  w.syncEventDocCount,
 			RequestQueueCap:    cap(w.requestEvents),
