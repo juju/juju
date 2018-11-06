@@ -467,7 +467,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		called++
 		if called == 1 {
 			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
-				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}
+				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}
 			return nil
 		}
 		c.Check(objType, gc.Equals, "Uniter")
