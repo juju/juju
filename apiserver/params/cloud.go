@@ -280,7 +280,6 @@ type ValidateCredentialArgs struct {
 // UpdateCredentialModelResult contains results for a model credential validation check
 // from a cloud credential update.
 type UpdateCredentialModelResult struct {
-
 	// ModelUUID contains model's UUID.
 	ModelUUID string `json:"uuid"`
 
@@ -306,4 +305,13 @@ type UpdateCredentialResult struct {
 // UpdateCredentialResult contains a set of UpdateCredentialResult.
 type UpdateCredentialResults struct {
 	Results []UpdateCredentialResult `json:"results,omitempty"`
+}
+
+// UpdateCredentialArgs contains a TaggedCredential set and is used in the call to update credentials.
+type UpdateCredentialArgs struct {
+	// Credentials holds credentials to update.
+	Credentials []TaggedCredential `json:"credentials"`
+
+	// Force indicates whether the update should be forced.
+	Force bool `json:"force"`
 }
