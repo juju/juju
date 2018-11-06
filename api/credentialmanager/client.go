@@ -27,8 +27,9 @@ func NewClient(st base.APICallCloser) *Client {
 
 // InvalidateModelCredential invalidates cloud credential for the model that made a connection.
 func (c *Client) InvalidateModelCredential(reason string) error {
+	in := params.InvalidateCredentialArg{reason}
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("InvalidateModelCredential", reason, &result)
+	err := c.facade.FacadeCall("InvalidateModelCredential", in, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -25,7 +25,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CredentialManager")
 		c.Check(request, gc.Equals, "InvalidateModelCredential")
-		c.Assert(arg, gc.Equals, "")
+		c.Assert(arg, gc.Equals, params.InvalidateCredentialArg{Reason: ""})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
 		*(result.(*params.ErrorResult)) = params.ErrorResult{}
 		return nil

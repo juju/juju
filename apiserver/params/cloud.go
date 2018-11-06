@@ -280,7 +280,6 @@ type ValidateCredentialArgs struct {
 // UpdateCredentialModelResult contains results for a model credential validation check
 // from a cloud credential update.
 type UpdateCredentialModelResult struct {
-
 	// ModelUUID contains model's UUID.
 	ModelUUID string `json:"uuid"`
 
@@ -306,4 +305,10 @@ type UpdateCredentialResult struct {
 // UpdateCredentialResult contains a set of UpdateCredentialResult.
 type UpdateCredentialResults struct {
 	Results []UpdateCredentialResult `json:"results,omitempty"`
+}
+
+// InvalidateCredentialArg is used to invalidate a controller credential.
+type InvalidateCredentialArg struct {
+	// Reason is the desription of why we are invalidating credential.
+	Reason string `json:"reason,omitempty"`
 }

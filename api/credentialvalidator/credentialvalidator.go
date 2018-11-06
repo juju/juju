@@ -75,8 +75,9 @@ func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, er
 
 // InvalidateModelCredential invalidates cloud credential for the model that made a connection.
 func (c *Facade) InvalidateModelCredential(reason string) error {
+	in := params.InvalidateCredentialArg{reason}
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("InvalidateModelCredential", reason, &result)
+	err := c.facade.FacadeCall("InvalidateModelCredential", in, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
