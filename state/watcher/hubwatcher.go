@@ -17,6 +17,11 @@ type HubSource interface {
 	SubscribeMatch(matcher func(string) bool, handler func(string, interface{})) func()
 }
 
+// filterFactor represents the portion of a first-order filter that is calculating a running average.
+// This is the weight of the new inputs. A value of 0.5 would represent averaging over just 2 samples.
+// A value of 0.1 corresponds to averaging over approximately 10 items.
+const filterFactor = 0.1
+
 // HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
 type HubWatcher struct {
@@ -49,6 +54,13 @@ type HubWatcher struct {
 
 	// lastSyncLen was the length of syncEvents in the last flush()
 	lastSyncLen int
+
+	// maxSyncLen is the longest we've seen syncEvents
+	maxSyncLen int
+
+	// averageSyncLen applies a first-order filter for every time we flush(), to give us an idea of how large,
+	// on average, our sync queue is
+	averageSyncLen float64
 
 	// syncEventDocCount is all sync events that we've ever processed for individual docs
 	syncEventDocCount uint64
@@ -215,8 +227,12 @@ type HubWatcherStats struct {
 	SyncQueueCap int
 	// SyncQueueLen is the current number of events being queued
 	SyncQueueLen int
-	// LastSyncLen was the length of SyncQueue the last time we flushed.
-	LastSyncLen int
+	// SyncLastLen was the length of SyncQueue the last time we flushed
+	SyncLastLen int
+	// SyncAvgLen is a smoothed average of recent sync lengths
+	SyncAvgLen int
+	// SyncMaxLen was the longest we've seen SyncQueue when flushing
+	SyncMaxLen int
 	// SyncEventDocCount is the number of sync events we've generated for specific documents
 	SyncEventDocCount uint64
 	// SyncEventDocCount is the number of sync events we've generated for documents changed in collections
@@ -259,7 +275,9 @@ func (w *HubWatcher) Report() map[string]interface{} {
 		"revno-map-bytes":       stats.RevnoMapBytes,
 		"sync-queue-cap":        stats.SyncQueueCap,
 		"sync-queue-len":        stats.SyncQueueLen,
-		"last-sync-len":         stats.LastSyncLen,
+		"sync-last-len":         stats.SyncLastLen,
+		"sync-avg-len":          stats.SyncAvgLen,
+		"sync-max-len":          stats.SyncMaxLen,
 		"sync-event-doc-count":  stats.SyncEventDocCount,
 		"sync-event-coll-count": stats.SyncEventCollCount,
 		"request-queue-cap":     stats.RequestQueueCap,
@@ -318,6 +336,12 @@ func (w *HubWatcher) flush() {
 		}
 	}
 	w.lastSyncLen = len(w.syncEvents)
+	if w.lastSyncLen > w.maxSyncLen {
+		w.maxSyncLen = w.lastSyncLen
+	}
+	// first-order filter: https://en.wikipedia.org/wiki/Low-pass_filter#Discrete-time_realization
+	// This allows us to compute an "average" without having to actually track N samples.
+	w.averageSyncLen = (filterFactor * float64(w.lastSyncLen)) + (1.0-filterFactor)*w.averageSyncLen
 	w.syncEvents = w.syncEvents[:0]
 	w.logger.Tracef("syncEvents: len(%d), cap(%d)", len(w.syncEvents), cap(w.syncEvents))
 
@@ -420,7 +444,9 @@ func (w *HubWatcher) handle(req interface{}) {
 			RevnoMapBytes:      uint64(revnoMapBytes),
 			SyncQueueCap:       cap(w.syncEvents),
 			SyncQueueLen:       len(w.syncEvents),
-			LastSyncLen:        w.lastSyncLen,
+			SyncLastLen:        w.lastSyncLen,
+			SyncMaxLen:         w.maxSyncLen,
+			SyncAvgLen:         int(w.averageSyncLen + 0.5),
 			SyncEventCollCount: w.syncEventCollectionCount,
 			SyncEventDocCount:  w.syncEventDocCount,
 			RequestQueueCap:    cap(w.requestEvents),
