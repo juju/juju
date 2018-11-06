@@ -1,6 +1,6 @@
 juju
 ====
-
+ 
 juju is devops distilled.
 
 Juju enables you to use [Charms](https://jujucharms.com/docs/stable/charms) to deploy your
