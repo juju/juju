@@ -386,7 +386,7 @@ type DeployCommand struct {
 	machineMap string
 	flagSet    *gnuflag.FlagSet
 
-	notLocalModel bool
+	unknownModel bool
 }
 
 const deployDoc = `
@@ -723,7 +723,7 @@ func (c *DeployCommand) Init(args []string) error {
 		// at Init() we do not yet have an API connection.
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
-		c.notLocalModel = true
+		c.unknownModel = true
 	}
 	switch len(args) {
 	case 2:
@@ -764,7 +764,7 @@ func (c *DeployCommand) Init(args []string) error {
 		// at Init() we do not yet have an API connection.
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
-		c.notLocalModel = true
+		c.unknownModel = true
 	}
 	return nil
 }
@@ -1144,7 +1144,7 @@ func (c *DeployCommand) parseBind() error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
-	if c.notLocalModel {
+	if c.unknownModel {
 		if err := c.validateStorageByModelType(); err != nil {
 			return errors.Trace(err)
 		}
