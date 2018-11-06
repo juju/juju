@@ -35,7 +35,8 @@ type CloudV3 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
-	UpdateCredentialsCheckModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
 	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
 }
 
@@ -177,7 +178,7 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 		return result, errors.Trace(err)
 	}
 	result.Clouds = make(map[string]params.Cloud)
-	for tag, cloud := range clouds {
+	for tag, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
 			canAccess, err := api.canAccessCloud(tag.Id(), api.apiUser, permission.AddModelAccess)
@@ -188,7 +189,7 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 				continue
 			}
 		}
-		paramsCloud := common.CloudToParams(cloud)
+		paramsCloud := common.CloudToParams(aCloud)
 		result.Clouds[tag.String()] = paramsCloud
 	}
 	return result, nil
@@ -218,19 +219,19 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 				return nil, errors.NotFoundf("cloud %q", tag.Id())
 			}
 		}
-		cloud, err := api.backend.Cloud(tag.Id())
+		aCloud, err := api.backend.Cloud(tag.Id())
 		if err != nil {
 			return nil, err
 		}
-		paramsCloud := common.CloudToParams(cloud)
+		paramsCloud := common.CloudToParams(aCloud)
 		return &paramsCloud, nil
 	}
 	for i, arg := range args.Entities {
-		cloud, err := one(arg)
+		aCloud, err := one(arg)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		} else {
-			results.Results[i].Cloud = cloud
+			results.Results[i].Cloud = aCloud
 		}
 	}
 	return results, nil
@@ -299,12 +300,12 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 		isAdmin = perm == permission.AdminAccess
 	}
 
-	cloud, err := api.backend.Cloud(tag.Id())
+	aCloud, err := api.backend.Cloud(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	info := params.CloudInfo{
-		CloudDetails: cloudToParams(cloud),
+		CloudDetails: cloudToParams(aCloud),
 	}
 
 	cloudUsers, err := api.ctlrBackend.GetCloudUsers(tag.Id())
@@ -467,15 +468,37 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 	return results, nil
 }
 
+// CheckCredentialsModels validates supplied cloud credentials' content against
+// models that currently use these credentials.
+// If there are any models that are using a credential and these models or their
+// cloud instances are not going to be accessible with corresponding credential,
+// there will be detailed validation errors per model.
+func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+	return api.commonUpdateCredentials(false, false, args)
+}
+
 // UpdateCredentialsCheckModels updates a set of cloud credentials' content.
 // If there are any models that are using a credential and these models
 // are not going to be visible with updated credential content,
 // there will be detailed validation errors per model.
-func (api *CloudAPI) UpdateCredentialsCheckModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
-	return api.commonUpdateCredentials(args)
+// Controller admins can 'force' an update of the credential
+// regardless of whether it is deemed valid or not.
+func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
+	return api.commonUpdateCredentials(true, args.Force, params.TaggedCredentials{args.Credentials})
 }
 
-func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+	if force {
+		// Only controller admins can ask for an update to be forced.
+		isControllerAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+		if err != nil && !errors.IsNotFound(err) {
+			return params.UpdateCredentialResults{}, errors.Trace(err)
+		}
+		if !isControllerAdmin {
+			return params.UpdateCredentialResults{}, errors.Annotatef(common.ErrBadRequest, "unexpected force specified")
+		}
+	}
+
 	authFunc, err := api.getCredentialsAuthFunc()
 	if err != nil {
 		return params.UpdateCredentialResults{}, err
@@ -502,9 +525,11 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 
 		credentialModels, err := api.backend.CredentialModels(tag)
 		if err != nil && !errors.IsNotFound(err) {
-			// Could not determine if credential has models - do not continue updating this credential...
 			results[i].Error = common.ServerError(err)
-			continue
+			if !force {
+				// Could not determine if credential has models - do not continue updating this credential...
+				continue
+			}
 		}
 
 		var modelsErred bool
@@ -529,19 +554,22 @@ func (api *CloudAPI) commonUpdateCredentials(args params.TaggedCredentials) (par
 		}
 
 		if modelsErred {
-			// Some models that use this credential do not like the new content, do not update the credential...
 			results[i].Error = common.ServerError(errors.New("some models are no longer visible"))
-			continue
+			if !force {
+				// Some models that use this credential do not like the new content, do not update the credential...
+				continue
+			}
 		}
 
-		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
-			if errors.IsNotFound(err) {
-				err = errors.Errorf(
-					"cannot update credential %q: controller does not manage cloud %q",
-					tag.Name(), tag.Cloud().Id())
+		if update {
+			if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
+				if errors.IsNotFound(err) {
+					err = errors.Errorf(
+						"cannot update credential %q: controller does not manage cloud %q",
+						tag.Name(), tag.Cloud().Id())
+				}
+				results[i].Error = common.ServerError(err)
 			}
-			results[i].Error = common.ServerError(err)
-			continue
 		}
 	}
 	return params.UpdateCredentialResults{results}, nil
@@ -579,12 +607,20 @@ var validateNewCredentialForModelFunc = credentialcommon.ValidateNewModelCredent
 // UpdateCredentials was dropped in V3, replaced with UpdateCredentialsCheckModels.
 func (*CloudAPI) UpdateCredentials(_, _ struct{}) {}
 
+// Mask out old methods from the new API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// CheckCredentialsModels did not exist before V3.
+func (*CloudAPIV2) CheckCredentialsModels(_, _ struct{}) {}
+
 // UpdateCredentials updates a set of cloud credentials' content.
 func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
-	updateResults, err := api.commonUpdateCredentials(args)
+
+	updateResults, err := api.commonUpdateCredentials(true, false, args)
 	if err != nil {
 		return results, err
 	}
@@ -674,11 +710,11 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			if s, ok := schemaCache[cloudName]; ok {
 				return s, nil
 			}
-			cloud, err := api.backend.Cloud(cloudName)
+			aCloud, err := api.backend.Cloud(cloudName)
 			if err != nil {
 				return nil, err
 			}
-			provider, err := environs.Provider(cloud.Type)
+			provider, err := environs.Provider(aCloud.Type)
 			if err != nil {
 				return nil, err
 			}
@@ -780,11 +816,11 @@ func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params
 		if s, ok := schemaCache[cloudName]; ok {
 			return s, nil
 		}
-		cloud, err := api.backend.Cloud(cloudName)
+		aCloud, err := api.backend.Cloud(cloudName)
 		if err != nil {
 			return nil, err
 		}
-		provider, err := environs.Provider(cloud.Type)
+		provider, err := environs.Provider(aCloud.Type)
 		if err != nil {
 			return nil, err
 		}
