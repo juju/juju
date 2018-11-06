@@ -330,7 +330,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 
 func (s *cloudSuite) TestCheckCredentialsModels(c *gc.C) {
 	// Most of the actual validation functionality is tested by other tests in the suite.
-	// All we need to know is that this call does not actually update exisitng controller credential content.
+	// All we need to know is that this call does not actually update existing controller credential content.
 	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.api.CheckCredentialsModels(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
