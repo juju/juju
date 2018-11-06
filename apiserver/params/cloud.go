@@ -307,6 +307,15 @@ type UpdateCredentialResults struct {
 	Results []UpdateCredentialResult `json:"results,omitempty"`
 }
 
+// UpdateCredentialArgs contains a TaggedCredential set and is used in the call to update credentials.
+type UpdateCredentialArgs struct {
+	// Credentials holds credentials to update.
+	Credentials []TaggedCredential `json:"credentials"`
+
+	// Force indicates whether the update should be forced.
+	Force bool `json:"force"`
+}
+
 // InvalidateCredentialArg is used to invalidate a controller credential.
 type InvalidateCredentialArg struct {
 	// Reason is the desription of why we are invalidating credential.
