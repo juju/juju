@@ -2610,7 +2610,9 @@ func (s *MachineSuite) TestUpdateMachineSeriesCharmURLChangedSeriesFail(c *gc.C)
 
 	// Trusty is listed in only version 1 of the charm.
 	err := mach.UpdateMachineSeries("trusty", false)
-	c.Assert(err, gc.ErrorMatches, "cannot update series for \"2\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+	c.Assert(err, gc.ErrorMatches,
+		"updating series for machine \"2\": series \"trusty\" not supported by charm \"cs:multi-series-2\", "+
+			"supported series are: precise, xenial")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {

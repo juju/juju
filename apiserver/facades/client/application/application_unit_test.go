@@ -1096,7 +1096,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm \"testCharm\", supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"testCharm\", supported series are: yakkety, zesty",
 		},
 	})
 }

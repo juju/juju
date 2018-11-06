@@ -2128,7 +2128,7 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 		return ops, nil
 	}
 	err := m.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
+	return errors.Annotatef(err, "updating series for machine %q", m)
 }
 
 // VerifyUnitsSeries iterates over the units with the input names, and checks

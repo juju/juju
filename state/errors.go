@@ -169,8 +169,8 @@ type ErrIncompatibleSeries struct {
 }
 
 func (e *ErrIncompatibleSeries) Error() string {
-	return fmt.Sprintf("series %q not supported by charm '%s', supported series are: %s",
-		e.Series, e.CharmName, strings.Join(e.SeriesList, ","))
+	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
+		e.Series, e.CharmName, strings.Join(e.SeriesList, ", "))
 }
 
 // IsIncompatibleSeriesError returns if the given error or its cause is

@@ -289,7 +289,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C)
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm \"TestCharm\", supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"TestCharm\", supported series are: yakkety, zesty",
 		},
 	})
 }
@@ -600,7 +600,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	c.Assert(result, jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm \"TestCharm\", supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"TestCharm\", supported series are: yakkety, zesty",
 		},
 	})
 }

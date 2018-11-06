@@ -1276,7 +1276,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 	}
 
 	err = a.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "cannot update series for %q to %s", a, series)
+	return errors.Annotatef(err, "updating application series")
 }
 
 // VerifySupportedSeries verifies if the given series is supported by the
