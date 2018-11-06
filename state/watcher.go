@@ -21,6 +21,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lxdprofile"
+	jujuwatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -61,7 +62,7 @@ type Watcher interface {
 // return any content for those changes
 type NotifyWatcher interface {
 	Watcher
-	Changes() <-chan struct{}
+	Changes() jujuwatcher.NotifyChannel
 }
 
 // StringsWatcher generates signals when something changes, returning
@@ -2043,7 +2044,7 @@ func (w *machineFieldChangeWatcher) loop() error {
 	}
 }
 
-func (w *machineFieldChangeWatcher) Changes() <-chan struct{} {
+func (w *machineFieldChangeWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.out
 }
 
@@ -2095,7 +2096,7 @@ func newDocWatcher(backend modelBackend, docKeys []docKey) NotifyWatcher {
 }
 
 // Changes returns the event channel for the docWatcher.
-func (w *docWatcher) Changes() <-chan struct{} {
+func (w *docWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.out
 }
 
@@ -2336,7 +2337,7 @@ func newMachineAddressesWatcher(m *Machine) NotifyWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *machineAddressesWatcher) Changes() <-chan struct{} {
+func (w *machineAddressesWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.out
 }
 
@@ -3093,7 +3094,7 @@ func newBlockDevicesWatcher(backend modelBackend, machineId string) NotifyWatche
 }
 
 // Changes returns the event channel for w.
-func (w *blockDevicesWatcher) Changes() <-chan struct{} {
+func (w *blockDevicesWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.out
 }
 
@@ -3163,7 +3164,7 @@ func newMigrationActiveWatcher(st *State) NotifyWatcher {
 }
 
 // Changes returns the event channel for this watcher.
-func (w *migrationActiveWatcher) Changes() <-chan struct{} {
+func (w *migrationActiveWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.sink
 }
 
@@ -3250,7 +3251,7 @@ func newNotifyCollWatcher(backend modelBackend, collName string, filter func(int
 }
 
 // Changes returns the event channel for this watcher.
-func (w *notifyCollWatcher) Changes() <-chan struct{} {
+func (w *notifyCollWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.sink
 }
 
@@ -3633,7 +3634,7 @@ func newContainerAddressesWatcher(u *Unit) NotifyWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *containerAddressesWatcher) Changes() <-chan struct{} {
+func (w *containerAddressesWatcher) Changes() jujuwatcher.NotifyChannel {
 	return w.out
 }
 

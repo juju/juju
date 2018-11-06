@@ -246,7 +246,7 @@ func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
 	return nil
 }
 
-// Namespaces returns name names of the namespaces on the cluster.
+// Namespaces returns names of the namespaces on the cluster.
 func (k *kubernetesClient) Namespaces() ([]string, error) {
 	namespaces := k.CoreV1().Namespaces()
 	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
@@ -286,6 +286,21 @@ func (k *kubernetesClient) deleteNamespace() error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(err)
+}
+
+// WatchNamespace returns a watcher which notifies when there
+// are changes to current namespace.
+func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
+	w, err := k.CoreV1().Namespaces().Watch(
+		v1.ListOptions{
+			FieldSelector:        fields.OneTermEqualSelector("metadata.name", k.namespace).String(),
+			IncludeUninitialized: true,
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newKubernetesWatcher(w, k.namespace)
 }
 
 // EnsureSecret ensures a secret exists for use with retrieving images from private registries

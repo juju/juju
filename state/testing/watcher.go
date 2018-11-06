@@ -12,6 +12,7 @@ import (
 	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujuwatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
 )
 
@@ -59,7 +60,7 @@ func AssertCanStopWhenSending(c *gc.C, stopper Stopper) {
 
 type NotifyWatcher interface {
 	Stop() error
-	Changes() <-chan struct{}
+	Changes() jujuwatcher.NotifyChannel
 }
 
 // NotifyWatcherC embeds a gocheck.C and adds methods to help verify

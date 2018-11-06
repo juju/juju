@@ -153,6 +153,10 @@ type Broker interface {
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
+	// WatchNamespace returns a watcher which notifies when there
+	// are changes to current namespace.
+	WatchNamespace() (watcher.NotifyWatcher, error)
+
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
 
