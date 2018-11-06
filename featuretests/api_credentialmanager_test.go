@@ -36,6 +36,15 @@ func (s *CredentialManagerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
-	err := s.client.InvalidateModelCredential("no reason really")
+	tag, set := s.Model.CloudCredential()
+	c.Assert(set, jc.IsTrue)
+	credential, err := s.State.CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credential.IsValid(), jc.IsTrue)
+
+	c.Assert(s.client.InvalidateModelCredential("no reason really"), jc.ErrorIsNil)
+
+	credential, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credential.IsValid(), jc.IsFalse)
 }
