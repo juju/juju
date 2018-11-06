@@ -321,3 +321,4 @@ type InvalidateCredentialArg struct {
 	// Reason is the desription of why we are invalidating credential.
 	Reason string `json:"reason,omitempty"`
 }
+

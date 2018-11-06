@@ -1099,7 +1099,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
 	app := s.backend.applications["postgresql"]
-	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial", "testCharm"})
 	results, err := s.api.UpdateApplicationSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{
@@ -1112,7 +1112,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleSeries,
-			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+			Message: "series \"xenial\" not supported by charm \"testCharm\", supported series are: yakkety, zesty",
 		},
 	})
 }

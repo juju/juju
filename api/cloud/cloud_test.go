@@ -177,7 +177,7 @@ func (s *cloudSuite) TestUpdateCredentialV2(c *gc.C) {
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "UpdateCredentials")
 				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				c.Assert(a, jc.DeepEquals, params.TaggedCredentials{
+				c.Assert(a, jc.DeepEquals, params.UpdateCredentialArgs{
 					Credentials: []params.TaggedCredential{{
 						Tag: "cloudcred-foo_bob_bar",
 						Credential: params.CloudCredential{
@@ -217,7 +217,7 @@ func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				c.Assert(result, gc.FitsTypeOf, &params.UpdateCredentialResults{})
-				c.Assert(a, jc.DeepEquals, params.TaggedCredentials{
+				c.Assert(a, jc.DeepEquals, params.UpdateCredentialArgs{
 					Credentials: []params.TaggedCredential{{
 						Tag: "cloudcred-foo_bob_bar",
 						Credential: params.CloudCredential{

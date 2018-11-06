@@ -1126,7 +1126,9 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationSeries("trusty", false)
-	c.Assert(err, gc.ErrorMatches, "cannot update series for \"multi-series\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+	c.Assert(err, gc.ErrorMatches,
+		"updating application series: series \"trusty\" not supported by charm \"cs:multi-series-2\", "+
+			"supported series are: precise, xenial")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {

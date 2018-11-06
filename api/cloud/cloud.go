@@ -112,7 +112,7 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 // stored on the controller. This call validates that the new content works
 // for all models that are using this credential.
 func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
-	in := params.TaggedCredentials{
+	in := params.UpdateCredentialArgs{
 		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
 			Credential: params.CloudCredential{
