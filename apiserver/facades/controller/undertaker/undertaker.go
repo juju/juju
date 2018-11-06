@@ -10,10 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
-	jujuwatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -22,8 +19,6 @@ type UndertakerAPI struct {
 	st        State
 	resources facade.Resources
 	*common.StatusSetter
-
-	modelResourceWatcher jujuwatcher.NotifyWatcher
 }
 
 // NewUndertakerAPI creates a new instance of the undertaker API.
@@ -32,35 +27,11 @@ func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer fa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	watcher, err := getModelResourceWatcher(st, m)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newUndertakerAPI(
-		&stateShim{st, m},
-		resources,
-		authorizer,
-		watcher,
-	)
+
+	return newUndertakerAPI(&stateShim{st, m}, resources, authorizer)
 }
 
-func getModelResourceWatcher(st *state.State, model *state.Model) (jujuwatcher.NotifyWatcher, error) {
-	if model.Type() == state.ModelTypeCAAS {
-		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return broker.WatchNamespace()
-	}
-	return st.WatchModelEntityReferences(st.ModelUUID()), nil
-}
-
-func newUndertakerAPI(
-	st State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-	watcher state.NotifyWatcher,
-) (*UndertakerAPI, error) {
+func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
@@ -82,10 +53,9 @@ func newUndertakerAPI(
 		}, nil
 	}
 	return &UndertakerAPI{
-		st:                   st,
-		resources:            resources,
-		StatusSetter:         common.NewStatusSetter(st, getCanModifyModel),
-		modelResourceWatcher: watcher,
+		st:           st,
+		resources:    resources,
+		StatusSetter: common.NewStatusSetter(st, getCanModifyModel),
 	}, nil
 }
 
@@ -120,63 +90,26 @@ func (u *UndertakerAPI) RemoveModel() error {
 	return u.st.RemoveAllModelDocs()
 }
 
-// func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
-// 	var nothing params.NotifyWatchResult
-// 	watch := u.st.WatchModelEntityReferences(u.st.ModelUUID())
-// 	if _, ok := <-watch.Changes(); ok {
-// 		return params.NotifyWatchResult{
-// 			NotifyWatcherId: u.resources.Register(watch),
-// 		}
-// 	}
-// 	nothing.Error = common.ServerError(watcher.EnsureErr(watch))
-// 	return nothing
-// }
-
-// func (u *UndertakerAPI) nameSpaceWatcher() params.NotifyWatchResult {
-// 	var wr params.NotifyWatchResult
-// 	setErr := func(err error) params.NotifyWatchResult {
-// 		wr.Error = common.ServerError(err)
-// 		return wr
-// 	}
-// 	caasModel, err := u.st.CAASModel()
-// 	if err != nil {
-// 		return setErr(errors.NewNotSupported(nil, "not caas model"))
-// 	}
-// 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(u.st)
-// 	if err != nil {
-// 		return setErr(err)
-// 	}
-// 	watch, err := broker.WatchNamespace()
-// 	if err != nil {
-// 		return setErr(err)
-// 	}
-// 	if _, ok := <-watch.Changes(); ok {
-// 		return params.NotifyWatchResult{
-// 			NotifyWatcherId: u.resources.Register(watch),
-// 		}
-// 	}
-// 	wr.Error = common.ServerError(watcher.EnsureErr(watch))
-// 	return wr
-// }
-
-// WatchModelResources creates watchers for changes to the lifecycle of an
-// model's machines and services for IAAS or namespace for CAAS.
-func (u *UndertakerAPI) WatchModelResources() (results params.NotifyWatchResults) {
-	var wr params.NotifyWatchResult
-	results = params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			wr,
-		},
-	}
-	watch := u.modelResourceWatcher
+func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
+	var nothing params.NotifyWatchResult
+	watch := u.st.WatchModelEntityReferences(u.st.ModelUUID())
 	if _, ok := <-watch.Changes(); ok {
-		wr = params.NotifyWatchResult{
+		return params.NotifyWatchResult{
 			NotifyWatcherId: u.resources.Register(watch),
 		}
-		return
 	}
-	wr.Error = common.ServerError(watcher.EnsureErr(watch))
-	return
+	nothing.Error = common.ServerError(watcher.EnsureErr(watch))
+	return nothing
+}
+
+// WatchModelResources creates watchers for changes to the lifecycle of an
+// model's machines and services.
+func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
+	return params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			u.modelEntitiesWatcher(),
+		},
+	}
 }
 
 // ModelConfig returns the model's configuration.

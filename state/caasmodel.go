@@ -27,8 +27,3 @@ func (m *Model) CAASModel() (*CAASModel, error) {
 		mb:    m.st,
 	}, nil
 }
-
-// // GetBroker returns k8s broker of current model.
-// func (m *CAASModel) GetBroker() (*caas.Broker, error) {
-// 	return stateenvirons.GetNewCAASBrokerFunc(caas.New)(m.Model.st)
-// }

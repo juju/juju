@@ -9,6 +9,8 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"
 )
@@ -45,10 +47,19 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	getWatchModelResourceWorker := func() (watcher.NotifyWatcher, error) {
+		var nsWatcher caas.NamespaceWatcher
+		if err := context.Get(config.CloudDestroyerName, &nsWatcher); err == nil {
+			return nsWatcher.WatchNamespace()
+		}
+		return facade.WatchModelResources()
+	}
+
 	worker, err := config.NewWorker(Config{
-		Facade:        facade,
-		Destroyer:     destroyer,
-		CredentialAPI: credentialAPI,
+		Facade:                      facade,
+		Destroyer:                   destroyer,
+		CredentialAPI:               credentialAPI,
+		getWatchModelResourceWorker: getWatchModelResourceWorker,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

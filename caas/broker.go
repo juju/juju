@@ -153,9 +153,8 @@ type Broker interface {
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
-	// WatchNamespace returns a watcher which notifies when there
-	// are changes to current namespace.
-	WatchNamespace() (watcher.NotifyWatcher, error)
+	// NamespaceWatcher provides the API to watch caas namespace.
+	NamespaceWatcher
 
 	// ProviderRegistry is an interface for obtaining storage providers.
 	storage.ProviderRegistry
@@ -169,6 +168,13 @@ type Broker interface {
 
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
+}
+
+// NamespaceWatcher provides the API to watch caas namespace.
+type NamespaceWatcher interface {
+	// WatchNamespace returns a watcher which notifies when there
+	// are changes to current namespace.
+	WatchNamespace() (watcher.NotifyWatcher, error)
 }
 
 // Service represents information about the status of a caas service entity.

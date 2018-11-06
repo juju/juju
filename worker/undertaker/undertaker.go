@@ -30,9 +30,10 @@ type Facade interface {
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
-	Facade        Facade
-	Destroyer     environs.CloudDestroyer
-	CredentialAPI common.CredentialAPI
+	Facade                      Facade
+	Destroyer                   environs.CloudDestroyer
+	CredentialAPI               common.CredentialAPI
+	getWatchModelResourceWorker func() (watcher.NotifyWatcher, error)
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -157,7 +158,7 @@ func (u *Undertaker) setStatus(modelStatus status.Status, message string) error 
 }
 
 func (u *Undertaker) processDyingModel() error {
-	watcher, err := u.config.Facade.WatchModelResources()
+	watcher, err := u.config.getWatchModelResourceWorker()
 	if err != nil {
 		return errors.Trace(err)
 	}
