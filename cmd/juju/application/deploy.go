@@ -385,6 +385,8 @@ type DeployCommand struct {
 
 	machineMap string
 	flagSet    *gnuflag.FlagSet
+
+	unknownModel bool
 }
 
 const deployDoc = `
@@ -627,7 +629,6 @@ type DeployStepAPI interface {
 
 // DeployStep is an action that needs to be taken during charm deployment.
 type DeployStep interface {
-
 	// SetFlags sets flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 
@@ -712,14 +713,17 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	modelType, err := c.ModelType()
-	if err != nil {
-		return err
-	}
-	if len(c.AttachStorage) > 0 {
-		if modelType == model.CAAS && len(c.AttachStorage) > 0 {
-			return errors.New("--attach-storage cannot be used on kubernetes models")
+	if err := c.validateStorageByModelType(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
 		}
+		// It is possible that we will not be able to get model type to validate with.
+		// For example, if current client does not know about a model, we
+		// would have queried the controller about the model. However,
+		// at Init() we do not yet have an API connection.
+		// So we do not want to fail here if we encountered NotFoundErr, we want to
+		// do a late validation at Run().
+		c.unknownModel = true
 	}
 	switch len(args) {
 	case 2:
@@ -748,6 +752,40 @@ func (c *DeployCommand) Init(args []string) error {
 	c.BundleMachines = mapping
 
 	if err := c.UnitCommandBase.Init(args); err != nil {
+		return err
+	}
+	if err := c.validatePlacementByModelType(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		// It is possible that we will not be able to get model type to validate with.
+		// For example, if current client does not know about a model, we
+		// would have queried the controller about the model. However,
+		// at Init() we do not yet have an API connection.
+		// So we do not want to fail here if we encountered NotFoundErr, we want to
+		// do a late validation at Run().
+		c.unknownModel = true
+	}
+	return nil
+}
+
+func (c *DeployCommand) validateStorageByModelType() error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.IAAS {
+		return nil
+	}
+	if len(c.AttachStorage) > 0 {
+		return errors.New("--attach-storage cannot be used on kubernetes models")
+	}
+	return nil
+}
+
+func (c *DeployCommand) validatePlacementByModelType() error {
+	modelType, err := c.ModelType()
+	if err != nil {
 		return err
 	}
 	if modelType == model.IAAS {
@@ -1106,6 +1144,14 @@ func (c *DeployCommand) parseBind() error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	if c.unknownModel {
+		if err := c.validateStorageByModelType(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := c.validatePlacementByModelType(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	var err error
 	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
 	if err != nil {
