@@ -67,7 +67,7 @@ func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
-	err = env.withSession(func(env *sessionEnviron) error {
+	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		result, err = env.StartInstance(ctx, args)
 		return err
 	})
@@ -239,6 +239,7 @@ func (env *sessionEnviron) newRawInstance(
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if err != nil {
+		HandleCredentialError(err, ctx)
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -254,7 +255,7 @@ func (env *sessionEnviron) newRawInstance(
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []instance.Instance, err error) {
-	err = env.withSession(func(env *sessionEnviron) error {
+	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		instances, err = env.AllInstances(ctx)
 		return err
 	})
@@ -269,6 +270,7 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 	)
 	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
 	if err != nil {
+		HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -283,7 +285,7 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	return env.withSession(func(env *sessionEnviron) error {
+	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.StopInstances(ctx, ids...)
 	})
 }
@@ -304,6 +306,7 @@ func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ..
 				env.ctx,
 				path.Join(modelFolderPath, string(id)),
 			)
+			HandleCredentialError(results[i], ctx)
 		}(i, id)
 	}
 	wg.Wait()
