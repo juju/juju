@@ -177,6 +177,20 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	})
 }
 
+func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
+	machine2 := createTestMachine("2", "")
+	machine2.instanceIdFunc = func() (instance.Id, error) { return "", errors.NotProvisionedf("machine 2") }
+	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
+		return []credentialcommon.Machine{s.machine, machine2}, nil
+	}
+
+	// We should ignore the unprovisioned machine - we wouldn't expect
+	// the cloud to know about it.
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
 type ModelCredentialSuite struct {
 	testing.IsolationSuite
 
