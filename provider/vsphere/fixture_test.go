@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -125,4 +127,24 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
 		})
 	}
 	return httptest.NewServer(mux)
+}
+
+func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.ProviderCallContext) error) {
+	client.SetErrors(soap.WrapSoapFault(&soap.Fault{
+		Code:   "ServerFaultCode",
+		String: "No way José",
+		Detail: struct {
+			Fault types.AnyType `xml:",any,typeattr"`
+		}{Fault: types.NoPermission{}},
+	}))
+	var called bool
+	ctx := &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			called = true
+			return nil
+		},
+	}
+	err := f(ctx)
+	c.Assert(err, gc.ErrorMatches, ".*ServerFaultCode: No way José$")
+	c.Assert(called, gc.Equals, true)
 }

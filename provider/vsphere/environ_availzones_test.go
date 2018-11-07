@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
@@ -95,4 +96,12 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *
 		})
 	c.Assert(err, gc.ErrorMatches, `unknown placement directive: invalid-placement`)
 	c.Assert(zones, gc.HasLen, 0)
+}
+
+func (s *environAvailzonesSuite) TestAvailabilityZonesPermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx context.ProviderCallContext) error {
+		zonedEnv := s.env.(common.ZonedEnviron)
+		_, err := zonedEnv.AvailabilityZones(ctx)
+		return err
+	})
 }

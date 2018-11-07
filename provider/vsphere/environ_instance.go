@@ -19,7 +19,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	err = env.withSession(func(env *sessionEnviron) error {
+	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		instances, err = env.Instances(ctx, ids)
 		return err
 	})
@@ -63,7 +63,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 
 // ControllerInstances is part of the environs.Environ interface.
 func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) (ids []instance.Id, err error) {
-	err = env.withSession(func(env *sessionEnviron) error {
+	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		ids, err = env.ControllerInstances(ctx, controllerUUID)
 		return err
 	})

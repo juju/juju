@@ -157,3 +157,30 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 	_, ok := environs.SupportsNetworking(s.env)
 	c.Assert(ok, jc.IsFalse)
 }
+
+func (s *environSuite) TestAdoptResourcesPermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+		return s.env.AdoptResources(ctx, "foo", version.Number{})
+	})
+}
+
+func (s *environSuite) TestBootstrapPermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+		_, err := s.env.Bootstrap(nil, ctx, environs.BootstrapParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+		})
+		return err
+	})
+}
+
+func (s *environSuite) TestDestroyPermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+		return s.env.Destroy(ctx)
+	})
+}
+
+func (s *environSuite) TestDestroyControllerPermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+		return s.env.DestroyController(ctx, "foo")
+	})
+}

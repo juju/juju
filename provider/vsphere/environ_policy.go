@@ -16,7 +16,7 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 	if args.Placement == "" {
 		return nil
 	}
-	return env.withSession(func(env *sessionEnviron) error {
+	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.PrecheckInstance(ctx, args)
 	})
 }

@@ -6,6 +6,7 @@ package vsphere
 import (
 	"golang.org/x/net/context"
 
+	callcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -32,9 +33,9 @@ type sessionEnviron struct {
 	zones []common.AvailabilityZone
 }
 
-func (env *environ) withSession(f func(*sessionEnviron) error) error {
+func (env *environ) withSession(callCtx callcontext.ProviderCallContext, f func(*sessionEnviron) error) error {
 	ctx := context.Background()
-	return env.withClient(ctx, func(client Client) error {
+	return env.withClient(ctx, callCtx, func(client Client) error {
 		return f(&sessionEnviron{
 			environ: env,
 			ctx:     ctx,

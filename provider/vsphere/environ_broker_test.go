@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/soap"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	callcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
@@ -369,4 +371,34 @@ func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
 		`failed to stop instances \[vm-0 vm-1\]: \[%s %s\]`,
 		err1, err2,
 	))
+}
+
+func (s *environBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c *gc.C) {
+	s.dialStub.SetErrors(soap.WrapSoapFault(&soap.Fault{
+		Code:   "ServerFaultCode",
+		String: "You passed an incorrect user name or password, bucko.",
+	}))
+	var passedReason string
+	ctx := &callcontext.CloudCallContext{
+		InvalidateCredentialFunc: func(reason string) error {
+			passedReason = reason
+			return nil
+		},
+	}
+	_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
+	c.Assert(err, gc.ErrorMatches, "dialing client: ServerFaultCode: You passed an incorrect user name or password, bucko.")
+	c.Assert(passedReason, gc.Equals, "cloud denied access")
+}
+
+func (s *environBrokerSuite) TestStartInstancePermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx callcontext.ProviderCallContext) error {
+		_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
+		return err
+	})
+}
+
+func (s *environBrokerSuite) TestStopInstancesPermissionError(c *gc.C) {
+	AssertInvalidatesCredential(c, s.client, func(ctx callcontext.ProviderCallContext) error {
+		return s.env.StopInstances(ctx, "vm-0")
+	})
 }
