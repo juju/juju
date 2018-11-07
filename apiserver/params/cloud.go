@@ -189,3 +189,9 @@ type ValidateCredentialArg struct {
 type ValidateCredentialArgs struct {
 	All []ValidateCredentialArg `json:"credentials,omitempty"`
 }
+
+// InvalidateCredentialArg is used to invalidate a controller credential.
+type InvalidateCredentialArg struct {
+	// Reason is the description of why we are invalidating credential.
+	Reason string `json:"reason,omitempty"`
+}
