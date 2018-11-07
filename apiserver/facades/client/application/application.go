@@ -464,7 +464,7 @@ func deployApplication(
 			return errors.Annotatef(err, errTemplate, args.ApplicationName, p.Directive)
 		}
 
-		locked, err := m.IsLocked()
+		locked, err := m.IsLockedForSeriesUpgrade()
 		if locked {
 			err = errors.New("machine is locked for series upgrade")
 		}

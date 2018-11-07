@@ -356,7 +356,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 
 	// Ensure that the machine is not locked for series-upgrade.
-	locked, err := parent.IsLocked()
+	locked, err := parent.IsLockedForSeriesUpgrade()
 	if err != nil {
 		return nil, nil, err
 	}

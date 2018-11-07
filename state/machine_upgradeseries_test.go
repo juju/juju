@@ -13,7 +13,7 @@ import (
 
 func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	locked, err := mach.IsLocked()
+	locked, err := mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 
@@ -21,7 +21,7 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	err = mach.CreateUpgradeSeriesLock(unitIds, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	locked, err = mach.IsLocked()
+	locked, err = mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
 
@@ -218,19 +218,19 @@ func (s *MachineSuite) TestGetUpgradeSeriesMessagesMissingLockMeansFinished(c *g
 }
 
 func (s *MachineSuite) TestIsLockedIndicatesUnlockedWhenNoLockDocIsFound(c *gc.C) {
-	locked, err := s.machine.IsLocked()
+	locked, err := s.machine.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 }
 
 func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
-	locked, err := mach.IsLocked()
+	locked, err := mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
 }
 
 func AssertMachineIsNOTLockedForPrepare(c *gc.C, mach *state.Machine) {
-	locked, err := mach.IsLocked()
+	locked, err := mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 }

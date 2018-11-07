@@ -352,7 +352,7 @@ type mockMachine struct {
 }
 
 func (m *mockMachine) IsLocked() (bool, error) {
-	m.MethodCall(m, "IsLocked")
+	m.MethodCall(m, "IsLockedForSeriesUpgrade")
 	return false, m.NextErr()
 }
 

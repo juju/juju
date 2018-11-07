@@ -1685,7 +1685,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 
 		// Check if an upgrade-series lock is present for the requested
 		// machine. If one exists, return an error to prevent deployment.
-		locked, err := machine.IsLocked()
+		locked, err := machine.IsLockedForSeriesUpgrade()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -64,7 +64,7 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 				return nil, errors.Trace(err)
 			}
 		}
-		locked, err := m.IsLocked()
+		locked, err := m.IsLockedForSeriesUpgrade()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -100,8 +100,8 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 	return nil
 }
 
-// IsLocked determines if a machine is locked for upgrade series.
-func (m *Machine) IsLocked() (bool, error) {
+// IsLockedForSeriesUpgrade determines if a machine is locked for upgrade series.
+func (m *Machine) IsLockedForSeriesUpgrade() (bool, error) {
 	_, err := m.getUpgradeSeriesLock()
 	if err == nil {
 		return true, nil
@@ -308,7 +308,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 				return nil, errors.Trace(err)
 			}
 		}
-		locked, err := m.IsLocked()
+		locked, err := m.IsLockedForSeriesUpgrade()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -98,7 +98,7 @@ type Charm interface {
 // details on the methods, see the methods on state.Machine with
 // the same names.
 type Machine interface {
-	IsLocked() (bool, error)
+	IsLockedForSeriesUpgrade() (bool, error)
 	UpgradeCharmProfileComplete() string
 	SetUpgradeCharmProfileComplete(string) error
 }
