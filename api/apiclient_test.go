@@ -260,6 +260,8 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
+	place1 := "wss://place1.example:1234/api"
+	place2 := "wss://place2.example:1234/api"
 	// Wait for first connection, but don't
 	// reply immediately because we want
 	// to wait for the second connection before
@@ -270,7 +272,18 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for dial")
 	}
-	c.Assert(info0.location, gc.Equals, "wss://place1.example:1234/api")
+	this := place1
+	other := place2
+	if info0.location != place1 {
+		// We now randomly order what we will connect to. So we check
+		// whether we first tried to connect to place1 or place2.
+		// However, we should still be able to interrupt a second dial by
+		// having the first one succeed.
+		this = place2
+		other = place1
+	}
+
+	c.Assert(info0.location, gc.Equals, this)
 
 	var info1 dialInfo
 	// Wait for the next dial to be made. Note that we wait for two
@@ -284,7 +297,7 @@ func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for dial")
 	}
-	c.Assert(info1.location, gc.Equals, "wss://place2.example:1234/api")
+	c.Assert(info1.location, gc.Equals, other)
 
 	// Allow the first dial to succeed.
 	info0.replyc <- dialResponse{

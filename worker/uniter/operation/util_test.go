@@ -432,12 +432,17 @@ func NewRunCommandsRunnerFactory(runResponse *utilexec.ExecResponse, runErr erro
 	}
 }
 
-func NewRunHookRunnerFactory(runErr error) *MockRunnerFactory {
+func NewRunHookRunnerFactory(runErr error, contextOps ...func(*MockContext)) *MockRunnerFactory {
+	ctx := &MockContext{isLeader: true}
+	for _, op := range contextOps {
+		op(ctx)
+	}
+
 	return &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{
 			runner: &MockRunner{
 				MockRunHook: &MockRunHook{err: runErr},
-				context:     &MockContext{},
+				context:     ctx,
 			},
 		},
 	}

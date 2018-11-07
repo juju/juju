@@ -22,8 +22,6 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
-//var logger = loggo.GetLogger("juju.worker.pubsub")
-
 // WorkerConfig defines the configuration values that the pubsub worker needs
 // to operate.
 type WorkerConfig struct {
@@ -168,14 +166,20 @@ func (s *subscriber) apiServerChanges(topic string, details apiserver.Details, e
 			continue
 		}
 
+		// TODO: always use the internal address?
+		addresses := apiServer.Addresses
+		if apiServer.InternalAddress != "" {
+			addresses = []string{apiServer.InternalAddress}
+		}
+
 		server, found := s.servers[target]
 		if found {
-			s.config.Logger.Tracef("update addresses for %s to %v", target, apiServer.Addresses)
-			server.UpdateAddresses(apiServer.Addresses)
+			s.config.Logger.Tracef("update addresses for %s to %v", target, addresses)
+			server.UpdateAddresses(addresses)
 		} else {
 			s.config.Logger.Debugf("new forwarder for %s", target)
 			newInfo := *s.config.APIInfo
-			newInfo.Addrs = apiServer.Addresses
+			newInfo.Addrs = addresses
 			server, err := s.config.NewRemote(RemoteServerConfig{
 				Hub:       s.config.Hub,
 				Origin:    s.config.Origin,

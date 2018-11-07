@@ -388,9 +388,6 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 				return true, nil
 
 			}
-			if models.CurrentModel == modelName {
-				return false, nil
-			}
 			if _, ok := models.Models[modelName]; !ok {
 				return false, errors.NotFoundf(
 					"model %s:%s",
@@ -592,9 +589,6 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 		for modelName, _ := range storedModels.Models {
 			if _, ok := models[modelName]; !ok {
 				delete(storedModels.Models, modelName)
-				if storedModels.CurrentModel == modelName {
-					storedModels.CurrentModel = ""
-				}
 			}
 		}
 		return changed, nil

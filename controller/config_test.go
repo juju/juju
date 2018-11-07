@@ -228,6 +228,37 @@ var validateTests = []struct {
 		controller.CAASOperatorImagePath: "foo//bar",
 	},
 	expectError: `docker image path "foo//bar" not valid`,
+}, {
+	about: "negative controller-api-port",
+	config: controller.Config{
+		controller.CACertKey:         testing.CACert,
+		controller.ControllerAPIPort: -5,
+	},
+	expectError: `non-positive integer for controller-api-port not valid`,
+}, {
+	about: "controller-api-port matching api-port",
+	config: controller.Config{
+		controller.APIPort:           12345,
+		controller.CACertKey:         testing.CACert,
+		controller.ControllerAPIPort: 12345,
+	},
+	expectError: `controller-api-port matching api-port not valid`,
+}, {
+	about: "controller-api-port matching state-port",
+	config: controller.Config{
+		controller.APIPort:           12345,
+		controller.StatePort:         54321,
+		controller.CACertKey:         testing.CACert,
+		controller.ControllerAPIPort: 54321,
+	},
+	expectError: `controller-api-port matching state-port not valid`,
+}, {
+	about: "api-port-open-delay not a duration",
+	config: controller.Config{
+		controller.CACertKey:        testing.CACert,
+		controller.APIPortOpenDelay: "15",
+	},
+	expectError: `api-port-open-delay value "15" must be a valid duration`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -235,11 +266,17 @@ func (s *ConfigSuite) TestValidate(c *gc.C) {
 		c.Logf("test %d: %v", i, test.about)
 		err := test.config.Validate()
 		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
+			c.Check(err, gc.ErrorMatches, test.expectError)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
+}
+
+func (s *ConfigSuite) TestAPIPortDefaults(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.APIPortOpenDelay(), gc.Equals, 2*time.Second)
 }
 
 func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {

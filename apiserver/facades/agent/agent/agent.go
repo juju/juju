@@ -114,14 +114,21 @@ func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err e
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
+	// ControllerAPIPort comes from the controller config.
+	config, err := api.st.ControllerConfig()
+	if err != nil {
+		return params.StateServingInfo{}, errors.Trace(err)
+	}
+
 	result = params.StateServingInfo{
-		APIPort:        info.APIPort,
-		StatePort:      info.StatePort,
-		Cert:           info.Cert,
-		PrivateKey:     info.PrivateKey,
-		CAPrivateKey:   info.CAPrivateKey,
-		SharedSecret:   info.SharedSecret,
-		SystemIdentity: info.SystemIdentity,
+		APIPort:           info.APIPort,
+		ControllerAPIPort: config.ControllerAPIPort(),
+		StatePort:         info.StatePort,
+		Cert:              info.Cert,
+		PrivateKey:        info.PrivateKey,
+		CAPrivateKey:      info.CAPrivateKey,
+		SharedSecret:      info.SharedSecret,
+		SystemIdentity:    info.SystemIdentity,
 	}
 
 	return result, nil

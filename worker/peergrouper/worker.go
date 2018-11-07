@@ -128,6 +128,7 @@ type Config struct {
 	SupportsSpaces     bool
 	MongoPort          int
 	APIPort            int
+	ControllerAPIPort  int
 
 	// Hub is the central hub of the apiserver,
 	// and is used to publish the details of the
@@ -158,6 +159,7 @@ func (config Config) Validate() error {
 	if config.APIPort <= 0 {
 		return errors.NotValidf("non-positive APIPort")
 	}
+	// TODO Juju 3.0: make ControllerAPIPort required.
 	return nil
 }
 
@@ -464,12 +466,16 @@ func (w *pgWorker) publishAPIServerDetails(
 		Servers:   make(map[string]apiserver.APIServer),
 		LocalOnly: true,
 	}
+	internalPort := w.config.ControllerAPIPort
+	if internalPort == 0 {
+		internalPort = w.config.APIPort
+	}
 	for id, hostPorts := range servers {
 		var internalAddress string
 		if members[id] != nil {
 			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
 			if err == nil {
-				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(w.config.APIPort))
+				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(internalPort))
 			}
 		}
 		server := apiserver.APIServer{
