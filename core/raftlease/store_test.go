@@ -97,7 +97,8 @@ func (s *storeSuite) TestClaimTimeout(c *gc.C) {
 			}()
 			// Jump time forward further than the 1-second forward
 			// timeout.
-			s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+
 			select {
 			case err := <-errChan:
 				c.Assert(err, jc.Satisfies, lease.IsTimeout)
@@ -416,6 +417,36 @@ func (s *storeSuite) TestAdvanceConcurrentUpdate(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		},
 	)
+}
+
+func (s *storeSuite) TestAdvanceTimeout(c *gc.C) {
+	fromTime := s.clock.Now()
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			go func() {
+				errChan <- s.store.Advance(10 * time.Second)
+			}()
+
+			// Move time forward to trigger the timeout.
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+
+			select {
+			case err := <-errChan:
+				c.Assert(err, jc.Satisfies, globalclock.IsTimeout)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for advance error")
+			}
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationSetTime,
+			OldTime:   fromTime,
+			NewTime:   fromTime.Add(10 * time.Second),
+		},
+		func(raftlease.ForwardRequest) {
+			// No response sent, to trigger the timeout.
+		})
 }
 
 func (s *storeSuite) TestAsResponseError(c *gc.C) {

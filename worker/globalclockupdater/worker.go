@@ -17,6 +17,7 @@ import (
 // Logger defines the methods we use from loggo.Logger.
 type Logger interface {
 	Tracef(string, ...interface{})
+	Warningf(string, ...interface{})
 }
 
 // Config contains the configuration for the global clock updater worker.
@@ -112,10 +113,14 @@ func (w *updaterWorker) loop() error {
 			now := w.config.LocalClock.Now()
 			amount := now.Sub(last)
 			err := w.updater.Advance(amount)
-			if errors.Cause(err) == globalclock.ErrConcurrentUpdate {
+			if globalclock.IsConcurrentUpdate(err) {
 				w.config.Logger.Tracef("concurrent update, backing off for %s", backoff)
 				last = w.config.LocalClock.Now()
 				timer.Reset(backoff)
+				continue
+			} else if globalclock.IsTimeout(err) {
+				w.config.Logger.Warningf("timed out updating clock, retrying in %s", interval)
+				timer.Reset(interval)
 				continue
 			} else if err != nil {
 				return errors.Annotate(err, "updating global clock")
