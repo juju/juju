@@ -539,14 +539,14 @@ func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error
 	for _, p := range args.Placement {
 		dir := p.Directive
 
-		toExtantMachine := p.Scope == instance.MachineScope
-		if !toExtantMachine && dir == "" {
+		toProvisionedMachine := p.Scope == instance.MachineScope
+		if !toProvisionedMachine && dir == "" {
 			continue
 		}
 
 		m, err := backend.Machine(dir)
 		if err != nil {
-			if errors.IsNotFound(err) && !toExtantMachine {
+			if errors.IsNotFound(err) && !toProvisionedMachine {
 				continue
 			}
 			return errors.Annotatef(err, errTemplate, app, dir)
