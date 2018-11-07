@@ -445,32 +445,10 @@ func deployApplication(
 		}
 	}
 
-	// Do a quick, incomplete validation check before going any further.
-	// If the placement scope is for a machine, ensure that the machine exists.
-	// If the placement is for a machine or a container on an existing machine,
-	// check that the machine is not locked for series upgrade.
-	errTemplate := "cannot deploy %q to machine %s"
-	for _, p := range args.Placement {
-		machineMustExist := p.Scope == instance.MachineScope
-		if !machineMustExist && p.Directive == "" {
-			continue
-		}
-
-		m, err := backend.Machine(p.Directive)
-		if err != nil {
-			if errors.IsNotFound(err) && !machineMustExist {
-				continue
-			}
-			return errors.Annotatef(err, errTemplate, args.ApplicationName, p.Directive)
-		}
-
-		locked, err := m.IsLocked()
-		if locked {
-			err = errors.New("machine is locked for series upgrade")
-		}
-		if err != nil {
-			return errors.Annotatef(err, errTemplate, args.ApplicationName, p.Directive)
-		}
+	// This check is done early so that errors deeper in the call-stack do not
+	// leave an application deployment in an unrecoverable error state.
+	if err := checkMachinePlacement(backend, args); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Try to find the charm URL in state first.
@@ -547,6 +525,51 @@ func deployApplication(
 		Resources:         args.Resources,
 	})
 	return errors.Trace(err)
+}
+
+// checkMachinePlacement does a non-exhaustive validation of any supplied
+// placement directives.
+// If the placement scope is for a machine, ensure that the machine exists.
+// If the placement is for a machine or a container on an existing machine,
+// check that the machine is not locked for series upgrade.
+func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error {
+	errTemplate := "cannot deploy %q to machine %s"
+	app := args.ApplicationName
+
+	for _, p := range args.Placement {
+		dir := p.Directive
+
+		toProvisionedMachine := p.Scope == instance.MachineScope
+		if !toProvisionedMachine && dir == "" {
+			continue
+		}
+
+		m, err := backend.Machine(dir)
+		if err != nil {
+			if errors.IsNotFound(err) && !toProvisionedMachine {
+				continue
+			}
+			return errors.Annotatef(err, errTemplate, app, dir)
+		}
+
+		locked, err := m.IsLockedForSeriesUpgrade()
+		if locked {
+			err = errors.New("machine is locked for series upgrade")
+		}
+		if err != nil {
+			return errors.Annotatef(err, errTemplate, app, dir)
+		}
+
+		locked, err = m.IsParentLockedForSeriesUpgrade()
+		if locked {
+			err = errors.New("parent machine is locked for series upgrade")
+		}
+		if err != nil {
+			return errors.Annotatef(err, errTemplate, app, dir)
+		}
+	}
+
+	return nil
 }
 
 // ApplicationSetSettingsStrings updates the settings for the given application,

@@ -64,7 +64,7 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 				return nil, errors.Trace(err)
 			}
 		}
-		locked, err := m.IsLocked()
+		locked, err := m.IsLockedForSeriesUpgrade()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -100,8 +100,25 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 	return nil
 }
 
-// IsLocked determines if a machine is locked for upgrade series.
-func (m *Machine) IsLocked() (bool, error) {
+// IsParentLockedForSeriesUpgrade determines if a machine is a container who's
+// parent is locked for series upgrade.
+func (m *Machine) IsParentLockedForSeriesUpgrade() (bool, error) {
+	parentId, isContainer := m.ParentId()
+	if !isContainer {
+		return false, nil
+	}
+
+	parent, err := m.st.Machine(parentId)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	locked, err := parent.IsLockedForSeriesUpgrade()
+	return locked, errors.Trace(err)
+}
+
+// IsLockedForSeriesUpgrade determines if a machine is locked for upgrade series.
+func (m *Machine) IsLockedForSeriesUpgrade() (bool, error) {
 	_, err := m.getUpgradeSeriesLock()
 	if err == nil {
 		return true, nil
@@ -308,7 +325,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 				return nil, errors.Trace(err)
 			}
 		}
-		locked, err := m.IsLocked()
+		locked, err := m.IsLockedForSeriesUpgrade()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

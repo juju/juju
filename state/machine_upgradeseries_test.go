@@ -13,7 +13,7 @@ import (
 
 func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	locked, err := mach.IsLocked()
+	locked, err := mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 
@@ -21,7 +21,7 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	err = mach.CreateUpgradeSeriesLock(unitIds, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	locked, err = mach.IsLocked()
+	locked, err = mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
 
@@ -35,6 +35,24 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 		i++
 	}
 	c.Assert(lockedUnitsIds, jc.SameContents, unitIds)
+}
+
+func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
+	parent, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	template := state.MachineTemplate{
+		Series: "xenial",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	child, err := s.State.AddMachineInsideMachine(template, parent.Id(), "lxd")
+
+	err = parent.CreateUpgradeSeriesLock([]string{}, "bionic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	locked, err := child.IsParentLockedForSeriesUpgrade()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(locked, jc.IsTrue)
 }
 
 func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {
@@ -218,19 +236,19 @@ func (s *MachineSuite) TestGetUpgradeSeriesMessagesMissingLockMeansFinished(c *g
 }
 
 func (s *MachineSuite) TestIsLockedIndicatesUnlockedWhenNoLockDocIsFound(c *gc.C) {
-	locked, err := s.machine.IsLocked()
+	locked, err := s.machine.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 }
 
 func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
-	locked, err := mach.IsLocked()
+	locked, err := mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
 }
 
 func AssertMachineIsNOTLockedForPrepare(c *gc.C, mach *state.Machine) {
-	locked, err := mach.IsLocked()
+	locked, err := mach.IsLockedForSeriesUpgrade()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 }
