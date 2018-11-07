@@ -25,14 +25,19 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -76,6 +81,44 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 		"mysql/0":     "0",
 		"wordpress/0": "1",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		Name:  "test",
+		Owner: names.NewUserTag("admin"),
+	})
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
+
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/mariadb-42", "mariadb", "kubernetes")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/gitlab-47", "gitlab", "kubernetes")
+	testcharms.UploadBundle(c, s.client, "bundle/kubernetes-simple-1", "kubernetes-simple")
+
+	settings := state.NewStateSettings(s.State)
+	registry := storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummystorage.StorageProvider{},
+		},
+	}
+	pm := poolmanager.New(settings, registry)
+	_, err = pm.Create("operator-storage", provider.K8s_ProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runDeploy(c, "-m", "admin/test", "bundle/kubernetes-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:kubernetes/gitlab-47", "cs:kubernetes/mariadb-42")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mariadb": {charm: "cs:kubernetes/mariadb-42", config: mysqlch.Config().DefaultSettings()},
+		"gitlab":  {charm: "cs:kubernetes/gitlab-47", config: wpch.Config().DefaultSettings(), placement: "foo=bar", scale: 1},
+	})
+	s.assertRelationsEstablished(c, "gitlab:db mariadb:server")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {

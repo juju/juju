@@ -222,6 +222,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		Exposed:          application.Exposed,
 		Life:             application.Life,
 		Scale:            application.Scale,
+		Placement:        application.Placement,
 		ProviderId:       application.ProviderId,
 		Address:          application.PublicAddress,
 		Relations:        application.Relations,

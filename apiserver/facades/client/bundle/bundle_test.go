@@ -182,6 +182,8 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
 			map[string]string{},
 			map[string]int{},
+			0,
+			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -201,6 +203,83 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            bundle: kubernetes
+            applications:
+                django:
+                    charm: django
+                    scale: 1
+                    placement: foo=bar
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "kubernetes"},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"kubernetes",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			1,
+			"foo=bar",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:haproxy-42", "kubernetes"},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"kubernetes",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -249,6 +328,8 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]string{"tmpfs": "tmpfs,1G"},
 			map[string]string{},
 			map[string]int{},
+			0,
+			"",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -267,6 +348,8 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},
+			0,
+			"",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -307,6 +390,8 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 					map[string]string{},
 					map[string]string{"url": "public"},
 					map[string]int{},
+					0,
+					"",
 				},
 				Requires: []string{"addCharm-0"},
 			})
@@ -419,10 +504,17 @@ applications:
 }
 
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) description.Application {
+	series := "xenial"
+	placement := ""
+	if model.Type() == "caas" {
+		series = "kubernetes"
+		placement = "foo=bar"
+	}
 	application := model.AddApplication(description.ApplicationArgs{
 		Tag:                names.NewApplicationTag(name),
 		CharmURL:           "cs:" + name,
-		Series:             "xenial",
+		Series:             series,
+		Placement:          placement,
 		CharmConfig:        map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
 	})
@@ -430,7 +522,7 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 	for i := 0; i < numUnits; i++ {
 		machine := model.AddMachine(description.MachineArgs{
 			Id:     names.NewMachineTag(fmt.Sprint(i)),
-			Series: "xenial",
+			Series: series,
 		})
 		unit := application.AddUnit(description.UnitArgs{
 			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
@@ -450,8 +542,10 @@ func (s *bundleSuite) setEndpointSettings(ep description.Endpoint, units ...stri
 	}
 }
 
-func (s *bundleSuite) newModel(app1 string, app2 string) description.Model {
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) description.Model {
+	s.st.model = description.NewModel(description.ModelArgs{
+		Type:  modelType,
+		Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",
 			"uuid": "some-uuid",
@@ -486,7 +580,7 @@ func (s *bundleSuite) newModel(app1 string, app2 string) description.Model {
 }
 
 func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
-	model := s.newModel("wordpress", "mysql")
+	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle()
@@ -539,7 +633,7 @@ func (s *bundleSuite) addSubordinateEndpoints(
 }
 
 func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
-	model := s.newModel("wordpress", "mysql")
+	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	// Add a subordinate relations between logging and both wordpress and mysql.
@@ -703,7 +797,7 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 }
 
 func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
-	model := s.newModel("mediawiki", "mysql")
+	model := s.newModel("iaas", "mediawiki", "mysql")
 
 	s.addMinimalMachineWithConstraints(model, "0")
 	s.addMinimalMachineWithConstraints(model, "1")
@@ -765,7 +859,7 @@ func (s *bundleSuite) addMinimalMachinewithHardwareConstraints(model description
 }
 
 func (s *bundleSuite) TestExportBundleModelWithHardwareConstraints(c *gc.C) {
-	model := s.newModel("mediawiki", "mysql")
+	model := s.newModel("iaas", "mediawiki", "mysql")
 
 	s.addMinimalMachinewithHardwareConstraints(model, "0")
 	s.addMinimalMachinewithHardwareConstraints(model, "1")
@@ -819,7 +913,7 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 }
 
 func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
-	model := s.newModel("wordpress", "mysql")
+	model := s.newModel("iaas", "wordpress", "mysql")
 
 	s.addMinimalMachineWithAnnotations(model, "0")
 	s.addMinimalMachineWithAnnotations(model, "1")
@@ -1065,6 +1159,34 @@ machines:
   "1":
     series: trusty
 `[1:]}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
+	model := s.newModel("caas", "wordpress", "mysql")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := `
+bundle: kubernetes
+applications:
+  mysql:
+    charm: cs:mysql
+    scale: 1
+    placement: foo=bar
+  wordpress:
+    charm: cs:wordpress
+    scale: 2
+    placement: foo=bar
+relations:
+- - wordpress:db
+  - mysql:mysql
+`[1:]
+	expectedResult := params.StringResult{nil, output}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())

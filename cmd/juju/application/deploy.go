@@ -66,6 +66,7 @@ type ApplicationAPI interface {
 	SetCharm(application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
+	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 }
 
 type ModelAPI interface {

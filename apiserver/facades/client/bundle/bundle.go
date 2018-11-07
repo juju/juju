@@ -267,6 +267,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 // but in a more user oriented output order, with the description first,
 // then the distro series, then the apps, machines and releations.
 type bundleOutput struct {
+	Type         string                            `yaml:"bundle,omitempty"`
 	Description  string                            `yaml:"description,omitempty"`
 	Series       string                            `yaml:"series,omitempty"`
 	Applications map[string]*charm.ApplicationSpec `yaml:"applications,omitempty"`
@@ -287,10 +288,15 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 	defaultSeries := fmt.Sprintf("%v", value)
 
 	data := &bundleOutput{
-		Series:       defaultSeries,
 		Applications: make(map[string]*charm.ApplicationSpec),
 		Machines:     make(map[string]*charm.MachineSpec),
 		Relations:    [][]string{},
+	}
+	isCaas := model.Type() == "caas"
+	if isCaas {
+		data.Type = "kubernetes"
+	} else {
+		data.Series = defaultSeries
 	}
 
 	if len(model.Applications()) == 0 {
@@ -317,22 +323,32 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			}
 		} else {
 			ut := []string{}
-			for _, unit := range application.Units() {
-				machineID := unit.Machine().Id()
-				unitMachine := unit.Machine()
-				if names.IsContainerMachine(machineID) {
-					machineIds.Add(unitMachine.Parent().Id())
-					id := unitMachine.ContainerType() + ":" + unitMachine.Parent().Id()
-					ut = append(ut, id)
-				} else {
-					machineIds.Add(unitMachine.Id())
-					ut = append(ut, unitMachine.Id())
+			placement := ""
+			numUnits := 0
+			scale := 0
+			if isCaas {
+				placement = application.Placement()
+				scale = len(application.Units())
+			} else {
+				numUnits = len(application.Units())
+				for _, unit := range application.Units() {
+					machineID := unit.Machine().Id()
+					unitMachine := unit.Machine()
+					if names.IsContainerMachine(machineID) {
+						machineIds.Add(unitMachine.Parent().Id())
+						id := unitMachine.ContainerType() + ":" + unitMachine.Parent().Id()
+						ut = append(ut, id)
+					} else {
+						machineIds.Add(unitMachine.Id())
+						ut = append(ut, unitMachine.Id())
+					}
 				}
 			}
-
 			newApplication = &charm.ApplicationSpec{
 				Charm:       application.CharmURL(),
-				NumUnits:    len(application.Units()),
+				NumUnits:    numUnits,
+				Scale_:      scale,
+				Placement_:  placement,
 				To:          ut,
 				Expose:      application.Exposed(),
 				Options:     application.CharmConfig(),
@@ -391,6 +407,11 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		if !usedSeries.Contains(defaultSeries) {
 			data.Series = ""
 		}
+	}
+
+	// Kubernetes bundles don't specify series right now.
+	if isCaas {
+		data.Series = ""
 	}
 
 	for _, relation := range model.Relations() {

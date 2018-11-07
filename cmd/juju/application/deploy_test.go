@@ -556,7 +556,7 @@ func (s *CAASDeploySuite) TestLocalCharmNeedsResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	repo := testcharms.RepoForSeries("kubernetes")
-	ch := repo.ClonedDirPath(s.CharmsPath, "mysql")
+	ch := repo.ClonedDirPath(s.CharmsPath, "mariadb")
 	err = runDeploy(c, ch, "-m", m.Name())
 	c.Assert(err, gc.ErrorMatches, "local charm missing OCI images for: [a-z]+_image, [a-z]+_image")
 
@@ -590,6 +590,7 @@ func (s *CAASDeploySuite) TestPlacement(c *gc.C) {
 		"gitlab": {
 			charm:     "cs:kubernetes/gitlab-1",
 			config:    ch.Config().DefaultSettings(),
+			scale:     1,
 			placement: "a=b",
 		},
 	})
@@ -622,6 +623,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 		"bitcoin-miner": {
 			charm:  "cs:kubernetes/bitcoin-miner-1",
 			config: ch.Config().DefaultSettings(),
+			scale:  1,
 			devices: map[string]state.DeviceConstraints{
 				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
 			},
@@ -1114,6 +1116,7 @@ type applicationInfo struct {
 	config           charm.Settings
 	constraints      constraints.Value
 	placement        string
+	scale            int
 	exposed          bool
 	storage          map[string]state.StorageConstraints
 	devices          map[string]state.DeviceConstraints
@@ -1169,6 +1172,7 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 			config:      config,
 			constraints: constraints,
 			exposed:     application.IsExposed(),
+			scale:       application.GetScale(),
 			storage:     storage,
 			devices:     devices,
 			placement:   application.GetPlacement(),
@@ -2086,6 +2090,12 @@ func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]
 
 func (f *fakeDeployAPI) PlanURL() string {
 	return f.planURL
+}
+
+func (f *fakeDeployAPI) ScaleApplication(p application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	return params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: p.Scale},
+	}, nil
 }
 
 func stringToInterface(args []string) []interface{} {

@@ -1179,7 +1179,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err := st.processCAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
-		scale = 1
+		scale = args.NumUnits
 		if len(args.Placement) == 1 {
 			placement = args.Placement[0].Directive
 		}

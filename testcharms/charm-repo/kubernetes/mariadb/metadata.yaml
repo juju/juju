@@ -1,4 +1,4 @@
-name: mysql
+name: mariadb
 summary: "Database engine"
 description: "A pretty popular database"
 provides:
@@ -10,5 +10,8 @@ resources:
   mysql_image:
     type: "oci-image"
     description: "Image used for mysql pod."
+  another_image:
+    type: "oci-image"
+    description: "Image used for unit test results."
 series:
   - kubernetes

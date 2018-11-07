@@ -1558,7 +1558,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 		state.AddApplicationArgs{Name: "gitlab", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
-	c.Assert(gitlab.GetScale(), gc.Equals, 1)
+	c.Assert(gitlab.GetScale(), gc.Equals, 0)
 	c.Assert(gitlab.GetPlacement(), gc.Equals, "a=b")
 	outsettings, err := gitlab.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
