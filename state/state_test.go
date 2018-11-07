@@ -1230,6 +1230,21 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	s.assertMachineContainers(c, host, nil)
 }
 
+func (s *StateSuite) TestAddContainerToMachineLockedForSeriesUpgrade(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("xenial", oneJob...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.CreateUpgradeSeriesLock(nil, "bionic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "xenial",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, "0", instance.LXD)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 is locked for series upgrade")
+	s.assertMachineContainers(c, host, nil)
+}
+
 func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	instIdTemplate := state.MachineTemplate{
 		Series:     "quantal",
