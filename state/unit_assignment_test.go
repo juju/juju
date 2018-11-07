@@ -104,7 +104,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
-	s.addLockedMachine(c)
+	s.addLockedMachine(c, false)
 
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -123,15 +123,22 @@ func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {
-	machine := s.addLockedMachine(c)
+	machine, _ := s.addLockedMachine(c, false)
 	// As in --to 0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "#", Directive: machine.Id()})
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitContainerOnMachinePlacementUpgradeSeriesLockError(c *gc.C) {
-	machine := s.addLockedMachine(c)
+	machine, _ := s.addLockedMachine(c, false)
 	// As in --to lxd:0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "lxd", Directive: machine.Id()})
+}
+
+func (s *UnitAssignmentSuite) TestAssignUnitExtantContainerOnMachinePlacementUpgradeSeriesLockError(c *gc.C) {
+	_, child := s.addLockedMachine(c, true)
+
+	// As in --to 0/lxd/0
+	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "#", Directive: child.Id()})
 }
 
 func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, placement *instance.Placement) {
@@ -149,12 +156,23 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 
 	unit := units[0]
 	err = s.State.AssignUnitWithPlacement(unit, placement)
-	c.Assert(err, gc.ErrorMatches, `machine "\d" is locked for series upgrade`)
+	c.Assert(err, gc.ErrorMatches, ".* is locked for series upgrade")
 }
 
-func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C) *state.Machine {
+func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*state.Machine, *state.Machine) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	var child *state.Machine
+	if addContainer {
+		template := state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		}
+		child, err = s.State.AddMachineInsideMachine(template, machine.Id(), "lxd")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	c.Assert(machine.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
-	return machine
+	return machine, child
 }

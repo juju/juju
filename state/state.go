@@ -193,8 +193,8 @@ func (st *State) ControllerModelTag() names.ModelTag {
 
 // ControllerOwner returns the owner of the controller model.
 func (st *State) ControllerOwner() (names.UserTag, error) {
-	models, close := st.db().GetCollection(modelsC)
-	defer close()
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
 	var doc map[string]string
 	err := models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
 	if err != nil {
@@ -1558,8 +1558,8 @@ func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 }
 
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
-	col, close := st.db().GetCollection(assignUnitC)
-	defer close()
+	col, closer := st.db().GetCollection(assignUnitC)
+	defer closer()
 
 	var docs []assignUnitDoc
 	if err := col.Find(query).All(&docs); err != nil {
@@ -1657,7 +1657,8 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given
+// placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
@@ -1684,13 +1685,21 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		}
 
 		// Check if an upgrade-series lock is present for the requested
-		// machine. If one exists, return an error to prevent deployment.
+		// machine or its parent.
+		// If one exists, return an error to prevent deployment.
 		locked, err := machine.IsLockedForSeriesUpgrade()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if locked {
 			return nil, errors.Errorf("machine %q is locked for series upgrade", mId)
+		}
+		locked, err = machine.IsParentLockedForSeriesUpgrade()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if locked {
+			return nil, errors.Errorf("machine hosting %q is locked for series upgrade", mId)
 		}
 	}
 
@@ -1727,11 +1736,11 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 }
 
 func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) error {
-	application, err := unit.Application()
+	app, err := unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ch, _, err := application.Charm()
+	ch, _, err := app.Charm()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1741,7 +1750,7 @@ func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) e
 		return nil
 	}
 	logger.Debugf("set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
-	return machine.SetUpgradeCharmProfile(application.Name(), ch.URL().String())
+	return machine.SetUpgradeCharmProfile(app.Name(), ch.URL().String())
 }
 
 // Application returns a application state by name.
