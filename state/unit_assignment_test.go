@@ -104,7 +104,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
-	s.addLockedMachine(c, false)
+	s.addLockedMachine(c, true)
 
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
