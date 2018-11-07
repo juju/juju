@@ -90,9 +90,14 @@ func UploadCharmWithSeries(c *gc.C, client *csclient.Client, url, name, series s
 		for _, r := range current {
 			if r.Revision == -1 {
 				// The resource doesn't exist so upload one.
-				content := r.Name + " content"
-				_, err := client.UploadResource(id, r.Name, "", strings.NewReader(content), int64(len(content)), nil)
-				c.Assert(err, jc.ErrorIsNil)
+				if r.Type == "oci-image" {
+					_, err = client.AddDockerResource(id, r.Name, "Image", "sha")
+					c.Assert(err, jc.ErrorIsNil)
+				} else {
+					content := r.Name + " content"
+					_, err := client.UploadResource(id, r.Name, "", strings.NewReader(content), int64(len(content)), nil)
+					c.Assert(err, jc.ErrorIsNil)
+				}
 				r.Revision = 0
 			}
 			resources[r.Name] = r.Revision

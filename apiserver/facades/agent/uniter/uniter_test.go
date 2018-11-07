@@ -4090,9 +4090,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
-	eps, err := st.InferEndpoints("gitlab", "mysql")
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb", Series: "kubernetes"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
+	eps, err := st.InferEndpoints("gitlab", "mariadb")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4153,8 +4153,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb", Series: "kubernetes"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"

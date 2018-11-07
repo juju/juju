@@ -400,6 +400,8 @@ func (h *bundleHandler) handleChanges() error {
 			err = h.addRelation(change)
 		case *bundlechanges.AddApplicationChange:
 			err = h.addApplication(change)
+		case *bundlechanges.ScaleChange:
+			err = h.scaleApplication(change)
 		case *bundlechanges.AddUnitChange:
 			err = h.addUnit(change)
 		case *bundlechanges.ExposeChange:
@@ -617,12 +619,27 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
+	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
+	numUnits := 0
+	var placement []*instance.Placement
+	if h.data.Type == "kubernetes" {
+		numUnits = p.NumUnits
+		if p.Placement != "" {
+			p := &instance.Placement{
+				Scope:     h.modelConfig.UUID(),
+				Directive: p.Placement,
+			}
+			placement = []*instance.Placement{p}
+		}
+	}
 	// Deploy the application.
 	if err := h.api.Deploy(application.DeployArgs{
 		CharmID:          chID,
 		Cons:             cons,
 		ApplicationName:  p.Application,
 		Series:           series,
+		NumUnits:         numUnits,
+		Placement:        placement,
 		ConfigYAML:       configYAML,
 		Storage:          storageConstraints,
 		Devices:          deviceConstraints,
@@ -645,6 +662,27 @@ func (h *bundleHandler) writeAddedResources(resNames2IDs map[string]string) {
 	for _, name := range names.SortedValues() {
 		h.ctx.Infof("  added resource %s", name)
 	}
+}
+
+// scaleApplication updates the number of units for an application.
+func (h *bundleHandler) scaleApplication(change *bundlechanges.ScaleChange) error {
+	if h.dryRun {
+		return nil
+	}
+
+	p := change.Params
+
+	result, err := h.api.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: p.Application,
+		Scale:           p.Scale,
+	})
+	if err == nil && result.Error != nil {
+		err = result.Error
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot scale application %q", p.Application)
+	}
+	return nil
 }
 
 // addMachine creates a new top-level machine or container in the environment.
@@ -1428,8 +1466,10 @@ func buildModelRepresentation(
 		application := &bundlechanges.Application{
 			Name:          name,
 			Charm:         appStatus.Charm,
+			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
+			Placement:     appStatus.Placement,
 			SubordinateTo: appStatus.SubordinateTo,
 		}
 		for unitName, unit := range appStatus.Units {

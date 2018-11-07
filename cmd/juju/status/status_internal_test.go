@@ -4826,6 +4826,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
+				Scale:   2,
 				Address: "54.32.1.2",
 				Units: map[string]unitStatus{
 					"foo/0": {
@@ -4873,6 +4874,7 @@ func (s *StatusSuite) TestFormatTabularStatusNotes(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
+				Scale:   1,
 				Address: "54.32.1.2",
 				StatusInfo: statusInfoContents{
 					Message: "Error: ImagePullBackOff",
