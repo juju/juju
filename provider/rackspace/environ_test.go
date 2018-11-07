@@ -8,9 +8,11 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	gooseerrors "gopkg.in/goose.v2/errors"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -33,15 +35,27 @@ type environSuite struct {
 	environ      environs.Environ
 	innerEnviron *fakeEnviron
 
-	callCtx context.ProviderCallContext
+	callCtx           *context.CloudCallContext
+	invalidCredential bool
 }
 
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.innerEnviron = new(fakeEnviron)
 	s.environ = rackspace.NewEnviron(s.innerEnviron)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidCredential = true
+			return nil
+		},
+	}
+}
+
+func (s *environSuite) TearDownTest(c *gc.C) {
+	s.invalidCredential = false
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
@@ -75,7 +89,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	s.PatchValue(rackspace.NewInstanceConfigurator, func(host string) common.InstanceConfigurator {
 		return configurator
 	})
-	config, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
 		"uuid":            testing.ModelTag.Id(),
@@ -83,7 +97,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		"authorized-keys": "key",
 	})
 	c.Assert(err, gc.IsNil)
-	err = s.environ.SetConfig(config)
+	err = s.environ.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 	_, err = s.environ.StartInstance(s.callCtx, environs.StartInstanceParams{
 		InstanceConfig: &instancecfg.InstanceConfig{},
@@ -92,6 +106,59 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		}},
 	})
 	c.Check(err, gc.IsNil)
+	c.Check(s.innerEnviron.Pop().name, gc.Equals, "StartInstance")
+	dropParams := configurator.Pop()
+	c.Check(dropParams.name, gc.Equals, "DropAllPorts")
+	c.Check(dropParams.params[1], gc.Equals, "1.1.1.1")
+}
+
+var testUnauthorisedGooseError = gooseerrors.NewUnauthorisedf(nil, "", "invalid auth")
+
+func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
+	configurator := &fakeConfigurator{
+		dropAllPortsF: func(exceptPorts []int, addr string) error {
+			return testUnauthorisedGooseError
+		},
+	}
+	s.PatchValue(rackspace.WaitSSH, func(
+		stdErr io.Writer,
+		interrupted <-chan os.Signal,
+		client ssh.Client,
+		checkHostScript string,
+		inst common.InstanceRefresher,
+		callCtx context.ProviderCallContext,
+		timeout environs.BootstrapDialOpts,
+		hostSSHOptions common.HostSSHOptionsFunc,
+	) (addr string, err error) {
+		addresses, err := inst.Addresses(s.callCtx)
+		if err != nil {
+			return "", err
+		}
+		return addresses[0].Value, nil
+	})
+	s.PatchValue(rackspace.NewInstanceConfigurator, func(host string) common.InstanceConfigurator {
+		return configurator
+	})
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":            "some-name",
+		"type":            "some-type",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ControllerTag.Id(),
+		"authorized-keys": "key",
+	})
+	c.Assert(err, gc.IsNil)
+	err = s.environ.SetConfig(cfg)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	_, err = s.environ.StartInstance(s.callCtx, environs.StartInstanceParams{
+		InstanceConfig: &instancecfg.InstanceConfig{},
+		Tools: tools.List{&tools.Tools{
+			Version: version.Binary{Series: "trusty"},
+		}},
+	})
+	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Check(err, gc.ErrorMatches, "invalid auth")
 	c.Check(s.innerEnviron.Pop().name, gc.Equals, "StartInstance")
 	dropParams := configurator.Pop()
 	c.Check(dropParams.name, gc.Equals, "DropAllPorts")
@@ -240,6 +307,8 @@ func (e *fakeEnviron) InstanceTypes(context.ProviderCallContext, constraints.Val
 
 type fakeConfigurator struct {
 	methodCalls []methodCall
+
+	dropAllPortsF func(exceptPorts []int, addr string) error
 }
 
 func (p *fakeConfigurator) Push(name string, params ...interface{}) {
@@ -254,6 +323,9 @@ func (p *fakeConfigurator) Pop() methodCall {
 
 func (e *fakeConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
 	e.Push("DropAllPorts", exceptPorts, addr)
+	if e.dropAllPortsF != nil {
+		return e.dropAllPortsF(exceptPorts, addr)
+	}
 	return nil
 }
 

@@ -27,7 +27,7 @@ var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
 func (e environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
+	// can't redirect to openstack provider as usually, because correct environ should be passed for common.Bootstrap
 	return bootstrap(ctx, e, callCtx, params)
 }
 
@@ -75,6 +75,7 @@ func (e environ) StartInstance(ctx context.ProviderCallContext, args environs.St
 		}
 		err = client.DropAllPorts([]int{apiPort, 22}, addr)
 		if err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return nil, errors.Trace(err)
 		}
 	}
