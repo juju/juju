@@ -668,10 +668,10 @@ func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, end
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	application, err := s.State.Application(args.ApplicationName)
+	app, err := s.State.Application(args.ApplicationName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	retrievedBindings, err := application.EndpointBindings()
+	retrievedBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retrievedBindings, jc.DeepEquals, expected)
 }
@@ -913,9 +913,9 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that the charm is not marked as forced.
-	application, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := application.Charm()
+	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, curl.String())
 	c.Assert(force, jc.IsFalse)
@@ -951,9 +951,9 @@ func (s *applicationSuite) assertApplicationSetCharm(c *gc.C, forceUnits bool) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that the charm is not marked as forced.
-	application, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	charm, _, err := application.Charm()
+	charm, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, "cs:~who/precise/wordpress-3")
 }
@@ -1012,9 +1012,9 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that the charm is marked as forced.
-	application, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := application.Charm()
+	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, curl.String())
 	c.Assert(force, jc.IsTrue)
@@ -1313,16 +1313,16 @@ func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	application, err := s.State.Application("application-name")
+	app, err := s.State.Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := application.Charm()
+	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	units, err := application.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
 }
@@ -1352,11 +1352,11 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	application, err := s.State.Application("application-name")
+	app, err := s.State.Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.CharmConfig()
+	settings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := application.Charm()
+	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{"username": "fred"}))
 }
@@ -1403,9 +1403,9 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	application, err := s.State.Application("application-name")
+	app, err := s.State.Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	charm, force, err := application.Charm()
+	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
@@ -1416,7 +1416,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
-	units, err := application.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
@@ -1495,9 +1495,9 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	application, err := s.State.Application("application-name")
+	app, err := s.State.Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	expected, force, err := application.Charm()
+	expected, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(expected.URL(), gc.DeepEquals, curl)
@@ -1509,7 +1509,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
-	units, err := application.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
@@ -1569,9 +1569,9 @@ func (s *applicationSuite) checkClientApplicationUpdateSetCharm(c *gc.C, forceCh
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the charm has been updated and and the force flag correctly set.
-	application, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, force, err := application.Charm()
+	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, curl.String())
 	c.Assert(force, gc.Equals, forceCharmURL)
@@ -1636,9 +1636,9 @@ func (s *applicationSuite) TestBlockApplicationUpdateForced(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the charm has been updated and and the force flag correctly set.
-	application, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, force, err := application.Charm()
+	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, curl)
 	c.Assert(force, jc.IsTrue)
@@ -1655,7 +1655,7 @@ func (s *applicationSuite) TestApplicationUpdateSetCharmNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set minimum units for the application.
 	minUnits := 2
@@ -1667,12 +1667,12 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the minimum number of units has been set.
-	c.Assert(application.Refresh(), gc.IsNil)
-	c.Assert(application.MinUnits(), gc.Equals, minUnits)
+	c.Assert(app.Refresh(), gc.IsNil)
+	c.Assert(app.MinUnits(), gc.Equals, minUnits)
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnitsWithLXDProfile(c *gc.C) {
-	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
 
 	// Set minimum units for the application.
 	minUnits := 2
@@ -1684,8 +1684,8 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsWithLXDProfile(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the minimum number of units has been set.
-	c.Assert(application.Refresh(), gc.IsNil)
-	c.Assert(application.MinUnits(), gc.Equals, minUnits)
+	c.Assert(app.Refresh(), gc.IsNil)
+	c.Assert(app.MinUnits(), gc.Equals, minUnits)
 }
 
 func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile(c *gc.C) {
@@ -1704,7 +1704,7 @@ func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set a negative minimum number of units for the application.
 	minUnits := -1
@@ -1717,13 +1717,13 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 		`cannot set minimum units for application "dummy": cannot set a negative minimum number of units`)
 
 	// Ensure the minimum number of units has not been set.
-	c.Assert(application.Refresh(), gc.IsNil)
-	c.Assert(application.MinUnits(), gc.Equals, 0)
+	c.Assert(app.Refresh(), gc.IsNil)
+	c.Assert(app.MinUnits(), gc.Equals, 0)
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	application := s.AddTestingApplication(c, "dummy", ch)
+	app := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1735,14 +1735,14 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "s-title", "username": "s-user"}
-	obtained, err := application.CharmConfig()
+	obtained, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	application := s.AddTestingApplication(c, "dummy", ch)
+	app := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1754,14 +1754,14 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := application.CharmConfig()
+	obtained, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	application := s.AddTestingApplication(c, "dummy", ch)
+	app := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1773,13 +1773,13 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := application.CharmConfig()
+	obtained, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -1792,7 +1792,7 @@ func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
-	obtained, err := application.Constraints()
+	obtained, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
@@ -1822,27 +1822,27 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the application has been correctly updated.
-	application, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the charm.
-	ch, force, err := application.Charm()
+	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, curl.String())
 	c.Assert(force, jc.IsTrue)
 
 	// Check the minimum number of units.
-	c.Assert(application.MinUnits(), gc.Equals, minUnits)
+	c.Assert(app.MinUnits(), gc.Equals, minUnits)
 
 	// Check the settings: also ensure the YAML settings take precedence
 	// over strings ones.
 	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
-	obtainedSettings, err := application.CharmConfig()
+	obtainedSettings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
 
 	// Check the constraints.
-	obtainedConstraints, err := application.Constraints()
+	obtainedConstraints, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedConstraints, gc.DeepEquals, cons)
 }
@@ -2261,9 +2261,9 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			application, err := s.State.Application(t.application)
+			app, err := s.State.Application(t.application)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(application.IsExposed(), gc.Equals, t.exposed)
+			c.Assert(app.IsExposed(), gc.Equals, t.exposed)
 		}
 	}
 }
@@ -2481,11 +2481,11 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	// document.
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	applicationName := "wordpress"
-	application, err := s.State.Application(applicationName)
+	app, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.applicationAPI.Destroy(params.ApplicationDestroy{applicationName})
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.Refresh()
+	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -2503,10 +2503,10 @@ func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
 	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"dummy-application"})
 	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
 	// Tests may have invalid application names.
-	application, err := s.State.Application("dummy-application")
+	app, err := s.State.Application("dummy-application")
 	if err == nil {
 		// For valid application names, check that application is alive :-)
-		assertLife(c, application, state.Alive)
+		assertLife(c, app, state.Alive)
 	}
 }
 
@@ -2771,7 +2771,7 @@ func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -2780,17 +2780,17 @@ func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
-	obtained, err := application.Constraints()
+	obtained, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
 func (s *applicationSuite) setupSetApplicationConstraints(c *gc.C) (*state.Application, constraints.Value) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	return application, cons
+	return app, cons
 }
 
 func (s *applicationSuite) assertSetApplicationConstraints(c *gc.C, application *state.Application, cons constraints.Value) {
