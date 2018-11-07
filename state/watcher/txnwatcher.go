@@ -64,6 +64,8 @@ type TxnWatcher struct {
 	iteratorFunc func() mongo.Iterator
 	log          *mgo.Collection
 
+	reportRequest chan chan map[string]interface{}
+
 	// syncEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
@@ -74,8 +76,14 @@ type TxnWatcher struct {
 	// iteratorStepCount tracks how many documents we've read from the database
 	iteratorStepCount uint64
 
-	// syncEventsCount tracks all sync events that we have processed
-	syncEventsCount uint64
+	// changesCount tracks all sync events that we have processed
+	changesCount uint64
+
+	// syncEventsLastLen was the length of syncEvents when we did our last flush()
+	syncEventsLastLen int
+
+	// averageSyncLen tracks a filtered average of how long the sync event queue gets before we flush
+	averageSyncLen float64
 
 	// lastId is the most recent transaction id observed by a sync.
 	lastId interface{}
@@ -119,11 +127,12 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	}
 
 	w := &TxnWatcher{
-		hub:          config.Hub,
-		clock:        config.Clock,
-		logger:       config.Logger,
-		log:          config.ChangeLog,
-		iteratorFunc: config.IteratorFunc,
+		hub:           config.Hub,
+		clock:         config.Clock,
+		logger:        config.Logger,
+		log:           config.ChangeLog,
+		iteratorFunc:  config.IteratorFunc,
+		reportRequest: make(chan chan map[string]interface{}),
 	}
 	if w.iteratorFunc == nil {
 		w.iteratorFunc = w.iter
@@ -176,11 +185,18 @@ func (w *TxnWatcher) Err() error {
 // Report is part of the watcher/runner Reporting interface, to expose runtime details of the watcher.
 func (w *TxnWatcher) Report() map[string]interface{} {
 	// TODO: (jam) do we need to synchronize with the loop?
-	return map[string]interface{}{
-		"sync-events-len":     len(w.syncEvents),
-		"sync-events-cap":     cap(w.syncEvents),
-		"total-sync-events":   w.syncEventsCount,
-		"iterator-step-count": w.iteratorStepCount,
+	resCh := make(chan map[string]interface{})
+	select {
+	case <-w.tomb.Dying():
+		return nil
+	case w.reportRequest <- resCh:
+		break
+	}
+	select {
+	case <-w.tomb.Dying():
+		return nil
+	case res := <-resCh:
+		return res
 	}
 }
 
@@ -206,6 +222,29 @@ func (w *TxnWatcher) loop() error {
 				backoff = PollStrategy.NewTimer(w.clock.Now())
 			}
 			next = w.clock.After(d)
+		case resCh := <-w.reportRequest:
+			report := map[string]interface{}{
+				// How long was sync-events in our last flush
+				"sync-events-last-len": w.syncEventsLastLen,
+				// How long is sync-events on average
+				"sync-events-avg": int(w.averageSyncLen + 0.5),
+				// How long is the queue right now? (probably should always be 0 if we are at this point in the loop)
+				"sync-events-len": len(w.syncEvents),
+				// How big is our buffer
+				"sync-events-cap": cap(w.syncEvents),
+				// How many events have we actually generated
+				"total-changes": w.changesCount,
+				// How many database records have we read. note: because we have to iterate until we get to lastId,
+				// this is often a bit bigger than total-sync-events
+				"iterator-step-count": w.iteratorStepCount,
+			}
+			select {
+			case <-w.tomb.Dying():
+				return errors.Trace(tomb.ErrDying)
+			case resCh <- report:
+			}
+			// This doesn't indicate we need to perform a sync
+			continue
 		}
 
 		added, err := w.sync()
@@ -229,7 +268,11 @@ func (w *TxnWatcher) flush() {
 		e := w.syncEvents[i]
 		w.hub.Publish(txnWatcherCollection, e)
 	}
+	w.averageSyncLen = (filterFactor * float64(len(w.syncEvents))) + ((1.0 - filterFactor) * w.averageSyncLen)
+	w.syncEventsLastLen = len(w.syncEvents)
 	w.syncEvents = w.syncEvents[:0]
+	// TODO(jam): 2018-11-07 Consider if averageSyncLen << cap(syncEvents) we should reallocate the buffer, so that it
+	// doesn't grow to the size of the largest-ever change and never shrink
 }
 
 // initLastId reads the most recent changelog document and initializes
@@ -314,7 +357,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 					Id:    d[i],
 					Revno: revno,
 				})
-				w.syncEventsCount++
+				w.changesCount++
 				added = true
 			}
 		}

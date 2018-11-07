@@ -346,9 +346,10 @@ func (p *StatePool) IntrospectionReport() string {
 		"\n%s", len(p.pool), removeCount, buff)
 }
 
+// Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
+// what is going on at runtime.
 func (p *StatePool) Report() map[string]interface{} {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	report := make(map[string]interface{})
 	report["txn-watcher"] = p.watcherRunner.Report()
 	report["system"] = p.systemState.Report()
@@ -359,5 +360,6 @@ func (p *StatePool) Report() map[string]interface{} {
 		modelReport["to-remove"] = item.remove
 		report[uuid] = modelReport
 	}
+	p.mu.Unlock()
 	return report
 }

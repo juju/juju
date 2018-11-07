@@ -18,9 +18,9 @@ type HubSource interface {
 }
 
 // filterFactor represents the portion of a first-order filter that is calculating a running average.
-// This is the weight of the new inputs. A value of 0.5 would represent averaging over just 2 samples.
-// A value of 0.1 corresponds to averaging over approximately 10 items.
-const filterFactor = 0.1
+// This is the weight of the new inputs. A value of 0.5 would represent averaging over just 2 samples,
+// 0.1 would be 10 samples, 0.01 corresponds to averaging over approximately 100 items.
+const filterFactor = 0.01
 
 // HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
@@ -73,6 +73,9 @@ type HubWatcher struct {
 
 	// changeCount is the number of change events we've processed
 	changeCount uint64
+
+	// revnoMapBytes tracks how big our revnomap is in approximate bytes
+	revnoMapBytes uintptr
 }
 
 // NewHubWatcher returns a new watcher observing Change events published to the
@@ -242,7 +245,7 @@ type HubWatcherStats struct {
 	RequestEventCount uint64
 	// RequestQueueCap is the maximum size of the request queue buffer
 	RequestQueueCap int
-	// RequestQueueCap is the current number of requested events
+	// RequestQueueLen is the current number of requested events
 	RequestQueueLen int
 	// RequestCount is the number of requests (reqWatch/reqUnwatch, etc) that we've seen
 	RequestCount uint64
@@ -255,7 +258,7 @@ type reqStats struct {
 }
 
 func (w *HubWatcher) Stats() HubWatcherStats {
-	ch := make(chan HubWatcherStats, 1)
+	ch := make(chan HubWatcherStats)
 	w.sendReq(reqStats{ch: ch})
 	select {
 	case <-w.tomb.Dying():
@@ -341,9 +344,13 @@ func (w *HubWatcher) flush() {
 	}
 	// first-order filter: https://en.wikipedia.org/wiki/Low-pass_filter#Discrete-time_realization
 	// This allows us to compute an "average" without having to actually track N samples.
-	w.averageSyncLen = (filterFactor * float64(w.lastSyncLen)) + (1.0-filterFactor)*w.averageSyncLen
+	w.averageSyncLen = (filterFactor * float64(w.lastSyncLen)) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEvents = w.syncEvents[:0]
-	w.logger.Tracef("syncEvents: len(%d), cap(%d)", len(w.syncEvents), cap(w.syncEvents))
+	// TODO(jam): 2018-11-07 This would probably be a good time to wipe syncEvents if cap(syncEvents) is significantly
+	// larger than averageSyncLen. Consider something like "if cap(syncEventsLen) > 10*w.averageSyncLen".
+	// That means that we can shrink the buffer after an outlier, rather than requiring it to always be the longest
+	// it was ever needed.
+	w.logger.Tracef("syncEvents: len(%d), cap(%d) avg(%.1f)", len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
 
 	// requestEvents are stored oldest first, and
 	// may grow during the loop.
@@ -416,32 +423,12 @@ func (w *HubWatcher) handle(req interface{}) {
 		for _, watches := range w.watches {
 			watchCount += uint64(len(watches))
 		}
-		var revnoMapBytes uintptr
-		// TODO: (jam) 2018-11-05 there would be ways to be more accurate about the sizes,
-		// but this is a rough approximation. We should also include the size overhead of all the objects.
-		// watchKey, str pointer and size overhead, map etc.
-		revnoMapBytes += reflect.TypeOf(w.current).Size()
-		for wKey, _ := range w.current {
-			revnoMapBytes += 8 // for the int64 value
-			revnoMapBytes += reflect.TypeOf(wKey).Size()
-			revnoMapBytes += reflect.TypeOf(wKey.c).Size()
-			revnoMapBytes += uintptr(len(wKey.c))
-			revnoMapBytes += reflect.TypeOf(wKey.id).Size()
-			switch id := wKey.id.(type) {
-			case string:
-				revnoMapBytes += uintptr(len(id))
-			case int64, uint64:
-				revnoMapBytes += 8
-			case int32, uint32:
-				revnoMapBytes += 4
-			}
-		}
 		stats := HubWatcherStats{
 			ChangeCount:        w.changeCount,
 			WatchKeyCount:      len(w.watches),
 			WatchCount:         watchCount,
 			RevnoMapSize:       len(w.current),
-			RevnoMapBytes:      uint64(revnoMapBytes),
+			RevnoMapBytes:      uint64(w.revnoMapBytes),
 			SyncQueueCap:       cap(w.syncEvents),
 			SyncQueueLen:       len(w.syncEvents),
 			SyncLastLen:        w.lastSyncLen,
@@ -463,11 +450,40 @@ func (w *HubWatcher) handle(req interface{}) {
 	}
 }
 
+var (
+	int64Size    = reflect.TypeOf(int64(0)).Size()
+	strSize      = reflect.TypeOf("").Size()
+	watchKeySize = reflect.TypeOf(watchKey{}).Size()
+)
+
+func sizeInMap(key watchKey) uintptr {
+	// This includes the size of the int64 pointer that we target
+	// TODO: (jam) 2018-11-05 there would be ways to be more accurate about the sizes,
+	// but this is a rough approximation. It should handle the most common types that we know about,
+	// where the id is a string
+	size := int64Size
+	size += watchKeySize
+	size += strSize
+	size += uintptr(len(key.c))
+	switch id := key.id.(type) {
+	case string:
+		size += strSize
+		size += uintptr(len(id))
+	default:
+		size += reflect.TypeOf(id).Size()
+	}
+	return size
+}
+
 // queueChange queues up the change for the registered watchers.
 func (w *HubWatcher) queueChange(change Change) {
 	w.changeCount++
 	w.logger.Tracef("got change document: %#v", change)
 	key := watchKey{change.C, change.Id}
+	if _, ok := w.current[key]; !ok {
+		// We didn't have this in our map before, so we need to track the bytes
+		w.revnoMapBytes += sizeInMap(key)
+	}
 	revno := change.Revno
 	w.current[key] = revno
 
