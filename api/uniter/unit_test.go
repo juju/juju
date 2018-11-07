@@ -241,17 +241,6 @@ func (s *unitSuite) TestRefreshResolve(c *gc.C) {
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
-func (s *unitSuite) TestRefreshSeries(c *gc.C) {
-	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
-	err := s.wordpressMachine.UpdateMachineSeries("xenial", true)
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
-
-	err = s.apiUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Series(), gc.Equals, "xenial")
-}
-
 func (s *unitSuite) TestWatch(c *gc.C) {
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
@@ -478,7 +467,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		called++
 		if called == 1 {
 			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
-				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}
+				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}
 			return nil
 		}
 		c.Check(objType, gc.Equals, "Uniter")

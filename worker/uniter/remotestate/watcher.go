@@ -622,7 +622,6 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
 	w.current.ResolvedMode = w.unit.Resolved()
-	w.current.Series = w.unit.Series()
 	return nil
 }
 

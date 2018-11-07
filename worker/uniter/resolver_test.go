@@ -134,35 +134,16 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run install hook")
 }
 
-func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		Series:               s.charmURL.Series,
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.Series = "trusty"
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run config-changed hook")
-}
-
 func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
-		Series:               s.charmURL.Series,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 			Started:   true,
 		},
 	}
-	s.remoteState.Series = "trusty"
 	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
 	// Change relation state (to simulate simultaneous change remote state update)
 	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
@@ -175,7 +156,6 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
-		Series:               s.charmURL.Series,
 		UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
@@ -183,7 +163,6 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 			Started:   true,
 		},
 	}
-	s.remoteState.Series = s.charmURL.Series
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +173,6 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 	localState := resolver.LocalState{
 		CharmModifiedVersion:  s.charmModifiedVersion,
 		CharmURL:              s.charmURL,
-		Series:                s.charmURL.Series,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
 		ConfigVersion:         1,
 		LeaderSettingsVersion: 1,
@@ -204,7 +182,6 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 			Started:   true,
 		},
 	}
-	s.remoteState.Series = s.charmURL.Series
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesCompleteStarted
 
 	// Bumping the remote state versions verifies that the upgrade-series
@@ -221,7 +198,6 @@ func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenC
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
-		Series:               s.charmURL.Series,
 		UpgradeSeriesStatus:  model.UpgradeSeriesCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
@@ -229,7 +205,6 @@ func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenC
 			Started:   true,
 		},
 	}
-	s.remoteState.Series = s.charmURL.Series
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,22 +223,6 @@ func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesComplet
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-}
-
-func (s *resolverSuite) TestSeriesChangedBlank(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.Series = "trusty"
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run config-changed hook")
 }
 
 func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {

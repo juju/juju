@@ -285,8 +285,7 @@ func (s *uniterResolver) nextOp(
 		}
 	}
 
-	if localState.ConfigVersion != remoteState.ConfigVersion ||
-		localState.Series != remoteState.Series {
+	if localState.ConfigVersion != remoteState.ConfigVersion {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
