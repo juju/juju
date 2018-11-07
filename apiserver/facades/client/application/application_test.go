@@ -489,16 +489,32 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployWithMachinePlacementLockedError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"#", "0"})
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"#", "0"}, false)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithMachineContainerPlacementLockedError(c *gc.C) {
-	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"lxd", "0"})
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"lxd", "0"}, false)
 }
 
-func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(c *gc.C, placement instance.Placement) {
+func (s *applicationSuite) TestApplicationDeployWithExtantMachineContainerLockedParentError(c *gc.C) {
+	s.testApplicationDeployWithPlacementLockedError(c, instance.Placement{"#", "0/lxd/0"}, true)
+}
+
+func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
+	c *gc.C, placement instance.Placement, addContainer bool,
+) {
 	m, err := s.BackingState.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	if addContainer {
+		template := state.MachineTemplate{
+			Series: "xenial",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		}
+		_, err := s.State.AddMachineInsideMachine(template, m.Id(), "lxd")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	c.Assert(m.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
 
 	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")

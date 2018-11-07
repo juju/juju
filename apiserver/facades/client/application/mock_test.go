@@ -351,8 +351,13 @@ type mockMachine struct {
 	upgradeCharmProfileComplete string
 }
 
-func (m *mockMachine) IsLocked() (bool, error) {
+func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 	m.MethodCall(m, "IsLockedForSeriesUpgrade")
+	return false, m.NextErr()
+}
+
+func (m *mockMachine) IsParentLockedForSeriesUpgrade() (bool, error) {
+	m.MethodCall(m, "IsParentLockedForSeriesUpgrade")
 	return false, m.NextErr()
 }
 
