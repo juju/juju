@@ -1850,6 +1850,16 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 	return nil
 }
 
+// LXDProfileNames implements environs.LXDProfiler.
+func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
+	return nil, nil
+}
+
+// ReplaceOrAddInstanceProfile implements environs.LXDProfiler.
+func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
+	return []string{newProfile}, nil
+}
+
 // SSHAddresses implements environs.SSHAddresses.
 // For testing we cut "100.100.100.100" out of this list.
 func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
