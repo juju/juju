@@ -49,7 +49,7 @@ Juju is now ready for the series to be updated.
 Perform any manual steps required along with "do-release-upgrade".
 When ready, run the following to complete the upgrade series process:
 
-juju upgrade-series complete %s`
+juju upgrade-series %s complete`
 
 const UpgradeSeriesCompleteFinishedMessage = `
 Upgrade series for machine %q has successfully completed`

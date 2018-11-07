@@ -157,7 +157,9 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptYesFlagAndNotPrompt(c
 
 	finishedMessage := fmt.Sprintf(machine.UpgradeSeriesPrepareFinishedMessage, machineArg)
 	displayedMessage := strings.Join([]string{confirmationMessage, finishedMessage}, "") + "\n"
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, displayedMessage)
+	out := ctx.Stderr.(*bytes.Buffer).String()
+	c.Assert(out, gc.Equals, displayedMessage)
+	c.Assert(out, jc.Contains, fmt.Sprintf("juju upgrade-series %s complete", machineArg))
 }
 
 type upgradeSeriesPrepareExpectation struct {
