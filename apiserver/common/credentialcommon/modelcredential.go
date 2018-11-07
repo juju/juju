@@ -119,7 +119,11 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 			continue
 		}
 		instanceId, err := machine.InstanceId()
-		if err != nil {
+		if errors.IsNotProvisioned(err) {
+			// Skip over this machine; we wouldn't expect the cloud
+			// to know about it.
+			continue
+		} else if err != nil {
 			results = append(results, serverError(errors.Annotatef(err, "getting instance id for machine %s", machine.Id())))
 			continue
 		}
