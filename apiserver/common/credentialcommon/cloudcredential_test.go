@@ -31,7 +31,7 @@ func (s *CredentialSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
-	result, err := s.api.InvalidateModelCredential("not again")
+	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 	s.backend.CheckCalls(c, []testing.StubCall{
@@ -42,7 +42,7 @@ func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
-	result, err := s.api.InvalidateModelCredential("not again")
+	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: common.ServerError(expected)})
 	s.backend.CheckCalls(c, []testing.StubCall{

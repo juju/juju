@@ -315,3 +315,9 @@ type UpdateCredentialArgs struct {
 	// Force indicates whether the update should be forced.
 	Force bool `json:"force"`
 }
+
+// InvalidateCredentialArg is used to invalidate a controller credential.
+type InvalidateCredentialArg struct {
+	// Reason is the desription of why we are invalidating credential.
+	Reason string `json:"reason,omitempty"`
+}

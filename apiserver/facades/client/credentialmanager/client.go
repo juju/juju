@@ -16,7 +16,7 @@ var logger = loggo.GetLogger("juju.apiserver.credentialmanager")
 
 // CredentialManager defines the methods on credentialmanager API endpoint.
 type CredentialManager interface {
-	InvalidateModelCredential(reason string) (params.ErrorResult, error)
+	InvalidateModelCredential(params.InvalidateCredentialArg) (params.ErrorResult, error)
 }
 
 type CredentialManagerAPI struct {

@@ -23,8 +23,8 @@ func NewCredentialManagerAPI(backend StateBackend) *CredentialManagerAPI {
 }
 
 // InvalidateModelCredential marks the cloud credential for this model as invalid.
-func (api *CredentialManagerAPI) InvalidateModelCredential(reason string) (params.ErrorResult, error) {
-	err := api.backend.InvalidateModelCredential(reason)
+func (api *CredentialManagerAPI) InvalidateModelCredential(args params.InvalidateCredentialArg) (params.ErrorResult, error) {
+	err := api.backend.InvalidateModelCredential(args.Reason)
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}

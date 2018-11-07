@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 // CredentialValidatorV2 defines the methods on version 2 facade for the
 // credentialvalidator API endpoint.
 type CredentialValidatorV2 interface {
-	InvalidateModelCredential(reason string) (params.ErrorResult, error)
+	InvalidateModelCredential(params.InvalidateCredentialArg) (params.ErrorResult, error)
 	ModelCredential() (params.ModelCredential, error)
 	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
 	WatchModelCredential() (params.NotifyWatchResult, error)
@@ -28,7 +28,7 @@ type CredentialValidatorV2 interface {
 // CredentialValidatorV1 defines the methods on version 1 facade
 // for the credentialvalidator API endpoint.
 type CredentialValidatorV1 interface {
-	InvalidateModelCredential(reason string) (params.ErrorResult, error)
+	InvalidateModelCredential(params.InvalidateCredentialArg) (params.ErrorResult, error)
 	ModelCredential() (params.ModelCredential, error)
 	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
 }
