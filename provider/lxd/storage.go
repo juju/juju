@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -240,6 +241,7 @@ func (s *lxdFilesystemSource) CreateFilesystems(ctx context.ProviderCallContext,
 		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
 			results[i].Error = err
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			continue
 		}
 		results[i].Filesystem = filesystem
@@ -352,6 +354,7 @@ func (s *lxdFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.destroyFilesystem(filesystemId)
+		common.HandleCredentialError(IsAuthorisationFailure, results[i], ctx)
 	}
 	return results, nil
 }
@@ -373,6 +376,7 @@ func (s *lxdFilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.releaseFilesystem(filesystemId)
+		common.HandleCredentialError(IsAuthorisationFailure, results[i], ctx)
 	}
 	return results, nil
 }
@@ -421,6 +425,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext,
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -443,6 +448,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext,
 				names.ReadableString(arg.Filesystem),
 				names.ReadableString(arg.Machine),
 			)
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			continue
 		}
 		results[i].FilesystemAttachment = attachment
@@ -498,6 +504,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext,
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -515,6 +522,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext,
 		}
 		if inst != nil {
 			err := s.detachFilesystem(arg, inst)
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			results[i] = errors.Annotatef(
 				err, "detaching %s",
 				names.ReadableString(arg.Filesystem),
@@ -545,6 +553,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	}
 	volume, eTag, err := s.env.server.GetStoragePoolVolume(lxdPool, storagePoolVolumeType, volumeName)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
 	if len(volume.UsedBy) > 0 {
@@ -580,6 +589,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 		}
 		if err := s.env.server.UpdateStoragePoolVolume(
 			lxdPool, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
 			return storage.FilesystemInfo{}, errors.Annotate(err, "tagging volume")
 		}
 	}

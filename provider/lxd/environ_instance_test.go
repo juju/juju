@@ -93,6 +93,23 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
+func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
+	var invalidCred = false
+	// allInstances will ultimately return the error.
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	ids := []instance.Id{"eggs"}
+	_, err := s.Env.Instances(&context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			invalidCred = true
+			return nil
+		},
+	}, ids)
+
+	c.Check(err, gc.ErrorMatches, "not authorized")
+	c.Assert(invalidCred, jc.IsTrue)
+}
+
 func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.Client.Containers = []containerlxd.Container{*s.Container}
 
@@ -121,6 +138,22 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+}
+
+func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {
+	var invalidCred = false
+	// AliveContainers will return an error.
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	_, err := s.Env.ControllerInstances(
+		&context.CloudCallContext{
+			InvalidateCredentialFunc: func(string) error {
+				invalidCred = true
+				return nil
+			},
+		}, coretesting.ControllerTag.Id())
+	c.Check(err, gc.ErrorMatches, "not authorized")
+	c.Assert(invalidCred, jc.IsTrue)
 }
 
 func (s *environInstSuite) TestAdoptResources(c *gc.C) {
@@ -158,4 +191,21 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 		c, 2, "UpdateContainerConfig", "guild-league", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 	s.BaseSuite.Client.CheckCall(
 		c, 3, "UpdateContainerConfig", "tall-dwarfs", map[string]string{"user.juju-controller-uuid": "target-uuid"})
+}
+
+func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
+	var invalidCred = false
+	// allInstances will ultimately return the error.
+	s.Client.Stub.SetErrors(errTestUnAuth)
+
+	err := s.Env.AdoptResources(&context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			invalidCred = true
+			return nil
+		},
+	}, "target-uuid", version.MustParse("3.4.5"))
+
+	c.Check(err, gc.ErrorMatches, ".*not authorized")
+	c.Assert(invalidCred, jc.IsTrue)
+	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 }

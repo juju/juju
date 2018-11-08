@@ -23,15 +23,21 @@ import (
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
-	callCtx        context.ProviderCallContext
-	defaultProfile *api.Profile
+	callCtx           *context.CloudCallContext
+	defaultProfile    *api.Profile
+	invalidCredential bool
 }
 
 var _ = gc.Suite(&environBrokerSuite{})
 
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = &context.CloudCallContext{
+		InvalidateCredentialFunc: func(string) error {
+			s.invalidCredential = true
+			return nil
+		},
+	}
 	s.defaultProfile = &api.Profile{
 		ProfilePut: api.ProfilePut{
 			Devices: map[string]map[string]string{
@@ -39,6 +45,11 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+}
+
+func (s *environBrokerSuite) TearDownTest(c *gc.C) {
+	s.invalidCredential = false
+	s.BaseSuite.TearDownTest(c)
 }
 
 // containerSpecMatcher is a gomock matcher for testing a container spec
@@ -350,7 +361,28 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 }
 
+func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.CreateContainerFromSpec(gomock.Any()).Return(&containerlxd.Container{}, fmt.Errorf("not authorized")),
+	)
+
+	env := s.NewEnviron(c, svr, nil)
+	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))
+	c.Assert(err, gc.ErrorMatches, "not authorized")
+	c.Assert(s.invalidCredential, jc.IsTrue)
+}
+
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -360,6 +392,19 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	env := s.NewEnviron(c, svr, nil)
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
+
+	env := s.NewEnviron(c, svr, nil)
+	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
+	c.Assert(err, gc.ErrorMatches, "not authorized")
+	c.Assert(s.invalidCredential, jc.IsTrue)
 }
 
 func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {

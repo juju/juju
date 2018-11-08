@@ -42,6 +42,7 @@ func (env *environ) StartInstance(
 
 	container, err := env.newContainer(ctx, args, arch)
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
@@ -335,5 +336,9 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		}
 	}
 
-	return errors.Trace(env.server.RemoveContainers(names))
+	err := env.server.RemoveContainers(names)
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	}
+	return errors.Trace(err)
 }
