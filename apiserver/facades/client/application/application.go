@@ -875,7 +875,11 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 			results.Results[k].Error = common.ServerError(errors.Annotatef(err, "machine %q failure", machineId))
 			continue
 		}
-		status := machine.UpgradeCharmProfileComplete()
+		status, err := machine.UpgradeCharmProfileComplete()
+		if err != nil {
+			results.Results[k].Error = common.ServerError(errors.Annotatef(err, "machine instance %q failure", machineId))
+			continue
+		}
 		if !lxdprofile.UpgradeStatusTerminal(status) {
 			finished = false
 		}

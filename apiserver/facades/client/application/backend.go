@@ -100,7 +100,7 @@ type Charm interface {
 type Machine interface {
 	IsLockedForSeriesUpgrade() (bool, error)
 	IsParentLockedForSeriesUpgrade() (bool, error)
-	UpgradeCharmProfileComplete() string
+	UpgradeCharmProfileComplete() (string, error)
 	SetUpgradeCharmProfileComplete(string) error
 }
 

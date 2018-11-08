@@ -1441,7 +1441,10 @@ func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAc
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
-	appName := machine.UpgradeCharmProfileApplication()
+	appName, err := machine.UpgradeCharmProfileApplication()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
 	if appName == "" {
 		return nothing, errors.Trace(errors.New("no appname for profile charm upgrade"))
 	}
@@ -1456,7 +1459,10 @@ func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAc
 		return nothing, errors.Trace(err)
 	}
 
-	url := machine.UpgradeCharmProfileCharmURL()
+	url, err := machine.UpgradeCharmProfileCharmURL()
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
 	switch {
 	case url == "" && oldProfileName != "":
 		// Remove the old profile from the machine,

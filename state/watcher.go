@@ -831,7 +831,7 @@ func (st *State) watchCharmProfiles(regExp string) (StringsWatcher, error) {
 		}
 		return compiled.MatchString(k)
 	}
-	accessor := func(doc machineDoc) string {
+	accessor := func(doc instanceCharmProfileData) string {
 		return doc.UpgradeCharmProfileCharmURL
 	}
 	return newModelFieldChangeWatcher(st, members, filter, accessor), nil
@@ -850,14 +850,14 @@ type modelFieldChangeWatcher struct {
 	filter func(key interface{}) bool
 	// accessor is used to extract the field from the machine doc in a generic
 	// way.
-	accessor func(machineDoc) string
+	accessor func(instanceCharmProfileData) string
 	known    map[string]string
 	out      chan []string
 }
 
 var _ Watcher = (*modelFieldChangeWatcher)(nil)
 
-func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter func(key interface{}) bool, accessor func(machineDoc) string) StringsWatcher {
+func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter func(key interface{}) bool, accessor func(instanceCharmProfileData) string) StringsWatcher {
 	w := &modelFieldChangeWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		members:       members,
@@ -874,20 +874,28 @@ func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter fun
 }
 
 func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
-	machineIds := make(set.Strings)
-	var doc machineDoc
-	newMachines, closer := w.db.GetCollection(machinesC)
-	defer closer()
+	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
+	defer machinesCloser()
+	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceCloser()
 
-	iter := newMachines.Find(w.members).Iter()
+	var doc machineDoc
+	machineIds := make(set.Strings)
+	iter := machinesCol.Find(w.members).Iter()
 	for iter.Next(&doc) {
 		// If no members criteria is specified, use the filter
 		// to reject any unsuitable initial elements.
 		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
 			continue
 		}
-		field := w.accessor(doc)
-		w.known[doc.Id] = field
+
+		var instanceData instanceCharmProfileData
+		if err := instanceDataCol.FindId(doc.DocID).One(&instanceData); err != nil {
+			continue
+		}
+
+		docField := w.accessor(instanceData)
+		w.known[doc.Id] = docField
 		machineIds.Add(doc.Id)
 	}
 	return machineIds, iter.Close()
@@ -900,14 +908,25 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 		machineIds.Remove(machineId)
 		return nil
 	}
-	doc := machineDoc{}
-	newMachines, closer := w.db.GetCollection(machinesC)
-	defer closer()
-	if err := newMachines.FindId(change.Id).One(&doc); err != nil {
+
+	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
+	defer machinesCloser()
+
+	var doc machineDoc
+	if err := machinesCol.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
+
+	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceCloser()
+
+	var instanceData instanceCharmProfileData
+	if err := instanceDataCol.FindId(change.Id).One(&instanceData); err != nil {
+		return err
+	}
+
 	// get the document field from the accessor
-	docField := w.accessor(doc)
+	docField := w.accessor(instanceData)
 	// check the field before adding to the machineId
 	field, isKnown := w.known[machineId]
 	w.known[machineId] = docField
@@ -919,8 +938,8 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 
 func (w *modelFieldChangeWatcher) loop() error {
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(machinesC, ch, w.filter)
-	defer w.watcher.UnwatchCollection(machinesC, ch)
+	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, w.filter)
+	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
 
 	machineIds, err := w.initial()
 	if err != nil {
@@ -1902,7 +1921,7 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, erro
 		// will be empty.
 		machineIds.Add(m.doc.DocID)
 	}
-	accessor := func(doc machineDoc) string {
+	accessor := func(doc instanceCharmProfileData) string {
 		return doc.UpgradeCharmProfileComplete
 	}
 	completed := func(previousField, currentField string) bool {
@@ -1924,14 +1943,14 @@ type machineFieldChangeWatcher struct {
 	known   map[string]string
 	// accessor is used to extract the field from the machine doc in a generic
 	// way.
-	accessor  func(machineDoc) string
+	accessor  func(instanceCharmProfileData) string
 	completed func(string, string) bool
 	out       chan struct{}
 }
 
 var _ Watcher = (*machineFieldChangeWatcher)(nil)
 
-func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, accessor func(machineDoc) string, completed func(string, string) bool) NotifyWatcher {
+func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, accessor func(instanceCharmProfileData) string, completed func(string, string) bool) NotifyWatcher {
 	w := &machineFieldChangeWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		members:       members,
@@ -1948,14 +1967,22 @@ func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, acc
 }
 
 func (w *machineFieldChangeWatcher) initial() (set.Strings, error) {
-	machineIds := make(set.Strings)
-	var doc machineDoc
-	newMachines, closer := w.db.GetCollection(machinesC)
-	defer closer()
+	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
+	defer machinesCloser()
+	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceCloser()
 
-	iter := newMachines.Find(bson.D{{"_id", bson.D{{"$in", w.members.Values()}}}}).Iter()
+	var doc machineDoc
+	machineIds := make(set.Strings)
+	iter := machinesCol.Find(bson.D{{"_id", bson.D{{"$in", w.members.Values()}}}}).Iter()
 	for iter.Next(&doc) {
-		w.known[doc.DocID] = w.accessor(doc)
+		var instanceData instanceCharmProfileData
+		if err := instanceDataCol.FindId(doc.DocID).One(&instanceData); err != nil {
+			continue
+		}
+
+		docField := w.accessor(instanceData)
+		w.known[doc.DocID] = docField
 		machineIds.Add(doc.DocID)
 	}
 	return machineIds, iter.Close()
@@ -1965,14 +1992,24 @@ func (w *machineFieldChangeWatcher) merge(machineIds set.Strings, change watcher
 	if change.Revno == -1 {
 		return nil
 	}
-	doc := machineDoc{}
-	newMachines, closer := w.db.GetCollection(machinesC)
-	defer closer()
-	if err := newMachines.FindId(change.Id).One(&doc); err != nil {
+	var doc machineDoc
+	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
+	defer machinesCloser()
+
+	if err := machinesCol.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
+
+	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceCloser()
+
+	var instanceData instanceCharmProfileData
+	if err := instanceDataCol.FindId(change.Id).One(&instanceData); err != nil {
+		return err
+	}
+
 	// check the field before adding to the machineId
-	currentField := w.accessor(doc)
+	currentField := w.accessor(instanceData)
 	previousField, ok := w.known[doc.DocID]
 	if !ok || w.completed(previousField, currentField) {
 		machineIds.Remove(doc.DocID)
@@ -1992,10 +2029,10 @@ func (w *machineFieldChangeWatcher) loop() error {
 	}
 
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(machinesC, ch, func(key interface{}) bool {
+	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, func(key interface{}) bool {
 		return machineIds.Contains(key.(string))
 	})
-	defer w.watcher.UnwatchCollection(machinesC, ch)
+	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
 
 	out := w.out
 	for {
