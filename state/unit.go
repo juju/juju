@@ -2389,14 +2389,15 @@ var hasNoContainersTerm = bson.DocElem{
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
 	db, closer := u.st.newDB()
 	defer closer()
-	containerRefsCollection, closer := db.GetCollection(containerRefsC)
-	defer closer()
 
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which
 	// have containers so we can exclude those.
 	if requireEmpty {
+		containerRefsCollection, closer := db.GetCollection(containerRefsC)
+		defer closer()
+
 		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2413,6 +2414,19 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		return nil, errors.Trace(err)
 	}
 	omitMachineIds = append(omitMachineIds, locked...)
+
+	// Also exclude containers on machines locked for series upgrade.
+	for _, id := range locked {
+		m, err := u.st.Machine(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cIds, err := m.Containers()
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		omitMachineIds = append(omitMachineIds, cIds...)
+	}
 
 	terms := bson.D{
 		{"life", Alive},
