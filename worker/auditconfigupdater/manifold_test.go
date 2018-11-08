@@ -223,6 +223,11 @@ func (s *stubStateTracker) Done() error {
 	return s.NextErr()
 }
 
+func (s *stubStateTracker) Report() map[string]interface{} {
+	s.MethodCall(s, "Report")
+	return nil
+}
+
 type fakeWorker struct {
 	config auditlog.Config
 }

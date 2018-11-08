@@ -1980,6 +1980,12 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 	return
 }
 
+// Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
+// what is going on at runtime.
+func (st *State) Report() map[string]interface{} {
+	return st.workers.Report()
+}
+
 type relationDocSlice []relationDoc
 
 func (rdc relationDocSlice) Len() int      { return len(rdc) }
