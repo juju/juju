@@ -238,7 +238,7 @@ type HubWatcherStats struct {
 	SyncMaxLen int
 	// SyncEventDocCount is the number of sync events we've generated for specific documents
 	SyncEventDocCount uint64
-	// SyncEventDocCount is the number of sync events we've generated for documents changed in collections
+	// SyncEventCollCount is the number of sync events we've generated for documents changed in collections
 	SyncEventCollCount uint64
 	// RequestEventCount is the number of request events we've generated
 	// (documents being watched that changed since the request came in)

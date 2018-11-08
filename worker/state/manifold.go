@@ -184,6 +184,8 @@ func (w *stateWorker) loop() error {
 	}
 }
 
+// Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
+// what is going on at runtime.
 func (w *stateWorker) Report() map[string]interface{} {
 	return w.stTracker.Report()
 }

@@ -216,3 +216,8 @@ func (s *stubStateTracker) waitDone(c *gc.C) {
 		c.Fatal("timed out waiting for state to be released")
 	}
 }
+
+func (s *stubStateTracker) Report() map[string]interface{} {
+	s.MethodCall(s, "Report")
+	return nil
+}

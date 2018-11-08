@@ -198,5 +198,5 @@ func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
 
 func (s *statePoolSuite) TestReport(c *gc.C) {
 	report := s.StatePool.Report()
-	c.Check(report, gc.HasLen, 5)
+	c.Check(report, gc.HasLen, 3)
 }
