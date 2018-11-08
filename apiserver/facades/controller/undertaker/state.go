@@ -26,9 +26,9 @@ type State interface {
 	// state. If there are none, the model's life is changed from dying to dead.
 	ProcessDyingModel() (err error)
 
-	// RemoveAllModelDocs removes all documents from multi-model
+	// RemoveModel removes all documents from multi-model
 	// collections.
-	RemoveAllModelDocs() error
+	RemoveModel() error
 
 	// ModelConfig retrieves the model configuration.
 	ModelConfig() (*config.Config, error)

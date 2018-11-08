@@ -1160,7 +1160,7 @@ func (m *Model) destroyOps(
 			prereqOps = storageOps
 		}
 	} else {
-		if !m.isControllerModel() {
+		if !m.isControllerModel() && m.Type() == ModelTypeIAAS {
 			// The model is empty, and is not the controller
 			// model, so we can move it straight to Dead.
 			nextLife = Dead

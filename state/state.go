@@ -211,12 +211,38 @@ func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
-// RemoveAllModelDocs removes all documents from multi-model
+// RemoveModel removes all documents from multi-model
 // collections. The model should be put into a dying state before call
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
-func (st *State) RemoveAllModelDocs() error {
-	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
+func (st *State) RemoveModel() error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops := []txn.Op{{
+			C:      modelsC,
+			Id:     st.ModelUUID(),
+			Assert: isDyingDoc,
+			Update: bson.M{"$set": bson.M{
+				"life":          Dead,
+				"time-of-death": st.nowToTheSecond(),
+			}},
+		}, {
+			// Cleanup the owner:modelName unique key.
+			C:      usermodelnameC,
+			Id:     model.uniqueIndexID(),
+			Remove: true,
+		}}
+		return ops, nil
+	}
+
+	if err = st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+
+	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
 	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not dead")
 	}
@@ -299,7 +325,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		return errors.Trace(err)
 	}
 
-	// Now remove remove the model.
+	// Now remove the model.
 	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
