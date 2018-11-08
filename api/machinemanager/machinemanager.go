@@ -126,25 +126,6 @@ func (client *Client) destroyMachines(method string, machines []string) ([]param
 	return allResults, nil
 }
 
-// UpdateMachineSeries updates the series of the machine in the db.
-func (client *Client) UpdateMachineSeries(machineName, series string, force bool) error {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
-			Series: series,
-			Force:  force,
-		}},
-	}
-
-	results := new(params.ErrorResults)
-	err := client.facade.FacadeCall("UpdateMachineSeries", args, results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return results.OneError()
-}
-
 // UpgradeSeriesPrepare notifies the controller that a series upgrade is taking
 // place for a given machine and as such the machine is guarded against
 // operations that would impede, fail, or interfere with the upgrade process.
