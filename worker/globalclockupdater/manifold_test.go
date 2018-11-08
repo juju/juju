@@ -64,7 +64,7 @@ func (s *ManifoldSuite) newWorker(config globalclockupdater.Config) (worker.Work
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := globalclockupdater.Manifold(s.config)
 	expectInputs := []string{"clock", "state"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expectInputs)
+	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
 }
 
 func (s *ManifoldSuite) TestLeaseManagerInputs(c *gc.C) {
@@ -72,7 +72,16 @@ func (s *ManifoldSuite) TestLeaseManagerInputs(c *gc.C) {
 	s.config.LeaseManagerName = "lease-manager"
 	manifold := globalclockupdater.Manifold(s.config)
 	expectInputs := []string{"clock", "lease-manager"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expectInputs)
+	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
+}
+
+func (s *ManifoldSuite) TestLeaseManagerAndRaftInputs(c *gc.C) {
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	s.config.RaftName = "raft"
+	manifold := globalclockupdater.Manifold(s.config)
+	expectInputs := []string{"clock", "lease-manager", "raft"}
+	c.Check(manifold.Inputs, jc.SameContents, expectInputs)
 }
 
 func (s *ManifoldSuite) TestStartValidateClockName(c *gc.C) {
@@ -88,6 +97,11 @@ func (s *ManifoldSuite) TestStartValidateStateName(c *gc.C) {
 func (s *ManifoldSuite) TestStartValidateNotBoth(c *gc.C) {
 	s.config.LeaseManagerName = "lease-manager"
 	s.testStartValidateConfig(c, "only one of StateName and LeaseManagerName can be set")
+}
+
+func (s *ManifoldSuite) TestStartValidateNotRaftAndState(c *gc.C) {
+	s.config.RaftName = "raft"
+	s.testStartValidateConfig(c, "RaftName only valid with LeaseManagerName")
 }
 
 func (s *ManifoldSuite) TestStartValidateUpdateInterval(c *gc.C) {
@@ -129,6 +143,23 @@ func (s *ManifoldSuite) TestStartMissingLeaseManager(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock":         fakeClock{},
 		"lease-manager": dependency.ErrMissing,
+	})
+
+	worker, err := manifold.Start(context)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestStartMissingRaft(c *gc.C) {
+	updater := fakeUpdater{}
+	s.config.StateName = ""
+	s.config.LeaseManagerName = "lease-manager"
+	s.config.RaftName = "raft"
+	manifold := globalclockupdater.Manifold(s.config)
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":         fakeClock{},
+		"lease-manager": &updater,
+		"raft":          dependency.ErrMissing,
 	})
 
 	worker, err := manifold.Start(context)
@@ -184,9 +215,11 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
 	updater := fakeUpdater{}
 	s.config.StateName = ""
 	s.config.LeaseManagerName = "lease-manager"
+	s.config.RaftName = "raft"
 	worker, err := s.startManifoldWithContext(c, map[string]interface{}{
 		"clock":         fakeClock{},
 		"lease-manager": &updater,
+		"raft":          nil,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)

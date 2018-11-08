@@ -504,6 +504,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			ClockName:        clockName,
 			LeaseManagerName: leaseManagerName,
+			RaftName:         raftForwarderName,
 			NewWorker:        globalclockupdater.NewWorker,
 			UpdateInterval:   globalClockUpdaterUpdateInterval,
 			BackoffDelay:     globalClockUpdaterBackoffDelay,
