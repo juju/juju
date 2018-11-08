@@ -41,15 +41,15 @@ def assess_juju_upgrade_series(client, args):
 
 
 def upgrade_series_prepare(client, machine, series, **flags):
-    args = (machine, series)
+    args = (machine, 'prepare', series)
     if flags['agree']:
-        args += ('--agree',)
-    client.juju('upgrade-series prepare', args)
+        args += ('-y',)
+    client.juju('upgrade-series', args)
 
 
 def upgrade_series_complete(client, machine):
-    args = (machine)
-    client.juju('upgrade-series complete', args)
+    args = (machine, 'complete')
+    client.juju('upgrade-series', args)
 
 
 def do_release_upgrade(client, machine):
