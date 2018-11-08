@@ -228,22 +228,45 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
-	if err := k.deleteNamespace(); err != nil {
-		return errors.Annotate(err, "deleting model namespace")
+func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error {
+	watcher, err := k.WatchNamespace()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	// Delete any storage classes created as part of this model.
-	// Storage classes live outside the namespace so need to be deleted separately.
-	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-	err := k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	}, v1.ListOptions{
-		LabelSelector: modelSelector,
-	})
-	if !k8serrors.IsNotFound(err) {
-		return errors.Annotate(err, "deleting model storage classes")
+	defer watcher.Kill()
+
+	destroy := func() error {
+		if err := k.deleteNamespace(); err != nil {
+			return errors.Annotate(err, "deleting model namespace")
+		}
+		// ensure namespace has been deleted - notfound error expected.
+		if _, err := k.GetNamespace(""); !errors.IsNotFound(err) {
+			return errors.New(fmt.Sprintf("namespace %q is still been terminating.", k.namespace))
+		}
+
+		// Delete any storage classes created as part of this model.
+		// Storage classes live outside the namespace so need to be deleted separately.
+		modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
+		err = k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
+			PropagationPolicy: &defaultPropagationPolicy,
+		}, v1.ListOptions{
+			LabelSelector: modelSelector,
+		})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Annotate(err, "deleting model storage classes")
+		}
+		return nil
 	}
-	return nil
+	for {
+		select {
+		case <-callbacks.Dying():
+			return nil
+		case <-watcher.Changes():
+			if err = destroy(); err == nil {
+				return nil
+			}
+		}
+	}
 }
 
 // Namespaces returns names of the namespaces on the cluster.
@@ -251,13 +274,28 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 	namespaces := k.CoreV1().Namespaces()
 	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "listing namespaces")
 	}
 	result := make([]string, len(ns.Items))
 	for i, n := range ns.Items {
 		result[i] = n.Name
 	}
 	return result, nil
+}
+
+// Namespaces returns names of the namespaces on the cluster.
+func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
+	if name == "" {
+		name = k.namespace
+	}
+	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("namespace %q", name)
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "getting namespaces")
+	}
+	return ns, nil
 }
 
 // EnsureNamespace ensures this broker's namespace is created.
@@ -275,15 +313,11 @@ func (k *kubernetesClient) deleteNamespace() error {
 	// deleteNamespace is used as a means to implement Destroy().
 	// All model resources are provisioned in the namespace;
 	// deleting the namespace will also delete those resources.
-	namespaces := k.CoreV1().Namespaces()
-	err := namespaces.Delete(k.namespace, &v1.DeleteOptions{
+	err := k.CoreV1().Namespaces().Delete(k.namespace, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
 	}
 	return errors.Trace(err)
 }

@@ -64,6 +64,9 @@ func (w *kubernetesWatcher) loop() error {
 			if pod, ok := evt.Object.(*core.Pod); ok {
 				logger.Tracef("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
 			}
+			if ns, ok := evt.Object.(*core.Namespace); ok {
+				logger.Tracef("%v(%v) = %v, status=%+v", ns.Name, ns.UID, ns.Labels, ns.Status)
+			}
 			if evt.Type == watch.Error {
 				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
 			}
