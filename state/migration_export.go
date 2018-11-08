@@ -39,7 +39,7 @@ type ExportConfig struct {
 	SkipLinkLayerDevices     bool
 	SkipUnitAgentBinaries    bool
 	SkipMachineAgentBinaries bool
-	SkipRelationScope        bool
+	SkipRelationData         bool
 	SkipInstanceData         bool
 }
 
@@ -953,7 +953,7 @@ func (e *exporter) relations() error {
 	e.logger.Debugf("read %d relations", len(rels))
 
 	relationScopes := set.NewStrings()
-	if !e.cfg.SkipRelationScope {
+	if !e.cfg.SkipRelationData {
 		relationScopes, err = e.readAllRelationScopes()
 		if err != nil {
 			return errors.Trace(err)
@@ -1018,11 +1018,11 @@ func (e *exporter) relations() error {
 					continue
 				}
 				key := ru.key()
-				if !e.cfg.SkipRelationScope && !relationScopes.Contains(key) {
+				if !e.cfg.SkipRelationData && !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
-				if !found && !e.cfg.SkipSettings {
+				if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
 				delete(e.modelSettings, key)

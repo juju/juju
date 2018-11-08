@@ -172,7 +172,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
-	// Fill it in charm.BundleData datastructure.
+	// Fill it in charm.BundleData data structure.
 	bundleData, err := b.fillBundleData(model)
 	if err != nil {
 		return fail(err)
@@ -227,12 +227,20 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
+		// Only care about endpoints with non-empty bindings.
+		bindings := make(map[string]string)
+		for ep, space := range application.EndpointBindings() {
+			if space != "" {
+				bindings[ep] = space
+			}
+		}
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
-				Charm:       application.CharmURL(),
-				Expose:      application.Exposed(),
-				Options:     application.CharmConfig(),
-				Annotations: application.Annotations(),
+				Charm:            application.CharmURL(),
+				Expose:           application.Exposed(),
+				Options:          application.CharmConfig(),
+				Annotations:      application.Annotations(),
+				EndpointBindings: bindings,
 			}
 			if appSeries != defaultSeries {
 				newApplication.Series = appSeries
@@ -256,12 +264,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			}
 
 			newApplication = &charm.ApplicationSpec{
-				Charm:       application.CharmURL(),
-				NumUnits:    len(application.Units()),
-				To:          ut,
-				Expose:      application.Exposed(),
-				Options:     application.CharmConfig(),
-				Annotations: application.Annotations(),
+				Charm:            application.CharmURL(),
+				NumUnits:         len(application.Units()),
+				To:               ut,
+				Expose:           application.Exposed(),
+				Options:          application.CharmConfig(),
+				Annotations:      application.Annotations(),
+				EndpointBindings: bindings,
 			}
 			if appSeries != defaultSeries {
 				newApplication.Series = appSeries

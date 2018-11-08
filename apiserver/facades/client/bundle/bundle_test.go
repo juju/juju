@@ -250,6 +250,7 @@ func (s *bundleSuite) minimalApplicationArgs(modelType string) description.Appli
 			"leader": true,
 		},
 		MetricsCredentials: []byte("sekrit"),
+		EndpointBindings:   map[string]string{"juju-info": "vlan2", "another": ""},
 	}
 	if modelType == description.CAAS {
 		result.PasswordHash = "some-hash"
@@ -316,6 +317,8 @@ applications:
     - "0"
     options:
       key: value
+    bindings:
+      juju-info: vlan2
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -543,6 +546,8 @@ applications:
     expose: true
     options:
       key: value
+    bindings:
+      rel-name: some-space
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
