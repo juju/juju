@@ -18,7 +18,7 @@ type cmdDeploySuite struct {
 	testing.JujuConnSuite
 }
 
-func (s *cmdUpdateSeriesSuite) TestLocalDeploySuccess(c *gc.C) {
+func (s *cmdDeploySuite) TestLocalDeploySuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -29,7 +29,7 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeploySuccess(c *gc.C) {
 	c.Assert(savedCh, gc.NotNil)
 }
 
-func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
+func (s *cmdDeploySuite) TestLocalDeployFailNoHook(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, gc.NotNil)
@@ -44,7 +44,7 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeployFailNoHook(c *gc.C) {
 // deployment. These tests don't validate that the charm was successfully stood
 // up once deployed.
 
-func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
+func (s *cmdDeploySuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,7 +55,7 @@ func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
 	c.Assert(savedCh, gc.NotNil)
 }
 
-func (s *cmdUpdateSeriesSuite) TestLocalDeployLXDProfileWithBadConfigSuccess(c *gc.C) {
+func (s *cmdDeploySuite) TestLocalDeployLXDProfileWithBadConfigSuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate-fail") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
