@@ -909,19 +909,11 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 		return nil
 	}
 
-	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
-	defer machinesCloser()
-
-	var doc machineDoc
-	if err := machinesCol.FindId(change.Id).One(&doc); err != nil {
-		return err
-	}
-
-	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceCloser()
+	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
+	defer closer()
 
 	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.FindId(change.Id).One(&instanceData); err != nil {
+	if err := collection.FindId(change.Id).One(&instanceData); err != nil {
 		return err
 	}
 
@@ -930,7 +922,7 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 	// check the field before adding to the machineId
 	field, isKnown := w.known[machineId]
 	w.known[machineId] = docField
-	if isKnown && docField != field {
+	if !isKnown || docField != field {
 		machineIds.Add(machineId)
 	}
 	return nil

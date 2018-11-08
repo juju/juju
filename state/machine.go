@@ -301,8 +301,11 @@ func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData
 
 // UpgradeCharmProfileApplication returns the replacement profile application name for the machine.
 func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
-	instData, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
+		if errors.Cause(err) == mgo.ErrNotFound {
+			return "", nil
+		}
 		return "", err
 	}
 	return instData.UpgradeCharmProfileApplication, nil
@@ -310,8 +313,11 @@ func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
 
 // UpgradeCharmProfileCharmURL returns the charm url for the replacement profile for the machine.
 func (m *Machine) UpgradeCharmProfileCharmURL() (string, error) {
-	instData, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
+		if errors.Cause(err) == mgo.ErrNotFound {
+			return "", nil
+		}
 		return "", err
 	}
 	return instData.UpgradeCharmProfileCharmURL, nil
@@ -319,8 +325,11 @@ func (m *Machine) UpgradeCharmProfileCharmURL() (string, error) {
 
 // UpgradeCharmProfileComplete returns the charm upgrade with profile completion message
 func (m *Machine) UpgradeCharmProfileComplete() (string, error) {
-	instData, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
+		if errors.Cause(err) == mgo.ErrNotFound {
+			return "", nil
+		}
 		return "", err
 	}
 	return instData.UpgradeCharmProfileComplete, nil
