@@ -231,3 +231,16 @@ func (m *MockMachine) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 []state.
 func (mr *MockMachineMockRecorder) SetParentLinkLayerDevicesBeforeTheirChildren(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParentLinkLayerDevicesBeforeTheirChildren", reflect.TypeOf((*MockMachine)(nil).SetParentLinkLayerDevicesBeforeTheirChildren), arg0)
 }
+
+// Units mocks base method
+func (m *MockMachine) Units() ([]containerizer.Unit, error) {
+	ret := m.ctrl.Call(m, "Units")
+	ret0, _ := ret[0].([]containerizer.Unit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Units indicates an expected call of Units
+func (mr *MockMachineMockRecorder) Units() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockMachine)(nil).Units))
+}

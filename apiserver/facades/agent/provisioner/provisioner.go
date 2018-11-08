@@ -886,13 +886,13 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 
 // Machine is an indirection for use in container provisioning.
 //go:generate mockgen -package provisioner_test -destination machine_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
-//go:generate mockgen -package provisioner_test -destination linklayerdevice_mock_test.go github.com/juju/juju/network/containerizer LinkLayerDevice
+//go:generate mockgen -package provisioner_test -destination containerizer_mock_test.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
 	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
-	Units() ([]*state.Unit, error)
+	Units() ([]containerizer.Unit, error)
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -966,14 +966,17 @@ type prepareOrGetContext struct {
 	maintain bool
 }
 
+// Implements perContainerHandler.SetError
 func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
+// Implements perContainerHandler.ConfigType
 func (ctx *prepareOrGetContext) ConfigType() string {
 	return "network"
 }
 
+// Implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
@@ -1155,6 +1158,7 @@ type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
+// Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
@@ -1180,10 +1184,12 @@ func (ctx *hostChangesContext) ProcessOneContainer(
 	return nil
 }
 
+// Implements perContainerHandler.SetError
 func (ctx *hostChangesContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
+// Implements perContainerHandler.ConfigType
 func (ctx *hostChangesContext) ConfigType() string {
 	return "network"
 }
@@ -1208,12 +1214,10 @@ type containerProfileContext struct {
 	modelName string
 }
 
+// Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+	_ environs.Environ, _ context.ProviderCallContext, idx int, _, guest Machine,
 ) error {
-	// containerLXDProfilesInfo returns the info necessary to write lxd profiles
-	// via the lxd broker. Unlike machineLXDProfileNames which has the environ
-	// write the lxd profiles and returns the names of profiles already written.
 	units, err := guest.Units()
 	if err != nil {
 		ctx.result.Results[idx].Error = common.ServerError(err)
@@ -1250,17 +1254,20 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 	return nil
 }
 
+// Implements perContainerHandler.SetError
 func (ctx *containerProfileContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
+// Implements perContainerHandler.ConfigType
 func (ctx *containerProfileContext) ConfigType() string {
 	return "LXD profile"
 }
 
 // GetContainerProfileInfo returns information to configure a lxd profile(s) for a
 // container based on the charms deployed to the container. It accepts container
-// tags as arguments.
+// tags as arguments. Unlike machineLXDProfileNames which has the environ
+// write the lxd profiles and returns the names of profiles already written.
 func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
 	ctx := &containerProfileContext{
 		result: params.ContainerProfileResults{

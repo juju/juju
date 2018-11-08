@@ -14,6 +14,7 @@ import (
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -43,7 +44,6 @@ import (
 // TODO (hml) lxd-profile 24-oct-2018
 // create mocks to write tests for:
 // WatchModelMachinesCharmProfiles
-// GetContainerProfileInfo
 // CharmProfileChangeInfo
 // SetCharmProfiles
 // SetUpgradeCharmProfileComplete
@@ -1753,73 +1753,6 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
 
-func (s *withControllerSuite) TestGetContainerProfileInfo(c *gc.C) {
-	// TODO (hml) lxd-profile
-	// enable this test once charmrepo test accepts charms with an lxdprofile
-	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
-	profileMachine, err := s.State.AddMachineInsideNewMachine(
-		state.MachineTemplate{
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
-		},
-		state.MachineTemplate{ // parent
-			Series: "quantal",
-		},
-		instance.LXD,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	profileCharm := s.AddTestingCharm(c, "lxd-profile")
-	profileService := s.AddTestingApplication(c, "lxd-profile", profileCharm)
-	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = profileUnit.AssignToMachine(profileMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: profileMachine.Tag().String()},
-	}}
-	result, err := s.provisioner.GetContainerProfileInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
-
-	pName := fmt.Sprintf("juju-%s-lxd-profile-0", coretesting.ModelConfig(c).Name())
-	expected := params.ContainerProfileResults{
-		Results: []params.ContainerProfileResult{{
-			LXDProfiles: []*params.ContainerLXDProfile{
-				{
-					Profile: params.CharmLXDProfile{
-						Config: map[string]string{
-							"security.nesting":       "true",
-							"security.privileged":    "true",
-							"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
-							"environment.http_proxy": "",
-						},
-						Description: "lxd profile for testing, black list items grouped commented out",
-						Devices: map[string]map[string]string{
-							"tun": {
-								"path": "/dev/net/tun",
-								"type": "unix-char",
-							},
-							"sony": {
-								"type":      "usb",
-								"vendorid":  "0fce",
-								"productid": "51da",
-							},
-						},
-					},
-					Name: pName,
-				}},
-		}},
-	}
-
-	c.Assert(result, jc.DeepEquals, expected)
-}
-
 // TODO(jam): 2017-02-15 We seem to be lacking most of direct unit tests around ProcessOneContainer
 // Some of the use cases we need to be testing are:
 // 1) Provider can allocate addresses, should result in a container with
@@ -1843,6 +1776,10 @@ type provisionerMockSuite struct {
 	container    *MockMachine
 	device       *MockLinkLayerDevice
 	parentDevice *MockLinkLayerDevice
+
+	unit        *MockUnit
+	application *MockApplication
+	charm       *MockCharm
 }
 
 var _ = gc.Suite(&provisionerMockSuite{})
@@ -1946,6 +1883,73 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	// ProviderCallContext is not required by this logical path; we pass nil.
 	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
 	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
+}
+
+func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+	s.expectCharmLXDProfiles(ctrl)
+
+	s.application.EXPECT().Name().Return("application")
+	s.charm.EXPECT().Revision().Return(3)
+	s.charm.EXPECT().LXDProfile().Return(
+		&charm.LXDProfile{
+			Config: map[string]string{
+				"security.nesting":    "true",
+				"security.privileged": "true",
+			},
+		})
+
+	res := params.ContainerProfileResults{
+		Results: []params.ContainerProfileResult{{}},
+	}
+	ctx := provisioner.NewContainerProfileContext(res, "testme")
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(res.Results[0].LXDProfiles, gc.HasLen, 1)
+	profile := res.Results[0].LXDProfiles[0]
+	c.Check(profile.Name, gc.Equals, "juju-testme-application-3")
+	c.Check(profile.Profile.Config, gc.DeepEquals,
+		map[string]string{
+			"security.nesting":    "true",
+			"security.privileged": "true",
+		},
+	)
+}
+
+func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+	s.expectCharmLXDProfiles(ctrl)
+
+	s.charm.EXPECT().LXDProfile().Return(nil)
+	s.unit.EXPECT().Name().Return("application/0")
+
+	res := params.ContainerProfileResults{
+		Results: []params.ContainerProfileResult{{}},
+	}
+	ctx := provisioner.NewContainerProfileContext(res, "testme")
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(res.Results[0].LXDProfiles, gc.HasLen, 0)
+}
+
+func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
+	s.unit = NewMockUnit(ctrl)
+	s.application = NewMockApplication(ctrl)
+	s.charm = NewMockCharm(ctrl)
+
+	s.container.EXPECT().Units().Return([]containerizer.Unit{s.unit}, nil)
+	s.unit.EXPECT().Application().Return(s.application, nil)
+	s.application.EXPECT().Charm().Return(s.charm, false, nil)
 }
 
 func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
