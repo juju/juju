@@ -978,8 +978,7 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
-		SkipRelationScope: true,
-		SkipSettings:      true,
+		SkipRelationData: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

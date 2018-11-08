@@ -19,6 +19,7 @@ type CmdExportBundleSuite struct {
 }
 
 func (s *CmdExportBundleSuite) setupApplications(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "vlan2"})
 	// make an application with 2 endpoints
 	application1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
@@ -37,6 +38,8 @@ func (s *CmdExportBundleSuite) setupApplications(c *gc.C) {
 			Name:     "logging",
 			Revision: "43",
 		}),
+		CharmConfig:      map[string]interface{}{"foo": "bar"},
+		EndpointBindings: map[string]string{"info": "vlan2"},
 	})
 	endpoint3, err := application2.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,6 +72,10 @@ series: quantal
 applications:
   logging:
     charm: cs:quantal/logging-43
+    options:
+      foo: bar
+    bindings:
+      info: vlan2
   wordpress:
     charm: cs:quantal/wordpress-23
 relations:
