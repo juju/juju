@@ -892,6 +892,7 @@ type Machine interface {
 	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
+	Units() ([]*state.Unit, error)
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -910,6 +911,9 @@ type perContainerHandler interface {
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
 	SetError(resultIndex int, err *params.Error)
+	// ConfigType indicates the type of config the handler is getting for
+	// for error messaging.
+	ConfigType() string
 }
 
 func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
@@ -920,7 +924,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 	}
 	_, err = hostMachine.InstanceId()
 	if errors.IsNotProvisioned(err) {
-		err = errors.NotProvisionedf("cannot prepare container network config: host machine %q", hostMachine)
+		err = errors.NotProvisionedf("cannot prepare container %s config: host machine %q", handler.ConfigType(), hostMachine)
 		return err
 	} else if err != nil {
 		return errors.Trace(err)
@@ -940,7 +944,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 			handler.SetError(i, common.ServerError(err))
 			continue
 		} else if !guest.IsContainer() {
-			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
+			err = errors.Errorf("cannot prepare %s config for %q: not a container", handler.ConfigType(), machineTag)
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
@@ -964,6 +968,10 @@ type prepareOrGetContext struct {
 
 func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
+}
+
+func (ctx *prepareOrGetContext) ConfigType() string {
+	return "network"
 }
 
 func (ctx *prepareOrGetContext) ProcessOneContainer(
@@ -1176,6 +1184,10 @@ func (ctx *hostChangesContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
+func (ctx *hostChangesContext) ConfigType() string {
+	return "network"
+}
+
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
@@ -1191,72 +1203,33 @@ func (p *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.
 	return ctx.result, nil
 }
 
-// GetContainerProfileInfo returns information to configure a lxd profile(s) for a
-// container based on the charms deployed to the container. It accepts container
-// tags as arguments.
-func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
-	var result params.ContainerProfileResults
-	_, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
-	if err != nil {
-		// Overall error
-		return result, errors.Trace(err)
-	}
-	_, err = hostMachine.InstanceId()
-	if errors.IsNotProvisioned(err) {
-		err = errors.NotProvisionedf("cannot prepare container profile: host machine %q", hostMachine)
-		return result, err
-	} else if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	result.Results = make([]params.ContainerProfileResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		machineTag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		// The auth function (canAccess) checks that the machine is a
-		// top level machine (we filter those out next) or that the
-		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, machineTag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if !container.IsContainer() {
-			err = errors.Errorf("cannot prepare profile for %q: not a container", machineTag)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		profiles, err := p.containerLXDProfilesInfo(container)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		result.Results[i] = profiles
-	}
-	return result, nil
+type containerProfileContext struct {
+	result    params.ContainerProfileResults
+	modelName string
 }
 
-// containerLXDProfilesInfo returns the info necessary to write lxd profiles
-// via the lxd broker. Unlike machineLXDProfileNames which has the environ
-// write the lxd profiles and returns the names of profiles already written.
-func (p *ProvisionerAPI) containerLXDProfilesInfo(m *state.Machine) (params.ContainerProfileResult, error) {
-	var result params.ContainerProfileResult
-	units, err := m.Units()
+func (ctx *containerProfileContext) ProcessOneContainer(
+	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+) error {
+	// containerLXDProfilesInfo returns the info necessary to write lxd profiles
+	// via the lxd broker. Unlike machineLXDProfileNames which has the environ
+	// write the lxd profiles and returns the names of profiles already written.
+	units, err := guest.Units()
 	if err != nil {
-		return result, errors.Trace(err)
+		ctx.result.Results[idx].Error = common.ServerError(err)
+		return errors.Trace(err)
 	}
 	var resPro []*params.ContainerLXDProfile
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
-			return result, errors.Trace(err)
+			ctx.result.Results[idx].Error = common.ServerError(err)
+			return errors.Trace(err)
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			return result, errors.Trace(err)
+			ctx.result.Results[idx].Error = common.ServerError(err)
+			return errors.Trace(err)
 		}
 		profile := ch.LXDProfile()
 		if profile == nil || (profile != nil && profile.Empty()) {
@@ -1269,11 +1242,36 @@ func (p *ProvisionerAPI) containerLXDProfilesInfo(m *state.Machine) (params.Cont
 				Description: profile.Description,
 				Devices:     profile.Devices,
 			},
-			Name: lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision()),
+			Name: lxdprofile.Name(ctx.modelName, app.Name(), ch.Revision()),
 		})
 	}
-	result.LXDProfiles = resPro
-	return result, nil
+
+	ctx.result.Results[idx].LXDProfiles = resPro
+	return nil
+}
+
+func (ctx *containerProfileContext) SetError(idx int, err *params.Error) {
+	ctx.result.Results[idx].Error = err
+}
+
+func (ctx *containerProfileContext) ConfigType() string {
+	return "LXD profile"
+}
+
+// GetContainerProfileInfo returns information to configure a lxd profile(s) for a
+// container based on the charms deployed to the container. It accepts container
+// tags as arguments.
+func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
+	ctx := &containerProfileContext{
+		result: params.ContainerProfileResults{
+			Results: make([]params.ContainerProfileResult, len(args.Entities)),
+		},
+		modelName: p.m.Name(),
+	}
+	if err := p.processEachContainer(args, ctx); err != nil {
+		return ctx.result, errors.Trace(err)
+	}
+	return ctx.result, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.
