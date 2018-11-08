@@ -290,6 +290,14 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{}}},
 	})
+	s.Stub.CheckCallNames(c,
+		"Destroy",
+		"StorageSupported",
+		"GetStoragePools",
+		"GetStoragePoolVolumes",
+		"GetStoragePoolVolumes",
+		"AliveContainers",
+		"RemoveContainers")
 }
 
 func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(c *gc.C) {

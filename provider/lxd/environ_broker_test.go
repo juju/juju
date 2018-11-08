@@ -382,7 +382,6 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -395,6 +394,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
+	c.Assert(s.invalidCredential, jc.IsFalse)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)

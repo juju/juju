@@ -4,6 +4,8 @@
 package lxd
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 )
 
@@ -11,7 +13,7 @@ import (
 func IsAuthorisationFailure(err error) bool {
 	if err == nil {
 		return false
-	} else if errors.Cause(err).Error() == "not authorized" {
+	} else if strings.Contains(errors.Cause(err).Error(), "not authorized") {
 		return true
 	}
 	return false
