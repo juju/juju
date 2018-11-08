@@ -61,7 +61,7 @@ type MachineManagerAPIV4 struct {
 	*MachineManagerAPIV5
 }
 
-// Version 5 of Machine Manger API.
+// Version 5 of Machine Manager API.
 // Adds CreateUpgradeSeriesLock and removes UpdateMachineSeries.
 type MachineManagerAPIV5 struct {
 	*MachineManagerAPI
