@@ -96,14 +96,14 @@ func (s *WorkerSuite) TestWorkerUpdatesOnInterval(c *gc.C) {
 	defer workertest.CleanKill(c, worker)
 
 	for i := 0; i < 2; i++ {
-		s.localClock.WaitAdvance(500*time.Millisecond, time.Second, 1)
+		waitAdvance(c, s.localClock, 500*time.Millisecond)
 		select {
 		case <-s.updater.added:
 			c.Fatal("unexpected update")
 		case <-time.After(coretesting.ShortWait):
 		}
 
-		s.localClock.WaitAdvance(501*time.Millisecond, time.Second, 1)
+		waitAdvance(c, s.localClock, 501*time.Millisecond)
 		select {
 		case d := <-s.updater.added:
 			c.Assert(d, gc.Equals, time.Second+time.Millisecond)
@@ -121,7 +121,7 @@ func (s *WorkerSuite) TestWorkerBackoffOnConcurrentUpdate(c *gc.C) {
 
 	s.updater.SetErrors(errors.Annotate(globalclock.ErrConcurrentUpdate, "context info"))
 
-	s.localClock.WaitAdvance(time.Second, time.Second, 1)
+	waitAdvance(c, s.localClock, time.Second)
 	select {
 	case d := <-s.updater.added:
 		c.Assert(d, gc.Equals, time.Second)
@@ -131,17 +131,45 @@ func (s *WorkerSuite) TestWorkerBackoffOnConcurrentUpdate(c *gc.C) {
 
 	// The worker should be waiting for the backoff delay
 	// before attempting another update.
-	s.localClock.WaitAdvance(time.Second, time.Second, 1)
+	waitAdvance(c, s.localClock, time.Second)
 	select {
 	case <-s.updater.added:
 		c.Fatal("unexpected update")
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	s.localClock.WaitAdvance(59*time.Second, time.Second, 1)
+	waitAdvance(c, s.localClock, 59*time.Second)
 	select {
 	case d := <-s.updater.added:
 		c.Assert(d, gc.Equals, time.Minute)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for update")
+	}
+}
+
+func (s *WorkerSuite) TestWorkerHandlesTimeout(c *gc.C) {
+	// At startup there's a time where the updater might return
+	// timeouts - we should handle this cleanly.
+	worker, err := globalclockupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	s.updater.SetErrors(errors.Annotate(globalclock.ErrTimeout, "some context"))
+
+	waitAdvance(c, s.localClock, time.Second)
+	select {
+	case d := <-s.updater.added:
+		c.Assert(d, gc.Equals, time.Second)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for update")
+	}
+
+	// The worker should try again next time, adding the total missed
+	// time.
+	waitAdvance(c, s.localClock, time.Second)
+	select {
+	case d := <-s.updater.added:
+		c.Assert(d, gc.Equals, 2*time.Second)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for update")
 	}
@@ -154,7 +182,7 @@ func (s *WorkerSuite) TestWorkerUpdateErrorStopsWorker(c *gc.C) {
 	defer workertest.DirtyKill(c, worker)
 
 	s.updater.SetErrors(errors.New("burp"))
-	s.localClock.WaitAdvance(time.Second, time.Second, 1)
+	waitAdvance(c, s.localClock, time.Second)
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.ErrorMatches, "updating global clock: burp")
 }
@@ -168,4 +196,9 @@ func (s *stubUpdater) Advance(d time.Duration) error {
 	s.MethodCall(s, "Advance", d)
 	s.added <- d
 	return s.NextErr()
+}
+
+func waitAdvance(c *gc.C, clock *testclock.Clock, d time.Duration) {
+	err := clock.WaitAdvance(d, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
 }

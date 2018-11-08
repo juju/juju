@@ -21,6 +21,7 @@ type ManifoldConfig struct {
 	ClockName        string
 	StateName        string
 	LeaseManagerName string
+	RaftName         string
 
 	NewWorker      func(Config) (worker.Worker, error)
 	UpdateInterval time.Duration
@@ -37,6 +38,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName != "" && config.LeaseManagerName != "" {
 		return errors.NewNotValid(nil, "only one of StateName and LeaseManagerName can be set")
+	}
+	if config.StateName != "" && config.RaftName != "" {
+		return errors.NewNotValid(nil, "RaftName only valid with LeaseManagerName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -62,6 +66,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	} else {
 		inputs = append(inputs, config.LeaseManagerName)
 	}
+	if config.RaftName != "" {
+		inputs = append(inputs, config.RaftName)
+	}
 	return dependency.Manifold{
 		Inputs: inputs,
 		Start:  config.start,
@@ -77,6 +84,14 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	var clock clock.Clock
 	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if config.RaftName != "" {
+		// We don't need anything from raft directly, but if it's set
+		// ensure it's running before continuing.
+		if err := context.Get(config.RaftName, nil); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	cleanup := func() error { return nil }

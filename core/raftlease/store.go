@@ -166,9 +166,13 @@ func (s *Store) Advance(duration time.Duration) error {
 		OldTime:   s.prevTime,
 		NewTime:   newTime,
 	})
-	if err == globalclock.ErrConcurrentUpdate {
+	if globalclock.IsConcurrentUpdate(err) {
 		// Someone else updated before us - get the new time.
 		s.prevTime = s.fsm.GlobalTime()
+	} else if lease.IsTimeout(err) {
+		// Convert this to a globalclock timeout to match the Updater
+		// interface.
+		err = globalclock.ErrTimeout
 	} else if err == nil {
 		s.prevTime = newTime
 	}
