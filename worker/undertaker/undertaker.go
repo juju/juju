@@ -30,10 +30,9 @@ type Facade interface {
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
-	Facade                      Facade
-	Destroyer                   environs.CloudDestroyer
-	CredentialAPI               common.CredentialAPI
-	getWatchModelResourceWorker func() (watcher.NotifyWatcher, error)
+	Facade        Facade
+	Destroyer     environs.CloudDestroyer
+	CredentialAPI common.CredentialAPI
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -58,8 +57,7 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 	}
 
 	u := &Undertaker{
-		config:  config,
-		callCtx: common.NewCloudCallContext(config.CredentialAPI),
+		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -68,6 +66,7 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	u.callCtx = common.NewCloudCallContext(config.CredentialAPI, u.catacomb.Dying)
 	return u, nil
 }
 
@@ -145,7 +144,6 @@ func (u *Undertaker) run() error {
 	if err := u.config.Destroyer.Destroy(u.callCtx); err != nil {
 		return errors.Trace(err)
 	}
-
 	// Finally, remove the model.
 	if err := u.config.Facade.RemoveModel(); err != nil {
 		return errors.Annotate(err, "cannot remove model")
@@ -158,7 +156,7 @@ func (u *Undertaker) setStatus(modelStatus status.Status, message string) error 
 }
 
 func (u *Undertaker) processDyingModel() error {
-	watcher, err := u.config.getWatchModelResourceWorker()
+	watcher, err := u.config.Facade.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -166,7 +164,6 @@ func (u *Undertaker) processDyingModel() error {
 		return errors.Trace(err)
 	}
 	defer watcher.Kill()
-
 	attempt := 1
 	for {
 		select {

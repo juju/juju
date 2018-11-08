@@ -206,7 +206,7 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 			currentVersion,
 			targetVersion,
 			setVersion,
-			common.NewCloudCallContext(config.CredentialAPI),
+			common.NewCloudCallContext(config.CredentialAPI, nil),
 		); err != nil {
 			info := fmt.Sprintf("failed to upgrade environ: %s", err)
 			if err := setStatus(status.Error, info); err != nil {

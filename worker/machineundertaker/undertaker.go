@@ -50,7 +50,7 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 		Handler: &Undertaker{
 			API:         api,
 			Releaser:    envNetworking,
-			CallContext: common.NewCloudCallContext(credentialAPI),
+			CallContext: common.NewCloudCallContext(credentialAPI, nil),
 		},
 	})
 	if err != nil {

@@ -207,7 +207,7 @@ func NewEnvironProvisioner(st *apiprovisioner.State,
 			agentConfig:             agentConfig,
 			toolsFinder:             getToolsFinder(st),
 			distributionGroupFinder: getDistributionGroupFinder(st),
-			callContext:             common.NewCloudCallContext(credentialAPI),
+			callContext:             common.NewCloudCallContext(credentialAPI, nil),
 		},
 		environ: environ,
 	}
@@ -312,7 +312,7 @@ func NewContainerProvisioner(
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
 			distributionGroupFinder: distributionGroupFinder,
-			callContext:             common.NewCloudCallContext(credentialAPI),
+			callContext:             common.NewCloudCallContext(credentialAPI, nil),
 		},
 		containerType: containerType,
 	}

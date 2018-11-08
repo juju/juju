@@ -185,7 +185,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI),
+		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI, nil),
 	}
 
 	switch cfg.Mode {

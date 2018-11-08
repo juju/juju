@@ -20,8 +20,9 @@ func NewCredentialInvalidatorFacade(apiCaller base.APICaller) (CredentialAPI, er
 }
 
 // NewCloudCallContext creates a cloud call context to be used by workers.
-func NewCloudCallContext(c CredentialAPI) context.ProviderCallContext {
+func NewCloudCallContext(c CredentialAPI, dying context.Dying) context.ProviderCallContext {
 	return &context.CloudCallContext{
+		DyingFunc:                dying,
 		InvalidateCredentialFunc: c.InvalidateModelCredential,
 	}
 }
