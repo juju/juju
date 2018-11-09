@@ -61,7 +61,8 @@ type MachineManagerAPIV4 struct {
 	*MachineManagerAPIV5
 }
 
-// Version 5 of Machine Manger API. Adds CreateUpgradeSeriesLock.
+// Version 5 of Machine Manager API.
+// Adds CreateUpgradeSeriesLock and removes UpdateMachineSeries.
 type MachineManagerAPIV5 struct {
 	*MachineManagerAPI
 }
@@ -604,40 +605,13 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 	return version2 > version1, nil
 }
 
-// DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
-// units and subordinates installed on the machine(s).
-func (mm *MachineManagerAPI) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
-	if err := mm.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
-	}
-	if err := mm.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, err
-	}
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		err := mm.updateOneMachineSeries(arg)
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
-
-func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) error {
-	if arg.Series == "" {
-		return &params.Error{
-			Message: "series missing from args",
-			Code:    params.CodeBadRequest,
-		}
-	}
-	machine, err := mm.machineFromTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if arg.Series == machine.Series() {
-		return nil // no-op
-	}
-	return machine.UpdateMachineSeries(arg.Series, arg.Force)
+// DEPRECATED: UpdateMachineSeries returns an error.
+func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (params.ErrorResults, error) {
+	return params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: common.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
+		}},
+	}, nil
 }
 
 func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string, machineTag string) error {

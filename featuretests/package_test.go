@@ -59,7 +59,6 @@ func init() {
 	gc.Suite(&ApplicationConfigSuite{})
 	gc.Suite(&CharmUpgradeSuite{})
 	gc.Suite(&ResourcesCmdSuite{})
-	gc.Suite(&cmdUpdateSeriesSuite{})
 	gc.Suite(&FirewallRulesSuite{})
 	gc.Suite(&introspectionSuite{})
 	gc.Suite(&debugLogDbSuite1{})
