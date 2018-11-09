@@ -317,10 +317,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
 		"StopMongoUntilVersion",
-		// These items are transient data, so no need to save for model migrations.
-		"UpgradeCharmProfileApplication",
-		"UpgradeCharmProfileCharmURL",
-		"UpgradeCharmProfileComplete",
 	)
 	migrated := set.NewStrings(
 		"Addresses",
