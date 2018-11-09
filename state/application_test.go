@@ -2059,13 +2059,8 @@ func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
 
 	err := profileApp.SetCharmProfile("local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO (stickupkid): work out why this has changed
-	// assertUpgradeCharmProfile(c, m, profileApp.Name(), "local:quantal/lxd-profile-0")
-
 	err = subApp.SetCharmProfile("local:quantal/lxd-profile-subordinate-0")
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO (stickupkid): work out why this has changed
-	// assertUpgradeCharmProfile(c, m, subApp.Name(), "local:quantal/lxd-profile-subordinate-0")
 }
 
 func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machine, *state.Application, *state.Application) {

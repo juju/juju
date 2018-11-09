@@ -299,6 +299,12 @@ func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData
 	return instData, nil
 }
 
+// TODO (stickupkid): We can no longer cache the information directly on the
+// machine and reuse that in other places, instead we could potentially optimise
+// the following calls, so that we return both UpgradeCharmProfileApplication
+// and UpgradeCharmProfileCharmURL as one call, instead of double requesting the
+// data.
+
 // UpgradeCharmProfileApplication returns the replacement profile application name for the machine.
 func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
 	instData, err := getInstanceCharmProfileData(m.st, m.Id())
@@ -2275,18 +2281,31 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 // SetUpgradeCharmProfileOp returns a transaction for the machine to
 // trigger a change to its LXD Profile(s).
 func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op {
-	instanceData := instanceCharmProfileData{
-		DocID:                          m.doc.DocID,
-		MachineId:                      m.doc.Id,
-		UpgradeCharmProfileCharmURL:    chURL,
-		UpgradeCharmProfileApplication: appName,
-		UpgradeCharmProfileComplete:    status,
+	_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	if errors.IsNotFound(err) {
+		instanceData := instanceCharmProfileData{
+			DocID:                          m.doc.DocID,
+			MachineId:                      m.doc.Id,
+			UpgradeCharmProfileCharmURL:    chURL,
+			UpgradeCharmProfileApplication: appName,
+			UpgradeCharmProfileComplete:    status,
+		}
+		return txn.Op{
+			C:      instanceCharmProfileDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: instanceData,
+		}
 	}
 	return txn.Op{
 		C:      instanceCharmProfileDataC,
 		Id:     m.doc.DocID,
-		Assert: txn.DocMissing,
-		Insert: instanceData,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{
+			{"upgradecharmprofilecharmurl", chURL},
+			{"upgradecharmprofileapplication", appName},
+			{"upgradecharmprofilecomplete", status},
+		}}},
 	}
 }
 
