@@ -5,12 +5,15 @@ package httpserver_test
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,7 +31,7 @@ type workerFixture struct {
 	testing.IsolationSuite
 	prometheusRegisterer stubPrometheusRegisterer
 	mux                  *apiserverhttp.Mux
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	hub                  *pubsub.StructuredHub
 	config               httpserver.Config
 	stub                 testing.Stub
@@ -43,7 +46,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.mux = apiserverhttp.NewMux()
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
 
 	s.config = httpserver.Config{

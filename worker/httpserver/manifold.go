@@ -6,9 +6,9 @@ package httpserver
 import (
 	"crypto/tls"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -38,7 +38,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 
 	GetControllerConfig func(*state.State) (controller.Config, error)
-	NewTLSConfig        func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
+	NewTLSConfig        func(*state.State, func() *tls.Certificate) (*tls.Config, error)
 	NewWorker           func(Config) (worker.Worker, error)
 }
 

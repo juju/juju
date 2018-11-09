@@ -5,10 +5,9 @@ package httpserver_test
 
 import (
 	"crypto/tls"
-	"net"
-	"net/http"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -34,8 +33,7 @@ type ManifoldSuite struct {
 	state                stubStateTracker
 	hub                  *pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
-	raftEnabled          *mockFlag
-	clock                *testing.Clock
+	clock                *testclock.Clock
 	prometheusRegisterer stubPrometheusRegisterer
 	certWatcher          stubCertWatcher
 	tlsConfig            *tls.Config
@@ -52,8 +50,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.state = stubStateTracker{}
 	s.mux = &apiserverhttp.Mux{}
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.raftEnabled = &mockFlag{set: true}
-	s.clock = testing.NewClock(time.Now())
+	s.clock = testclock.NewClock(time.Now())
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}
 	s.tlsConfig = &tls.Config{}
@@ -72,7 +69,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		MuxName:              "mux",
 		APIServerName:        "api-server",
 		RaftTransportName:    "raft-transport",
-		RaftEnabledName:      "raft-enabled",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		GetControllerConfig:  s.getControllerConfig,
@@ -129,7 +125,6 @@ var expectedInputs = []string{
 	"state",
 	"mux",
 	"hub",
-	"raft-enabled",
 	"raft-transport",
 	"api-server",
 }
@@ -212,44 +207,6 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		workertest.CheckNilOrKill(c, w)
 		c.Check(err, gc.ErrorMatches, test.expect)
 	}
-}
-
-func (s *ManifoldSuite) TestStartWithRaftDisabled(c *gc.C) {
-	s.raftEnabled.set = false
-	s.context = s.newContext(map[string]interface{}{
-		"raft-transport": dependency.ErrMissing,
-	})
-	// If raft is disabled raft-transport isn't needed to start
-	// up.
-	w := s.startWorkerClean(c)
-	workertest.CleanKill(c, w)
-}
-
-func (s *ManifoldSuite) TestStartNoAutocert(c *gc.C) {
-	s.manifold = httpserver.Manifold(httpserver.ManifoldConfig{
-		CertWatcherName:      "cert-watcher",
-		StateName:            "state",
-		MuxName:              "mux",
-		HubName:              "hub",
-		APIServerName:        "api-server",
-		RaftTransportName:    "raft-transport",
-		RaftEnabledName:      "raft-enabled",
-		Clock:                s.clock,
-		PrometheusRegisterer: &s.prometheusRegisterer,
-		GetControllerConfig:  s.getControllerConfig,
-		NewTLSConfig:         s.newTLSConfigNoHandler,
-		NewWorker:            s.newWorker,
-	})
-	w := s.startWorkerClean(c)
-	defer workertest.CleanKill(c, w)
-	s.stub.CheckCallNames(c, "NewTLSConfig", "GetControllerConfig", "NewWorker")
-	newWorkerArgs := s.stub.Calls()[2].Args
-	c.Assert(newWorkerArgs, gc.HasLen, 1)
-	c.Assert(newWorkerArgs[0], gc.FitsTypeOf, httpserver.Config{})
-	config := newWorkerArgs[0].(httpserver.Config)
-
-	c.Assert(config.AutocertHandler, gc.IsNil)
-	c.Assert(config.AutocertListener, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
