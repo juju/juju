@@ -14,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
@@ -66,6 +67,7 @@ const (
 var defaultPropagationPolicy = v1.DeletePropagationForeground
 
 type kubernetesClient struct {
+	clock jujuclock.Clock
 	kubernetes.Interface
 	apiextensionsClient apiextensionsclientset.Interface
 
@@ -92,7 +94,12 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+func NewK8sBroker(
+	cloudSpec environs.CloudSpec,
+	cfg *config.Config,
+	newClient NewK8sClientFunc,
+	clock jujuclock.Clock,
+) (caas.Broker, error) {
 	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,6 +113,7 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient Ne
 		return nil, errors.Trace(err)
 	}
 	return &kubernetesClient{
+		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
 		namespace:           newCfg.Name(),
@@ -329,7 +337,7 @@ func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, k.namespace)
+	return newKubernetesWatcher(w, k.namespace, k.clock)
 }
 
 // EnsureSecret ensures a secret exists for use with retrieving images from private registries
@@ -1459,7 +1467,7 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, appName)
+	return newKubernetesWatcher(w, appName, k.clock)
 }
 
 // WatchOperator returns a watcher which notifies when there
@@ -1473,7 +1481,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, appName)
+	return newKubernetesWatcher(w, appName, k.clock)
 }
 
 // jujuPVNameRegexp matches how Juju labels persistent volumes.

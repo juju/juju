@@ -4,7 +4,10 @@
 package provider_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	testclock "github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -311,7 +314,6 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
 	namespaceWatcher := s.k8sNewFakeWatcher()
 
-	// Delete operations below return a not found to ensure it's treated as a no-op.
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Watch(
 			v1.ListOptions{
@@ -320,7 +322,6 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 			},
 		).
 			Return(namespaceWatcher, nil),
-		// first delete returns nil
 		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(nil),
 		s.mockStorageClass.EXPECT().DeleteCollection(
@@ -328,21 +329,20 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).Times(1).
 			Return(s.k8sNotFoundError()),
-		// Get now returns non NotFoundError.
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, errors.New("any non k8s not found error")),
-		// s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-		// 	Return(s.k8sNotFoundError()),
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	go func(w *watch.FakeWatcher) {
-		// Initial event triggers delete.
+	go func(w *watch.FakeWatcher, clk *testclock.Clock) {
+		clk.WaitAdvance(time.Second, testing.LongWait, 1)
 		w.Add(ns)
-		// namespace has just been deleted, DELETED event fired.
+		clk.WaitAdvance(time.Second, testing.LongWait, 1)
+		w.Modify(ns)
+		clk.WaitAdvance(time.Second, testing.LongWait, 1)
 		w.Delete(ns)
-	}(namespaceWatcher)
+	}(namespaceWatcher, s.clock)
 
 	err := s.broker.Destroy(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,7 +4,10 @@
 package provider_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	testclock "github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -26,6 +29,8 @@ import (
 
 type BaseSuite struct {
 	testing.BaseSuite
+
+	clock *testclock.Clock
 
 	broker caas.Broker
 
@@ -138,7 +143,8 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		return s.k8sClient, s.mockApiextensionsClient, nil
 	}
 
-	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient)
+	s.clock = testclock.NewClock(time.Time{})
+	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
