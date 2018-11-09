@@ -101,7 +101,7 @@ type Machine interface {
 	IsLockedForSeriesUpgrade() (bool, error)
 	IsParentLockedForSeriesUpgrade() (bool, error)
 	UpgradeCharmProfileComplete() (string, error)
-	SetUpgradeCharmProfileComplete(string) error
+	RemoveUpgradeCharmProfileData() error
 }
 
 // Relation defines a subset of the functionality provided by the

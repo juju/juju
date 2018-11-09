@@ -2288,7 +2288,15 @@ func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
 	}
 }
 
+// SetUpgradeCharmProfileComplete on the instance charm profile data.
+// If the profile has been removed, then this will throw an error upon
+// running the transaction
 func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
+	_, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2308,9 +2316,37 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 			m.setUpgradeCharmProfileCompleteOp(msg),
 		}, nil
 	}
+	err = m.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+// data for a machine, even if the machine is dead.
+func (m *Machine) RemoveUpgradeCharmProfileData() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Note: we don't care if the machine is alive or not, we do want to
+		// remove the charm profile data, even if the machine is dead. The is
+		// for two reasons
+		//  1. Ensure we don't leave any orphans
+		//  2. To prevent any watchers from miss-firing on old data.
+		return []txn.Op{{
+			C:      instanceCharmProfileDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}, nil
+	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

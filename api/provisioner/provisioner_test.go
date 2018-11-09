@@ -429,14 +429,24 @@ func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
-	err := apiMachine.SetUpgradeCharmProfileComplete("testme")
+	profiles := []string{"juju-default-profile-0", "juju-default-lxd-2"}
+	err := apiMachine.SetCharmProfiles(profiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = apiMachine.SetUpgradeCharmProfileComplete("testme")
 	c.Assert(err, jc.ErrorIsNil)
 
 	mach, err := s.State.Machine(apiMachine.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mach.UpgradeCharmProfileComplete(), gc.Equals, "testme")
+	status, err := mach.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, "testme")
 }
 
 func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {

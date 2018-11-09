@@ -2098,8 +2098,13 @@ func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machin
 func assertUpgradeCharmProfile(c *gc.C, m *state.Machine, appName, charmURL string) {
 	err := m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.UpgradeCharmProfileApplication(), gc.Equals, appName)
-	c.Assert(m.UpgradeCharmProfileCharmURL(), gc.Equals, charmURL)
+
+	chAppName, err := m.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, appName)
+	chCharmURL, err := m.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, charmURL)
 }
 
 func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
