@@ -1415,6 +1415,7 @@ type ProfileChangeResult struct {
 	OldProfileName string           `json:"old-profile-name,omitempty"`
 	NewProfileName string           `json:"new-profile-name,omitempty"`
 	Profile        *CharmLXDProfile `json:"profile,omitempty"`
+	Subordinate    bool             `json:"subordinate,omitempty"`
 	Error          *Error           `json:"error,omitempty"`
 }
 

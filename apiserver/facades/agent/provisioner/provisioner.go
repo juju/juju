@@ -1507,13 +1507,17 @@ func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAc
 		logger.Tracef("profile %s is being replaced with %s on machine-%s", oldProfileName, newProfileName, machine.Id())
 	}
 
+	meta := ch.Meta()
+
 	return params.ProfileChangeResult{
 		OldProfileName: oldProfileName,
 		NewProfileName: newProfileName,
 		Profile:        profile,
+		Subordinate:    meta.Subordinate,
 	}, nil
 }
 
+// SetCharmProfiles records the given slice of charm profile names.
 func (p *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := p.getAuthFunc()
@@ -1539,6 +1543,8 @@ func (p *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles 
 	return machine.SetCharmProfiles(profiles)
 }
 
+// SetUpgradeCharmProfileComplete recorded that the result of updating
+// the machine's charm profile(s)
 func (p *ProvisionerAPI) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := p.getAuthFunc()
@@ -1562,4 +1568,31 @@ func (p *ProvisionerAPI) oneUpgradeCharmProfileComplete(machineTag string, msg s
 		return errors.Trace(err)
 	}
 	return machine.SetUpgradeCharmProfileComplete(msg)
+}
+
+// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+// data for a machine, even if the machine is dead.
+func (p *ProvisionerAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
+	results := make([]params.ErrorResult, len(args.Entities))
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, a := range args.Entities {
+		results[i].Error = common.ServerError(p.oneRemoveUpgradeCharmProfileData(a.Tag, canAccess))
+	}
+	return params.ErrorResults{Results: results}, nil
+}
+
+func (p *ProvisionerAPI) oneRemoveUpgradeCharmProfileData(machineTag string, canAccess common.AuthFunc) error {
+	mTag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.RemoveUpgradeCharmProfileData()
 }

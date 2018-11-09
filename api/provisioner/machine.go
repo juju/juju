@@ -135,6 +135,10 @@ type MachineProvisioner interface {
 	// SetUpgradeCharmProfileComplete recorded that the result of updating
 	// the machine's charm profile(s)
 	SetUpgradeCharmProfileComplete(string) error
+
+	// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+	// data for a machine, even if the machine is dead.
+	RemoveUpgradeCharmProfileData() error
 }
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -590,6 +594,7 @@ type CharmProfileChangeInfo struct {
 	OldProfileName string
 	NewProfileName string
 	LXDProfile     *charm.LXDProfile
+	Subordinate    bool
 }
 
 // CharmProfileChangeInfo implements MachineProvisioner.CharmProfileChangeInfo.
@@ -618,6 +623,7 @@ func (m *Machine) CharmProfileChangeInfo() (CharmProfileChangeInfo, error) {
 		OldProfileName: result.OldProfileName,
 		NewProfileName: result.NewProfileName,
 		LXDProfile:     profile,
+		Subordinate:    result.Subordinate,
 	}, nil
 }
 
@@ -658,6 +664,30 @@ func (m *Machine) SetUpgradeCharmProfileComplete(message string) error {
 		},
 	}
 	err := m.st.facade.FacadeCall("SetUpgradeCharmProfileComplete", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// RemoveUpgradeCharmProfileData implements MachineProvisioner.RemoveUpgradeCharmProfileData.
+func (m *Machine) RemoveUpgradeCharmProfileData() error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: m.tag.String(),
+			},
+		},
+	}
+	err := m.st.facade.FacadeCall("RemoveUpgradeCharmProfileData", args, &results)
 	if err != nil {
 		return err
 	}

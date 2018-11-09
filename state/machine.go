@@ -2282,31 +2282,21 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 // SetUpgradeCharmProfileOp returns a transaction for the machine to
 // trigger a change to its LXD Profile(s).
 func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op {
-	_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
-	if errors.IsNotFound(err) {
-		instanceData := instanceCharmProfileData{
-			DocID:                          m.doc.DocID,
-			MachineId:                      m.doc.Id,
-			UpgradeCharmProfileCharmURL:    chURL,
-			UpgradeCharmProfileApplication: appName,
-			UpgradeCharmProfileComplete:    status,
-		}
-		return txn.Op{
-			C:      instanceCharmProfileDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocMissing,
-			Insert: instanceData,
-		}
+	instanceData := instanceCharmProfileData{
+		DocID:                          m.doc.DocID,
+		MachineId:                      m.doc.Id,
+		UpgradeCharmProfileCharmURL:    chURL,
+		UpgradeCharmProfileApplication: appName,
+		UpgradeCharmProfileComplete:    status,
 	}
+	// We can always insert, because the doc was removed after the
+	// change triggered by this transaction was make.  Either during
+	// charm upgrade or when a new subordinate was added.
 	return txn.Op{
 		C:      instanceCharmProfileDataC,
 		Id:     m.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{
-			{"upgradecharmprofilecharmurl", chURL},
-			{"upgradecharmprofileapplication", appName},
-			{"upgradecharmprofilecomplete", status},
-		}}},
+		Assert: txn.DocMissing,
+		Insert: instanceData,
 	}
 }
 
