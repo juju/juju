@@ -910,7 +910,7 @@ type perContainerHandler interface {
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
-	SetError(resultIndex int, err *params.Error)
+	SetError(resultIndex int, err error)
 	// ConfigType indicates the type of config the handler is getting for
 	// for error messaging.
 	ConfigType() string
@@ -933,7 +933,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		}
 		// The auth function (canAccess) checks that the machine is a
@@ -941,11 +941,11 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		// machine has the host as a parent.
 		guest, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		} else if !guest.IsContainer() {
 			err = errors.Errorf("cannot prepare %s config for %q: not a container", handler.ConfigType(), machineTag)
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		}
 
@@ -954,7 +954,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 			&containerizer.MachineShim{Machine: hostMachine},
 			&containerizer.MachineShim{Machine: guest},
 		); err != nil {
-			handler.SetError(i, common.ServerError(err))
+			handler.SetError(i, err)
 			continue
 		}
 	}
@@ -967,8 +967,8 @@ type prepareOrGetContext struct {
 }
 
 // Implements perContainerHandler.SetError
-func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
-	ctx.result.Results[idx].Error = err
+func (ctx *prepareOrGetContext) SetError(idx int, err error) {
+	ctx.result.Results[idx].Error = common.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
@@ -1185,8 +1185,8 @@ func (ctx *hostChangesContext) ProcessOneContainer(
 }
 
 // Implements perContainerHandler.SetError
-func (ctx *hostChangesContext) SetError(idx int, err *params.Error) {
-	ctx.result.Results[idx].Error = err
+func (ctx *hostChangesContext) SetError(idx int, err error) {
+	ctx.result.Results[idx].Error = common.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
@@ -1227,12 +1227,12 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
-			ctx.result.Results[idx].Error = common.ServerError(err)
+			ctx.SetError(idx, err)
 			return errors.Trace(err)
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			ctx.result.Results[idx].Error = common.ServerError(err)
+			ctx.SetError(idx, err)
 			return errors.Trace(err)
 		}
 		profile := ch.LXDProfile()
@@ -1255,8 +1255,8 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 }
 
 // Implements perContainerHandler.SetError
-func (ctx *containerProfileContext) SetError(idx int, err *params.Error) {
-	ctx.result.Results[idx].Error = err
+func (ctx *containerProfileContext) SetError(idx int, err error) {
+	ctx.result.Results[idx].Error = common.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
