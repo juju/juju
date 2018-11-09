@@ -35,8 +35,8 @@ func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock
 	w := &kubernetesWatcher{
 		clock:     clock,
 		out:       make(chan struct{}),
-		k8watcher: wi,
 		name:      name,
+		k8watcher: wi,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -63,7 +63,7 @@ func (w *kubernetesWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("k8s event watcher closed, restarting")
 			}
-			logger.Debugf("received k8s event: %+v", evt.Type)
+			logger.Tracef("received k8s event: %+v", evt.Type)
 			if pod, ok := evt.Object.(*core.Pod); ok {
 				logger.Debugf("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
 			}
@@ -93,6 +93,7 @@ func (w *kubernetesWatcher) Changes() watcher.NotifyChannel {
 
 // Kill asks the watcher to stop without waiting for it do so.
 func (w *kubernetesWatcher) Kill() {
+	defer w.k8watcher.Stop()
 	w.catacomb.Kill(nil)
 }
 
