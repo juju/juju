@@ -43,7 +43,6 @@ import (
 
 // TODO (hml) lxd-profile 24-oct-2018
 // create mocks to write tests for:
-// WatchModelMachinesCharmProfiles
 // CharmProfileChangeInfo
 // SetCharmProfiles
 // SetUpgradeCharmProfileComplete
@@ -718,6 +717,40 @@ func (s *withoutControllerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
 	wc0.AssertNoChange()
 	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
+}
+
+func (s *withoutControllerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	got, err := s.provisioner.WatchModelMachinesCharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	want := params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{"0", "1", "2", "3", "4"},
+	}
+	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, jc.SameContents, want.Changes)
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	// Make sure WatchModelMachines fails with a machine agent login.
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = names.NewMachineTag("1")
+	anAuthorizer.Controller = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := aProvisioner.WatchModelMachinesCharmProfiles()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
 func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
@@ -1960,6 +1993,55 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 	s.container = NewMockMachine(ctrl)
 	s.device = NewMockLinkLayerDevice(ctrl)
 	s.parentDevice = NewMockLinkLayerDevice(ctrl)
+
+	return ctrl
+}
+
+type provisionerProfileMockSuite struct {
+	coretesting.BaseSuite
+
+	backend *MockProfileBackend
+	charm   *MockProfileCharm
+	machine *MockProfileMachine
+}
+
+var _ = gc.Suite(&provisionerProfileMockSuite{})
+
+func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	charmURLString := "local:bionic/lxd-profile-alt-3"
+	mExp := s.machine.EXPECT()
+	mExp.CharmProfiles().Return([]string{
+		"default",
+		"juju-testme",
+		"juju-testme-lxd-profile-alt-2",
+		"juju-testme-application-1",
+	})
+	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString)
+	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt")
+	mExp.ModelName().Return("testme")
+
+	cExp := s.charm.EXPECT()
+	cExp.Revision().Return(3)
+	cExp.LXDProfile().Return(&charm.LXDProfile{})
+
+	chURL, err := charm.ParseURL(charmURLString)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
+
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, jc.ErrorIsNil)
+	c.Assert(result.Profile, gc.DeepEquals, &params.CharmLXDProfile{})
+}
+
+func (s *provisionerProfileMockSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.backend = NewMockProfileBackend(ctrl)
+	s.charm = NewMockProfileCharm(ctrl)
+	s.machine = NewMockProfileMachine(ctrl)
 
 	return ctrl
 }
