@@ -8,7 +8,6 @@ import (
 
 	"gopkg.in/tomb.v2"
 
-	jujuwatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
 
@@ -55,7 +54,7 @@ func (w *machineErrorRetry) Err() error {
 }
 
 // Changes returns the event channel for the machineErrorRetry watcher.
-func (w *machineErrorRetry) Changes() jujuwatcher.NotifyChannel {
+func (w *machineErrorRetry) Changes() <-chan struct{} {
 	return w.out
 }
 

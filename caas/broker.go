@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
@@ -149,6 +150,9 @@ type Broker interface {
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
 	WatchOperator(string) (watcher.NotifyWatcher, error)
+
+	// GetNamespace returns the namespace for the specified name or current namespace.
+	GetNamespace(name string) (*core.Namespace, error)
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)

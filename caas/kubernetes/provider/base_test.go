@@ -11,6 +11,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -153,4 +154,8 @@ func (s *BaseSuite) k8sAlreadyExists() *k8serrors.StatusError {
 
 func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {
 	return &v1.DeleteOptions{PropagationPolicy: &policy}
+}
+
+func (s *BaseSuite) k8sNewFakeWatcher() *watch.FakeWatcher {
+	return watch.NewFake()
 }

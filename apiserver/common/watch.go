@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	jujuwatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -188,6 +187,6 @@ func (w *MultiNotifyWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *MultiNotifyWatcher) Changes() jujuwatcher.NotifyChannel {
+func (w *MultiNotifyWatcher) Changes() <-chan struct{} {
 	return w.changes
 }

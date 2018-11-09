@@ -48,9 +48,9 @@ func (w *kubernetesWatcher) loop() error {
 	defer close(w.out)
 	defer w.k8watcher.Stop()
 
-	var out chan struct{}
-	// Set delayCh now so that initial event is sent.
-	delayCh := time.After(sendDelay)
+	// var out chan struct{}
+	// // Set delayCh now so that initial event is sent.
+	// delayCh := time.After(sendDelay)
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -60,25 +60,26 @@ func (w *kubernetesWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("k8s event watcher closed, restarting")
 			}
-			logger.Tracef("received k8s event: %+v", evt.Type)
+			logger.Debugf("received k8s event: %+v", evt.Type)
 			if pod, ok := evt.Object.(*core.Pod); ok {
-				logger.Tracef("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
+				logger.Debugf("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
 			}
 			if ns, ok := evt.Object.(*core.Namespace); ok {
-				logger.Tracef("%v(%v) = %v, status=%+v", ns.Name, ns.UID, ns.Labels, ns.Status)
+				logger.Debugf("%v(%v) = %v, status=%+v", ns.Name, ns.UID, ns.Labels, ns.Status)
 			}
 			if evt.Type == watch.Error {
 				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
 			}
-			if delayCh == nil {
-				delayCh = time.After(sendDelay)
-			}
-		case <-delayCh:
-			out = w.out
-		case out <- struct{}{}:
-			logger.Debugf("fire notify watcher for %v", w.name)
-			out = nil
-			delayCh = nil
+			w.out <- struct{}{}
+			// if delayCh == nil {
+			// 	delayCh = time.After(sendDelay)
+			// }
+			// case <-delayCh:
+			// 	out = w.out
+			// case out <- struct{}{}:
+			// 	logger.Debugf("fire notify watcher for %v", w.name)
+			// 	out = nil
+			// 	delayCh = nil
 		}
 	}
 }

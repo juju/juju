@@ -241,7 +241,7 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 		}
 		// ensure namespace has been deleted - notfound error expected.
 		if _, err := k.GetNamespace(""); !errors.IsNotFound(err) {
-			return errors.New(fmt.Sprintf("namespace %q is still been terminating.", k.namespace))
+			return errors.Annotate(err, fmt.Sprintf("namespace %q is still been terminating", k.namespace))
 		}
 
 		// Delete any storage classes created as part of this model.
@@ -283,7 +283,7 @@ func (k *kubernetesClient) Namespaces() ([]string, error) {
 	return result, nil
 }
 
-// Namespaces returns names of the namespaces on the cluster.
+// GetNamespace returns the namespace for the specified name or current namespace.
 func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 	if name == "" {
 		name = k.namespace

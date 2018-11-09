@@ -7,7 +7,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
-	jujuwatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
 
@@ -41,6 +40,6 @@ func (w *FakeNotifyWatcher) Err() error {
 }
 
 // Changes is part of the state.NotifyWatcher interface.
-func (w *FakeNotifyWatcher) Changes() jujuwatcher.NotifyChannel {
+func (w *FakeNotifyWatcher) Changes() <-chan struct{} {
 	return w.C
 }
