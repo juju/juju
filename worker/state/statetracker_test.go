@@ -4,14 +4,11 @@
 package state_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -122,20 +119,14 @@ func isTxnLogStarted(report map[string]interface{}) bool {
 func (s *StateTrackerSuite) TestReport(c *gc.C) {
 	pool, err := s.stateTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
-	start := time.Now()
 	report := pool.Report()
-	for !isTxnLogStarted(report) {
-		if time.Since(start) >= testing.LongWait {
-			c.Fatalf("txlog worker did not start after %v", testing.LongWait)
-		}
-		time.Sleep(time.Millisecond)
-		report = pool.Report()
-	}
 	c.Check(report, gc.NotNil)
-	// We don't have any State models in the pool, but we do have the txn-watcher report.
+	// We don't have any State models in the pool, but we have 'system',
+	// 'txn-watcher', and 'pool-size'
 	c.Check(report, gc.HasLen, 3)
 	c.Check(report["pool-size"], gc.Equals, 0)
-	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
-	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
-	c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
+	// We don't compare stateTracker.Report() to report, because the
+	// workers being started take a while, so the value of the report
+	// changes with time.
+	// c.Check(s.stateTracker.Report(), gc.DeepEquals, report)
 }
