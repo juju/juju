@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/credentialvalidator"
+	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -192,6 +193,10 @@ type ManifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
+
+	// UpdateControllerAPIPort is a function that will save the updated
+	// controller api port in the agent.conf file.
+	UpdateControllerAPIPort func(int) error
 
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
 	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
@@ -703,18 +708,35 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
+			ControllerPortName:    controllerPortName,
 			StateName:             stateName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		}),
 
+		// TODO Juju 3.0: the controller port worker is only needed while
+		// the controller port is a mutable controller config value.
+		// When we hit 3.0 we should make controller-port a required
+		// and unmutable value.
+		controllerPortName: controllerport.Manifold(controllerport.ManifoldConfig{
+			AgentName:               agentName,
+			HubName:                 centralHubName,
+			StateName:               stateName,
+			Logger:                  loggo.GetLogger("juju.worker.controllerport"),
+			UpdateControllerAPIPort: config.UpdateControllerAPIPort,
+			GetControllerConfig:     controllerport.GetControllerConfig,
+			NewWorker:               controllerport.NewWorker,
+		}),
+
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
-			AgentName:            agentName,
 			CertWatcherName:      certificateWatcherName,
+			HubName:              centralHubName,
 			StateName:            stateName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
 			RaftTransportName:    raftTransportName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
+			Clock:                config.Clock,
+			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
@@ -745,6 +767,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
 			AgentName:                agentName,
 			ClockName:                clockName,
+			ControllerPortName:       controllerPortName,
 			StateName:                stateName,
 			Hub:                      config.CentralHub,
 			NewWorker:                peergrouper.New,
@@ -907,6 +930,7 @@ const (
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
 	controllerName         = "controller"
+	controllerPortName     = "controller-port"
 	stateName              = "state"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"

@@ -510,6 +510,12 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 				return nil
 			})
 		}
+		updateControllerAPIPort := func(port int) error {
+			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
+				setter.SetControllerAPIPort(port)
+				return nil
+			})
+		}
 
 		// statePoolReporter is an introspection.IntrospectionReporter,
 		// which is set to the current StatePool managed by the state
@@ -562,6 +568,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PubSubReporter:       pubsubReporter,
 			PresenceRecorder:     presenceRecorder,
 			UpdateLoggerConfig:   updateAgentConfLogging,
+			UpdateControllerAPIPort: updateControllerAPIPort,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return a.machine(apiConn)
 			},
