@@ -6,3 +6,6 @@ provides:
     interface: mysql
   server-admin:
     interface: mysql-root
+requires:
+  metrics-client:
+    interface: metrics

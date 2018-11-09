@@ -227,8 +227,9 @@ var scenarioStatus = &params.FullStatus{
 				Data:   map[string]interface{}{},
 			},
 			EndpointBindings: map[string]string{
-				"server":       "",
-				"server-admin": "",
+				"server":         "",
+				"server-admin":   "",
+				"metrics-client": "",
 			},
 		},
 		"wordpress": {
