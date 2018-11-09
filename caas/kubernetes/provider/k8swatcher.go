@@ -93,7 +93,6 @@ func (w *kubernetesWatcher) Changes() watcher.NotifyChannel {
 
 // Kill asks the watcher to stop without waiting for it do so.
 func (w *kubernetesWatcher) Kill() {
-	defer w.k8watcher.Stop()
 	w.catacomb.Kill(nil)
 }
 
