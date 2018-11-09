@@ -155,10 +155,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 // known environment.
 func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyModelFilesystems(env); err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
@@ -171,10 +173,12 @@ func (env *environ) DestroyController(ctx context.ProviderCallContext, controlle
 		return errors.Trace(err)
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyControllerFilesystems(env, controllerUUID); err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return errors.Annotate(err, "destroying LXD filesystems for controller")
 		}
 	}
@@ -239,6 +243,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 
 	nodes, err := env.server.GetClusterMembers()
 	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Annotate(err, "listing cluster members")
 	}
 	aZones := make([]common.AvailabilityZone, len(nodes))
