@@ -848,8 +848,8 @@ type modelFieldChangeWatcher struct {
 	members bson.D
 	// filter returns true, if the entity should be watched
 	filter func(key interface{}) bool
-	// accessor is used to extract the field from the machine doc in a generic
-	// way.
+	// accessor is used to extract the field from the instance charm profile
+	// data doc in a generic way.
 	accessor func(instanceCharmProfileData) string
 	known    map[string]string
 	out      chan []string
@@ -874,29 +874,22 @@ func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter fun
 }
 
 func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
-	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
-	defer machinesCloser()
-	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceCloser()
+	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
+	defer closer()
 
-	var doc machineDoc
+	var doc instanceCharmProfileData
 	machineIds := make(set.Strings)
-	iter := machinesCol.Find(w.members).Iter()
+	iter := collection.Find(w.members).Iter()
 	for iter.Next(&doc) {
 		// If no members criteria is specified, use the filter
 		// to reject any unsuitable initial elements.
-		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
+		if w.members == nil && w.filter != nil && !w.filter(doc.MachineId) {
 			continue
 		}
 
-		var instanceData instanceCharmProfileData
-		if err := instanceDataCol.FindId(doc.DocID).One(&instanceData); err != nil {
-			continue
-		}
-
-		docField := w.accessor(instanceData)
-		w.known[doc.Id] = docField
-		machineIds.Add(doc.Id)
+		docField := w.accessor(doc)
+		w.known[doc.MachineId] = docField
+		machineIds.Add(doc.MachineId)
 	}
 	return machineIds, iter.Close()
 }
@@ -912,13 +905,13 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
 	defer closer()
 
-	var instanceData instanceCharmProfileData
-	if err := collection.FindId(change.Id).One(&instanceData); err != nil {
+	var doc instanceCharmProfileData
+	if err := collection.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
 
 	// get the document field from the accessor
-	docField := w.accessor(instanceData)
+	docField := w.accessor(doc)
 	// check the field before adding to the machineId
 	field, isKnown := w.known[machineId]
 	w.known[machineId] = docField

@@ -271,7 +271,8 @@ type instanceCharmProfileData struct {
 	MachineId string `bson:"machineid"`
 
 	// UpgradeCharmProfileApplication holds the name of the application where there
-	// is an charm upgrade event and a charm profile.
+	// is an charm upgrade event and a charm profile, even if there is no charm
+	// profile.
 	UpgradeCharmProfileApplication string `bson:",omitempty"`
 
 	// UpgradeCharmProfileCharmURL holds the charm URL when there is an charm
@@ -2313,11 +2314,6 @@ func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op
 // If the profile has been removed, then this will throw an error upon
 // running the transaction
 func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
-	_, err := getInstanceCharmProfileData(m.st, m.Id())
-	if err != nil {
-		return nil
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2328,16 +2324,25 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
+		data, err := getInstanceCharmProfileData(m.st, m.Id())
+		if err != nil || data.UpgradeCharmProfileComplete == msg {
+			return nil, jujutxn.ErrNoOperations
+		}
 		return []txn.Op{
 			{
 				C:      machinesC,
 				Id:     m.doc.DocID,
 				Assert: isAliveDoc,
 			},
-			m.setUpgradeCharmProfileCompleteOp(msg),
+			{
+				C:      instanceCharmProfileDataC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
+			},
 		}, nil
 	}
-	err = m.st.db().Run(buildTxn)
+	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2348,11 +2353,17 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 // data for a machine, even if the machine is dead.
 func (m *Machine) RemoveUpgradeCharmProfileData() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
+		// Write the instance data out to a log, so that we can audit the
+		// information if there is an issue.
+		data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		// If the instance data is removed already, just
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
 		}
+		if err == nil {
+			logger.Debugf("Removing instance charm profile data %v", data)
+		}
+
 		// Note: we don't care if the machine is alive or not, we do want to
 		// remove the charm profile data, even if the machine is dead. The is
 		// for two reasons
@@ -2384,17 +2395,6 @@ func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
 				{{"charm-profiles", bson.D{{"$exists", false}}}},
 			},
 		}},
-	}
-}
-
-// setUpgradeCharmProfileCompleteOp updates the upgradecharmprofilecomplete
-// field with the correct message.
-func (m *Machine) setUpgradeCharmProfileCompleteOp(msg string) txn.Op {
-	return txn.Op{
-		C:      instanceCharmProfileDataC,
-		Id:     m.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
 	}
 }
 
