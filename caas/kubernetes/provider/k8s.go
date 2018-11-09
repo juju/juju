@@ -235,36 +235,31 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 	}
 	defer watcher.Kill()
 
-	destroy := func() error {
-		if err := k.deleteNamespace(); err != nil {
-			return errors.Annotate(err, "deleting model namespace")
-		}
-		// ensure namespace has been deleted - notfound error expected.
-		if _, err := k.GetNamespace(""); !errors.IsNotFound(err) {
-			return errors.Annotate(err, fmt.Sprintf("namespace %q is still been terminating", k.namespace))
-		}
+	if err := k.deleteNamespace(); err != nil {
+		return errors.Annotate(err, "deleting model namespace")
+	}
 
-		// Delete any storage classes created as part of this model.
-		// Storage classes live outside the namespace so need to be deleted separately.
-		modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-		err = k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
-			PropagationPolicy: &defaultPropagationPolicy,
-		}, v1.ListOptions{
-			LabelSelector: modelSelector,
-		})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Annotate(err, "deleting model storage classes")
-		}
-		return nil
+	// Delete any storage classes created as part of this model.
+	// Storage classes live outside the namespace so need to be deleted separately.
+	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
+	err = k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector: modelSelector,
+	})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Annotate(err, "deleting model storage classes")
 	}
 	for {
 		select {
 		case <-callbacks.Dying():
 			return nil
 		case <-watcher.Changes():
-			if err = destroy(); err == nil {
+			// ensure namespace has been deleted - notfound error expected.
+			if _, err := k.GetNamespace(""); errors.IsNotFound(err) {
 				return nil
 			}
+			logger.Debugf("namespace %q is still been terminating", k.namespace)
 		}
 	}
 }

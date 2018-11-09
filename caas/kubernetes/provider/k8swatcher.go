@@ -48,9 +48,9 @@ func (w *kubernetesWatcher) loop() error {
 	defer close(w.out)
 	defer w.k8watcher.Stop()
 
-	// var out chan struct{}
-	// // Set delayCh now so that initial event is sent.
-	// delayCh := time.After(sendDelay)
+	var out chan struct{}
+	// Set delayCh now so that initial event is sent.
+	delayCh := time.After(sendDelay)
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -70,16 +70,16 @@ func (w *kubernetesWatcher) loop() error {
 			if evt.Type == watch.Error {
 				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
 			}
-			w.out <- struct{}{}
-			// if delayCh == nil {
-			// 	delayCh = time.After(sendDelay)
-			// }
-			// case <-delayCh:
-			// 	out = w.out
-			// case out <- struct{}{}:
-			// 	logger.Debugf("fire notify watcher for %v", w.name)
-			// 	out = nil
-			// 	delayCh = nil
+			// w.out <- struct{}{}
+			if delayCh == nil {
+				delayCh = time.After(sendDelay)
+			}
+		case <-delayCh:
+			out = w.out
+		case out <- struct{}{}:
+			logger.Debugf("fire notify watcher for %v", w.name)
+			out = nil
+			delayCh = nil
 		}
 	}
 }

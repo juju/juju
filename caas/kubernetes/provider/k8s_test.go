@@ -323,18 +323,18 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 		// first delete returns nil
 		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(nil),
-		// Get now returns non NotFoundError.
-		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, errors.New("any non k8s not found error")),
-		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
-		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground),
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).Times(1).
 			Return(s.k8sNotFoundError()),
+		// Get now returns non NotFoundError.
+		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, errors.New("any non k8s not found error")),
+		// s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		// 	Return(s.k8sNotFoundError()),
+		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
 	)
 
 	go func(w *watch.FakeWatcher) {
