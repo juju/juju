@@ -148,12 +148,18 @@ func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
 func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C) {
 	m := s.machine
 
+	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// SetUpgradeCharmProfile should clear UpgradeCharmProfileComplete value
-	err := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
+	err = m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 	c.Assert(err, jc.ErrorIsNil)
 	status, err := m.UpgradeCharmProfileComplete()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, lxdprofile.SuccessStatus)
+	c.Assert(status, gc.Equals, "")
 
 	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
 	c.Assert(err, jc.ErrorIsNil)

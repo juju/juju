@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
@@ -1597,7 +1598,7 @@ func (a *Application) addUnitSubordinateCharmProfileOp(principalName string) (tx
 	if err != nil {
 		return txn.Op{}, false, err
 	}
-	return machine.SetUpgradeCharmProfileOp(a.doc.Name, a.doc.CharmURL.String()), true, nil
+	return machine.SetUpgradeCharmProfileOp(a.doc.Name, a.doc.CharmURL.String(), lxdprofile.EmptyStatus), true, nil
 }
 
 func (a *Application) addUnitStorageOps(

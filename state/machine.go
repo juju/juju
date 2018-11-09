@@ -303,7 +303,7 @@ func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData
 func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
 	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
-		if errors.Cause(err) == mgo.ErrNotFound {
+		if errors.IsNotFound(err) {
 			return "", nil
 		}
 		return "", err
@@ -315,7 +315,7 @@ func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
 func (m *Machine) UpgradeCharmProfileCharmURL() (string, error) {
 	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
-		if errors.Cause(err) == mgo.ErrNotFound {
+		if errors.IsNotFound(err) {
 			return "", nil
 		}
 		return "", err
@@ -327,7 +327,7 @@ func (m *Machine) UpgradeCharmProfileCharmURL() (string, error) {
 func (m *Machine) UpgradeCharmProfileComplete() (string, error) {
 	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
-		if errors.Cause(err) == mgo.ErrNotFound {
+		if errors.IsNotFound(err) {
 			return "", nil
 		}
 		return "", err
@@ -2252,7 +2252,9 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 			if provisioned {
 				ops = append(ops, m.checkCharmProfilesIsEmptyOp())
 			}
-			return append(ops, m.setUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus)), nil
+			return append(ops,
+				m.SetUpgradeCharmProfileOp("", "", lxdprofile.NotRequiredStatus),
+			), nil
 		}
 		return []txn.Op{
 			{
@@ -2260,7 +2262,7 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 				Id:     m.doc.DocID,
 				Assert: isAliveDoc,
 			},
-			m.SetUpgradeCharmProfileOp(appName, chURL),
+			m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus),
 		}, nil
 	}
 	err = m.st.db().Run(buildTxn)
@@ -2272,13 +2274,13 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 
 // SetUpgradeCharmProfileOp returns a transaction for the machine to
 // trigger a change to its LXD Profile(s).
-func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
+func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op {
 	instanceData := instanceCharmProfileData{
 		DocID:                          m.doc.DocID,
 		MachineId:                      m.doc.Id,
 		UpgradeCharmProfileCharmURL:    chURL,
 		UpgradeCharmProfileApplication: appName,
-		UpgradeCharmProfileComplete:    lxdprofile.EmptyStatus,
+		UpgradeCharmProfileComplete:    status,
 	}
 	return txn.Op{
 		C:      instanceCharmProfileDataC,
@@ -2294,7 +2296,7 @@ func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
 func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 	_, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
-		return errors.Trace(err)
+		return nil
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
