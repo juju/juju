@@ -204,7 +204,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 
 	c.Assert(model2.Refresh(), jc.ErrorIsNil)
 	c.Assert(model2.Life(), gc.Equals, state.Dead)
-	err = st2.RemoveAllModelDocs()
+	err = st2.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
@@ -268,7 +268,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	err = s.State.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
-	err = otherSt.RemoveAllModelDocs()
+	err = otherSt.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)

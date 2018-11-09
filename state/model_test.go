@@ -113,12 +113,12 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model1.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	// Destroy only sets the model to dying and RemoveAllModelDocs can
+	// Destroy only sets the model to dying and RemoveModel can
 	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and applications have been cleaned up.
 	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.RemoveAllModelDocs()
+	err = st1.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
@@ -177,12 +177,12 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model1.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	// Destroy only sets the model to dying and RemoveAllModelDocs can
+	// Destroy only sets the model to dying and RemoveModel can
 	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and applications have been cleaned up.
 	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.RemoveAllModelDocs()
+	err = st1.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
@@ -625,7 +625,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 
 	c.Assert(model2.Refresh(), jc.ErrorIsNil)
 	c.Assert(model2.Life(), gc.Equals, state.Dead)
-	err = st2.RemoveAllModelDocs()
+	err = st2.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
@@ -694,7 +694,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	err = s.State.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
-	err = otherSt.RemoveAllModelDocs()
+	err = otherSt.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
@@ -754,7 +754,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		model, err := st2.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-		err = st2.RemoveAllModelDocs()
+		err = st2.RemoveModel()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Add a new, non-empty model. This should still prevent
@@ -1352,13 +1352,13 @@ func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
 	model1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model1.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(st1.RemoveAllModelDocs(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveModel(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(st2.RemoveAllModelDocs(), jc.ErrorIsNil)
+	c.Assert(st2.RemoveModel(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 

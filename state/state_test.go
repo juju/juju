@@ -2221,7 +2221,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	err = st2.RemoveAllModelDocs()
+	err = st2.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed model are reported in initial event.
@@ -2271,7 +2271,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 
-	err = st1.RemoveAllModelDocs()
+	err = st1.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2762,7 +2762,7 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	c.Check(permCount, gc.Equals, 0)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	st := s.State
 
 	userModelKey := s.insertFakeModelDocs(c, st)
@@ -2779,7 +2779,7 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
 
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloud, err = s.State.Cloud(model.Cloud())
@@ -2792,11 +2792,11 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	s.AssertModelDeleted(c, st)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsAliveModelFails(c *gc.C) {
+func (s *StateSuite) TestRemoveModelAliveModelFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	err := st.RemoveAllModelDocs()
+	err := st.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 }
 
@@ -2937,7 +2937,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
 	assertLogCount(c, st, 0)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
+func (s *StateSuite) TestRemoveModelRemovesLogs(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -2949,7 +2949,7 @@ func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
 	writeLogs(c, st, 5)
 	writeLogs(c, s.State, 5)
 
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertLogCount(c, s.State, 5)
