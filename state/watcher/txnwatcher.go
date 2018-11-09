@@ -238,8 +238,8 @@ func (w *TxnWatcher) loop() error {
 		case <-next:
 			d2, ok := backoff.NextSleep(w.clock.Now())
 			if ok {
-                            d = d2
-                        } else {
+				d = d2
+			} else {
 				// This shouldn't happen, but be defensive.
 				backoff = PollStrategy.NewTimer(w.clock.Now())
 			}
