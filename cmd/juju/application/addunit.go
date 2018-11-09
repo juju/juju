@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 )
 
@@ -34,6 +35,10 @@ By default, units are deployed to newly provisioned machines in accordance
 with any application or model constraints. This command also supports the
 placement directive ("--to") for targeting specific machines or containers,
 which will bypass application and model constraints.
+
+Note:
+For Kubernetes models the only valid argument is -n, --num-units anything
+additional will result in an error.
 
 Examples:
 
@@ -140,7 +145,6 @@ func NewAddUnitCommand() cmd.Command {
 // addUnitCommand is responsible adding additional units to an application.
 type addUnitCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	UnitCommandBase
 	ApplicationName string
 	api             applicationAddUnitAPI
@@ -184,6 +188,15 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS {
+		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
+			return errors.New("Kubernetes models only supports num-units flag")
+		}
+	}
 
 	return c.UnitCommandBase.Init(args)
 }
@@ -195,6 +208,7 @@ type applicationAddUnitAPI interface {
 	Close() error
 	ModelUUID() string
 	AddUnits(application.AddUnitsParams) ([]string, error)
+	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 }
 
 func (c *addUnitCommand) getAPI() (applicationAddUnitAPI, error) {
@@ -216,6 +230,22 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+
+	if modelType == model.CAAS {
+		_, err = apiclient.ScaleApplication(application.ScaleApplicationParams{
+			ApplicationName: c.ApplicationName,
+			ScaleChange:     c.NumUnits,
+		})
+		if params.IsCodeUnauthorized(err) {
+			common.PermissionsMessage(ctx.Stderr, "add a unit")
+		}
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
 
 	if len(c.AttachStorage) > 0 && apiclient.BestAPIVersion() < 5 {
 		// AddUnitsPArams.AttachStorage is only supported from

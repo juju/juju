@@ -76,6 +76,7 @@ type mockApplication struct {
 	curl                     *charm.URL
 	endpoints                []state.Endpoint
 	name                     string
+	scale                    int
 	subordinate              bool
 	series                   string
 	units                    []*mockUnit
@@ -132,6 +133,11 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, e
 		return nil, err
 	}
 	return &a.addedUnit, nil
+}
+
+func (a *mockApplication) GetScale() int {
+	a.MethodCall(a, "GetScale")
+	return a.scale
 }
 
 func (a *mockApplication) Scale(scale int) error {

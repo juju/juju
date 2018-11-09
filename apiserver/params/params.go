@@ -1324,6 +1324,9 @@ type ScaleApplicationParams struct {
 
 	// Scale is the number of units which should be running.
 	Scale int `json:"scale"`
+
+	// Scale is the number of units which should be added/removed from the existing count.
+	ScaleChange int `json:"scale-change,omitempty"`
 }
 
 // ScaleApplicationResults contains the results of a ScaleApplication

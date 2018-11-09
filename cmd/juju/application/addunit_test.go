@@ -230,18 +230,27 @@ func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer("0/kvm/4", true)
 }
 
-func (s *AddUnitSuite) TestCAASDisallowed(c *gc.C) {
+func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
+	expectedError := "Kubernetes models only supports num-units flag"
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
-	err := s.runAddUnit(c)
-	c.Assert(err, gc.NotNil)
-	expected := `
-add-unit is not allowed on Kubernetes models.
-Instead, use juju scale-application.
-See juju help scale-application.
-`
-	expected = strings.Replace(expected, "\n", "", -1)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Equals, expected)
+
+	err := s.runAddUnit(c, "some-application-name", "--to", "lxd:1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--to", "lxd:1", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2", "--to", "lxd:1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
 }

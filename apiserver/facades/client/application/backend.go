@@ -83,6 +83,7 @@ type Application interface {
 	ApplicationConfig() (application.ConfigAttributes, error)
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	Scale(int) error
+	GetScale() int
 }
 
 // Charm defines a subset of the functionality provided by the

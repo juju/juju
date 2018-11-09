@@ -596,8 +596,11 @@ type ScaleApplicationParams struct {
 	// ApplicationName is the application to scale.
 	ApplicationName string
 
-	// Scale is the number of units which should be running.
+	// Scale is the target number of units which should exist
 	Scale int
+
+	// ScaleChange is the amount of change to the target amount of existing units
+	ScaleChange int
 }
 
 // ScaleApplication sets the desired unit count for one or more applications.
@@ -609,6 +612,7 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
 			Scale:          in.Scale,
+			ScaleChange:    in.ScaleChange,
 		}},
 	}
 	var results params.ScaleApplicationResults

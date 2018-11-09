@@ -639,6 +639,59 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 	app.CheckCall(c, 0, "Scale", 5)
 }
 
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.applications["postgresql"].scale = 2
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			ScaleChange:    5,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Info: &params.ScaleApplicationInfo{Scale: 7},
+		}},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "GetScale")
+	app.CheckCall(c, 1, "Scale", 7)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheck(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.applications["postgresql"].scale = 2
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+			ScaleChange:    5,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "requesting scale and scale-change not valid")
+
+	results, err = s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          0,
+			ScaleChange:    0,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "scale of 0 not valid")
+
+	results, err = s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          -1,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "scale < 0 not valid")
+}
+
 func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {
 	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
