@@ -8,3 +8,7 @@ import "github.com/juju/juju/apiserver/params"
 func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain bool) *prepareOrGetContext {
 	return &prepareOrGetContext{result: result, maintain: maintain}
 }
+
+func NewContainerProfileContext(result params.ContainerProfileResults, modelName string) *containerProfileContext {
+	return &containerProfileContext{result: result, modelName: modelName}
+}

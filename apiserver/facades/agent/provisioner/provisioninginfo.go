@@ -82,9 +82,6 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
 
-	// TODO: lxd-profile 2018-09-18
-	// Add withoutControllerSuite.TestProvisioningInfoWithLXDProfile when
-	// lxd profiles added to ProvisioningInfo.
 	pNames, err := p.machineLXDProfileNames(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot write lxd profiles")
@@ -319,6 +316,7 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 func (p *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
+		logger.Tracef("LXDProfiler not implemented by environ")
 		return nil, nil
 	}
 	units, err := m.Units()
