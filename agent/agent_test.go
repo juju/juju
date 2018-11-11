@@ -269,13 +269,14 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 
 func stateServingInfo() params.StateServingInfo {
 	return params.StateServingInfo{
-		Cert:           "cert",
-		PrivateKey:     "key",
-		CAPrivateKey:   "ca key",
-		StatePort:      69,
-		APIPort:        47,
-		SharedSecret:   "shared",
-		SystemIdentity: "identity",
+		Cert:              "cert",
+		PrivateKey:        "key",
+		CAPrivateKey:      "ca key",
+		StatePort:         69,
+		APIPort:           47,
+		ControllerAPIPort: 52,
+		SharedSecret:      "shared",
+		SystemIdentity:    "identity",
 	}
 }
 
@@ -379,13 +380,14 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
 	newInfo := params.StateServingInfo{
-		APIPort:        147,
-		StatePort:      169,
-		Cert:           "new cert",
-		PrivateKey:     "new key",
-		CAPrivateKey:   "new ca key",
-		SharedSecret:   "new shared",
-		SystemIdentity: "new identity",
+		APIPort:           147,
+		ControllerAPIPort: 148,
+		StatePort:         169,
+		Cert:              "new cert",
+		PrivateKey:        "new key",
+		CAPrivateKey:      "new ca key",
+		SharedSecret:      "new shared",
+		SystemIdentity:    "new identity",
 	}
 	conf.SetStateServingInfo(newInfo)
 	gotInfo, ok = conf.StateServingInfo()
@@ -441,6 +443,18 @@ func (*suite) TestAPIInfoServesLocalhostOnlyWhenServingInfoPresent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
+	c.Check(apiinfo.Addrs, gc.DeepEquals, []string{"localhost:52"})
+}
+
+func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"localhost:1235", "localhost:1236"}
+	servingInfo := stateServingInfo()
+	servingInfo.ControllerAPIPort = 0
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.DeepEquals, []string{"localhost:47"})
 }
 
@@ -489,7 +503,7 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {
 func (*suite) TestSetPassword(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := stateServingInfo()
-	servingInfo.APIPort = 1235
+	servingInfo.ControllerAPIPort = 1235
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 

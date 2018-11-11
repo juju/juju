@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -322,10 +323,15 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
 						"example5:5555",
 					})},
 				}
+				c.Logf("Dial: %q requested", ipAddr)
 				if ipAddr != "0.1.1.2:1111" {
 					// It's not the blessed IP address - block indefinitely
 					// until we're called upon to start.
-					<-start
+					select {
+					case <-start:
+					case <-time.After(testing.LongWait):
+						c.Fatalf("timeout while waiting for start dialing %v", ipAddr)
+					}
 					return nil, errors.New("fail")
 				}
 				// We're trying to connect to the blessed IP address.
@@ -333,11 +339,8 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
 				return jsoncodec.NetJSONConn(apitesting.FakeAPIServer(apiConn)), nil
 			},
 			IPAddrResolver: ipAddrResolverFunc(func(ctx context.Context, host string) ([]net.IPAddr, error) {
-				// DNS resolution blocks.
-				select {
-				case <-start:
-				case <-ctx.Done():
-				}
+				c.Logf("Resolve: %q requested", host)
+				// We shouldn't block here, because IP Address lookups are done blocking in the main loop.
 				return nil, errors.New("no DNS available")
 			}),
 		},

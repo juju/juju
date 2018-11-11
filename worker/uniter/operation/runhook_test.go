@@ -107,11 +107,34 @@ func (s *RunHookSuite) TestPrepareHookCtxError(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestPrepareHookError_Run(c *gc.C) {
-	s.testPrepareHookError(c, (operation.Factory).NewRunHook, false, false)
+	s.testPrepareHookError(c, operation.Factory.NewRunHook, false, false)
 }
 
 func (s *RunHookSuite) TestPrepareHookError_Skip(c *gc.C) {
-	s.testPrepareHookError(c, (operation.Factory).NewSkipHook, true, true)
+	s.testPrepareHookError(c, operation.Factory.NewSkipHook, true, true)
+}
+
+func (s *RunHookSuite) TestPrepareHookError_LeaderElectedNotLeader(c *gc.C) {
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook: &MockPrepareHook{nil, string(hook.LeaderElected), nil},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{isLeader: false},
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
+
+	op, err := operation.Factory.NewRunHook(factory, hook.Info{Kind: hooks.LeaderElected})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 }
 
 func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
@@ -135,7 +158,7 @@ func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
 }
 
 func (s *RunHookSuite) TestPrepareRunnerError_Run(c *gc.C) {
-	s.testPrepareRunnerError(c, (operation.Factory).NewRunHook)
+	s.testPrepareRunnerError(c, operation.Factory.NewRunHook)
 }
 
 func (s *RunHookSuite) testPrepareSuccess(
@@ -157,7 +180,7 @@ func (s *RunHookSuite) testPrepareSuccess(
 
 func (s *RunHookSuite) TestPrepareSuccess_BlankSlate(c *gc.C) {
 	s.testPrepareSuccess(c,
-		(operation.Factory).NewRunHook,
+		operation.Factory.NewRunHook,
 		operation.State{},
 		operation.State{
 			Kind: operation.RunHook,
@@ -169,7 +192,7 @@ func (s *RunHookSuite) TestPrepareSuccess_BlankSlate(c *gc.C) {
 
 func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 	s.testPrepareSuccess(c,
-		(operation.Factory).NewRunHook,
+		operation.Factory.NewRunHook,
 		overwriteState,
 		operation.State{
 			Started: true,
@@ -180,8 +203,10 @@ func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 	)
 }
 
-func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks.Kind, runErr error) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
-	runnerFactory := NewRunHookRunnerFactory(runErr)
+func (s *RunHookSuite) getExecuteRunnerTest(
+	c *gc.C, newHook newHook, kind hooks.Kind, runErr error, contextOps ...func(*MockContext),
+) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
+	runnerFactory := NewRunHookRunnerFactory(runErr, contextOps...)
 	callbacks := &ExecuteHookCallbacks{
 		PrepareHookCallbacks:    NewPrepareHookCallbacks(),
 		MockNotifyHookCompleted: &MockNotify{},
@@ -200,7 +225,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 	runErr := charmrunner.NewMissingHookError("blah-blah")
 	for _, kind := range hooks.UnitHooks() {
 		c.Logf("hook %v", kind)
-		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, runErr)
+		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, kind, runErr)
 		_, err := op.Prepare(operation.State{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -223,7 +248,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 
 func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 	runErr := context.ErrRequeueAndReboot
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.ConfigChanged, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -242,7 +267,7 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 
 func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 	runErr := context.ErrReboot
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.ConfigChanged, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -261,7 +286,7 @@ func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 
 func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	runErr := errors.New("graaargh")
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.ConfigChanged, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -275,7 +300,7 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestInstallHookPreservesStatus(c *gc.C) {
-	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.Install, nil)
+	op, callbacks, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.Install, nil)
 	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(jujuc.StatusInfo{Status: "blocked", Info: "no database"})
 	c.Assert(err, jc.ErrorIsNil)
 	st := operation.State{
@@ -295,7 +320,7 @@ func (s *RunHookSuite) TestInstallHookPreservesStatus(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestInstallHookWHenNoStatusSet(c *gc.C) {
-	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.Install, nil)
+	op, callbacks, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.Install, nil)
 	st := operation.State{
 		StatusSet: false,
 	}
@@ -315,7 +340,7 @@ func (s *RunHookSuite) TestInstallHookWHenNoStatusSet(c *gc.C) {
 func (s *RunHookSuite) testExecuteSuccess(
 	c *gc.C, before, after operation.State, setStatusCalled bool,
 ) {
-	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.ConfigChanged, nil)
+	op, callbacks, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.ConfigChanged, nil)
 	f.MockNewHookRunner.runner.MockRunHook.setStatusCalled = setStatusCalled
 	midState, err := op.Prepare(before)
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,7 +382,7 @@ func (s *RunHookSuite) TestExecuteSuccess_Preserve(c *gc.C) {
 func (s *RunHookSuite) testExecuteThenCharmStatus(
 	c *gc.C, before, after operation.State, kind hooks.Kind, setStatusCalled bool,
 ) {
-	op, _, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, nil)
+	op, _, f := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, kind, nil)
 	f.MockNewHookRunner.runner.MockRunHook.setStatusCalled = setStatusCalled
 	midState, err := op.Prepare(before)
 	c.Assert(err, jc.ErrorIsNil)
@@ -427,7 +452,7 @@ func (s *RunHookSuite) testBeforeHookExecute(c *gc.C, newHook newHook, kind hook
 func (s *RunHookSuite) TestBeforeHookStatus(c *gc.C) {
 	for _, kind := range hooks.UnitHooks() {
 		c.Logf("hook %v", kind)
-		s.testBeforeHookExecute(c, (operation.Factory).NewRunHook, kind)
+		s.testBeforeHookExecute(c, operation.Factory.NewRunHook, kind)
 	}
 }
 
@@ -470,11 +495,11 @@ func (s *RunHookSuite) testCommitError(c *gc.C, newHook newHook) {
 }
 
 func (s *RunHookSuite) TestCommitError_Run(c *gc.C) {
-	s.testCommitError(c, (operation.Factory).NewRunHook)
+	s.testCommitError(c, operation.Factory.NewRunHook)
 }
 
 func (s *RunHookSuite) TestCommitError_Skip(c *gc.C) {
-	s.testCommitError(c, (operation.Factory).NewSkipHook)
+	s.testCommitError(c, operation.Factory.NewSkipHook)
 }
 
 func (s *RunHookSuite) testCommitSuccess(c *gc.C, newHook newHook, hookInfo hook.Info, before, after operation.State) {
@@ -494,8 +519,8 @@ func (s *RunHookSuite) testCommitSuccess(c *gc.C, newHook newHook, hookInfo hook
 
 func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_QueueStartHook(c *gc.C) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		s.testCommitSuccess(c,
@@ -513,8 +538,8 @@ func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_QueueStartHook(c *gc.C) {
 
 func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_Preserve(c *gc.C) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		s.testCommitSuccess(c,
@@ -532,8 +557,8 @@ func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_Preserve(c *gc.C) {
 
 func (s *RunHookSuite) TestCommitSuccess_Start_SetStarted(c *gc.C) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		s.testCommitSuccess(c,
@@ -551,8 +576,8 @@ func (s *RunHookSuite) TestCommitSuccess_Start_SetStarted(c *gc.C) {
 
 func (s *RunHookSuite) TestCommitSuccess_Start_Preserve(c *gc.C) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		s.testCommitSuccess(c,
@@ -625,8 +650,8 @@ func (s *RunHookSuite) TestCommitSuccess_RelationBroken_SetStatusNotSuspended(c 
 
 func (s *RunHookSuite) testQueueHook_BlankSlate(c *gc.C, cause hooks.Kind) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		var hi *hook.Info
@@ -652,8 +677,8 @@ func (s *RunHookSuite) testQueueHook_BlankSlate(c *gc.C, cause hooks.Kind) {
 
 func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause hooks.Kind) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		var hi *hook.Info
@@ -688,8 +713,8 @@ func (s *RunHookSuite) TestQueueHook_UpgradeCharm_Preserve(c *gc.C) {
 
 func (s *RunHookSuite) testQueueNothing_BlankSlate(c *gc.C, hookInfo hook.Info) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		s.testCommitSuccess(c,
@@ -708,8 +733,8 @@ func (s *RunHookSuite) testQueueNothing_BlankSlate(c *gc.C, hookInfo hook.Info) 
 
 func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 	for i, newHook := range []newHook{
-		(operation.Factory).NewRunHook,
-		(operation.Factory).NewSkipHook,
+		operation.Factory.NewRunHook,
+		operation.Factory.NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
 		s.testCommitSuccess(c,
@@ -813,9 +838,9 @@ func (s *RunHookSuite) testNeedsGlobalMachineLock(c *gc.C, newHook newHook, expe
 }
 
 func (s *RunHookSuite) TestNeedsGlobalMachineLock_Run(c *gc.C) {
-	s.testNeedsGlobalMachineLock(c, (operation.Factory).NewRunHook, true)
+	s.testNeedsGlobalMachineLock(c, operation.Factory.NewRunHook, true)
 }
 
 func (s *RunHookSuite) TestNeedsGlobalMachineLock_Skip(c *gc.C) {
-	s.testNeedsGlobalMachineLock(c, (operation.Factory).NewSkipHook, false)
+	s.testNeedsGlobalMachineLock(c, operation.Factory.NewSkipHook, false)
 }

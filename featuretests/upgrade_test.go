@@ -177,11 +177,18 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 
 	// Create 3 controllers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
+	// We're not going to start the agents for machines A or B - we
+	// need to make sure the API port is still set to the one picked
+	// for this machine after we create the other machines.
+	apiPort := s.ControllerConfig.APIPort()
+
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)
 	s.configureMachine(c, changes.Added[1], s.oldVersion)
+
+	s.SetControllerConfigAPIPort(c, apiPort)
 
 	// One of the other controllers is ready for upgrade (but machine C isn't).
 	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, jujuversion.Current)

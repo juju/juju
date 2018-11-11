@@ -304,6 +304,9 @@ type configSetterOnly interface {
 	// to run a controller
 	SetStateServingInfo(info params.StateServingInfo)
 
+	// SetControllerAPIPort sets the controller API port in the config.
+	SetControllerAPIPort(port int)
+
 	// SetMongoVersion sets the passed version as currently in use.
 	SetMongoVersion(mongo.Version)
 
@@ -684,6 +687,12 @@ func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 	}
 }
 
+func (c *configInternal) SetControllerAPIPort(port int) {
+	if c.servingInfo != nil {
+		c.servingInfo.ControllerAPIPort = port
+	}
+}
+
 func (c *configInternal) APIAddresses() ([]string, error) {
 	if c.apiDetails == nil {
 		return []string{}, errors.New("No apidetails in config")
@@ -800,6 +809,11 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	// to other controllers if we can talk locally.
 	if isController {
 		port := servingInfo.APIPort
+		// If the controller has been configured with a controller api port,
+		// we return that instead of the normal api port.
+		if servingInfo.ControllerAPIPort != 0 {
+			port = servingInfo.ControllerAPIPort
+		}
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
