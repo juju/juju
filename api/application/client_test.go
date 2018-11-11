@@ -1182,6 +1182,41 @@ func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
+func (s *applicationSuite) TestScaleApplicationValidation(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+
+	for i, test := range []struct {
+		scale       int
+		scaleChange int
+		errorStr    string
+	}{{
+		scale:       5,
+		scaleChange: 5,
+		errorStr:    "requesting both scale and scale-change not valid",
+	}, {
+		scale:       0,
+		scaleChange: 0,
+		errorStr:    "scale of 0 not valid",
+	}, {
+		scale:       -1,
+		scaleChange: 0,
+		errorStr:    "scale < 0 not valid",
+	}} {
+		c.Logf("test #%d", i)
+		_, err := client.ScaleApplication(application.ScaleApplicationParams{
+			ApplicationName: "foo",
+			Scale:           test.scale,
+			ScaleChange:     test.scaleChange,
+		})
+		c.Assert(err, gc.ErrorMatches, test.errorStr)
+	}
+}
+
 func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {

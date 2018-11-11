@@ -140,6 +140,14 @@ func (a *mockApplication) GetScale() int {
 	return a.scale
 }
 
+func (a *mockApplication) ChangeScale(scaleChange int) (int, error) {
+	a.MethodCall(a, "ChangeScale", scaleChange)
+	if err := a.NextErr(); err != nil {
+		return a.scale, err
+	}
+	return a.scale + scaleChange, nil
+}
+
 func (a *mockApplication) Scale(scale int) error {
 	a.MethodCall(a, "Scale", scale)
 	if err := a.NextErr(); err != nil {

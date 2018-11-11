@@ -37,8 +37,8 @@ placement directive ("--to") for targeting specific machines or containers,
 which will bypass application and model constraints.
 
 Note:
-For Kubernetes models the only valid argument is -n, --num-units anything
-additional will result in an error.
+For Kubernetes models the only valid argument is -n, --num-units.
+Anything additional will result in an error.
 
 Examples:
 
@@ -148,6 +148,8 @@ type addUnitCommand struct {
 	UnitCommandBase
 	ApplicationName string
 	api             applicationAddUnitAPI
+
+	unknownModel bool
 }
 
 func (c *addUnitCommand) Info() *cmd.Info {
@@ -188,17 +190,27 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
+	if err := c.validateArgs(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		c.unknownModel = true
+	}
+
+	return c.UnitCommandBase.Init(args)
+}
+
+func (c *addUnitCommand) validateArgs() error {
 	modelType, err := c.ModelType()
 	if err != nil {
 		return err
 	}
 	if modelType == model.CAAS {
 		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
-			return errors.New("Kubernetes models only supports num-units flag")
+			return errors.New("Kubernetes models only support --num-units")
 		}
 	}
-
-	return c.UnitCommandBase.Init(args)
+	return nil
 }
 
 // applicationAddUnitAPI defines the methods on the client API
@@ -231,6 +243,12 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
+	if c.unknownModel {
+		if err := c.validateArgs(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	modelType, err := c.ModelType()
 	if err != nil {
 		return err
@@ -242,7 +260,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 			ScaleChange:     c.NumUnits,
 		})
 		if params.IsCodeUnauthorized(err) {
-			common.PermissionsMessage(ctx.Stderr, "add a unit")
+			common.PermissionsMessage(ctx.Stderr, "scale an application")
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

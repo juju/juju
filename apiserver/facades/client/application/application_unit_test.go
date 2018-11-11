@@ -655,41 +655,41 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 		}},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "GetScale")
-	app.CheckCall(c, 1, "Scale", 7)
+	app.CheckCall(c, 0, "ChangeScale", 5)
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheck(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
 	s.backend.applications["postgresql"].scale = 2
-	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{{
-			ApplicationTag: "application-postgresql",
-			Scale:          5,
-			ScaleChange:    5,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "requesting scale and scale-change not valid")
 
-	results, err = s.api.ScaleApplications(params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{{
-			ApplicationTag: "application-postgresql",
-			Scale:          0,
-			ScaleChange:    0,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "scale of 0 not valid")
-
-	results, err = s.api.ScaleApplications(params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{{
-			ApplicationTag: "application-postgresql",
-			Scale:          -1,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "scale < 0 not valid")
+	for i, test := range []struct {
+		scale       int
+		scaleChange int
+		errorStr    string
+	}{{
+		scale:       5,
+		scaleChange: 5,
+		errorStr:    "requesting both scale and scale-change not valid",
+	}, {
+		scale:       0,
+		scaleChange: 0,
+		errorStr:    "scale of 0 not valid",
+	}, {
+		scale:       -1,
+		scaleChange: 0,
+		errorStr:    "scale < 0 not valid",
+	}} {
+		c.Logf("test #%d", i)
+		results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+			Applications: []params.ScaleApplicationParams{{
+				ApplicationTag: "application-postgresql",
+				Scale:          test.scale,
+				ScaleChange:    test.scaleChange,
+			}}})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.ErrorMatches, test.errorStr)
+	}
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {

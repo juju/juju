@@ -596,10 +596,10 @@ type ScaleApplicationParams struct {
 	// ApplicationName is the application to scale.
 	ApplicationName string
 
-	// Scale is the target number of units which should exist
+	// Scale is the target number of units which should should be running.
 	Scale int
 
-	// ScaleChange is the amount of change to the target amount of existing units
+	// ScaleChange is the amount of change to the target number of existing units.
 	ScaleChange int
 }
 
@@ -608,6 +608,11 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 	if !names.IsValidApplication(in.ApplicationName) {
 		return params.ScaleApplicationResult{}, errors.NotValidf("application %q", in.ApplicationName)
 	}
+
+	if err := validateApplicationScale(in.Scale, in.ScaleChange); err != nil {
+		return params.ScaleApplicationResult{}, errors.Trace(err)
+	}
+
 	args := params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
@@ -935,4 +940,15 @@ func (c *Client) GetLXDProfileUpgradeMessages(applicationName string, watcherId 
 		messages[k].Message = v.Message
 	}
 	return messages, nil
+}
+
+func validateApplicationScale(scale, scaleChange int) error {
+	if scale == 0 && scaleChange == 0 {
+		return errors.NotValidf("scale of 0")
+	} else if scale < 0 && scaleChange == 0 {
+		return errors.NotValidf("scale < 0")
+	} else if scale != 0 && scaleChange != 0 {
+		return errors.NotValidf("requesting both scale and scale-change")
+	}
+	return nil
 }
