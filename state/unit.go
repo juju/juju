@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -698,7 +699,7 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"hasvote", true}},
 		}}}
 		// Remove the charm profile.
-		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), ""))
+		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can

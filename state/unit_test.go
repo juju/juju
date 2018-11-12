@@ -460,8 +460,14 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 
 	c.Assert(colocated.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
-	c.Assert(host.UpgradeCharmProfileApplication(), gc.Equals, "lxd-profile")
-	c.Assert(host.UpgradeCharmProfileCharmURL(), gc.Equals, "")
+
+	chAppName, err := host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, "lxd-profile")
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, "")
+
 	c.Assert(host.Destroy(), gc.NotNil)
 }
 

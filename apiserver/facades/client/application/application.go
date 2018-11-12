@@ -875,7 +875,11 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 			results.Results[k].Error = common.ServerError(errors.Annotatef(err, "machine %q failure", machineId))
 			continue
 		}
-		status := machine.UpgradeCharmProfileComplete()
+		status, err := machine.UpgradeCharmProfileComplete()
+		if err != nil {
+			results.Results[k].Error = common.ServerError(errors.Annotatef(err, "machine instance %q failure", machineId))
+			continue
+		}
 		if !lxdprofile.UpgradeStatusTerminal(status) {
 			finished = false
 		}
@@ -894,7 +898,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 		}
 		// reset the upgrade charm profile complete status so that it's in a
 		// known consistent state.
-		if resErr := api.setUpgradeCharmProfileCompleteStatus(units, lxdprofile.EmptyStatus); resErr != nil {
+		if resErr := api.removeUpgradeCharmProfileData(units); resErr != nil {
 			// we maybe in a incomplete status and performing upgrades may not work
 			// correctly. It requires operator intervention.
 			return results, resErr
@@ -903,7 +907,7 @@ func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMes
 	return results, nil
 }
 
-func (api *APIBase) setUpgradeCharmProfileCompleteStatus(units []Unit, status string) error {
+func (api *APIBase) removeUpgradeCharmProfileData(units []Unit) error {
 	var errs []error
 	for _, unit := range units {
 		machineId, err := unit.AssignedMachineId()
@@ -921,8 +925,8 @@ func (api *APIBase) setUpgradeCharmProfileCompleteStatus(units []Unit, status st
 			errs = append(errs, err)
 			continue
 		}
-		if err := machine.SetUpgradeCharmProfileComplete(status); err != nil {
-			logger.Debugf("unable to set the upgrade charm profile complete status for %q :%v", unit.UnitTag(), err)
+		if err := machine.RemoveUpgradeCharmProfileData(); err != nil {
+			logger.Debugf("unable to remove the upgrade charm profile data for %q :%v", unit.UnitTag(), err)
 			errs = append(errs, err)
 		}
 	}

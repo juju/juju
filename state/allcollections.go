@@ -313,8 +313,9 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with machines.
-		containerRefsC: {},
-		instanceDataC:  {},
+		containerRefsC:            {},
+		instanceDataC:             {},
+		instanceCharmProfileDataC: {},
 		machinesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machineid"},
@@ -546,6 +547,7 @@ const (
 	guimetadataC               = "guimetadata"
 	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
+	instanceCharmProfileDataC  = "instanceCharmProfileData"
 	leasesC                    = "leases"
 	leaseHoldersC              = "leaseholders"
 	machinesC                  = "machines"

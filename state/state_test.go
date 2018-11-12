@@ -1850,8 +1850,13 @@ func (s *StateSuite) TestAssignUnitWithPlacementAddCharmProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.UpgradeCharmProfileApplication(), gc.Equals, name)
-	c.Assert(machine.UpgradeCharmProfileCharmURL(), gc.Equals, charm.URL().String())
+
+	chAppName, err := machine.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, name)
+	chCharmURL, err := machine.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, charm.URL().String())
 }
 
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {

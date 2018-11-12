@@ -143,19 +143,6 @@ type machineDoc struct {
 	// StopMongoUntilVersion holds the version that must be checked to
 	// know if mongo must be stopped.
 	StopMongoUntilVersion string `bson:",omitempty"`
-
-	// UpgradeCharmProfileApplication holds the name of the application where there
-	// is an charm upgrade event and a charm profile.
-	UpgradeCharmProfileApplication string `bson:",omitempty"`
-
-	// UpgradeCharmProfileCharmURL holds the charm URL when there is an charm
-	// upgrade event with a charm profile.  This is used before the application
-	// contains the new charm URL during a charm upgrade.
-	UpgradeCharmProfileCharmURL string `bson:",omitempty"`
-
-	// UpgradeCharmProfileComplete holds the outcome of charm upgrade event
-	// with a charm profile in play.  Success, Not Required or the Error.
-	UpgradeCharmProfileComplete string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -188,21 +175,6 @@ func (m *Machine) Series() string {
 // ContainerType returns the type of container hosting this machine.
 func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.doc.ContainerType)
-}
-
-// UpgradeCharmProfileApplication returns the replacement profile application name for the machine.
-func (m *Machine) UpgradeCharmProfileApplication() string {
-	return m.doc.UpgradeCharmProfileApplication
-}
-
-// UpgradeCharmProfileCharmURL returns the charm url for the replacement profile for the machine.
-func (m *Machine) UpgradeCharmProfileCharmURL() string {
-	return m.doc.UpgradeCharmProfileCharmURL
-}
-
-// UpgradeCharmProfileComplete returns the charm upgrade with profile completion message
-func (m *Machine) UpgradeCharmProfileComplete() string {
-	return m.doc.UpgradeCharmProfileComplete
 }
 
 func (m *Machine) ModelName() string {
@@ -290,6 +262,84 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 		return instanceData{}, fmt.Errorf("cannot get instance data for machine %v: %v", id, err)
 	}
 	return instData, nil
+}
+
+// instanceCharmProfileDataC holds attributes relevant to a lxd charm profile
+// data that's on the machine
+type instanceCharmProfileData struct {
+	DocID     string `bson:"_id"`
+	MachineId string `bson:"machineid"`
+
+	// UpgradeCharmProfileApplication holds the name of the application where there
+	// is an charm upgrade event and a charm profile, even if there is no charm
+	// profile.
+	UpgradeCharmProfileApplication string `bson:",omitempty"`
+
+	// UpgradeCharmProfileCharmURL holds the charm URL when there is an charm
+	// upgrade event with a charm profile.  This is used before the application
+	// contains the new charm URL during a charm upgrade.
+	UpgradeCharmProfileCharmURL string `bson:",omitempty"`
+
+	// UpgradeCharmProfileComplete holds the outcome of charm upgrade event
+	// with a charm profile in play.  Success, Not Required or the Error.
+	UpgradeCharmProfileComplete string `bson:",omitempty"`
+}
+
+func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData, error) {
+	collection, closer := st.db().GetCollection(instanceCharmProfileDataC)
+	defer closer()
+
+	var instData instanceCharmProfileData
+	err := collection.FindId(id).One(&instData)
+	if err == mgo.ErrNotFound {
+		return instanceCharmProfileData{}, errors.NotFoundf("instance charm profile data %v", id)
+	}
+	if err != nil {
+		return instanceCharmProfileData{}, errors.Errorf("cannot get instance charm profile data for machine %v: %v", id, err)
+	}
+	return instData, nil
+}
+
+// TODO (stickupkid): We can no longer cache the information directly on the
+// machine and reuse that in other places, instead we could potentially optimise
+// the following calls, so that we return both UpgradeCharmProfileApplication
+// and UpgradeCharmProfileCharmURL as one call, instead of double requesting the
+// data.
+
+// UpgradeCharmProfileApplication returns the replacement profile application name for the machine.
+func (m *Machine) UpgradeCharmProfileApplication() (string, error) {
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return instData.UpgradeCharmProfileApplication, nil
+}
+
+// UpgradeCharmProfileCharmURL returns the charm url for the replacement profile for the machine.
+func (m *Machine) UpgradeCharmProfileCharmURL() (string, error) {
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return instData.UpgradeCharmProfileCharmURL, nil
+}
+
+// UpgradeCharmProfileComplete returns the charm upgrade with profile completion message
+func (m *Machine) UpgradeCharmProfileComplete() (string, error) {
+	instData, err := getInstanceCharmProfileData(m.st, m.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return instData.UpgradeCharmProfileComplete, nil
 }
 
 // Tag returns a tag identifying the machine. The String method provides a
@@ -2209,36 +2259,60 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 			if provisioned {
 				ops = append(ops, m.checkCharmProfilesIsEmptyOp())
 			}
-			return append(ops, m.setUpgradeCharmProfileCompleteOp(lxdprofile.NotRequiredStatus)), nil
+			return append(ops,
+				m.SetUpgradeCharmProfileOp("", "", lxdprofile.NotRequiredStatus),
+			), nil
 		}
 		return []txn.Op{
-			m.SetUpgradeCharmProfileOp(appName, chURL),
+			{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: isAliveDoc,
+			},
+			m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus),
 		}, nil
 	}
 	err = m.st.db().Run(buildTxn)
 	if err != nil {
 		return err
 	}
-	m.doc.UpgradeCharmProfileApplication = appName
-	m.doc.UpgradeCharmProfileCharmURL = chURL
 	return nil
 }
 
 // SetUpgradeCharmProfileOp returns a transaction for the machine to
 // trigger a change to its LXD Profile(s).
-func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL string) txn.Op {
+func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op {
+	_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	if errors.IsNotFound(err) {
+		instanceData := instanceCharmProfileData{
+			DocID:                          m.doc.DocID,
+			MachineId:                      m.doc.Id,
+			UpgradeCharmProfileCharmURL:    chURL,
+			UpgradeCharmProfileApplication: appName,
+			UpgradeCharmProfileComplete:    status,
+		}
+		return txn.Op{
+			C:      instanceCharmProfileDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: instanceData,
+		}
+	}
 	return txn.Op{
-		C:      machinesC,
+		C:      instanceCharmProfileDataC,
 		Id:     m.doc.DocID,
-		Assert: bson.D{{"life", Alive}},
+		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
 			{"upgradecharmprofilecharmurl", chURL},
 			{"upgradecharmprofileapplication", appName},
-			{"upgradecharmprofilecomplete", lxdprofile.EmptyStatus},
+			{"upgradecharmprofilecomplete", status},
 		}}},
 	}
 }
 
+// SetUpgradeCharmProfileComplete on the instance charm profile data.
+// If the profile has been removed, then this will throw an error upon
+// running the transaction
 func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2250,15 +2324,62 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
+		data, err := getInstanceCharmProfileData(m.st, m.Id())
+		if err != nil || data.UpgradeCharmProfileComplete == msg {
+			return nil, jujutxn.ErrNoOperations
+		}
 		return []txn.Op{
-			m.setUpgradeCharmProfileCompleteOp(msg),
+			{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: isAliveDoc,
+			},
+			{
+				C:      instanceCharmProfileDataC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
+			},
 		}, nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	m.doc.UpgradeCharmProfileComplete = msg
+	return nil
+}
+
+// RemoveUpgradeCharmProfileData completely removes the instance charm profile
+// data for a machine, even if the machine is dead.
+func (m *Machine) RemoveUpgradeCharmProfileData() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Write the instance data out to a log, so that we can audit the
+		// information if there is an issue.
+		data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		// If the instance data is removed already, just
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		if err == nil {
+			logger.Debugf("Removing instance charm profile data %v", data)
+		}
+
+		// Note: we don't care if the machine is alive or not, we do want to
+		// remove the charm profile data, even if the machine is dead. The is
+		// for two reasons
+		//  1. Ensure we don't leave any orphans
+		//  2. To prevent any watchers from miss-firing on old data.
+		return []txn.Op{{
+			C:      instanceCharmProfileDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -2274,17 +2395,6 @@ func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
 				{{"charm-profiles", bson.D{{"$exists", false}}}},
 			},
 		}},
-	}
-}
-
-// setUpgradeCharmProfileCompleteOp updates the upgradecharmprofilecomplete
-// field with the correct message.
-func (m *Machine) setUpgradeCharmProfileCompleteOp(msg string) txn.Op {
-	return txn.Op{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"life", Alive}},
-		Update: bson.D{{"$set", bson.D{{"upgradecharmprofilecomplete", msg}}}},
 	}
 }
 
