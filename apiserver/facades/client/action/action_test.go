@@ -6,6 +6,7 @@ package action_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -204,9 +205,9 @@ func (s *actionSuite) TestFindActionsByName(c *gc.C) {
 
 	c.Assert(len(actions.Actions), gc.Equals, 2)
 	for i, actions := range actions.Actions {
-		for _, action := range actions.Actions {
-			c.Assert(action.Action.Name, gc.Equals, actionNames[i])
-			c.Assert(action.Action.Name, gc.Matches, actions.Name)
+		for _, act := range actions.Actions {
+			c.Assert(act.Action.Name, gc.Equals, actionNames[i])
+			c.Assert(act.Action.Name, gc.Matches, actions.Name)
 		}
 	}
 }
@@ -269,6 +270,18 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	actions, err = s.mysqlUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
+}
+
+func (s *actionSuite) TestLeaders(c *gc.C) {
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("mysql", "mysql/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.action.Leaders()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Check(result.Result, gc.DeepEquals, map[string]string{"mysql": "mysql/0"})
 }
 
 type testCaseAction struct {
@@ -337,22 +350,22 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
-			for j, action := range group.Actions {
+			for j, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(action.Name, action.Parameters)
+				added, err := unit.AddAction(act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				// make expectation
 				exp := &cur.Actions[j]
 				exp.Action = &params.Action{
 					Tag:        added.ActionTag().String(),
-					Name:       action.Name,
-					Parameters: action.Parameters,
+					Name:       act.Name,
+					Parameters: act.Parameters,
 				}
 				exp.Status = params.ActionPending
 				exp.Output = map[string]interface{}{}
 
-				if action.Execute {
+				if act.Execute {
 					status := state.ActionCompleted
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
@@ -402,12 +415,12 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
-			for _, action := range group.Actions {
+			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(action.Name, action.Parameters)
+				added, err := unit.AddAction(act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
-				if action.Execute {
+				if act.Execute {
 					status := state.ActionCompleted
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
@@ -420,8 +433,8 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 					exp := params.ActionResult{
 						Action: &params.Action{
 							Tag:        added.ActionTag().String(),
-							Name:       action.Name,
-							Parameters: action.Parameters,
+							Name:       act.Name,
+							Parameters: act.Parameters,
 						},
 						Status: params.ActionPending,
 						Output: map[string]interface{}{},
@@ -465,12 +478,12 @@ func (s *actionSuite) TestListRunning(c *gc.C) {
 			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
-			for _, action := range group.Actions {
+			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(action.Name, action.Parameters)
+				added, err := unit.AddAction(act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
-				if action.Execute {
+				if act.Execute {
 					started, err := added.Begin()
 					c.Assert(err, jc.ErrorIsNil)
 					c.Assert(started.Status(), gc.Equals, state.ActionRunning)
@@ -479,8 +492,8 @@ func (s *actionSuite) TestListRunning(c *gc.C) {
 					exp := params.ActionResult{
 						Action: &params.Action{
 							Tag:        added.ActionTag().String(),
-							Name:       action.Name,
-							Parameters: action.Parameters,
+							Name:       act.Name,
+							Parameters: act.Parameters,
 						},
 						Status: params.ActionRunning,
 						Output: map[string]interface{}{},
@@ -524,12 +537,12 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
-			for _, action := range group.Actions {
+			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(action.Name, action.Parameters)
+				added, err := unit.AddAction(act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
-				if action.Execute {
+				if act.Execute {
 					status := state.ActionCompleted
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
@@ -541,8 +554,8 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 					exp := params.ActionResult{
 						Action: &params.Action{
 							Tag:        added.ActionTag().String(),
-							Name:       action.Name,
-							Parameters: action.Parameters,
+							Name:       act.Name,
+							Parameters: act.Parameters,
 						},
 						Status:  string(status),
 						Message: message,
@@ -608,7 +621,10 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 2)
 
 	// Assert the Actions are all in the expected state.
-	tags := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}, {Tag: s.mysqlUnit.Tag().String()}}}
+	tags := params.Entities{Entities: []params.Entity{
+		{Tag: s.wordpressUnit.Tag().String()},
+		{Tag: s.mysqlUnit.Tag().String()},
+	}}
 	obtained, err := s.action.ListAll(tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.Actions, gc.HasLen, 2)

@@ -204,6 +204,19 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	return response, nil
 }
 
+// Leaders returns currently known applications and their leader units.
+func (a *ActionAPI) Leaders() (params.LeadersResult, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.LeadersResult{}, errors.Trace(err)
+	}
+
+	leaders, err := a.state.ApplicationLeaders()
+	if err != nil {
+		return params.LeadersResult{Error: common.ServerError(err)}, nil
+	}
+	return params.LeadersResult{Result: leaders}, nil
+}
+
 // ListAll takes a list of Entities representing ActionReceivers and
 // returns all of the Actions that have been enqueued or run by each of
 // those Entities.
