@@ -263,6 +263,10 @@ func (s *stubStateTracker) Done() error {
 	return err
 }
 
+func (s *stubStateTracker) Report() map[string]interface{} {
+	return map[string]interface{}{"hey": "mum"}
+}
+
 func (s *stubStateTracker) waitDone(c *gc.C) {
 	select {
 	case <-s.done:
