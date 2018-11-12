@@ -80,7 +80,7 @@ type PinApplicationResult struct {
 	// ApplicationName is the application for which a leadership pin/unpin
 	// operation was attempted.
 	ApplicationName string `json:"application-name"`
-	// Error will container a reference to an error resulting from pin/unpin
+	// Error will contain a reference to an error resulting from pin/unpin
 	// if one occurred.
 	Error *Error `json:"error,omitempty"`
 }
@@ -93,4 +93,12 @@ type PinnedLeadershipResult struct {
 	// - Tag slice values representing the entities requiring pinned
 	//   behaviour for each application.
 	Result map[string][]string `json:"result,omitempty"`
+}
+
+// LeadersResult transports data for applications and their current leaders.
+type LeadersResult struct {
+	// Result is collection of current leading units keyed by application.
+	Result map[string]string `json:"result,omitempty"`
+	// Error is a reference to an error from querying current leaders.
+	Error *Error `json:"error,omitempty"`
 }

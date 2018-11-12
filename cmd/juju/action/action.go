@@ -56,6 +56,9 @@ type APIClient interface {
 	// FindActionsByNames takes a list of names and finds a corresponding list of
 	// Actions for every name.
 	FindActionsByNames(params.FindActionsByNames) (params.ActionsByNames, error)
+
+	// Leaders returns applications and their current leader units.
+	Leaders() (map[string]string, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.

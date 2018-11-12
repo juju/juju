@@ -4,6 +4,7 @@
 package action
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,13 +13,19 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
+
+// leaderSnippet is a regular expression for unit ID-like syntax that is used
+// to indicate the current leader for an application.
+const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+
+var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 
 // nameRule describes the name format of an action or keyName must match to be valid.
 var nameRule = charm.GetActionNameRule()
@@ -31,7 +38,9 @@ func NewRunCommand() cmd.Command {
 // params
 type runCommand struct {
 	ActionCommandBase
-	unitTags     []names.UnitTag
+	api          APIClient
+	unitNames    []string
+	leaders      map[string]string
 	actionName   string
 	paramsYAML   cmd.FileVar
 	parseStrings bool
@@ -138,11 +147,16 @@ func (c *runCommand) Info() *cmd.Info {
 }
 
 // Init gets the unit tag(s), action name and action arguments.
-func (c *runCommand) Init(args []string) error {
-	var unitNames []string
-	for idx, arg := range args {
-		if names.IsValidUnit(arg) {
-			unitNames = args[:idx+1]
+func (c *runCommand) Init(args []string) (err error) {
+	defer func() {
+		if err != nil && c.api != nil {
+			c.api.Close()
+		}
+	}()
+
+	for _, arg := range args {
+		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
+			c.unitNames = append(c.unitNames, arg)
 		} else if nameRule.MatchString(arg) {
 			c.actionName = arg
 			break
@@ -150,20 +164,16 @@ func (c *runCommand) Init(args []string) error {
 			return errors.Errorf("invalid unit or action name %q", arg)
 		}
 	}
-	if len(unitNames) == 0 {
+	if len(c.unitNames) == 0 {
 		return errors.New("no unit specified")
 	}
 	if c.actionName == "" {
 		return errors.New("no action specified")
 	}
-	c.unitTags = make([]names.UnitTag, len(unitNames))
-	for idx, unitName := range unitNames {
-		c.unitTags[idx] = names.NewUnitTag(unitName)
-	}
 
 	// Parse CLI key-value args if they exist.
 	c.args = make([][]string, 0)
-	for _, arg := range args[len(unitNames)+1:] {
+	for _, arg := range args[len(c.unitNames)+1:] {
 		thisArg := strings.SplitN(arg, "=", 2)
 		if len(thisArg) != 2 {
 			return errors.Errorf("argument %q must be of the form key...=value", arg)
@@ -172,7 +182,8 @@ func (c *runCommand) Init(args []string) error {
 		// check each key for validity
 		for _, key := range keySlice {
 			if valid := nameRule.MatchString(key); !valid {
-				return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
+				return errors.Errorf("key %q must start and end with lowercase alphanumeric, "+
+					"and contain only lowercase alphanumeric and hyphens", key)
 			}
 		}
 		// c.args={..., [key, key, key, key, value]}
@@ -182,14 +193,25 @@ func (c *runCommand) Init(args []string) error {
 }
 
 func (c *runCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewActionAPIClient()
-	if err != nil {
-		return err
+	if err := c.ensureAPI(); err != nil {
+		return errors.Trace(err)
 	}
-	defer api.Close()
+	defer c.api.Close()
+
+	unitTags := make([]names.UnitTag, len(c.unitNames))
+	for idx, unitName := range c.unitNames {
+		if strings.HasSuffix(unitName, "leader") {
+			var err error
+			unitName, err = c.leader(strings.Split(unitName, "/")[0])
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ctx.Infof("resolved leader: %s", unitName)
+		}
+		unitTags[idx] = names.NewUnitTag(unitName)
+	}
 
 	actionParams := map[string]interface{}{}
-
 	if c.paramsYAML.Path != "" {
 		b, err := c.paramsYAML.Read(ctx)
 		if err != nil {
@@ -241,18 +263,18 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
 
-	actions := make([]params.Action, len(c.unitTags))
-	for i, unitTag := range c.unitTags {
+	actions := make([]params.Action, len(unitTags))
+	for i, unitTag := range unitTags {
 		actions[i].Receiver = unitTag.String()
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := api.Enqueue(params.Actions{Actions: actions})
+	results, err := c.api.Enqueue(params.Actions{Actions: actions})
 	if err != nil {
 		return err
 	}
 
-	if len(results.Results) != len(c.unitTags) {
+	if len(results.Results) != len(unitTags) {
 		return errors.New("illegal number of results returned")
 	}
 
@@ -270,19 +292,19 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 		// Legacy Juju 1.25 output format for a single unit, no wait.
 		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results.Results) == 1 {
-			output := map[string]string{"Action queued with id": tag.Id()}
-			return c.out.Write(ctx, output)
+			out := map[string]string{"Action queued with id": tag.Id()}
+			return c.out.Write(ctx, out)
 		}
 	}
 
-	output := make(map[string]interface{}, len(results.Results))
+	out := make(map[string]interface{}, len(results.Results))
 
 	// Immediate return. This is the default, although rarely
 	// what cli users want. We should consider changing this
 	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
 		for _, result := range results.Results {
-			output[result.Action.Receiver] = result.Action.Tag
+			out[result.Action.Receiver] = result.Action.Tag
 			actionTag, err := names.ParseActionTag(result.Action.Tag)
 			if err != nil {
 				return err
@@ -291,12 +313,12 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			output[result.Action.Receiver] = map[string]string{
+			out[result.Action.Receiver] = map[string]string{
 				"id":   actionTag.Id(),
 				"unit": unitTag.Id(),
 			}
 		}
-		return c.out.Write(ctx, output)
+		return c.out.Write(ctx, out)
 	}
 
 	var wait *time.Timer
@@ -313,7 +335,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		result, err = GetActionResult(api, tag.Id(), wait)
+		result, err = GetActionResult(c.api, tag.Id(), wait)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -324,7 +346,35 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		d := FormatActionResult(result)
 		d["id"] = tag.Id()       // Action ID is required in case we timed out.
 		d["unit"] = unitTag.Id() // Formatted unit is nice to have.
-		output[result.Action.Receiver] = d
+		out[result.Action.Receiver] = d
 	}
-	return c.out.Write(ctx, output)
+	return c.out.Write(ctx, out)
+}
+
+func (c *runCommand) ensureAPI() (err error) {
+	if c.api != nil {
+		return nil
+	}
+	c.api, err = c.NewActionAPIClient()
+	return errors.Trace(err)
+}
+
+var leaderErrMsg = "unable to determine leader for application %q"
+
+func (c *runCommand) leader(app string) (string, error) {
+	if c.leaders == nil {
+		var err error
+		if c.leaders, err = c.api.Leaders(); err != nil {
+			if errors.IsNotImplemented(err) {
+				err = errors.Errorf(leaderErrMsg+
+					"\nleader determination is unsupported by this API"+
+					"\neither upgrade your controller, or explicitly specify a unit", app)
+			}
+			return "", errors.Trace(err)
+		}
+	}
+	if l, ok := c.leaders[app]; ok {
+		return l, nil
+	}
+	return "", errors.Errorf(leaderErrMsg, app)
 }
