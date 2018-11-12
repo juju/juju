@@ -9,7 +9,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/tomb.v2"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/watch"
@@ -57,7 +56,7 @@ func (w *KubernetesWatcher) loop() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			return tomb.ErrDying
+			return w.catacomb.ErrDying()
 		case evt, ok := <-w.k8watcher.ResultChan():
 			// This can happen if the k8s API connection drops.
 			if !ok {
