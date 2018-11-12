@@ -713,9 +713,6 @@ func (s *provisionerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// Initial event.
-	wc.AssertChange(container.Id())
-
 	// Update the upgrade-charm charm profile to trigger watcher.
 	container.SetUpgradeCharmProfile("app-name", "local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
