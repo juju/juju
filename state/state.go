@@ -218,26 +218,28 @@ func (st *State) RemoveModel() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		ops := []txn.Op{{
-			C:      modelsC,
-			Id:     st.ModelUUID(),
-			Assert: isDyingDoc,
-			Update: bson.M{"$set": bson.M{
-				"life":          Dead,
-				"time-of-death": st.nowToTheSecond(),
-			}},
-		}, {
-			// Cleanup the owner:modelName unique key.
-			C:      usermodelnameC,
-			Id:     model.uniqueIndexID(),
-			Remove: true,
-		}}
-		return ops, nil
-	}
+	if model.Life() == Dying {
+		buildTxn := func(attempt int) ([]txn.Op, error) {
+			ops := []txn.Op{{
+				C:      modelsC,
+				Id:     st.ModelUUID(),
+				Assert: isDyingDoc,
+				Update: bson.M{"$set": bson.M{
+					"life":          Dead,
+					"time-of-death": st.nowToTheSecond(),
+				}},
+			}, {
+				// Cleanup the owner:modelName unique key.
+				C:      usermodelnameC,
+				Id:     model.uniqueIndexID(),
+				Remove: true,
+			}}
+			return ops, nil
+		}
 
-	if err = st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
+		if err = st.db().Run(buildTxn); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
