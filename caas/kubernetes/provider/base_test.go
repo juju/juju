@@ -155,7 +155,6 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	}
 	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
-
 	return ctrl
 }
 

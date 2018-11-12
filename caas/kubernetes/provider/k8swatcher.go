@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// KubernetesWatcher reports changes to kubernetes
+// kubernetesWatcher reports changes to kubernetes
 // resources. A native kubernetes watcher is passed
 // in to generate change events from the kubernetes
 // model. These events are consolidated into a Juju
 // notification watcher event.
-type KubernetesWatcher struct {
+type kubernetesWatcher struct {
 	clock    jujuclock.Clock
 	catacomb catacomb.Catacomb
 
@@ -30,8 +30,8 @@ type KubernetesWatcher struct {
 	k8watcher watch.Interface
 }
 
-func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock) (*KubernetesWatcher, error) {
-	w := &KubernetesWatcher{
+func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error) {
+	w := &kubernetesWatcher{
 		clock:     clock,
 		out:       make(chan struct{}),
 		name:      name,
@@ -46,7 +46,7 @@ func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock
 
 const sendDelay = 1 * time.Second
 
-func (w *KubernetesWatcher) loop() error {
+func (w *kubernetesWatcher) loop() error {
 	defer close(w.out)
 	defer w.k8watcher.Stop()
 
@@ -64,10 +64,10 @@ func (w *KubernetesWatcher) loop() error {
 			}
 			logger.Tracef("received k8s event: %+v", evt.Type)
 			if pod, ok := evt.Object.(*core.Pod); ok {
-				logger.Debugf("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
+				logger.Tracef("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
 			}
 			if ns, ok := evt.Object.(*core.Namespace); ok {
-				logger.Debugf("%v(%v) = %v, status=%+v", ns.Name, ns.UID, ns.Labels, ns.Status)
+				logger.Tracef("%v(%v) = %v, status=%+v", ns.Name, ns.UID, ns.Labels, ns.Status)
 			}
 			if evt.Type == watch.Error {
 				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
@@ -86,17 +86,17 @@ func (w *KubernetesWatcher) loop() error {
 }
 
 // Changes returns the event channel for this watcher.
-func (w *KubernetesWatcher) Changes() watcher.NotifyChannel {
+func (w *kubernetesWatcher) Changes() watcher.NotifyChannel {
 	return w.out
 }
 
 // Kill asks the watcher to stop without waiting for it do so.
-func (w *KubernetesWatcher) Kill() {
+func (w *kubernetesWatcher) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait waits for the watcher to die and returns any
 // error encountered when it was running.
-func (w *KubernetesWatcher) Wait() error {
+func (w *kubernetesWatcher) Wait() error {
 	return w.catacomb.Wait()
 }

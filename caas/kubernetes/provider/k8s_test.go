@@ -331,8 +331,10 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).Times(1).
 			Return(s.k8sNotFoundError()),
+		// still terminating.
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, errors.New("any non k8s not found error")),
+			Return(ns, nil),
+		// terminated, not found returned.
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 	)
@@ -348,7 +350,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 
 	err := s.broker.Destroy(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, s.watcher), gc.ErrorMatches, "bad catacomb Kill: tomb.ErrDying")
+	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {

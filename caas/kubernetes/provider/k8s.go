@@ -98,7 +98,7 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
-type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*KubernetesWatcher, error)
+type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(
@@ -108,9 +108,6 @@ func NewK8sBroker(
 	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
 ) (caas.Broker, error) {
-	if newWatcher == nil {
-		newWatcher = newKubernetesWatcher
-	}
 	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)

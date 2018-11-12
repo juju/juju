@@ -21,6 +21,8 @@ var (
 	NewKubernetesWatcher   = newKubernetesWatcher
 )
 
+type KubernetesWatcher = kubernetesWatcher
+
 func PodSpec(u *unitSpec) core.PodSpec {
 	return u.Pod
 }

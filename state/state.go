@@ -211,10 +211,8 @@ func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
-// RemoveModel removes all documents from multi-model
-// collections. The model should be put into a dying state before call
-// this method. Otherwise, there is a race condition in which collections
-// could be added to during or after the running of this method.
+// RemoveModel sets current model to dead then removes all documents from
+// multi-model collections.
 func (st *State) RemoveModel() error {
 	model, err := st.Model()
 	if err != nil {
