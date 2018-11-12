@@ -136,15 +136,14 @@ func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
 		ids[i] = req.instId
 	}
 	insts, err := a.config.Environ.Instances(a.callContext, ids)
-	if len(insts) == 0 {
-		return nil
-	}
 	for i, req := range reqs {
 		var reply instanceInfoReply
 		if err != nil && err != environs.ErrPartialInstances {
 			reply.err = err
 		} else {
-			reply.info, reply.err = a.instInfo(req.instId, insts[i])
+			if len(insts) >= (i + 1) {
+				reply.info, reply.err = a.instInfo(req.instId, insts[i])
+			}
 		}
 		select {
 		// Per review http://reviews.vapour.ws/r/4885/ it's dumb to block
