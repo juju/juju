@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -108,6 +109,8 @@ var (
 var ProductionMongoWriteConcern = true
 
 func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
 		safe := mgo.Safe{}

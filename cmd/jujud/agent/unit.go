@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock"
@@ -104,6 +105,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
+	rand.Seed(time.Now().UTC().UnixNano())
 	a.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       cmdutil.IsFatal,
 		MoreImportant: cmdutil.MoreImportant,

@@ -5,6 +5,7 @@ package agent
 
 import (
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -102,6 +103,7 @@ func (op *CaasOperatorAgent) Init(args []string) error {
 	if err := op.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
+	rand.Seed(time.Now().UTC().UnixNano())
 	op.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       cmdutil.IsFatal,
 		MoreImportant: cmdutil.MoreImportant,
