@@ -27,18 +27,27 @@ var usageAddUnitDetails = `
 The add-unit is used to scale out an application for improved performance or
 availability.
 
+The usage of this command differs depending on whether it is being used on a
+Kubernetes or cloud model.
+
 Many charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
 documentation for specific charms to check how scale-out is supported.
 
-By default, units are deployed to newly provisioned machines in accordance
-with any application or model constraints. This command also supports the
-placement directive ("--to") for targeting specific machines or containers,
-which will bypass application and model constraints.
-
-Note:
 For Kubernetes models the only valid argument is -n, --num-units.
 Anything additional will result in an error.
+
+Example:
+
+Add five units of mysql:
+    juju add-unit mysql --num-units 5
+
+
+For cloud models, by default, units are deployed to newly provisioned machines
+in accordance with any application or model constraints.
+This command also supports the placement directive ("--to") for targeting
+specific machines or containers, which will bypass application and model
+constraints.
 
 Examples:
 
@@ -190,7 +199,7 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
-	if err := c.validateArgs(); err != nil {
+	if err := c.validateArgsByModelType(); err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
@@ -200,7 +209,7 @@ func (c *addUnitCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-func (c *addUnitCommand) validateArgs() error {
+func (c *addUnitCommand) validateArgsByModelType() error {
 	modelType, err := c.ModelType()
 	if err != nil {
 		return err
@@ -244,7 +253,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	defer apiclient.Close()
 
 	if c.unknownModel {
-		if err := c.validateArgs(); err != nil {
+		if err := c.validateArgsByModelType(); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -274,3 +274,15 @@ func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
 	err = s.runAddUnit(c, "some-application-name", "--num-units", "2")
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
+	called := false
+	refresh := func(jujuclient.ClientStore, string) error {
+		called = true
+		return nil
+	}
+	cmd := application.NewAddUnitCommandForTestWithRefresh(s.fake, s.store, refresh)
+	_, err := cmdtesting.RunCommand(c, cmd, "-m", "nope", "no-app")
+	c.Check(called, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "model arthur:king/nope not found")
+}

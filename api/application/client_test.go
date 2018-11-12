@@ -1154,6 +1154,36 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", ScaleChange: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 7}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	results, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     5,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 7},
+	})
+}
+
 func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {

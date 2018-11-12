@@ -1391,6 +1391,9 @@ func (a *Application) Scale(scale int) error {
 			} else if !alive {
 				return nil, applicationNotAliveErr
 			}
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		return []txn.Op{{
 			C:  applicationsC,
