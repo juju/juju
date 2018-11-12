@@ -558,6 +558,10 @@ func (fw *Firewaller) reconcileInstances() error {
 		}
 		machineId := machined.tag.Id()
 
+		if len(instances) == 0 {
+			return nil
+		}
+
 		fwInstance, ok := instances[0].(instance.InstanceFirewaller)
 		if !ok {
 			return nil

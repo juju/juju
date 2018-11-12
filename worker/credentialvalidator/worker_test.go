@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/credentialvalidator"
@@ -59,6 +60,7 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.facade.watcher)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(credentialvalidator.WorkerCredentialDeleted(w), jc.IsFalse)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential")
 }
 
@@ -84,12 +86,31 @@ func (s *WorkerSuite) TestModelCredentialError(c *gc.C) {
 	s.facade.CheckCallNames(c, "ModelCredential")
 }
 
+func (s *WorkerSuite) TestModelCredentialDoesNotExist(c *gc.C) {
+	s.facade.SetErrors(common.ServerError(errors.NotFoundf("lost")))
+
+	w, err := testWorker(s.config)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(credentialvalidator.WorkerCredentialDeleted(w), jc.IsTrue)
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+
+	workertest.CheckKilled(c, w)
+	c.Assert(c.GetTestLog(), jc.Contains, "cloud credential reference is set for the model but the credential content is no longer on the controller")
+	s.facade.CheckCallNames(c, "ModelCredential")
+}
+
 func (s *WorkerSuite) TestModelCredentialNeededButUnset(c *gc.C) {
 	s.facade.setupModelHasNoCredential()
 	s.credential.Valid = false
-	worker, err := testWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "model has no credential set but is on the cloud that requires it")
-	c.Assert(worker, gc.IsNil)
+	w, err := testWorker(s.config)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(credentialvalidator.WorkerCredentialDeleted(w), jc.IsTrue)
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+
+	workertest.CheckKilled(c, w)
+	c.Assert(c.GetTestLog(), jc.Contains, "model credential is not set for the model but the cloud requires it")
 	s.facade.CheckCallNames(c, "ModelCredential")
 }
 
@@ -102,14 +123,20 @@ func (s *WorkerSuite) TestWatchError(c *gc.C) {
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential")
 }
 
-func (s *WorkerSuite) TestModelCredentialErrorWhileRunning(c *gc.C) {
-	s.facade.SetErrors(nil, nil, errors.New("mc fail"))
-	worker, err := testWorker(s.config)
+func (s *WorkerSuite) TestModelCredentialStopsExistingWhileRunning(c *gc.C) {
+	s.facade.SetErrors(
+		nil, // starting worker: ModelCredential
+		nil, // starting worker: WatchCredential
+		common.ServerError(errors.NotFoundf("deep loss")), // within worker loop: ModelCredential
+	)
+	w, err := testWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(credentialvalidator.WorkerCredentialDeleted(w), jc.IsFalse)
 
 	s.sendChange(c)
-	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "mc fail")
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "cloud credential validity has changed")
+	c.Check(credentialvalidator.WorkerCredentialDeleted(w), jc.IsTrue)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential", "ModelCredential")
 }
 
