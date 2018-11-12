@@ -218,6 +218,9 @@ func (st *State) RemoveModel() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if model.Life() == Alive {
+		return errors.Errorf("can't remove model: model still alive")
+	}
 	if model.Life() == Dying {
 		buildTxn := func(attempt int) ([]txn.Op, error) {
 			ops := []txn.Op{{

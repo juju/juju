@@ -351,6 +351,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 	err := s.broker.Destroy(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
