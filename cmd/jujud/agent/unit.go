@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock"
@@ -36,6 +37,10 @@ var (
 	// should be an explicit dependency, can't do it cleanly yet
 	unitManifolds = unit.Manifolds
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
@@ -104,6 +109,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
+
 	a.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       cmdutil.IsFatal,
 		MoreImportant: cmdutil.MoreImportant,
