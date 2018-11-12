@@ -58,6 +58,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"certificate-updater",
 		"certificate-watcher",
 		"clock",
+		"controller-port",
 		"disk-manager",
 		"external-controller-updater",
 		"fan-configurer",
@@ -136,6 +137,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"global-clock-updater",
 		"http-server",
 		"http-server-args",
@@ -302,6 +304,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"audit-config-updater",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
@@ -334,6 +337,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state-config-watcher"},
 
 	"clock": {},
+
+	"controller-port": {
+		"agent",
+		"central-hub",
+		"state",
+		"state-config-watcher"},
 
 	"disk-manager": {
 		"agent",
@@ -397,6 +406,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"central-hub",
 		"certificate-watcher",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
@@ -409,7 +419,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"http-server-args": {
 		"agent",
+		"central-hub",
 		"clock",
+		"controller-port",
 		"state",
 		"state-config-watcher"},
 
@@ -428,6 +440,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
@@ -556,7 +569,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"peer-grouper": {
 		"agent",
+		"central-hub",
 		"clock",
+		"controller-port",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",
@@ -586,6 +601,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"raft-transport",
@@ -601,6 +617,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
@@ -617,6 +634,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
@@ -634,6 +652,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
@@ -651,6 +670,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"raft",
@@ -667,6 +687,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
+		"controller-port",
 		"http-server-args",
 		"is-controller-flag",
 		"state",

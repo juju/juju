@@ -20,8 +20,9 @@ import (
 // ManifoldConfig holds the resources needed to run an httpserverargs
 // worker.
 type ManifoldConfig struct {
-	ClockName string
-	StateName string
+	ClockName          string
+	ControllerPortName string
+	StateName          string
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
 }
@@ -30,6 +31,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
+	}
+	if config.ControllerPortName == "" {
+		return errors.NotValidf("empty ControllerPortName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -47,6 +51,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var clock clock.Clock
 	if err := context.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ensure that the controller-port worker is running.
+	if err := context.Get(config.ControllerPortName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -81,6 +90,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ClockName,
+			config.ControllerPortName,
 			config.StateName,
 		},
 		Start:  config.start,

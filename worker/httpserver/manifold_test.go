@@ -5,8 +5,11 @@ package httpserver_test
 
 import (
 	"crypto/tls"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +19,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserver"
 )
@@ -26,12 +30,14 @@ type ManifoldSuite struct {
 	config               httpserver.ManifoldConfig
 	manifold             dependency.Manifold
 	context              dependency.Context
-	agent                *mockAgent
 	state                stubStateTracker
+	hub                  *pubsub.StructuredHub
 	mux                  *apiserverhttp.Mux
+	clock                *testclock.Clock
 	prometheusRegisterer stubPrometheusRegisterer
 	certWatcher          stubCertWatcher
 	tlsConfig            *tls.Config
+	controllerConfig     controller.Config
 
 	stub testing.Stub
 }
@@ -41,23 +47,31 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.agent = &mockAgent{}
 	s.state = stubStateTracker{}
 	s.mux = &apiserverhttp.Mux{}
+	s.hub = pubsub.NewStructuredHub(nil)
+	s.clock = testclock.NewClock(time.Now())
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}
 	s.tlsConfig = &tls.Config{}
+	s.controllerConfig = controller.Config(map[string]interface{}{
+		"api-port":            1024,
+		"controller-api-port": 2048,
+		"api-port-open-delay": "5s",
+	})
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
 	s.config = httpserver.ManifoldConfig{
-		AgentName:            "agent",
 		CertWatcherName:      "cert-watcher",
+		HubName:              "hub",
 		StateName:            "state",
 		MuxName:              "mux",
 		APIServerName:        "api-server",
 		RaftTransportName:    "raft-transport",
+		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		GetControllerConfig:  s.getControllerConfig,
 		NewTLSConfig:         s.newTLSConfig,
 		NewWorker:            s.newWorker,
 	}
@@ -66,9 +80,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":          s.agent,
 		"cert-watcher":   s.certWatcher.get,
 		"state":          &s.state,
+		"hub":            s.hub,
 		"mux":            s.mux,
 		"raft-transport": nil,
 		"api-server":     nil,
@@ -77,6 +91,14 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
+}
+
+func (s *ManifoldSuite) getControllerConfig(st *state.State) (controller.Config, error) {
+	s.stub.MethodCall(s, "GetControllerConfig", st)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.controllerConfig, nil
 }
 
 func (s *ManifoldSuite) newTLSConfig(
@@ -99,10 +121,10 @@ func (s *ManifoldSuite) newWorker(config httpserver.Config) (worker.Worker, erro
 }
 
 var expectedInputs = []string{
-	"agent",
 	"cert-watcher",
 	"state",
 	"mux",
+	"hub",
 	"raft-transport",
 	"api-server",
 }
@@ -125,17 +147,21 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
-	s.stub.CheckCallNames(c, "NewTLSConfig", "NewWorker")
-	newWorkerArgs := s.stub.Calls()[1].Args
+	s.stub.CheckCallNames(c, "NewTLSConfig", "GetControllerConfig", "NewWorker")
+	newWorkerArgs := s.stub.Calls()[2].Args
 	c.Assert(newWorkerArgs, gc.HasLen, 1)
 	c.Assert(newWorkerArgs[0], gc.FitsTypeOf, httpserver.Config{})
 	config := newWorkerArgs[0].(httpserver.Config)
 
 	c.Assert(config, jc.DeepEquals, httpserver.Config{
-		AgentConfig:          &s.agent.conf,
+		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		Hub:                  s.hub,
 		TLSConfig:            s.tlsConfig,
 		Mux:                  s.mux,
+		APIPort:              1024,
+		APIPortOpenDelay:     5 * time.Second,
+		ControllerAPIPort:    2048,
 	})
 }
 
@@ -145,9 +171,6 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserver.ManifoldConfig) { cfg.AgentName = "" },
-		"empty AgentName not valid",
-	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.CertWatcherName = "" },
 		"empty CertWatcherName not valid",
 	}, {
@@ -165,6 +188,9 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
+	}, {
+		func(cfg *httpserver.ManifoldConfig) { cfg.GetControllerConfig = nil },
+		"nil GetControllerConfig not valid",
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.NewTLSConfig = nil },
 		"nil NewTLSConfig not valid",

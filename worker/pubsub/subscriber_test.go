@@ -223,7 +223,44 @@ func (s *SubscriberSuite) TestEnableHA(c *gc.C) {
 	c.Assert(remote3.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.1.2.3"})
 	remote5 := s.remotes.remotes["machine-5"]
 	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.1.2.5"})
+}
 
+func (s *SubscriberSuite) TestEnableHAInternalAddress(c *gc.C) {
+	w, err := psworker.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	done, err := s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"3": {
+				ID:              "3",
+				Addresses:       []string{"10.1.2.3"},
+				InternalAddress: "10.5.4.3",
+			},
+			"5": {
+				ID:              "5",
+				Addresses:       []string{"10.1.2.5"},
+				InternalAddress: "10.5.4.4",
+			},
+			"42": {
+				ID:              "42",
+				Addresses:       []string{"10.1.2.42"},
+				InternalAddress: "10.5.4.5",
+			},
+		},
+		LocalOnly: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("message handling not completed")
+	}
+	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	remote3 := s.remotes.remotes["machine-3"]
+	c.Assert(remote3.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.3"})
+	remote5 := s.remotes.remotes["machine-5"]
+	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.4"})
 }
 
 func (s *SubscriberSuite) TestSameMessagesForwarded(c *gc.C) {
