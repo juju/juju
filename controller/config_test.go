@@ -287,6 +287,9 @@ func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
+	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.MaxLogsAge), jc.IsTrue)
+	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.MaxLogsSize), jc.IsTrue)
+
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
