@@ -54,6 +54,13 @@ Queue an Action for execution on a given unit, with a given set of params.
 The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
 
+Valid unit identifiers are: 
+  a standard unit ID, such as mysql/0 or;
+  leader syntax of the form <application>/leader, such as mysql/leader.
+
+If the leader syntax is used, the leader unit for the application will be
+resolved before the action is enqueued.
+
 Params are validated according to the charm for the unit's application.  The
 valid params can be seen using "juju actions <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
@@ -79,6 +86,10 @@ result:
 
 
 $ juju run-action mysql/3 backup
+action: <ID>
+
+$ juju run-action mysql/leader backup
+resolved leader: mysql/0
 action: <ID>
 
 $ juju show-action-output <ID>
