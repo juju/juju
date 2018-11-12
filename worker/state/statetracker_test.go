@@ -4,11 +4,14 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -99,4 +102,57 @@ func assertStatePoolNotClosed(c *gc.C, pool *state.StatePool) {
 
 func assertStatePoolClosed(c *gc.C, pool *state.StatePool) {
 	c.Assert(pool.SystemState(), gc.IsNil)
+}
+
+func isTxnLogStarted(report map[string]interface{}) bool {
+	// Sometimes when we call pool.Report() not all the workers have started yet, so we check
+	next := report
+	var ok bool
+	for _, p := range []string{"txn-watcher", "workers", "txnlog"} {
+		if child, ok := next[p]; !ok {
+			return false
+		} else {
+			next = child.(map[string]interface{})
+		}
+	}
+	state, ok := next["state"]
+	return ok && state == "started"
+}
+
+func (s *StateTrackerSuite) TestReport(c *gc.C) {
+	pool, err := s.stateTracker.Use()
+	c.Assert(err, jc.ErrorIsNil)
+	start := time.Now()
+	report := pool.Report()
+	for !isTxnLogStarted(report) {
+		if time.Since(start) >= testing.LongWait {
+			c.Fatalf("txlog worker did not start after %v", testing.LongWait)
+		}
+		time.Sleep(time.Millisecond)
+		report = pool.Report()
+	}
+	c.Check(report, gc.NotNil)
+	// We don't have any State models in the pool, but we do have the
+	// txn-watcher report and the system state.
+	c.Check(report, gc.HasLen, 3)
+	c.Check(report["pool-size"], gc.Equals, 0)
+
+	// Calling Report increments the request count in the system
+	// state's hubwatcher stats, so zero that out before comparing.
+	removeRequestCount := func(report map[string]interface{}) map[string]interface{} {
+		next := report
+		for _, p := range []string{"system", "workers", "txnlog", "report"} {
+			child, ok := next[p]
+			if !ok {
+				c.Fatalf("couldn't find system.workers.txnlog.report")
+			}
+			next = child.(map[string]interface{})
+		}
+		delete(next, "request-count")
+		return report
+	}
+	report = removeRequestCount(report)
+	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
+	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
+	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
 }

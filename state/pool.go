@@ -387,10 +387,29 @@ func (p *StatePool) IntrospectionReport() string {
 			index++
 			fmt.Fprintf(buff, "    [%d]\n%s\n", index, ref)
 		}
+		item.state.workers.Runner.Report()
 	}
 
 	return fmt.Sprintf(""+
 		"Model count: %d models\n"+
 		"Marked for removal: %d models\n"+
 		"\n%s", len(p.pool), removeCount, buff)
+}
+
+// Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
+// what is going on at runtime.
+func (p *StatePool) Report() map[string]interface{} {
+	p.mu.Lock()
+	report := make(map[string]interface{})
+	report["txn-watcher"] = p.watcherRunner.Report()
+	report["system"] = p.systemState.Report()
+	report["pool-size"] = len(p.pool)
+	for uuid, item := range p.pool {
+		modelReport := item.state.Report()
+		modelReport["ref-count"] = item.refCount()
+		modelReport["to-remove"] = item.remove
+		report[uuid] = modelReport
+	}
+	p.mu.Unlock()
+	return report
 }

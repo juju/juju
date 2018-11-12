@@ -70,7 +70,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 			return
 		}
 	}
-	c.Fatalf("failed to see expected calls. saw: %v", calls)
+	c.Fatalf("failed to see expected calls.\nexpected: %v\nobserved: %v", expected, calls)
 }
 
 func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Worker {
@@ -546,8 +546,6 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
-	relWatcher.changes <- []string{"db2:db django:db"}
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -579,7 +577,8 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 		s.relationsFacade.updateRelationLife("db2:db django:db", params.Dying)
 		forceCleanup := true
 		expected = append(expected, jujutesting.StubCall{
-			"PublishRelationChange", []interface{}{
+			FuncName: "PublishRelationChange",
+			Args: []interface{}{
 				params.RemoteRelationChangeEvent{
 					ApplicationToken: "token-django",
 					RelationToken:    "token-db2:db django:db",
@@ -590,6 +589,10 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 			}},
 		)
 	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
 	// After the worker resumes, normal processing happens.
 	s.waitForWorkerStubCalls(c, expected)
 }

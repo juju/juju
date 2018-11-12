@@ -796,6 +796,13 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 		Architecture: "amd64",
 		Memory:       8 * 1024,
 		RootDisk:     40 * 1024,
+		CpuCores:     2,
+		CpuPower:     100,
+		InstanceType: "big-inst",
+		Tags:         []string{"foo", "bar"},
+		VirtType:     "pv",
+		Container:    "kvm",
+		Spaces:       []string{"internal"},
 	}
 	m.SetConstraints(args)
 	m.SetStatus(minimalStatusArgs())
@@ -827,9 +834,11 @@ applications:
     - "0"
 machines:
   "0":
-    constraints: arch=amd64 mem=8192 root-disk=40960
+    constraints: arch=amd64 cpu-cores=2 cpu-power=100 mem=8192 root-disk=40960 instance-type=big-inst
+      container=kvm virt-type=pv tags=foo,bar spaces=internal
   "1":
-    constraints: arch=amd64 mem=8192 root-disk=40960
+    constraints: arch=amd64 cpu-cores=2 cpu-power=100 mem=8192 root-disk=40960 instance-type=big-inst
+      container=kvm virt-type=pv tags=foo,bar spaces=internal
 relations:
 - - mediawiki:db
   - mysql:mysql
@@ -889,9 +898,9 @@ applications:
     - "0"
 machines:
   "0":
-    constraints: arch=amd64 mem=4096 root-disk=16384
+    constraints: arch=amd64 mem=8192 root-disk=40960
   "1":
-    constraints: arch=amd64 mem=4096 root-disk=16384
+    constraints: arch=amd64 mem=8192 root-disk=40960
 relations:
 - - mediawiki:db
   - mysql:mysql

@@ -221,7 +221,7 @@ type CloudCredentialArgs struct {
 	IncludeSecrets bool                 `json:"include-secrets"`
 }
 
-// CloudCredential contains a cloud credential content.
+// CredentialContent contains a cloud credential content.
 type CredentialContent struct {
 	// Name is the short name of the credential.
 	Name string `json:"name"`
@@ -302,7 +302,7 @@ type UpdateCredentialResult struct {
 	Models []UpdateCredentialModelResult `json:"models,omitempty"`
 }
 
-// UpdateCredentialResult contains a set of UpdateCredentialResult.
+// UpdateCredentialResults contains a set of UpdateCredentialResult.
 type UpdateCredentialResults struct {
 	Results []UpdateCredentialResult `json:"results,omitempty"`
 }
@@ -318,6 +318,6 @@ type UpdateCredentialArgs struct {
 
 // InvalidateCredentialArg is used to invalidate a controller credential.
 type InvalidateCredentialArg struct {
-	// Reason is the desription of why we are invalidating credential.
+	// Reason is the description of why we are invalidating credential.
 	Reason string `json:"reason,omitempty"`
 }

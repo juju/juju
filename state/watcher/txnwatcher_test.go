@@ -66,11 +66,11 @@ func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 }
 
-func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration) {
+func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration, waiters int) {
 	// Here we are assuming that there is one and only one thing
 	// using the After function on the testing clock, that being our
 	// watcher.
-	s.clock.WaitAdvance(d, testing.ShortWait, 1)
+	c.Assert(s.clock.WaitAdvance(d, testing.ShortWait, waiters), jc.ErrorIsNil)
 }
 
 func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, *fakeHub) {
@@ -167,7 +167,7 @@ func (s *TxnWatcherSuite) TestInsert(c *gc.C) {
 
 	revno := s.insert(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -181,7 +181,7 @@ func (s *TxnWatcherSuite) TestUpdate(c *gc.C) {
 	_, hub := s.newWatcher(c, 1)
 	revno := s.update(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -195,7 +195,7 @@ func (s *TxnWatcherSuite) TestRemove(c *gc.C) {
 	_, hub := s.newWatcher(c, 1)
 	revno := s.remove(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -210,7 +210,7 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 	revno2 := s.insert(c, "test", "b")
 	revno3 := s.insert(c, "test", "c")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -225,7 +225,7 @@ func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
 
 	revnos := s.insertAll(c, "test", "a", "b", "c")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -257,7 +257,7 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 	c.Logf("Got %d documents in the collection...", count)
 	c.Assert(count, gc.Equals, N)
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected(c)
 
 	for i := 0; i < N; i++ {
@@ -269,9 +269,9 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	revno2 := s.remove(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 2)
 
 	hub.waitForExpected(c)
 
@@ -285,10 +285,10 @@ func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	s.update(c, "test", "a")
 	revno3 := s.update(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait)
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 2)
 
 	hub.waitForExpected(c)
 
