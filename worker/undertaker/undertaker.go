@@ -5,6 +5,7 @@ package undertaker
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -66,15 +67,29 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	u.callCtx = common.NewCloudCallContext(config.CredentialAPI, u.catacomb.Dying)
+	u.setCallCtx(common.NewCloudCallContext(config.CredentialAPI, u.catacomb.Dying))
 	return u, nil
 }
 
 type Undertaker struct {
+	lock     sync.Mutex
 	catacomb catacomb.Catacomb
 	config   Config
 
 	callCtx context.ProviderCallContext
+}
+
+func (u *Undertaker) getCallCtx() context.ProviderCallContext {
+	u.lock.Lock()
+	defer u.lock.Unlock()
+	ctx := u.callCtx
+	return ctx
+}
+
+func (u *Undertaker) setCallCtx(ctx context.ProviderCallContext) {
+	u.lock.Lock()
+	defer u.lock.Unlock()
+	u.callCtx = ctx
 }
 
 // Kill is part of the worker.Worker interface.
@@ -121,8 +136,6 @@ func (u *Undertaker) run() error {
 		}
 	}
 
-	// If we get this far, the model must be dead (or *have been*
-	// dead, but actually removed by something else since the call).
 	if modelInfo.IsSystem {
 		// Nothing to do. We don't destroy environ resources or
 		// delete model docs for a controller model, because we're
@@ -134,17 +147,17 @@ func (u *Undertaker) run() error {
 		return nil
 	}
 
-	// Now the model is known to be hosted and dead, we can tidy up any
+	// Now the model is known to be hosted and dying, we can tidy up any
 	// provider resources it might have used.
 	if err := u.setStatus(
 		status.Destroying, "tearing down cloud environment",
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.config.Destroyer.Destroy(u.callCtx); err != nil {
+	if err := u.config.Destroyer.Destroy(u.getCallCtx()); err != nil {
 		return errors.Trace(err)
 	}
-	// Finally, remove the model.
+	// Finally, the model is going to be dead, and be removed.
 	if err := u.config.Facade.RemoveModel(); err != nil {
 		return errors.Annotate(err, "cannot remove model")
 	}
