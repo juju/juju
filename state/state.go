@@ -1978,13 +1978,13 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// If either endpoint has container scope, so must the other; and the
 	// applications's series must also match, because they'll be deployed to
 	// the same machines.
-	matchSeries := true
+	compatibleSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
 		eps[1].Scope = charm.ScopeContainer
 	} else if eps[1].Scope == charm.ScopeContainer {
 		eps[0].Scope = charm.ScopeContainer
 	} else {
-		matchSeries = false
+		compatibleSeries = false
 	}
 	// We only get a unique relation id once, to save on roundtrips. If it's
 	// -1, we haven't got it yet (we don't get it at this stage, because we
@@ -2004,7 +2004,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
-		series := map[string]bool{}
+		appSeries := map[string][]string{}
 		for _, ep := range eps {
 			app, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
@@ -2022,7 +2022,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if localApp.doc.Subordinate {
 					subordinateCount++
 				}
-				series[localApp.doc.Series] = true
 				ch, _, err := localApp.Charm()
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -2030,6 +2029,11 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
+				charmSeries := ch.Meta().Series
+				if len(charmSeries) == 0 {
+					charmSeries = []string{localApp.doc.Series}
+				}
+				appSeries[localApp.doc.Name] = charmSeries
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
@@ -2038,8 +2042,14 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				})
 			}
 		}
-		if matchSeries && len(series) != 1 {
-			return nil, errors.Errorf("principal and subordinate applications' series must match")
+		if compatibleSeries && len(appSeries) > 1 {
+			// We need to ensure that there's intersection between the supported
+			// series of both applications' charms.
+			app1Series := set.NewStrings(appSeries[eps[0].ApplicationName]...)
+			app2Series := set.NewStrings(appSeries[eps[1].ApplicationName]...)
+			if app1Series.Intersection(app2Series).Size() == 0 {
+				return nil, errors.Errorf("principal and subordinate applications' series must match")
+			}
 		}
 		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
 			return nil, errors.Errorf("container scoped relation requires at least one subordinate application")
