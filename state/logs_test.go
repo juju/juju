@@ -25,6 +25,8 @@ import (
 type LogsSuite struct {
 	ConnSuite
 	logsColl *mgo.Collection
+
+	logger loggo.Logger
 }
 
 var _ = gc.Suite(&LogsSuite{})
@@ -32,6 +34,7 @@ var _ = gc.Suite(&LogsSuite{})
 func (s *LogsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.logsColl = s.logCollFor(s.State)
+	s.logger = loggo.GetLogger("test")
 }
 
 func (s *LogsSuite) logCollFor(st *state.State) *mgo.Collection {
@@ -206,8 +209,9 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 	log(maxLogTime.Add(-(2 * time.Second)), "prune")
 
 	noPruneMB := 100
-	err := state.PruneLogs(s.State, maxLogTime, noPruneMB)
+	msg, err := state.PruneLogs(s.State, maxLogTime, noPruneMB, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(msg, gc.Equals, "pruning complete after 0s, pruned 2 entries from 1 model, logs db now 0 MB")
 
 	// After pruning there should just be 3 "keep" messages left.
 	var docs []bson.M
@@ -245,9 +249,9 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 
 	// Prune logs collection back to 1 MiB.
 	tsNoPrune := coretesting.NonZeroTime().Add(-3 * 24 * time.Hour)
-	err := state.PruneLogs(s.State, tsNoPrune, 1)
+	msg, err := state.PruneLogs(s.State, tsNoPrune, 1, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-
+	c.Check(msg, gc.Equals, "pruning complete after 0s, pruned 3243 entries from 2 models, logs db now 1 MB")
 	// Logs for first model should not be touched.
 	c.Assert(s.countLogs(c, s0), gc.Equals, startingLogsS0)
 

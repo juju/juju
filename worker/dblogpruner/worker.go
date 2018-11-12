@@ -4,6 +4,7 @@
 package dblogpruner
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,7 +14,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
-	jworker "github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.dblogpruner")
@@ -44,32 +44,70 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := &pruneWorker{config: config}
-	return jworker.NewSimpleWorker(w.loop), nil
+	w := &pruneWorker{
+		config: config,
+	}
+	w.tomb.Go(w.loop)
+	return w, nil
 }
 
 type pruneWorker struct {
-	config Config
+	tomb    tomb.Tomb
+	mu      sync.Mutex
+	config  Config
+	current report
 }
 
-func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
+func (w *pruneWorker) Report() map[string]interface{} {
+	w.mu.Lock()
+	report := w.current
+	w.mu.Unlock()
+
+	// The keys used give a nice output when alphabetical
+	// which is how the report yaml gets serialised.
+	result := map[string]interface{}{
+		"prune-age":  report.maxLogAge,
+		"prune-size": report.maxCollectionMB,
+	}
+	if !report.lastPrune.IsZero() {
+		result["last-prune"] = report.lastPrune.Round(time.Second)
+	}
+	if !report.nextPrune.IsZero() {
+		result["next-prune"] = report.nextPrune.Round(time.Second)
+	}
+	if report.message != "" {
+		result["summary"] = report.message
+	}
+	if report.pruning {
+		result["pruning-in-progress"] = true
+	}
+	return result
+}
+
+type reportRequest struct {
+	response chan<- report
+}
+
+type report struct {
+	lastPrune       time.Time
+	nextPrune       time.Time
+	maxLogAge       time.Duration
+	maxCollectionMB int
+	message         string
+	pruning         bool
+}
+
+func (w *pruneWorker) loop() error {
 	controllerConfigWatcher := w.config.State.WatchControllerConfig()
 	defer worker.Stop(controllerConfigWatcher)
 
-	var (
-		maxLogAge               time.Duration
-		maxCollectionMB         int
-		controllerConfigChanges = controllerConfigWatcher.Changes()
-		pruneTimer              clock.Timer
-		pruneCh                 <-chan time.Time
-	)
-
+	var prune <-chan time.Time
 	for {
 		select {
-		case <-stopCh:
+		case <-w.tomb.Dying():
 			return tomb.ErrDying
 
-		case _, ok := <-controllerConfigChanges:
+		case _, ok := <-controllerConfigWatcher.Changes():
 			if !ok {
 				return errors.New("controller configuration watcher closed")
 			}
@@ -79,27 +117,52 @@ func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
 			}
 			newMaxAge := controllerConfig.MaxLogsAge()
 			newMaxCollectionMB := controllerConfig.MaxLogSizeMB()
-			if newMaxAge != maxLogAge || newMaxCollectionMB != maxCollectionMB {
+			if newMaxAge != w.current.maxLogAge || newMaxCollectionMB != w.current.maxCollectionMB {
+				w.mu.Lock()
+				w.current.maxLogAge = newMaxAge
+				w.current.maxCollectionMB = newMaxCollectionMB
+				w.mu.Unlock()
 				logger.Infof("log pruning config: max age: %v, max collection size %dM", newMaxAge, newMaxCollectionMB)
-				maxLogAge = newMaxAge
-				maxCollectionMB = newMaxCollectionMB
 			}
-			if pruneTimer == nil {
+			if prune == nil {
 				// We defer starting the timer until the
 				// controller configuration watcher fires
 				// for the first time, and we have correct
 				// configuration values for pruning below.
-				pruneTimer = w.config.Clock.NewTimer(w.config.PruneInterval)
-				pruneCh = pruneTimer.Chan()
-				defer pruneTimer.Stop()
+				prune = w.config.Clock.After(w.config.PruneInterval)
+				w.mu.Lock()
+				w.current.nextPrune = w.config.Clock.Now().Add(w.config.PruneInterval)
+				w.mu.Unlock()
 			}
 
-		case <-pruneCh:
-			pruneTimer.Reset(w.config.PruneInterval)
-			minLogTime := time.Now().Add(-maxLogAge)
-			if err := state.PruneLogs(w.config.State, minLogTime, maxCollectionMB); err != nil {
+		case <-prune:
+			now := w.config.Clock.Now()
+			prune = w.config.Clock.After(w.config.PruneInterval)
+			w.mu.Lock()
+			w.current.lastPrune = now
+			w.current.nextPrune = now.Add(w.config.PruneInterval)
+			w.current.pruning = true
+			w.mu.Unlock()
+
+			minLogTime := now.Add(-w.current.maxLogAge)
+			message, err := state.PruneLogs(w.config.State, minLogTime, w.current.maxCollectionMB, logger)
+			if err != nil {
 				return errors.Trace(err)
 			}
+			w.mu.Lock()
+			w.current.pruning = false
+			w.current.message = message
+			w.mu.Unlock()
 		}
 	}
+}
+
+// Kill implements Worker.Kill().
+func (w *pruneWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait implements Worker.Wait().
+func (w *pruneWorker) Wait() error {
+	return w.tomb.Wait()
 }

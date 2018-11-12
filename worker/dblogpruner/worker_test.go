@@ -90,6 +90,25 @@ func (s *suite) startWorker(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.pruner) })
 }
 
+func (s *suite) TestWorkerHasReport(c *gc.C) {
+	s.setupState(c, "24h", "1024M")
+	s.startWorker(c)
+
+	type reporter interface {
+		Report() map[string]interface{}
+	}
+
+	r, ok := s.pruner.(reporter)
+	c.Assert(ok, jc.IsTrue)
+	report := r.Report()
+	// We can't generally check on particular values except that there are keys for
+	// prune-age and prune-size.
+	_, ok = report["prune-age"]
+	c.Assert(ok, jc.IsTrue)
+	_, ok = report["prune-size"]
+	c.Assert(ok, jc.IsTrue)
+}
+
 func (s *suite) TestPrunesOldLogs(c *gc.C) {
 	maxLogAge := 24 * time.Hour
 	s.setupState(c, "24h", "1000P")
