@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	jujuclock "github.com/juju/clock"
 	testclock "github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,6 +56,8 @@ type BaseSuite struct {
 	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
+
+	watcher *provider.KubernetesWatcher
 }
 
 const testNamespace = "test"
@@ -144,7 +147,13 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	}
 
 	s.clock = testclock.NewClock(time.Time{})
-	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, s.clock)
+	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
+		w, err := provider.NewKubernetesWatcher(wi, name, clock)
+		c.Assert(err, jc.ErrorIsNil)
+		s.watcher = w
+		return s.watcher, err
+	}
+	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -162,6 +171,6 @@ func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptio
 	return &v1.DeleteOptions{PropagationPolicy: &policy}
 }
 
-func (s *BaseSuite) k8sNewFakeWatcher() *watch.FakeWatcher {
-	return watch.NewFake()
+func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
+	return watch.NewRaceFreeFake()
 }

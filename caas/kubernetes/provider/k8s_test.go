@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -336,7 +337,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	go func(w *watch.FakeWatcher, clk *testclock.Clock) {
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
 		for _, f := range []func(runtime.Object){w.Add, w.Modify, w.Delete} {
 			if !w.IsStopped() {
 				clk.WaitAdvance(time.Second, testing.LongWait, 1)
@@ -347,7 +348,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 
 	err := s.broker.Destroy(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
-	// c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
+	c.Assert(workertest.CheckKilled(c, s.watcher), gc.ErrorMatches, "bad catacomb Kill: tomb.ErrDying")
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
