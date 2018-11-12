@@ -352,7 +352,15 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
 		}
 		m := mResult.Machine
-		if err = task.processOneMachineProfileChange(m, profileBroker); err != nil {
+		removeDoc, err := task.processOneMachineProfileChange(m, profileBroker)
+		if removeDoc {
+			if err != nil {
+				logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
+			}
+			if err := m.RemoveUpgradeCharmProfileData(); err != nil {
+				logger.Errorf("cannot remove subordinates upgrade charm profile data: %s", err.Error())
+			}
+		} else if err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
 			m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err))
 		} else {
@@ -373,19 +381,19 @@ func profileUpgradeNotRequired(machines []apiprovisioner.MachineResult) {
 func (task *provisionerTask) processOneMachineProfileChange(
 	m apiprovisioner.MachineProvisioner,
 	profileBroker environs.LXDProfiler,
-) error {
+) (bool, error) {
 	logger.Debugf("processOneMachineProfileChange(%s)", m.Id())
 	info, err := m.CharmProfileChangeInfo()
 	if err != nil {
-		return err
+		return false, err
 	}
 	instId, err := m.InstanceId()
 	if err != nil {
-		return err
+		return false, err
 	}
 	newProfiles, err := profileBroker.ReplaceOrAddInstanceProfile(string(instId), info.OldProfileName, info.NewProfileName, info.LXDProfile)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// newProfiles:
 	//   default
@@ -400,8 +408,8 @@ func (task *provisionerTask) processOneMachineProfileChange(
 			newProfiles = newProfiles[1:]
 		}
 	}
-
-	return m.SetCharmProfiles(newProfiles)
+	initialAddOfSubordinateProfile := info.Subordinate && info.OldProfileName == ""
+	return initialAddOfSubordinateProfile, m.SetCharmProfiles(newProfiles)
 }
 
 func instanceIds(instances []instance.Instance) []string {

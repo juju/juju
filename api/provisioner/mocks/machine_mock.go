@@ -228,6 +228,18 @@ func (mr *MockMachineProvisionerMockRecorder) Remove() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMachineProvisioner)(nil).Remove))
 }
 
+// RemoveUpgradeCharmProfileData mocks base method
+func (m *MockMachineProvisioner) RemoveUpgradeCharmProfileData() error {
+	ret := m.ctrl.Call(m, "RemoveUpgradeCharmProfileData")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveUpgradeCharmProfileData indicates an expected call of RemoveUpgradeCharmProfileData
+func (mr *MockMachineProvisionerMockRecorder) RemoveUpgradeCharmProfileData() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeCharmProfileData", reflect.TypeOf((*MockMachineProvisioner)(nil).RemoveUpgradeCharmProfileData))
+}
+
 // Series mocks base method
 func (m *MockMachineProvisioner) Series() (string, error) {
 	ret := m.ctrl.Call(m, "Series")

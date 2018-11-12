@@ -488,7 +488,51 @@ func (s *provisionerSuite) TestCharmProfileChangeInfo(c *gc.C) {
 				},
 			},
 		},
+		Subordinate: false,
 	})
+}
+
+func (s *provisionerSuite) TestCharmProfileChangeInfoSubordinate(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile-subordinate", s.AddTestingCharm(c, "lxd-profile-subordinate"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	info, err := apiMachine.CharmProfileChangeInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, provisioner.CharmProfileChangeInfo{
+		OldProfileName: "",
+		NewProfileName: "juju-controller-lxd-profile-subordinate-0",
+		LXDProfile: &charm.LXDProfile{
+			Config: map[string]string{
+				"security.nesting":       "false",
+				"security.privileged":    "true",
+				"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables,iptable_nat",
+				"environment.http_proxy": "",
+			},
+			Description: "lxd profile subordinate for testing",
+			Devices: map[string]map[string]string{
+				"sandisk": {
+					"type":      "usb",
+					"vendorid":  "0781",
+					"productid": "8181",
+				},
+			},
+		},
+		Subordinate: true,
+	})
+}
+
+func (s *provisionerSuite) TestRemoveUpgradeCharmProfileData(c *gc.C) {
+	application := s.AddTestingApplication(c, "lxd-profile-subordinate", s.AddTestingCharm(c, "lxd-profile-subordinate"))
+	curl, _ := application.CharmURL()
+	s.machine.SetUpgradeCharmProfile(application.Name(), curl.String())
+
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+
+	err := apiMachine.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
