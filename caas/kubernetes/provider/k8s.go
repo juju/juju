@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -80,6 +81,9 @@ type kubernetesClient struct {
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
+
+	// newWatcher is the k8s watcher generator.
+	newWatcher NewK8sWatcherFunc
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -93,13 +97,20 @@ type kubernetesClient struct {
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
+// NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
+type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*KubernetesWatcher, error)
+
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
 func NewK8sBroker(
 	cloudSpec environs.CloudSpec,
 	cfg *config.Config,
 	newClient NewK8sClientFunc,
+	newWatcher NewK8sWatcherFunc,
 	clock jujuclock.Clock,
 ) (caas.Broker, error) {
+	if newWatcher == nil {
+		newWatcher = newKubernetesWatcher
+	}
 	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -119,6 +130,7 @@ func NewK8sBroker(
 		namespace:           newCfg.Name(),
 		envCfg:              newCfg,
 		modelUUID:           newCfg.UUID(),
+		newWatcher:          newWatcher,
 	}, nil
 }
 
@@ -337,7 +349,7 @@ func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, k.namespace, k.clock)
+	return k.newWatcher(w, k.namespace, k.clock)
 }
 
 // EnsureSecret ensures a secret exists for use with retrieving images from private registries
@@ -1467,7 +1479,7 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, appName, k.clock)
+	return k.newWatcher(w, appName, k.clock)
 }
 
 // WatchOperator returns a watcher which notifies when there
@@ -1481,7 +1493,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, appName, k.clock)
+	return k.newWatcher(w, appName, k.clock)
 }
 
 // jujuPVNameRegexp matches how Juju labels persistent volumes.

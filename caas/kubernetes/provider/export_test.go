@@ -18,6 +18,7 @@ var (
 	ExtractRegistryURL     = extractRegistryURL
 	CreateDockerConfigJSON = createDockerConfigJSON
 	NewStorageConfig       = newStorageConfig
+	NewKubernetesWatcher   = newKubernetesWatcher
 )
 
 func PodSpec(u *unitSpec) core.PodSpec {

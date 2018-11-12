@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// kubernetesWatcher reports changes to kubernetes
+// KubernetesWatcher reports changes to kubernetes
 // resources. A native kubernetes watcher is passed
 // in to generate change events from the kubernetes
 // model. These events are consolidated into a Juju
 // notification watcher event.
-type kubernetesWatcher struct {
+type KubernetesWatcher struct {
 	clock    jujuclock.Clock
 	catacomb catacomb.Catacomb
 
@@ -31,8 +31,8 @@ type kubernetesWatcher struct {
 	k8watcher watch.Interface
 }
 
-func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error) {
-	w := &kubernetesWatcher{
+func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock) (*KubernetesWatcher, error) {
+	w := &KubernetesWatcher{
 		clock:     clock,
 		out:       make(chan struct{}),
 		name:      name,
@@ -47,7 +47,7 @@ func newKubernetesWatcher(wi watch.Interface, name string, clock jujuclock.Clock
 
 const sendDelay = 1 * time.Second
 
-func (w *kubernetesWatcher) loop() error {
+func (w *KubernetesWatcher) loop() error {
 	defer close(w.out)
 	defer w.k8watcher.Stop()
 
@@ -87,17 +87,17 @@ func (w *kubernetesWatcher) loop() error {
 }
 
 // Changes returns the event channel for this watcher.
-func (w *kubernetesWatcher) Changes() watcher.NotifyChannel {
+func (w *KubernetesWatcher) Changes() watcher.NotifyChannel {
 	return w.out
 }
 
 // Kill asks the watcher to stop without waiting for it do so.
-func (w *kubernetesWatcher) Kill() {
+func (w *KubernetesWatcher) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait waits for the watcher to die and returns any
 // error encountered when it was running.
-func (w *kubernetesWatcher) Wait() error {
+func (w *KubernetesWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
