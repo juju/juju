@@ -49,6 +49,8 @@ clouds:
     regions:
       cn-north-1:
         endpoint: https://ec2.cn-north-1.amazonaws.com.cn
+      cn-northwest-1:
+        endpoint: https://ec2.cn-northwest-1.amazonaws.com.cn
   aws-gov:
     type: ec2
     description: Amazon (USA Government)
@@ -69,21 +71,31 @@ clouds:
         endpoint: https://www.googleapis.com
       us-west1:
         endpoint: https://www.googleapis.com
+      us-west2:
+        endpoint: https://www.googleapis.com
+      asia-east1:
+        endpoint: https://www.googleapis.com
+      asia-east2:
+        endpoint: https://www.googleapis.com
+      asia-northeast1:
+        endpoint: https://www.googleapis.com
+      asia-south1:
+        endpoint: https://www.googleapis.com
+      asia-southeast1:
+        endpoint: https://www.googleapis.com
+      australia-southeast1:
+        endpoint: https://www.googleapis.com
+      europe-north1:
+        endpoint: https://www.googleapis.com
       europe-west1:
         endpoint: https://www.googleapis.com
       europe-west2:
         endpoint: https://www.googleapis.com
       europe-west3:
         endpoint: https://www.googleapis.com
-      asia-east1:
+      europe-west4:
         endpoint: https://www.googleapis.com
-      asia-northeast1:
-        endpoint: https://www.googleapis.com
-      asia-southeast1:
-        endpoint: https://www.googleapis.com
-      asia-south1:
-        endpoint: https://www.googleapis.com
-      australia-southeast1:
+      northamerica-northeast1:
         endpoint: https://www.googleapis.com
       southamerica-east1:
         endpoint: https://www.googleapis.com
@@ -195,7 +207,11 @@ clouds:
       koreasouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net        
+        identity-endpoint: https://graph.windows.net
+      francecentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net       
   azure-china:
     type: azure
     description: Microsoft Azure China
@@ -232,10 +248,6 @@ clouds:
     description: Joyent Cloud
     auth-types: [ userpass ]
     regions:
-      eu-ams-1:
-        endpoint: https://eu-ams-1.api.joyentcloud.com
-      us-sw-1:
-        endpoint: https://us-sw-1.api.joyentcloud.com
       us-east-1:
         endpoint: https://us-east-1.api.joyentcloud.com
       us-east-2:
@@ -244,17 +256,35 @@ clouds:
         endpoint: https://us-east-3.api.joyentcloud.com
       us-west-1:
         endpoint: https://us-west-1.api.joyentcloud.com
+      us-sw-1:
+        endpoint: https://us-sw-1.api.joyentcloud.com
+      eu-ams-1:
+        endpoint: https://eu-ams-1.api.joyentcloud.com
   cloudsigma:
     type: cloudsigma
     description: CloudSigma Cloud
     auth-types: [ userpass ]
     regions:
+      dub:
+        endpoint: https://dub.cloudsigma.com/api/2.0/
+      fra:
+        endpoint: https://fra.cloudsigma.com/api/2.0/
       hnl:
         endpoint: https://hnl.cloudsigma.com/api/2.0/
+      mel:
+        endpoint: https://mel.cloudsigma.com/api/2.0/
       mia:
         endpoint: https://mia.cloudsigma.com/api/2.0/
+      mnl:
+        endpoint: https://mnl.cloudsigma.com/api/2.0/
+      per:
+        endpoint: https://per.cloudsigma.com/api/2.0/
+      ruh:
+        endpoint: https://ruh.cloudsigma.com/api/2.0/
       sjc:
         endpoint: https://sjc.cloudsigma.com/api/2.0/
+      waw:
+        endpoint: https://waw.cloudsigma.com/api/2.0/
       wdc:
         endpoint: https://wdc.cloudsigma.com/api/2.0/
       zrh:
@@ -272,4 +302,5 @@ clouds:
         endpoint: https://iaas.eu-frankfurt-1.oraclecloud.com
       uk-london-1:
         endpoint: https://iaas.uk-london-1.oraclecloud.com
+
 `
