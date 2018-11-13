@@ -321,3 +321,18 @@ type InvalidateCredentialArg struct {
 	// Reason is the description of why we are invalidating credential.
 	Reason string `json:"reason,omitempty"`
 }
+
+// RevokeCredentialArg contains data needed to revoke credential.
+type RevokeCredentialArg struct {
+	// Tag holds credential tag to update.
+	Tag string `json:"tag"`
+
+	// Force indicates whether the credential can be revoked forcefully.
+	Force bool `json:"force"`
+}
+
+// RevokeCredentialArgs contains credentials to revoke.
+type RevokeCredentialArgs struct {
+	// Credentials holds credentials to revoke.
+	Credentials []RevokeCredentialArg `json:"credentials"`
+}

@@ -364,6 +364,43 @@ func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
 	})
 }
 
+func (s *cloudSuiteV2) TestRevokeCredentials(c *gc.C) {
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
+	results, err := s.apiv2.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "machine-0",
+	}, {
+		Tag: "cloudcred-meep_admin_whatever",
+	}, {
+		Tag: "cloudcred-meep_bruce_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: `"machine-0" is not a valid cloudcred tag`,
+	})
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: "permission denied", Code: params.CodeUnauthorized,
+	})
+	c.Assert(results.Results[2].Error, gc.IsNil)
+
+	s.backend.CheckCall(
+		c, 1, "RemoveCloudCredential",
+		names.NewCloudCredentialTag("meep/bruce/three"),
+	)
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentialsAdminAccess(c *gc.C) {
+	results, err := s.apiv2.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_julia_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 1)
+	// admin can revoke others' credentials
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
 var cloudTypes = map[string]string{
 	"aws":   "ec2",
 	"dummy": "dummy",
@@ -470,7 +507,7 @@ func (st *mockBackendV2) CloudCredentials(user names.UserTag, cloudName string) 
 
 func (st *mockBackendV2) RemoveCloudCredential(tag names.CloudCredentialTag) error {
 	st.MethodCall(st, "RemoveCloudCredential", tag)
-	return errors.NewNotImplemented(nil, "RemoveCloudCredential")
+	return st.NextErr()
 }
 
 func (st *mockBackendV2) ModelConfig() (*config.Config, error) {
