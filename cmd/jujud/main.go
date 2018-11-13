@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
