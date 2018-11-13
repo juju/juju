@@ -510,7 +510,8 @@
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"
-  revision = "f2b6f6c918c452ad107eec89615f074e3bd80e33"
+  revision = "b46b9d99652d633b91999fe4a973cb93aefa3515"
+  source = "github.com/juju/mgo"
 
 [[constraint]]
   name = "gopkg.in/natefinch/lumberjack.v2"
