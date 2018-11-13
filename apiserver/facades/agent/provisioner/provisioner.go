@@ -885,8 +885,8 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 }
 
 // Machine is an indirection for use in container provisioning.
-//go:generate mockgen -package provisioner_test -destination machine_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
-//go:generate mockgen -package provisioner_test -destination containerizer_mock_test.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
+//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
+//go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
 	InstanceId() (instance.Id, error)
@@ -1421,7 +1421,17 @@ func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (param
 		return params.ProfileChangeResults{}, errors.Trace(err)
 	}
 	for i, machine := range machines.Entities {
-		result, err := p.machineChangeProfileChangeInfo(machine.Tag, canAccess)
+		mTag, err := names.ParseMachineTag(machine.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		result, err := machineChangeProfileChangeInfo(&profileMachineShim{Machine: machine}, &profileBackendShim{p.st})
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -1431,16 +1441,9 @@ func (p *ProvisionerAPI) CharmProfileChangeInfo(machines params.Entities) (param
 	return params.ProfileChangeResults{Results: results}, nil
 }
 
-func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAccess common.AuthFunc) (params.ProfileChangeResult, error) {
+func machineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend) (params.ProfileChangeResult, error) {
 	nothing := params.ProfileChangeResult{}
-	mTag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	machine, err := p.getMachine(canAccess, mTag)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
+
 	appName, err := machine.UpgradeCharmProfileApplication()
 	if err != nil {
 		return nothing, errors.Trace(err)
@@ -1479,7 +1482,7 @@ func (p *ProvisionerAPI) machineChangeProfileChangeInfo(machineTag string, canAc
 		return nothing, errors.Trace(err)
 	}
 
-	ch, err := p.st.Charm(chURL)
+	ch, err := st.Charm(chURL)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
