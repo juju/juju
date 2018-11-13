@@ -259,12 +259,10 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	for i, unitReceiver := range c.unitReceivers {
 		if strings.HasSuffix(unitReceiver, "leader") {
 			if c.api.BestAPIVersion() < 3 {
-				var leaderErrMsg = "unable to determine leader for application %q"
 				app := strings.Split(unitReceiver, "/")[0]
-				err := errors.Errorf(leaderErrMsg+
+				return errors.Errorf("unable to determine leader for application %q"+
 					"\nleader determination is unsupported by this API"+
 					"\neither upgrade your controller, or explicitly specify a unit", app)
-				return err
 			}
 			actions[i].Receiver = unitReceiver
 		} else {
