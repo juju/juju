@@ -222,6 +222,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 func (s *RunSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
+		clientSetup            func(client *fakeAPIClient)
 		withArgs               []string
 		withAPIErr             error
 		withActionResults      []params.ActionResult
@@ -394,32 +395,36 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{Tag: validActionTagString}},
 		},
-		withAPIErr: errors.NotImplementedf("Not implemented"),
 		expectedErr: "unable to determine leader for application \"mysql\"" +
 			"\nleader determination is unsupported by this API" +
 			"\neither upgrade your controller, or explicitly specify a unit",
 	}, {
-		should:   "enqueue a basic action on leader unit",
-		withArgs: []string{"mysql/leader", "some-action"},
+		should:      "enqueue a basic action on the leader",
+		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 3 },
+		withArgs:    []string{"mysql/leader", "some-action"},
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{Tag: validActionTagString},
 		}},
 		expectedActionEnqueued: params.Action{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
-			Receiver:   names.NewUnitTag(validUnitId).String(),
+			Receiver:   "mysql/leader",
 		},
 	}}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			func() {
-				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
-					t.should, strings.Join(t.withArgs, " "))
+				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
+
 				fakeClient := &fakeAPIClient{
 					actionResults: t.withActionResults,
-					leaders:       map[string]string{"mysql": validUnitId},
+					apiVersion:    2,
 				}
+				if t.clientSetup != nil {
+					t.clientSetup(fakeClient)
+				}
+
 				fakeClient.apiErr = t.withAPIErr
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()

@@ -130,7 +130,7 @@ type fakeAPIClient struct {
 	actionTagMatches   params.FindTagsResults
 	actionsByNames     params.ActionsByNames
 	charmActions       map[string]params.ActionSpec
-	leaders            map[string]string
+	apiVersion         int
 	apiErr             error
 }
 
@@ -144,6 +144,10 @@ func (c *fakeAPIClient) EnqueuedActions() params.Actions {
 
 func (c *fakeAPIClient) Close() error {
 	return nil
+}
+
+func (c *fakeAPIClient) BestAPIVersion() int {
+	return c.apiVersion
 }
 
 func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, error) {
