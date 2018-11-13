@@ -6,6 +6,7 @@ package action_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -212,6 +213,12 @@ func (s *actionSuite) TestFindActionsByName(c *gc.C) {
 }
 
 func (s *actionSuite) TestEnqueue(c *gc.C) {
+	// Ensure wordpress unit is the leader.
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,14 +242,17 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 			{Receiver: s.wordpress.Tag().String(), Name: "fakeaction"},
 			// Missing name.
 			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},
+			// Good (leader syntax).
+			{Receiver: "wordpress/leader", Name: expectedName, Parameters: expectedParameters},
 		},
 	}
 	res, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 4)
+	c.Assert(res.Results, gc.HasLen, 5)
 
 	emptyActionTag := names.ActionTag{}
-	c.Assert(res.Results[0].Error, gc.DeepEquals, &params.Error{Message: fmt.Sprintf("%s not valid", arg.Actions[0].Receiver), Code: ""})
+	c.Assert(res.Results[0].Error, gc.DeepEquals,
+		&params.Error{Message: fmt.Sprintf("%s not valid", arg.Actions[0].Receiver), Code: ""})
 	c.Assert(res.Results[0].Action, gc.IsNil)
 
 	c.Assert(res.Results[1].Error, gc.IsNil)
@@ -257,13 +267,20 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[3].Error, gc.ErrorMatches, "no action name given")
 	c.Assert(res.Results[3].Action, gc.IsNil)
 
-	// Make sure an Action was enqueued for the wordpress Unit.
+	c.Assert(res.Results[4].Error, gc.IsNil)
+	c.Assert(res.Results[4].Action, gc.NotNil)
+	c.Assert(res.Results[4].Action.Receiver, gc.Equals, s.wordpressUnit.Tag().String())
+	c.Assert(res.Results[4].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+
+	// Make sure that 2 actions were enqueued for the wordpress Unit.
 	actions, err = s.wordpressUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 1)
-	c.Assert(actions[0].Name(), gc.Equals, expectedName)
-	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
-	c.Assert(actions[0].Receiver(), gc.Equals, s.wordpressUnit.Name())
+	c.Assert(actions, gc.HasLen, 2)
+	for _, act := range actions {
+		c.Assert(act.Name(), gc.Equals, expectedName)
+		c.Assert(act.Parameters(), gc.DeepEquals, expectedParameters)
+		c.Assert(act.Receiver(), gc.Equals, s.wordpressUnit.Name())
+	}
 
 	// Make sure an Action was not enqueued for the mysql Unit.
 	actions, err = s.mysqlUnit.Actions()
