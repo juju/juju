@@ -176,7 +176,7 @@ func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Conte
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "WatchLXDProfileUpgradeNotifications", "GetLXDProfileUpgradeMessages", "SetCharm")
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 5, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
@@ -225,7 +225,7 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "WatchLXDProfileUpgradeNotifications", "GetLXDProfileUpgradeMessages", "SetCharm")
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 5, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
@@ -873,20 +873,6 @@ func (m *mockCharmAPIClient) Get(applicationName string) (*params.ApplicationGet
 func (m *mockCharmAPIClient) SetCharmProfile(appName string, charmID jujucharmstore.CharmID) error {
 	m.MethodCall(m, "SetCharmProfile", appName, charmID)
 	return m.NextErr()
-}
-
-func (m *mockCharmAPIClient) WatchLXDProfileUpgradeNotifications(appName string) (watcher.NotifyWatcher, string, error) {
-	m.MethodCall(m, "WatchLXDProfileUpgradeNotifications", appName)
-	ch := make(chan struct{})
-	go func() {
-		ch <- struct{}{}
-	}()
-	return &mockNotifyWatcher{ch: ch}, "", m.NextErr()
-}
-
-func (m *mockCharmAPIClient) GetLXDProfileUpgradeMessages(appName string, watchId string) ([]application.LXDProfileUpgradeMessage, error) {
-	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, watchId)
-	return make([]application.LXDProfileUpgradeMessage, 0), m.NextErr()
 }
 
 type mockNotifyWatcher struct {

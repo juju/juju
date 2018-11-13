@@ -75,7 +75,6 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	SetExposed() error
 	SetCharmProfile(string) error
-	WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error)
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error

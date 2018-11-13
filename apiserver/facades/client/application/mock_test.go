@@ -198,11 +198,6 @@ func (a *mockApplication) SetExposed() error {
 	return a.NextErr()
 }
 
-func (a *mockApplication) WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error) {
-	a.MethodCall(a, "WatchLXDProfileUpgradeNotifications")
-	return &mockNotifyWatcher{ch: a.lxdProfileUpgradeChanges}, a.NextErr()
-}
-
 type mockNotifyWatcher struct {
 	state.NotifyWatcher
 	jtesting.Stub
