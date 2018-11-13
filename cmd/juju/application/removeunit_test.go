@@ -34,6 +34,7 @@ type fakeApplicationRemoveUnitAPI struct {
 	application.RemoveApplicationAPI
 
 	units          []string
+	scale          int
 	destroyStorage bool
 	bestAPIVersion int
 	err            error
@@ -89,10 +90,23 @@ func (f *fakeApplicationRemoveUnitAPI) DestroyUnits(args apiapplication.DestroyU
 	return result, nil
 }
 
+func (f *fakeApplicationRemoveUnitAPI) ScaleApplication(args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if f.err != nil {
+		return params.ScaleApplicationResult{}, f.err
+	}
+	f.scale += args.ScaleChange
+	return params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{
+			Scale: f.scale,
+		},
+	}, nil
+}
+
 func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeApplicationRemoveUnitAPI{
 		bestAPIVersion: 5,
+		scale:          5,
 	}
 	s.store = jujuclienttesting.MinimalStore()
 }
@@ -143,18 +157,37 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	c.Check(stripped, gc.Matches, ".*TestBlockRemoveUnit.*")
 }
 
-func (s *RemoveUnitSuite) TestCAASDisallowed(c *gc.C) {
+func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *gc.C) {
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
-	_, err := s.runRemoveUnit(c, "unit/0")
-	c.Assert(err, gc.NotNil)
-	expected := `
-remove-unit is not allowed on Kubernetes models.
-Instead, use juju scale-application.
-See juju help scale-application.
-`
-	expected = strings.Replace(expected, "\n", "", -1)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Equals, expected)
+
+	ctx, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+scaling down to 3 units
+`[1:])
+}
+
+func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	_, err := s.runRemoveUnit(c, "some-application-name")
+	c.Assert(err, gc.ErrorMatches, "removing 0 units not valid")
+
+	_, err = s.runRemoveUnit(c, "some-application-name", "--destroy-storage")
+	c.Assert(err, gc.ErrorMatches, "Kubernetes models only support --num-units")
+
+	_, err = s.runRemoveUnit(c, "some-application-name/0", "--num-units", "2")
+	c.Assert(err, gc.ErrorMatches, "application name \"some-application-name/0\" not valid")
+
+	_, err = s.runRemoveUnit(c, "some-application-name", "another-application", "--num-units", "2")
+	c.Assert(err, gc.ErrorMatches, "only single application supported")
+
+	_, err = s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
 }

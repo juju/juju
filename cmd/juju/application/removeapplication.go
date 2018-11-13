@@ -75,6 +75,7 @@ func (c *removeApplicationCommand) Init(args []string) error {
 
 type removeApplicationAPI interface {
 	Close() error
+	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 	DestroyApplications(application.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error)
 	DestroyDeprecated(appName string) error
 	DestroyUnits(application.DestroyUnitsParams) ([]params.DestroyUnitResult, error)
