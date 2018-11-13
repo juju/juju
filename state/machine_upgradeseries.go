@@ -10,11 +10,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 )
 
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
@@ -97,7 +99,7 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 		return err
 	}
 
-	return nil
+	return errors.Trace(m.setUpgradeSeriesInstanceStatus(model.UpgradeSeriesPrepareStarted))
 }
 
 // IsParentLockedForSeriesUpgrade determines if a machine is a container who's
@@ -286,7 +288,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		err = onAbort(err, ErrDead)
 		return err
 	}
-	return nil
+	return errors.Trace(m.setUpgradeSeriesInstanceStatus(model.UpgradeSeriesCompleteStarted))
 }
 
 func (m *Machine) isReadyForCompletion() (bool, error) {
@@ -510,7 +512,7 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, messa
 		err = onAbort(err, ErrDead)
 		return err
 	}
-	return nil
+	return errors.Trace(m.setUpgradeSeriesInstanceStatus(status))
 }
 
 // GetUpgradeSeriesMessages returns all 'unseen' upgrade series
@@ -622,6 +624,23 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", m.Id())
 	}
 	return &lock, nil
+}
+
+var noInstanceMessage = set.NewStrings(string(model.UpgradeSeriesNotStarted), string(model.UpgradeSeriesCompleted))
+
+// setUpgradeSeriesInstanceStatus updates the instance status of a machine in
+// accordance with its progression through the upgrade-series workflow.
+func (m *Machine) setUpgradeSeriesInstanceStatus(usStatus model.UpgradeSeriesStatus) error {
+	msg := "Running"
+	if !noInstanceMessage.Contains(string(usStatus)) {
+		msg = "Series upgrade: " + string(usStatus)
+	}
+
+	sInfo := status.StatusInfo{
+		Status:  status.Running,
+		Message: msg,
+	}
+	return errors.Trace(m.SetInstanceStatus(sInfo))
 }
 
 func setMachineUpgradeSeriesTxnOps(
