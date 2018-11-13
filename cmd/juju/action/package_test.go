@@ -25,7 +25,6 @@ const (
 	validActionTagString   = "action-f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	invalidActionTagString = "action-f47ac10b-58cc-4372-a567-0e02b2c3d47"
 	validActionId          = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	invalidActionId        = "f47ac10b-58cc-4372-a567-0e02b2c3d47"
 	validUnitId            = "mysql/0"
 	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
@@ -131,6 +130,7 @@ type fakeAPIClient struct {
 	actionTagMatches   params.FindTagsResults
 	actionsByNames     params.ActionsByNames
 	charmActions       map[string]params.ActionSpec
+	apiVersion         int
 	apiErr             error
 }
 
@@ -144,6 +144,10 @@ func (c *fakeAPIClient) EnqueuedActions() params.Actions {
 
 func (c *fakeAPIClient) Close() error {
 	return nil
+}
+
+func (c *fakeAPIClient) BestAPIVersion() int {
+	return c.apiVersion
 }
 
 func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, error) {

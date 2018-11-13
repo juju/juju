@@ -4,6 +4,8 @@
 package action
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -23,8 +25,35 @@ type ActionAPI struct {
 	check      *common.BlockChecker
 }
 
-// NewActionAPI returns an initialized ActionAPI
-func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
+// APIv2 provides the Action API facade for version 2.
+type APIv2 struct {
+	*APIv3
+}
+
+// APIv3 provides the Action API facade for version 3.
+type APIv3 struct {
+	*ActionAPI
+}
+
+// NewActionAPIV2 returns an initialized ActionAPI for version 2.
+func NewActionAPIV2(ctx facade.Context) (*APIv2, error) {
+	api, err := NewActionAPIV3(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv2{api}, nil
+}
+
+// NewActionAPIV3 returns an initialized ActionAPI for version 3.
+func NewActionAPIV3(ctx facade.Context) (*APIv3, error) {
+	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv3{api}, nil
+}
+
+func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -184,11 +213,36 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 
+	var leaders map[string]string
+	getLeader := func(appName string) (string, error) {
+		if leaders == nil {
+			var err error
+			leaders, err = a.state.ApplicationLeaders()
+			if err != nil {
+				return "", err
+			}
+		}
+		if leader, ok := leaders[appName]; ok {
+			return leader, nil
+		}
+		return "", errors.Errorf("could not determine leader for %q", appName)
+	}
+
 	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		currentResult := &response.Results[i]
-		receiver, err := tagToActionReceiver(action.Receiver)
+		actionReceiver := action.Receiver
+		if strings.HasSuffix(actionReceiver, "leader") {
+			app := strings.Split(actionReceiver, "/")[0]
+			receiverName, err := getLeader(app)
+			if err != nil {
+				currentResult.Error = common.ServerError(err)
+				continue
+			}
+			actionReceiver = names.NewUnitTag(receiverName).String()
+		}
+		receiver, err := tagToActionReceiver(actionReceiver)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

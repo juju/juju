@@ -80,7 +80,7 @@ type PinApplicationResult struct {
 	// ApplicationName is the application for which a leadership pin/unpin
 	// operation was attempted.
 	ApplicationName string `json:"application-name"`
-	// Error will container a reference to an error resulting from pin/unpin
+	// Error will contain a reference to an error resulting from pin/unpin
 	// if one occurred.
 	Error *Error `json:"error,omitempty"`
 }

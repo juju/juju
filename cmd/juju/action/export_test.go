@@ -33,8 +33,8 @@ type RunCommand struct {
 	*runCommand
 }
 
-func (c *RunCommand) UnitTags() []names.UnitTag {
-	return c.unitTags
+func (c *RunCommand) UnitNames() []string {
+	return c.unitReceivers
 }
 
 func (c *RunCommand) ActionName() string {
