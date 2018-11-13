@@ -324,7 +324,7 @@ type InvalidateCredentialArg struct {
 
 // RevokeCredentialArg contains data needed to revoke credential.
 type RevokeCredentialArg struct {
-	// Tag holds credential tag to update.
+	// Tag holds credential tag to revoke.
 	Tag string `json:"tag"`
 
 	// Force indicates whether the credential can be revoked forcefully.
