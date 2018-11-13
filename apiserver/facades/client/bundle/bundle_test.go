@@ -796,6 +796,13 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 		Architecture: "amd64",
 		Memory:       8 * 1024,
 		RootDisk:     40 * 1024,
+		CpuCores:     2,
+		CpuPower:     100,
+		InstanceType: "big-inst",
+		Tags:         []string{"foo", "bar"},
+		VirtType:     "pv",
+		Container:    "kvm",
+		Spaces:       []string{"internal"},
 	}
 	m.SetConstraints(args)
 	m.SetStatus(minimalStatusArgs())
@@ -827,71 +834,11 @@ applications:
     - "0"
 machines:
   "0":
-    constraints: arch=amd64 mem=8192 root-disk=40960
+    constraints: arch=amd64 cpu-cores=2 cpu-power=100 mem=8192 root-disk=40960 instance-type=big-inst
+      container=kvm virt-type=pv tags=foo,bar spaces=internal
   "1":
-    constraints: arch=amd64 mem=8192 root-disk=40960
-relations:
-- - mediawiki:db
-  - mysql:mysql
-`[1:]}
-
-	c.Assert(result, gc.Equals, expectedResult)
-
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
-}
-
-func (s *bundleSuite) addMinimalMachinewithHardwareConstraints(model description.Model, id string) {
-	m := model.AddMachine(description.MachineArgs{
-		Id:           names.NewMachineTag(id),
-		Nonce:        "a-nonce",
-		PasswordHash: "some-hash",
-		Series:       "xenial",
-		Jobs:         []string{"host-units"},
-	})
-	args := description.ConstraintsArgs{
-		Architecture: "amd64",
-		Memory:       8 * 1024,
-		RootDisk:     40 * 1024,
-	}
-	m.SetConstraints(args)
-	instanceArgs := description.CloudInstanceArgs{
-		Architecture: "amd64",
-		Memory:       4 * 1024,
-		RootDisk:     16 * 1024,
-	}
-	m.SetInstance(instanceArgs)
-	m.SetStatus(minimalStatusArgs())
-}
-
-func (s *bundleSuite) TestExportBundleModelWithHardwareConstraints(c *gc.C) {
-	model := s.newModel("iaas", "mediawiki", "mysql")
-
-	s.addMinimalMachinewithHardwareConstraints(model, "0")
-	s.addMinimalMachinewithHardwareConstraints(model, "1")
-
-	model.SetStatus(description.StatusArgs{Value: "available"})
-
-	result, err := s.facade.ExportBundle()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
-series: xenial
-applications:
-  mediawiki:
-    charm: cs:mediawiki
-    num_units: 2
-    to:
-    - "0"
-    - "1"
-  mysql:
-    charm: cs:mysql
-    num_units: 1
-    to:
-    - "0"
-machines:
-  "0":
-    constraints: arch=amd64 mem=4096 root-disk=16384
-  "1":
-    constraints: arch=amd64 mem=4096 root-disk=16384
+    constraints: arch=amd64 cpu-cores=2 cpu-power=100 mem=8192 root-disk=40960 instance-type=big-inst
+      container=kvm virt-type=pv tags=foo,bar spaces=internal
 relations:
 - - mediawiki:db
   - mysql:mysql

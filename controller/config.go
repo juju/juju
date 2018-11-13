@@ -260,6 +260,8 @@ var (
 		ControllerAPIPort,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		MaxLogsSize,
+		MaxLogsAge,
 		JujuHASpace,
 		JujuManagementSpace,
 		CAASOperatorImagePath,

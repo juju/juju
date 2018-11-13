@@ -38,6 +38,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AuditLogExcludeMethods,
 		controller.MaxPruneTxnBatchSize,
 		controller.MaxPruneTxnPasses,
+		controller.MaxLogsSize,
+		controller.MaxLogsAge,
 		controller.CAASOperatorImagePath,
 		controller.CharmStoreURL,
 		controller.Features,

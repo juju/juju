@@ -206,3 +206,8 @@ func (s *stubStateTracker) Done() error {
 	s.MethodCall(s, "Done")
 	return s.NextErr()
 }
+
+func (s *stubStateTracker) Report() map[string]interface{} {
+	s.MethodCall(s, "Report")
+	return nil
+}
