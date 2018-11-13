@@ -231,7 +231,6 @@ func (w *TxnWatcher) loop() error {
 	next := w.clock.After(d)
 	w.hub.Publish(txnWatcherStarting, nil)
 	for {
-		var d time.Duration
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
@@ -276,13 +275,11 @@ func (w *TxnWatcher) loop() error {
 		if added {
 			// Something's happened, so reset the exponential backoff
 			// so we'll retry again quickly.
-			now = w.clock.Now()
-			backoff = PollStrategy.NewTimer(now)
-			d, _ = backoff.NextSleep(now)
+			backoff = PollStrategy.NewTimer(w.clock.Now())
+			next = w.clock.After(txnWatcherShortWait)
 		} else if w.notifySync != nil {
 			w.notifySync()
 		}
-		next = w.clock.After(d)
 	}
 }
 
