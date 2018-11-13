@@ -30,6 +30,7 @@ func (p *profileBackendShim) Charm(curl *charm.URL) (ProfileCharm, error) {
 // the NewMockCharm in containerize_mock_test.go will satisfy this interface
 type ProfileCharm interface {
 	LXDProfile() *charm.LXDProfile
+	Meta() *charm.Meta
 	Revision() int
 }
 
@@ -37,10 +38,10 @@ type profileMachineShim struct {
 	*state.Machine
 }
 
-//go:generate mockgen -package provisioner_test -destination profile_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner ProfileMachine,ProfileBackend,ProfileCharm
+//go:generate mockgen -package provisioner_test -destination mocks/profile_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner ProfileMachine,ProfileBackend,ProfileCharm
 type ProfileMachine interface {
-	UpgradeCharmProfileApplication() string
-	UpgradeCharmProfileCharmURL() string
+	UpgradeCharmProfileApplication() (string, error)
+	UpgradeCharmProfileCharmURL() (string, error)
 	CharmProfiles() ([]string, error)
 	ModelName() string
 	Id() string
