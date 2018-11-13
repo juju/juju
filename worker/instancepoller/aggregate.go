@@ -141,9 +141,7 @@ func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
 		if err != nil && err != environs.ErrPartialInstances {
 			reply.err = err
 		} else {
-			if len(insts) >= (i + 1) {
-				reply.info, reply.err = a.instInfo(req.instId, insts[i])
-			}
+			reply.info, reply.err = a.instInfo(req.instId, insts[i])
 		}
 		select {
 		// Per review http://reviews.vapour.ws/r/4885/ it's dumb to block
