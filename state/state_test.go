@@ -2235,6 +2235,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st1.SetDyingModelToDead(), jc.ErrorIsNil)
 	err = alive.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
@@ -2264,15 +2265,13 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	err = app.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st1.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st1.SetDyingModelToDead(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 
-	err = st1.RemoveModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st1.RemoveModel(), jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 
@@ -2797,7 +2796,7 @@ func (s *StateSuite) TestRemoveModelAliveModelFails(c *gc.C) {
 	defer st.Close()
 
 	err := st.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model still alive")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {

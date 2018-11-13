@@ -211,6 +211,38 @@ func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
+// SetDyingModelToDead sets current dying model to dead.
+func (st *State) SetDyingModelToDead() error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if model.Life() != Dying {
+		return errors.Errorf("can't remove model: model is not dying")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops := []txn.Op{{
+			C:      modelsC,
+			Id:     st.ModelUUID(),
+			Assert: isDyingDoc,
+			Update: bson.M{"$set": bson.M{
+				"life":          Dead,
+				"time-of-death": st.nowToTheSecond(),
+			}},
+		}, {
+			// Cleanup the owner:modelName unique key.
+			C:      usermodelnameC,
+			Id:     model.uniqueIndexID(),
+			Remove: true,
+		}}
+		return ops, nil
+	}
+	if err = st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // RemoveModel sets current model to dead then removes all documents from
 // multi-model collections.
 func (st *State) RemoveModel() error {
@@ -222,29 +254,15 @@ func (st *State) RemoveModel() error {
 		return errors.Errorf("can't remove model: model still alive")
 	}
 	if model.Life() == Dying {
-		buildTxn := func(attempt int) ([]txn.Op, error) {
-			ops := []txn.Op{{
-				C:      modelsC,
-				Id:     st.ModelUUID(),
-				Assert: isDyingDoc,
-				Update: bson.M{"$set": bson.M{
-					"life":          Dead,
-					"time-of-death": st.nowToTheSecond(),
-				}},
-			}, {
-				// Cleanup the owner:modelName unique key.
-				C:      usermodelnameC,
-				Id:     model.uniqueIndexID(),
-				Remove: true,
-			}}
-			return ops, nil
-		}
-
-		if err = st.db().Run(buildTxn); err != nil {
+		// set model to dead if it's dying.
+		if err = st.SetDyingModelToDead(); err != nil {
 			return errors.Trace(err)
 		}
 	}
-
+	model, err = st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
 	if errors.Cause(err) == txn.ErrAborted {
 		return errors.New("can't remove model: model not dead")

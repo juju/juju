@@ -89,11 +89,10 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
-	model, _ := s.newCAASModel(c)
-	err := model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	model, st := s.newCAASModel(c)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dead)
 }
 
@@ -201,6 +200,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	c.Assert(model2.Life(), gc.Equals, state.Dying)
 
 	c.Assert(st2.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st2.SetDyingModelToDead(), jc.ErrorIsNil)
 
 	c.Assert(model2.Refresh(), jc.ErrorIsNil)
 	c.Assert(model2.Life(), gc.Equals, state.Dead)
@@ -260,6 +260,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	assertCleanupCount(c, otherSt, 2)
 	assertModel(otherModel, otherSt, state.Dying, 0)
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(otherSt.SetDyingModelToDead(), jc.ErrorIsNil)
 
 	c.Assert(otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(otherModel.Life(), gc.Equals, state.Dead)
@@ -271,6 +272,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	err = otherSt.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(s.State.SetDyingModelToDead(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dead)
 }

@@ -1011,7 +1011,6 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		return ops, nil
 	}
 	return m.st.db().Run(buildTxn)
