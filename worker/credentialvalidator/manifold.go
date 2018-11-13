@@ -48,13 +48,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	worker, err := config.NewWorker(Config{
+	w, err := config.NewWorker(Config{
 		Facade: facade,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
 
 // Manifold packages a Worker for use in a dependency.Engine.
@@ -69,8 +69,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 func filterErrors(err error) error {
 	cause := errors.Cause(err)
-	if cause == ErrValidityChanged ||
-		cause == ErrModelMissingCredentialRequired {
+	if cause == ErrValidityChanged {
 		return dependency.ErrBounce
 	}
 	return err

@@ -13,7 +13,6 @@ import (
 
 // Backend defines behavior that credential validator needs.
 type Backend interface {
-
 	// ModelUsesCredential determines if the model uses given cloud credential.
 	ModelUsesCredential(tag names.CloudCredentialTag) (bool, error)
 
@@ -57,18 +56,31 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 	modelCredentialTag, exists := m.CloudCredential()
 	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
 	if !exists {
+		// A model credential is not set, we must check if the model
+		// is on the cloud that requires a credential.
 		supportsEmptyAuth, err := b.cloudSupportsNoAuth(m.Cloud())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		result.Valid = supportsEmptyAuth
+		if !supportsEmptyAuth {
+			// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
+			logger.Warningf("model credential is not set for the model but the cloud requires it")
+		}
 		return result, nil
 	}
 
 	result.Credential = modelCredentialTag
 	credential, err := b.CloudCredential(modelCredentialTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// In this situation, a model refers to a credential that does not exist in credentials collection.
+		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
+		logger.Warningf("cloud credential reference is set for the model but the credential content is no longer on the controller")
+		result.Valid = false
+		return result, nil
 	}
 	result.Valid = credential.IsValid()
 	return result, nil

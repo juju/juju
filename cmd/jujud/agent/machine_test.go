@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
@@ -1101,6 +1102,54 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 	})
 }
 
+func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
+	// The dummy provider blows up in the face of multi-model
+	// scenarios so patch in a minimal environs.Environ that's good
+	// enough to allow the model workers to run.
+	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+		return &minModelWorkersEnviron{}, nil
+	})
+
+	credentialTag := names.NewCloudCredentialTag("dummy/admin/another")
+	err := s.State.UpdateCloudCredential(credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		ConfigAttrs: coretesting.Attrs{
+			"max-status-history-age":  "2h",
+			"max-status-history-size": "4M",
+			"max-action-results-age":  "2h",
+			"max-action-results-size": "4M",
+		},
+		CloudCredential: credentialTag,
+	})
+	defer func() {
+		err := st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
+	uuid := st.ModelUUID()
+
+	// remove cloud credential used by this model but keep model reference to it
+	err = s.State.RemoveCloudCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tracker := agenttest.NewEngineTracker()
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
+
+	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
+	// Since this model's cloud credential is no longer valid,
+	// only the workers that don't require a valid credential should remain.
+	remainingWorkers := set.NewStrings(expectedWorkers...).Difference(
+		set.NewStrings(requireValidCredentialModelWorkers...))
+
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+	})
+}
+
 func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
@@ -1152,17 +1201,17 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 
 	timeout := time.After(ReallyLongWait)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		model, err := st.Model()
+		m, err := st.Model()
 		c.Assert(err, jc.ErrorIsNil)
-		watch := model.Watch()
+		watch := m.Watch()
 		defer workertest.CleanKill(c, watch)
 
-		err = model.Destroy(state.DestroyModelParams{})
+		err = m.Destroy(state.DestroyModelParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		for {
 			select {
 			case <-watch.Changes():
-				err := model.Refresh()
+				err := m.Refresh()
 				cause := errors.Cause(err)
 				if err == nil {
 					continue // still there
