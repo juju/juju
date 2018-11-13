@@ -118,6 +118,25 @@ func newSubscriber(config WorkerConfig) (*subscriber, error) {
 	return sub, nil
 }
 
+// Report returns the same information as the introspection report
+// but in the map for for the dependency engine report.
+func (s *subscriber) Report() map[string]interface{} {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	result := map[string]interface{}{
+		"source": s.config.Origin,
+	}
+	targets := make(map[string]interface{})
+	for target, remote := range s.servers {
+		targets[target] = remote.Report()
+	}
+	if len(targets) > 0 {
+		result["targets"] = targets
+	}
+	return result
+
+}
+
 // IntrospectionReport is the method called by the introspection
 // worker to get what to show to the user.
 func (s *subscriber) IntrospectionReport() string {

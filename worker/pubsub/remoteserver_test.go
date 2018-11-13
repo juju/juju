@@ -95,6 +95,12 @@ func (s *RemoteServerSuite) TestConnectPublished(c *gc.C) {
 		"  Addresses: [localhost]\n"+
 		"  Queue length: 0\n"+
 		"  Sent count: 0\n")
+	c.Check(r.Report(), jc.DeepEquals, map[string]interface{}{
+		"status":    "connected",
+		"addresses": []string{"localhost"},
+		"queue-len": 0,
+		"sent":      uint64(0),
+	})
 }
 
 func (s *RemoteServerSuite) TestDisconnectPublishedOnWriteError(c *gc.C) {
