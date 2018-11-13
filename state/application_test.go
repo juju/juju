@@ -2055,14 +2055,21 @@ func (s *ApplicationSuite) TestAddSubordinateUnitCharmProfile(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetCharmProfile(c *gc.C) {
-	c.Skip("Ignore this test until we workout a better way to test this setup correctly.")
+	machine, profileApp, subApp := s.assertCharmProfileSubordinate(c)
 
-	_, profileApp, subApp := s.assertCharmProfileSubordinate(c)
+	err := machine.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := profileApp.SetCharmProfile("local:quantal/lxd-profile-0")
+	err = profileApp.SetCharmProfile("local:quantal/quantal-lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = subApp.SetCharmProfile("local:quantal/lxd-profile-subordinate-0")
+	assertUpgradeCharmProfile(c, machine, profileApp.Name(), "local:quantal/quantal-lxd-profile-0")
+
+	err = machine.RemoveUpgradeCharmProfileData()
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = subApp.SetCharmProfile("local:quantal/quantal-lxd-profile-subordinate-0")
+	c.Assert(err, jc.ErrorIsNil)
+	assertUpgradeCharmProfile(c, machine, subApp.Name(), "local:quantal/quantal-lxd-profile-subordinate-0")
 }
 
 func (s *ApplicationSuite) assertCharmProfileSubordinate(c *gc.C) (*state.Machine, *state.Application, *state.Application) {
