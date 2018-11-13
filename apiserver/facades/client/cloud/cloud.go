@@ -30,7 +30,7 @@ type CloudV3 interface {
 	Cloud(args params.Entities) (params.CloudResults, error)
 	DefaultCloud() (params.StringResult, error)
 	UserCredentials(args params.UserClouds) (params.StringsResults, error)
-	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
 	Credential(args params.Entities) (params.CloudCredentialResults, error)
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
@@ -654,8 +654,15 @@ func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.
 	return results, nil
 }
 
-// RevokeCredentials revokes a set of cloud credentials.
-func (api *CloudAPI) RevokeCredentials(args params.Entities) (params.ErrorResults, error) {
+// Mask out old methods from the new API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// RevokeCredentials was dropped in V3, replaced with RevokeCredentialsCheckModel.
+func (*CloudAPI) RevokeCredentials(_, _ struct{}) {}
+
+// UpdateCredentials updates a set of cloud credentials' content.
+func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -664,6 +671,44 @@ func (api *CloudAPI) RevokeCredentials(args params.Entities) (params.ErrorResult
 		return results, err
 	}
 	for i, arg := range args.Entities {
+		tag, err := names.ParseCloudCredentialTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
+		// to change this auth check.
+		if !authFunc(tag.Owner()) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if err := api.backend.RemoveCloudCredential(tag); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+// Mask out old methods from the new API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// RevokeCredentialsCheckModels did not exist before V3.
+func (*CloudAPIV2) RevokeCredentialsCheckModels(_, _ struct{}) {}
+
+// RevokeCredentialsCheckModels revokes a set of cloud credentials.
+// If the credentials are used by any of the models, the credential deletion will be aborted.
+// If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
+func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error) {
+	// TODO (anastasiamac 2018-11-13) the behavior here needs to be changed to performed promised models checks and authorise use of force.
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Credentials)),
+	}
+	authFunc, err := api.getCredentialsAuthFunc()
+	if err != nil {
+		return results, err
+	}
+	for i, arg := range args.Credentials {
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)

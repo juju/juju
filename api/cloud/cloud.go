@@ -153,12 +153,25 @@ func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, cred
 // RevokeCredential revokes/deletes a cloud credential.
 func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 	var results params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{
-			Tag: tag.String(),
-		}},
+
+	if c.facade.BestAPIVersion() < 3 {
+		args := params.Entities{
+			Entities: []params.Entity{{
+				Tag: tag.String(),
+			}},
+		}
+		if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		return results.OneError()
 	}
-	if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
+
+	args := params.RevokeCredentialArgs{
+		Credentials: []params.RevokeCredentialArg{
+			{Tag: tag.String()},
+		},
+	}
+	if err := c.facade.FacadeCall("RevokeCredentialsCheckModels", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()

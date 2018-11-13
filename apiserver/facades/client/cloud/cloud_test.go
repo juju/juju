@@ -761,13 +761,13 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidationForce(c *gc.C
 
 func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
-	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
-		Tag: "machine-0",
-	}, {
-		Tag: "cloudcred-meep_admin_whatever",
-	}, {
-		Tag: "cloudcred-meep_bruce_three",
-	}}})
+	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{
+		Credentials: []params.RevokeCredentialArg{
+			{Tag: "machine-0"},
+			{Tag: "cloudcred-meep_admin_whatever"},
+			{Tag: "cloudcred-meep_bruce_three"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 3)
@@ -786,9 +786,11 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
-	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
-		Tag: "cloudcred-meep_julia_three",
-	}}})
+	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{
+		Credentials: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
