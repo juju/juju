@@ -213,7 +213,3 @@ func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.Find
 func (c *fakeAPIClient) FindActionsByNames(args params.FindActionsByNames) (params.ActionsByNames, error) {
 	return c.actionsByNames, c.apiErr
 }
-
-func (c *fakeAPIClient) Leaders() (map[string]string, error) {
-	return c.leaders, c.apiErr
-}

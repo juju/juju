@@ -38,15 +38,15 @@ func NewRunCommand() cmd.Command {
 // params
 type runCommand struct {
 	ActionCommandBase
-	api          APIClient
-	unitNames    []string
-	leaders      map[string]string
-	actionName   string
-	paramsYAML   cmd.FileVar
-	parseStrings bool
-	wait         waitFlag
-	out          cmd.Output
-	args         [][]string
+	api           APIClient
+	unitReceivers []string
+	leaders       map[string]string
+	actionName    string
+	paramsYAML    cmd.FileVar
+	parseStrings  bool
+	wait          waitFlag
+	out           cmd.Output
+	args          [][]string
 }
 
 const runDoc = `
@@ -167,7 +167,7 @@ func (c *runCommand) Init(args []string) (err error) {
 
 	for _, arg := range args {
 		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
-			c.unitNames = append(c.unitNames, arg)
+			c.unitReceivers = append(c.unitReceivers, arg)
 		} else if nameRule.MatchString(arg) {
 			c.actionName = arg
 			break
@@ -175,7 +175,7 @@ func (c *runCommand) Init(args []string) (err error) {
 			return errors.Errorf("invalid unit or action name %q", arg)
 		}
 	}
-	if len(c.unitNames) == 0 {
+	if len(c.unitReceivers) == 0 {
 		return errors.New("no unit specified")
 	}
 	if c.actionName == "" {
@@ -184,7 +184,7 @@ func (c *runCommand) Init(args []string) (err error) {
 
 	// Parse CLI key-value args if they exist.
 	c.args = make([][]string, 0)
-	for _, arg := range args[len(c.unitNames)+1:] {
+	for _, arg := range args[len(c.unitReceivers)+1:] {
 		thisArg := strings.SplitN(arg, "=", 2)
 		if len(thisArg) != 2 {
 			return errors.Errorf("argument %q must be of the form key...=value", arg)
@@ -208,19 +208,6 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer c.api.Close()
-
-	unitTags := make([]names.UnitTag, len(c.unitNames))
-	for idx, unitName := range c.unitNames {
-		if strings.HasSuffix(unitName, "leader") {
-			var err error
-			unitName, err = c.leader(strings.Split(unitName, "/")[0])
-			if err != nil {
-				return errors.Trace(err)
-			}
-			ctx.Infof("resolved leader: %s", unitName)
-		}
-		unitTags[idx] = names.NewUnitTag(unitName)
-	}
 
 	actionParams := map[string]interface{}{}
 	if c.paramsYAML.Path != "" {
@@ -274,9 +261,21 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
 
-	actions := make([]params.Action, len(unitTags))
-	for i, unitTag := range unitTags {
-		actions[i].Receiver = unitTag.String()
+	actions := make([]params.Action, len(c.unitReceivers))
+	for i, unitReceiver := range c.unitReceivers {
+		if strings.HasSuffix(unitReceiver, "leader") {
+			if c.api.BestAPIVersion() < 3 {
+				var leaderErrMsg = "unable to determine leader for application %q"
+				app := strings.Split(unitReceiver, "/")[0]
+				err := errors.Errorf(leaderErrMsg+
+					"\nleader determination is unsupported by this API"+
+					"\neither upgrade your controller, or explicitly specify a unit", app)
+				return err
+			}
+			actions[i].Receiver = unitReceiver
+		} else {
+			actions[i].Receiver = names.NewUnitTag(unitReceiver).String()
+		}
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
@@ -285,7 +284,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	if len(results.Results) != len(unitTags) {
+	if len(results.Results) != len(c.unitReceivers) {
 		return errors.New("illegal number of results returned")
 	}
 
@@ -368,24 +367,4 @@ func (c *runCommand) ensureAPI() (err error) {
 	}
 	c.api, err = c.NewActionAPIClient()
 	return errors.Trace(err)
-}
-
-var leaderErrMsg = "unable to determine leader for application %q"
-
-func (c *runCommand) leader(app string) (string, error) {
-	if c.leaders == nil {
-		var err error
-		if c.leaders, err = c.api.Leaders(); err != nil {
-			if errors.IsNotImplemented(err) {
-				err = errors.Errorf(leaderErrMsg+
-					"\nleader determination is unsupported by this API"+
-					"\neither upgrade your controller, or explicitly specify a unit", app)
-			}
-			return "", errors.Trace(err)
-		}
-	}
-	if l, ok := c.leaders[app]; ok {
-		return l, nil
-	}
-	return "", errors.Errorf(leaderErrMsg, app)
 }

@@ -94,11 +94,3 @@ type PinnedLeadershipResult struct {
 	//   behaviour for each application.
 	Result map[string][]string `json:"result,omitempty"`
 }
-
-// LeadersResult transports data for applications and their current leaders.
-type LeadersResult struct {
-	// Result is collection of current leading units keyed by application.
-	Result map[string]string `json:"result,omitempty"`
-	// Error is a reference to an error from querying current leaders.
-	Error *Error `json:"error,omitempty"`
-}

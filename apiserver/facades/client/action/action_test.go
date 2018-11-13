@@ -6,7 +6,6 @@ package action_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -270,18 +269,6 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	actions, err = s.mysqlUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
-}
-
-func (s *actionSuite) TestLeaders(c *gc.C) {
-	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	err = claimer.Claim("mysql", "mysql/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.action.Leaders()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result, gc.DeepEquals, map[string]string{"mysql": "mysql/0"})
 }
 
 type testCaseAction struct {

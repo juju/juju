@@ -34,7 +34,7 @@ type RunCommand struct {
 }
 
 func (c *RunCommand) UnitNames() []string {
-	return c.unitNames
+       return c.unitReceivers
 }
 
 func (c *RunCommand) ActionName() string {

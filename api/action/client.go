@@ -118,18 +118,3 @@ func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.A
 	}
 	return result.Actions, nil
 }
-
-// Leaders returns applications and their current leader units.
-func (c *Client) Leaders() (map[string]string, error) {
-	var result params.LeadersResult
-	if err := c.facade.FacadeCall("Leaders", nil, &result); err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return nil, errors.NewNotImplemented(err, "")
-		}
-		return nil, err
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return result.Result, nil
-}
