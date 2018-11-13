@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -45,6 +46,10 @@ func init() {
 		log.Criticalf("unabled to register server components: %v", err)
 		os.Exit(1)
 	}
+}
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 var jujudDoc = `
