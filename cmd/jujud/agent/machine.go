@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -107,10 +106,6 @@ var (
 
 // Variable to override in tests, default is true
 var ProductionMongoWriteConcern = true
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
