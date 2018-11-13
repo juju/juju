@@ -550,17 +550,13 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
-		if err == environs.ErrNoInstances {
+		if err == environs.ErrNoInstances || len(instances) == 0 {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
 		machineId := machined.tag.Id()
-
-		if len(instances) == 0 {
-			return nil
-		}
 
 		fwInstance, ok := instances[0].(instance.InstanceFirewaller)
 		if !ok {
