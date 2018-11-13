@@ -24,10 +24,6 @@ func (p *profileBackendShim) Charm(curl *charm.URL) (ProfileCharm, error) {
 	return p.State.Charm(curl)
 }
 
-// TODO (hml) 2018-11-08
-// Replace with containerizer.ProfileCharm interface when
-// PR 9428 lands
-// the NewMockCharm in containerize_mock_test.go will satisfy this interface
 type ProfileCharm interface {
 	LXDProfile() *charm.LXDProfile
 	Meta() *charm.Meta

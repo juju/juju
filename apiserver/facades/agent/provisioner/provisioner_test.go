@@ -42,12 +42,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-// TODO (hml) lxd-profile 24-oct-2018
-// create mocks to write tests for:
-// CharmProfileChangeInfo
-// SetCharmProfiles
-// SetUpgradeCharmProfileComplete
-
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
@@ -712,7 +706,7 @@ func (s *withoutControllerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
 	m1Watcher := s.resources.Get("2")
 	defer statetesting.AssertStop(c, m1Watcher)
 
-	// Check that the Watch has consumed the initial event ("returned"
+	// Check that the Watch has consumed the initial event "returned"
 	// in the Watch call)
 	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
@@ -727,7 +721,7 @@ func (s *withoutControllerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
-		Changes:          []string{"0", "1", "2", "3", "4"},
+		Changes:          []string{},
 	}
 	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
@@ -737,7 +731,7 @@ func (s *withoutControllerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
-	// Check that the Watch has consumed the initial event ("returned"
+	// Check that the Watch has consumed the initial event "returned"
 	// in the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
@@ -2008,7 +2002,26 @@ type provisionerProfileMockSuite struct {
 
 var _ = gc.Suite(&provisionerProfileMockSuite{})
 
-func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfo(c *gc.C) {
+func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoRemoveUnit(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	mExp := s.machine.EXPECT()
+	mExp.CharmProfiles().Return([]string{
+		"default",
+		"juju-testme",
+		"juju-testme-lxd-profile-alt-2",
+		"juju-testme-application-1",
+	}, nil)
+	mExp.UpgradeCharmProfileCharmURL().Return("", nil)
+	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.OldProfileName, gc.Equals, "juju-testme-lxd-profile-alt-2")
+}
+
+func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoRemoveProfile(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	charmURLString := "local:bionic/lxd-profile-alt-3"
@@ -2018,23 +2031,103 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfo(c *gc.C
 		"juju-testme",
 		"juju-testme-lxd-profile-alt-2",
 		"juju-testme-application-1",
-	})
-	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString)
-	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt")
-	mExp.ModelName().Return("testme")
+	}, nil)
+	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString, nil)
+	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.Id().Return("2")
 
 	cExp := s.charm.EXPECT()
 	cExp.Revision().Return(3)
 	cExp.LXDProfile().Return(&charm.LXDProfile{})
+	cExp.Meta().Return(&charm.Meta{Subordinate: false})
 
 	chURL, err := charm.ParseURL(charmURLString)
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
 
 	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.OldProfileName, gc.Equals, "juju-testme-lxd-profile-alt-2")
+	c.Assert(result.NewProfileName, gc.Equals, "")
+}
+
+func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoAddProfile(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	charmURLString := "local:bionic/lxd-profile-alt-3"
+	mExp := s.machine.EXPECT()
+	mExp.CharmProfiles().Return([]string{
+		"default",
+		"juju-testme",
+		"juju-testme-application-1",
+	}, nil)
+	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString, nil)
+	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.Id().Return("2")
+	mExp.ModelName().Return("testme")
+
+	cExp := s.charm.EXPECT()
+	cExp.Revision().Return(3)
+	cExp.LXDProfile().Return(&charm.LXDProfile{
+		Config:      map[string]string{"security.privilaged": "true"},
+		Description: "profile to test",
+	})
+	cExp.Meta().Return(&charm.Meta{Subordinate: false})
+
+	chURL, err := charm.ParseURL(charmURLString)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, jc.ErrorIsNil)
-	c.Assert(result.Profile, gc.DeepEquals, &params.CharmLXDProfile{})
+	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
+
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.NewProfileName, gc.Equals, "juju-testme-lxd-profile-alt-3")
+	c.Assert(result.OldProfileName, gc.Equals, "")
+	c.Assert(result.Profile, gc.DeepEquals, &params.CharmLXDProfile{
+		Config:      map[string]string{"security.privilaged": "true"},
+		Description: "profile to test",
+	})
+	c.Assert(result.Subordinate, jc.IsFalse)
+}
+
+func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfoChangeProfile(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	charmURLString := "local:bionic/lxd-profile-alt-3"
+	mExp := s.machine.EXPECT()
+	mExp.CharmProfiles().Return([]string{
+		"default",
+		"juju-testme",
+		"juju-testme-lxd-profile-alt-2",
+		"juju-testme-application-1",
+	}, nil)
+	mExp.UpgradeCharmProfileCharmURL().Return(charmURLString, nil)
+	mExp.UpgradeCharmProfileApplication().Return("lxd-profile-alt", nil)
+	mExp.Id().Return("2")
+
+	cExp := s.charm.EXPECT()
+	cExp.Revision().Return(3)
+	cExp.LXDProfile().Return(&charm.LXDProfile{
+		Config:      map[string]string{"security.privilaged": "true"},
+		Description: "profile to test",
+	})
+	cExp.Meta().Return(&charm.Meta{Subordinate: true})
+
+	chURL, err := charm.ParseURL(charmURLString)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.EXPECT().Charm(gomock.Eq(chURL)).Return(s.charm, nil)
+
+	result, err := provisioner.MachineChangeProfileChangeInfo(s.machine, s.backend)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.OldProfileName, gc.Equals, "juju-testme-lxd-profile-alt-2")
+	c.Assert(result.NewProfileName, gc.Equals, "juju-testme-lxd-profile-alt-3")
+	c.Assert(result.Profile, gc.DeepEquals, &params.CharmLXDProfile{
+		Config:      map[string]string{"security.privilaged": "true"},
+		Description: "profile to test",
+	})
+	c.Assert(result.Subordinate, jc.IsTrue)
 }
 
 func (s *provisionerProfileMockSuite) setup(c *gc.C) *gomock.Controller {
