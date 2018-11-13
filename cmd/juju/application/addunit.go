@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 )
 
@@ -26,14 +27,27 @@ var usageAddUnitDetails = `
 The add-unit is used to scale out an application for improved performance or
 availability.
 
+The usage of this command differs depending on whether it is being used on a
+Kubernetes or cloud model.
+
 Many charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
 documentation for specific charms to check how scale-out is supported.
 
-By default, units are deployed to newly provisioned machines in accordance
-with any application or model constraints. This command also supports the
-placement directive ("--to") for targeting specific machines or containers,
-which will bypass application and model constraints.
+For Kubernetes models the only valid argument is -n, --num-units.
+Anything additional will result in an error.
+
+Example:
+
+Add five units of mysql:
+    juju add-unit mysql --num-units 5
+
+
+For cloud models, by default, units are deployed to newly provisioned machines
+in accordance with any application or model constraints.
+This command also supports the placement directive ("--to") for targeting
+specific machines or containers, which will bypass application and model
+constraints.
 
 Examples:
 
@@ -140,10 +154,11 @@ func NewAddUnitCommand() cmd.Command {
 // addUnitCommand is responsible adding additional units to an application.
 type addUnitCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	UnitCommandBase
 	ApplicationName string
 	api             applicationAddUnitAPI
+
+	unknownModel bool
 }
 
 func (c *addUnitCommand) Info() *cmd.Info {
@@ -184,8 +199,27 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
+	if err := c.validateArgsByModelType(); err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		c.unknownModel = true
+	}
 
 	return c.UnitCommandBase.Init(args)
+}
+
+func (c *addUnitCommand) validateArgsByModelType() error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS {
+		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
+			return errors.New("Kubernetes models only support --num-units")
+		}
+	}
+	return nil
 }
 
 // applicationAddUnitAPI defines the methods on the client API
@@ -195,6 +229,7 @@ type applicationAddUnitAPI interface {
 	Close() error
 	ModelUUID() string
 	AddUnits(application.AddUnitsParams) ([]string, error)
+	ScaleApplication(application.ScaleApplicationParams) (params.ScaleApplicationResult, error)
 }
 
 func (c *addUnitCommand) getAPI() (applicationAddUnitAPI, error) {
@@ -216,6 +251,28 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+
+	if c.unknownModel {
+		if err := c.validateArgsByModelType(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+
+	if modelType == model.CAAS {
+		_, err = apiclient.ScaleApplication(application.ScaleApplicationParams{
+			ApplicationName: c.ApplicationName,
+			ScaleChange:     c.NumUnits,
+		})
+		if params.IsCodeUnauthorized(err) {
+			common.PermissionsMessage(ctx.Stderr, "scale an application")
+		}
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
 
 	if len(c.AttachStorage) > 0 && apiclient.BestAPIVersion() < 5 {
 		// AddUnitsPArams.AttachStorage is only supported from

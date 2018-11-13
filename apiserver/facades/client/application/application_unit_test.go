@@ -639,6 +639,59 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 	app.CheckCall(c, 0, "Scale", 5)
 }
 
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.applications["postgresql"].scale = 2
+	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			ScaleChange:    5,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResults{
+		Results: []params.ScaleApplicationResult{{
+			Info: &params.ScaleApplicationInfo{Scale: 7},
+		}},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "ChangeScale", 5)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheck(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.backend.applications["postgresql"].scale = 2
+
+	for i, test := range []struct {
+		scale       int
+		scaleChange int
+		errorStr    string
+	}{{
+		scale:       5,
+		scaleChange: 5,
+		errorStr:    "requesting both scale and scale-change not valid",
+	}, {
+		scale:       0,
+		scaleChange: 0,
+		errorStr:    "scale of 0 not valid",
+	}, {
+		scale:       -1,
+		scaleChange: 0,
+		errorStr:    "scale < 0 not valid",
+	}} {
+		c.Logf("test #%d", i)
+		results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+			Applications: []params.ScaleApplicationParams{{
+				ApplicationTag: "application-postgresql",
+				Scale:          test.scale,
+				ScaleChange:    test.scaleChange,
+			}}})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.ErrorMatches, test.errorStr)
+	}
+}
+
 func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {
 	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{

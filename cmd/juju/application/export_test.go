@@ -56,6 +56,14 @@ func NewAddUnitCommandForTest(api applicationAddUnitAPI, store jujuclient.Client
 	return modelcmd.Wrap(cmd)
 }
 
+// NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified as well as overrides the refresh function.
+func NewAddUnitCommandForTestWithRefresh(api applicationAddUnitAPI, store jujuclient.ClientStore, refreshFunc func(jujuclient.ClientStore, string) error) modelcmd.ModelCommand {
+	cmd := &addUnitCommand{api: api}
+	cmd.SetClientStore(store)
+	cmd.SetModelRefresh(refreshFunc)
+	return modelcmd.Wrap(cmd)
+}
+
 // NewRemoveUnitCommandForTest returns a RemoveUnitCommand with the api provided as specified.
 func NewRemoveUnitCommandForTest(api removeApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &removeUnitCommand{api: api}

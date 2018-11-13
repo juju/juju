@@ -1154,6 +1154,36 @@ func (s *applicationSuite) TestScaleApplication(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestChangeScaleApplication(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "ScaleApplications")
+			args, ok := a.(params.ScaleApplicationsParams)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.ScaleApplicationsParams{
+				Applications: []params.ScaleApplicationParams{
+					{ApplicationTag: "application-foo", ScaleChange: 5},
+				}})
+
+			result, ok := response.(*params.ScaleApplicationResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.ScaleApplicationResult{
+				{Info: &params.ScaleApplicationInfo{Scale: 7}},
+			}
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	results, err := client.ScaleApplication(application.ScaleApplicationParams{
+		ApplicationName: "foo",
+		ScaleChange:     5,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ScaleApplicationResult{
+		Info: &params.ScaleApplicationInfo{Scale: 7},
+	})
+}
+
 func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
@@ -1180,6 +1210,41 @@ func (s *applicationSuite) TestScaleApplicationArity(c *gc.C) {
 		Scale:           5,
 	})
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *applicationSuite) TestScaleApplicationValidation(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+
+	for i, test := range []struct {
+		scale       int
+		scaleChange int
+		errorStr    string
+	}{{
+		scale:       5,
+		scaleChange: 5,
+		errorStr:    "requesting both scale and scale-change not valid",
+	}, {
+		scale:       0,
+		scaleChange: 0,
+		errorStr:    "scale of 0 not valid",
+	}, {
+		scale:       -1,
+		scaleChange: 0,
+		errorStr:    "scale < 0 not valid",
+	}} {
+		c.Logf("test #%d", i)
+		_, err := client.ScaleApplication(application.ScaleApplicationParams{
+			ApplicationName: "foo",
+			Scale:           test.scale,
+			ScaleChange:     test.scaleChange,
+		})
+		c.Assert(err, gc.ErrorMatches, test.errorStr)
+	}
 }
 
 func (s *applicationSuite) TestScaleApplicationError(c *gc.C) {

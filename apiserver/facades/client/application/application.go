@@ -1586,9 +1586,14 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
 	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
-		if arg.Scale < 0 {
+		if arg.Scale == 0 && arg.ScaleChange == 0 {
+			return nil, errors.NotValidf("scale of 0")
+		} else if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
+		} else if arg.Scale != 0 && arg.ScaleChange != 0 {
+			return nil, errors.NotValidf("requesting both scale and scale-change")
 		}
+
 		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1601,10 +1606,18 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			return nil, errors.Trace(err)
 		}
 		var info params.ScaleApplicationInfo
-		if err := app.Scale(arg.Scale); err != nil {
-			return nil, errors.Trace(err)
+		if arg.ScaleChange != 0 {
+			newScale, err := app.ChangeScale(arg.ScaleChange)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			info.Scale = newScale
+		} else {
+			if err := app.Scale(arg.Scale); err != nil {
+				return nil, errors.Trace(err)
+			}
+			info.Scale = arg.Scale
 		}
-		info.Scale = arg.Scale
 		return &info, nil
 	}
 	results := make([]params.ScaleApplicationResult, len(args.Applications))

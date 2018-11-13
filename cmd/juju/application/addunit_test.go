@@ -66,6 +66,17 @@ func (f *fakeApplicationAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams)
 	return nil, nil
 }
 
+func (f *fakeApplicationAddUnitAPI) ScaleApplication(args apiapplication.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
+	if f.err != nil {
+		return params.ScaleApplicationResult{}, f.err
+	}
+	if args.ApplicationName != f.application {
+		return params.ScaleApplicationResult{}, errors.NotFoundf("application %q", args.ApplicationName)
+	}
+	f.numUnits += args.ScaleChange
+	return params.ScaleApplicationResult{}, nil
+}
+
 func (f *fakeApplicationAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": f.envType,
@@ -116,6 +127,15 @@ func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
+}
+
+// Must error at init when the model type is known (and args are invalid)
+func (s *AddUnitSuite) TestInitErrorsForCAAS(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), []string{"some-application-name", "--to", "lxd:1"})
+	c.Check(err, gc.ErrorMatches, "Kubernetes models only support --num-units")
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
@@ -230,18 +250,39 @@ func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer("0/kvm/4", true)
 }
 
-func (s *AddUnitSuite) TestCAASDisallowed(c *gc.C) {
+func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
+	expectedError := "Kubernetes models only support --num-units"
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
-	err := s.runAddUnit(c)
-	c.Assert(err, gc.NotNil)
-	expected := `
-add-unit is not allowed on Kubernetes models.
-Instead, use juju scale-application.
-See juju help scale-application.
-`
-	expected = strings.Replace(expected, "\n", "", -1)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Equals, expected)
+
+	err := s.runAddUnit(c, "some-application-name", "--to", "lxd:1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--to", "lxd:1", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--attach-storage", "foo/0", "-n", "2", "--to", "lxd:1")
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	err = s.runAddUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
+	called := false
+	refresh := func(jujuclient.ClientStore, string) error {
+		called = true
+		return nil
+	}
+	cmd := application.NewAddUnitCommandForTestWithRefresh(s.fake, s.store, refresh)
+	_, err := cmdtesting.RunCommand(c, cmd, "-m", "nope", "no-app")
+	c.Check(called, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "model arthur:king/nope not found")
 }

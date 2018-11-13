@@ -3849,6 +3849,28 @@ func (s *CAASApplicationSuite) TestScale(c *gc.C) {
 	c.Assert(s.app.GetScale(), gc.Equals, 5)
 }
 
+func (s *CAASApplicationSuite) TestInvalidChangeScale(c *gc.C) {
+	newScale, err := s.app.ChangeScale(-1)
+	c.Assert(err, gc.ErrorMatches, "cannot remove more units than currently exist not valid")
+	c.Assert(newScale, gc.Equals, 0)
+}
+
+func (s *CAASApplicationSuite) TestChangeScale(c *gc.C) {
+	newScale, err := s.app.ChangeScale(5)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newScale, gc.Equals, 5)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 5)
+
+	newScale, err = s.app.ChangeScale(-4)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newScale, gc.Equals, 1)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 1)
+}
+
 func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	// Empty initial event.
 	w := s.app.WatchScale()

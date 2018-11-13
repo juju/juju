@@ -1338,6 +1338,46 @@ func (a *Application) GetScale() int {
 	return a.doc.DesiredScale
 }
 
+// ChangeScale alters the existing scale by the provided change amount, returning the new amount.
+// This is used on CAAS models.
+func (a *Application) ChangeScale(scaleChange int) (int, error) {
+	newScale := a.doc.DesiredScale + scaleChange
+	if newScale < 0 {
+		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			newScale = a.doc.DesiredScale + scaleChange
+			if newScale < 0 {
+				return nil, errors.NotValidf("cannot remove more units than currently exist")
+			}
+		}
+		return []txn.Op{{
+			C:  applicationsC,
+			Id: a.doc.DocID,
+			Assert: bson.D{{"life", Alive},
+				{"charmurl", a.doc.CharmURL},
+				{"unitcount", a.doc.UnitCount},
+				{"scale", a.doc.DesiredScale}},
+			Update: bson.D{{"$set", bson.D{{"scale", newScale}}}},
+		}}, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return a.doc.DesiredScale, errors.Errorf("cannot set scale for application %q to %v: %v", a, newScale, onAbort(err, applicationNotAliveErr))
+	}
+	a.doc.DesiredScale = newScale
+	return newScale, nil
+}
+
 // Scale sets the application's desired scale value.
 // This is used on CAAS models.
 func (a *Application) Scale(scale int) error {
@@ -1351,6 +1391,9 @@ func (a *Application) Scale(scale int) error {
 				return nil, errors.Trace(err)
 			} else if !alive {
 				return nil, applicationNotAliveErr
+			}
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
 			}
 		}
 		return []txn.Op{{
