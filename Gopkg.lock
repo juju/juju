@@ -1426,7 +1426,7 @@
   revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
 
 [[projects]]
-  digest = "1:c6990f10d1ded91d3d02eae88954596913070e1408398197b522160c166b17b0"
+  digest = "1:228091b9d9ab4998d34508170062e3baef18358c04a2ac066a45ac6299192760"
   name = "gopkg.in/mgo.v2"
   packages = [
     ".",
@@ -1437,7 +1437,8 @@
     "txn",
   ]
   pruneopts = ""
-  revision = "f2b6f6c918c452ad107eec89615f074e3bd80e33"
+  revision = "b46b9d99652d633b91999fe4a973cb93aefa3515"
+  source = "github.com/juju/mgo"
 
 [[projects]]
   digest = "1:b3754795e3fee393109402432c80f9771e13118efa63da5a022028ca68fc1887"

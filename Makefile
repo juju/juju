@@ -51,16 +51,9 @@ endif
 
 build: dep go-build
 
-add-patches:
-	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/vendor/
+release-build: dep go-build
 
-# this is useful to run after release-build, or as needed
-remove-patches:
-	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/vendor/
-
-release-build: dep add-patches go-build
-
-release-install: dep add-patches go-install remove-patches
+release-install: dep go-install
 
 pre-check:
 	@echo running pre-test checks
@@ -176,4 +169,3 @@ local-operator-update: check-k8s-model operator-image
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies
 .PHONY: dep check-deps
-.PHONY: add-patches remove-patches
