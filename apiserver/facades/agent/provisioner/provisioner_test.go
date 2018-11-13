@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
+	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
@@ -1805,14 +1806,14 @@ type provisionerMockSuite struct {
 	coretesting.BaseSuite
 
 	environ      *environtesting.MockNetworkingEnviron
-	host         *MockMachine
-	container    *MockMachine
-	device       *MockLinkLayerDevice
-	parentDevice *MockLinkLayerDevice
+	host         *mocks.MockMachine
+	container    *mocks.MockMachine
+	device       *mocks.MockLinkLayerDevice
+	parentDevice *mocks.MockLinkLayerDevice
 
-	unit        *MockUnit
-	application *MockApplication
-	charm       *MockCharm
+	unit        *mocks.MockUnit
+	application *mocks.MockApplication
+	charm       *mocks.MockCharm
 }
 
 var _ = gc.Suite(&provisionerMockSuite{})
@@ -1976,9 +1977,9 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 }
 
 func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
-	s.unit = NewMockUnit(ctrl)
-	s.application = NewMockApplication(ctrl)
-	s.charm = NewMockCharm(ctrl)
+	s.unit = mocks.NewMockUnit(ctrl)
+	s.application = mocks.NewMockApplication(ctrl)
+	s.charm = mocks.NewMockCharm(ctrl)
 
 	s.container.EXPECT().Units().Return([]containerizer.Unit{s.unit}, nil)
 	s.unit.EXPECT().Application().Return(s.application, nil)
@@ -1989,10 +1990,10 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
-	s.host = NewMockMachine(ctrl)
-	s.container = NewMockMachine(ctrl)
-	s.device = NewMockLinkLayerDevice(ctrl)
-	s.parentDevice = NewMockLinkLayerDevice(ctrl)
+	s.host = mocks.NewMockMachine(ctrl)
+	s.container = mocks.NewMockMachine(ctrl)
+	s.device = mocks.NewMockLinkLayerDevice(ctrl)
+	s.parentDevice = mocks.NewMockLinkLayerDevice(ctrl)
 
 	return ctrl
 }
@@ -2000,9 +2001,9 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 type provisionerProfileMockSuite struct {
 	coretesting.BaseSuite
 
-	backend *MockProfileBackend
-	charm   *MockProfileCharm
-	machine *MockProfileMachine
+	backend *mocks.MockProfileBackend
+	charm   *mocks.MockProfileCharm
+	machine *mocks.MockProfileMachine
 }
 
 var _ = gc.Suite(&provisionerProfileMockSuite{})
@@ -2039,9 +2040,9 @@ func (s *provisionerProfileMockSuite) TestMachineChangeProfileChangeInfo(c *gc.C
 func (s *provisionerProfileMockSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.backend = NewMockProfileBackend(ctrl)
-	s.charm = NewMockProfileCharm(ctrl)
-	s.machine = NewMockProfileMachine(ctrl)
+	s.backend = mocks.NewMockProfileBackend(ctrl)
+	s.charm = mocks.NewMockProfileCharm(ctrl)
+	s.machine = mocks.NewMockProfileMachine(ctrl)
 
 	return ctrl
 }

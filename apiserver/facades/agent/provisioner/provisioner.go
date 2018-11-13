@@ -885,8 +885,8 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 }
 
 // Machine is an indirection for use in container provisioning.
-//go:generate mockgen -package provisioner_test -destination machine_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
-//go:generate mockgen -package provisioner_test -destination containerizer_mock_test.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
+//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
+//go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
 	InstanceId() (instance.Id, error)
