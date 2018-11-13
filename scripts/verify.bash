@@ -64,6 +64,9 @@ go tool vet \
    -printfuncs=$all_prints \
     $FILES || [ -n "$IGNORE_VET_WARNINGS" ]
 
+echo "checking: dependency files ..."
+dep check
+
 # Allow the ignoring of the gometalinter
 if [ -z "$IGNORE_GOMETALINTER" ]; then
     echo "checking: gometalinter ..."
