@@ -159,12 +159,6 @@ func (c *runCommand) Info() *cmd.Info {
 
 // Init gets the unit tag(s), action name and action arguments.
 func (c *runCommand) Init(args []string) (err error) {
-	defer func() {
-		if err != nil && c.api != nil {
-			c.api.Close()
-		}
-	}()
-
 	for _, arg := range args {
 		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
 			c.unitReceivers = append(c.unitReceivers, arg)
