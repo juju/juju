@@ -37,8 +37,9 @@
   name = "github.com/EvilSuperstars/go-cidrman"
 
 [[constraint]]
-  revision = "31228935eec685587914528585da4eb9b073c76d"
+  revision = "a27b59fe2be9d16e2b66f0d7acf5c852f844cc2b"
   name = "github.com/altoros/gosigma"
+  source = "github.com/wallyworld/gosigma"
 
 [[constraint]]
   name = "github.com/coreos/go-systemd"
