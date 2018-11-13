@@ -10,7 +10,6 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 )
 
@@ -54,13 +53,14 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	v := &validator{
-		validatorFacade: config.Facade,
-	}
-
-	mc, err := v.modelCredential()
+	mc, err := modelCredential(config.Facade)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	v := &validator{
+		validatorFacade: config.Facade,
+		credential:      mc,
 	}
 
 	// It is possible that this model is on a cloud that does not
@@ -80,7 +80,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Work: v.loop,
 	}
 
-	if mc.CloudCredential != "" && !v.credentialDeleted {
+	if mc.CloudCredential != "" {
 		var err error
 		v.watcher, err = config.Facade.WatchCredential(mc.CloudCredential)
 		if err != nil {
@@ -108,13 +108,6 @@ type validator struct {
 	catacomb catacomb.Catacomb
 
 	credential base.StoredCredential
-
-	// Coming from older versions of Juju, we could
-	// end up having a reference to a credential on the model to
-	// a credential that no longer exists in the system.
-	// credentialDeleted indicates that we are in that situation - we have a tag without
-	// any credential content.
-	credentialDeleted bool
 
 	// watcher may sometimes be nil when there is no credential to watch.
 	watcher watcher.NotifyWatcher
@@ -151,8 +144,7 @@ func (v *validator) loop() error {
 			if !ok {
 				return v.catacomb.ErrDying()
 			}
-			wasCredentialDeleted := v.credentialDeleted
-			updatedCredential, err := v.modelCredential()
+			updatedCredential, err := modelCredential(v.validatorFacade)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -160,31 +152,17 @@ func (v *validator) loop() error {
 			// is immutable at this stage. Planned worked caters for situations
 			// where model credential is changed.
 			// Once this is implemented, this worker will need to be changed too.
-			if wasCredentialDeleted != v.credentialDeleted || v.credential.Valid != updatedCredential.Valid {
+			if v.credential.Valid != updatedCredential.Valid {
 				return ErrValidityChanged
 			}
 		}
 	}
 }
 
-func (v *validator) modelCredential() (base.StoredCredential, error) {
-	mc, exists, err := v.validatorFacade.ModelCredential()
+func modelCredential(v Facade) (base.StoredCredential, error) {
+	mc, _, err := v.ModelCredential()
 	if err != nil {
-		if !params.IsCodeNotFound(err) {
-			return base.StoredCredential{}, errors.Trace(err)
-		}
-		// In this situation, a model refers to a credential that
-		// does not exist in credentials collection.
-		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-		logger.Warningf("cloud credential reference is set for the model but the credential content is no longer on the controller")
-		v.credentialDeleted = true
-	}
-	if !v.credentialDeleted && !exists && !mc.Valid {
-		logger.Warningf("model credential is not set for the model but the cloud requires it")
-		// In this situation, a model credential is not set and the model
-		// is on the cloud that requires a credential.
-		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
-		v.credentialDeleted = true
+		return base.StoredCredential{}, errors.Trace(err)
 	}
 	return mc, nil
 }

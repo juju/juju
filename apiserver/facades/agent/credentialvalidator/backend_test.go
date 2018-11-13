@@ -82,14 +82,24 @@ func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
 }
 
 func (s *BackendSuite) TestModelCredentialSetButCloudCredentialNotFound(c *gc.C) {
+	assertValidity := func(expected bool) {
+		mc, err := s.backend.ModelCredential()
+		c.Assert(err, gc.IsNil)
+		c.Assert(mc, gc.DeepEquals, &credentialvalidator.ModelCredential{
+			Exists:     true,
+			Credential: s.state.aModel.credentialTag,
+			Valid:      expected,
+		})
+		s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential", "ModelTag", "mockState.CloudCredential")
+		s.state.ResetCalls()
+	}
+
+	assertValidity(true)
 	s.state.SetErrors(
 		nil,                      // Model
 		errors.NotFoundf("lost"), // CloudCredential
 	)
-	mc, err := s.backend.ModelCredential()
-	c.Assert(err, gc.ErrorMatches, "lost not found")
-	c.Assert(mc, gc.IsNil)
-	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential", "ModelTag", "mockState.CloudCredential")
+	assertValidity(false)
 }
 
 func newMockState() *mockState {
