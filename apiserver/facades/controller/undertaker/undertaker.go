@@ -87,7 +87,7 @@ func (u *UndertakerAPI) ProcessDyingModel() error {
 
 // RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel() error {
-	return u.st.RemoveModel()
+	return u.st.RemoveDyingModel()
 }
 
 func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {

@@ -113,12 +113,12 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model1.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	// Destroy only sets the model to dying and RemoveModel can
+	// Destroy only sets the model to dying and RemoveDyingModel can
 	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and applications have been cleaned up.
 	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.RemoveModel()
+	err = st1.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
@@ -177,12 +177,12 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model1.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	// Destroy only sets the model to dying and RemoveModel can
+	// Destroy only sets the model to dying and RemoveDyingModel can
 	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and applications have been cleaned up.
 	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.RemoveModel()
+	err = st1.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
@@ -622,16 +622,13 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	c.Assert(model2.Life(), gc.Equals, state.Dying)
 
 	c.Assert(st2.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(st2.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(model2.Refresh(), jc.ErrorIsNil)
-	c.Assert(model2.Life(), gc.Equals, state.Dead)
-	err = st2.RemoveModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model2.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.ErrorIsNil)
-	c.Assert(model2.Life(), gc.Equals, state.Dead)
+	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) {
@@ -687,21 +684,19 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	assertAllMachinesDeadAndRemove(c, otherSt)
 	assertModel(otherModel, otherSt, state.Dying, 0, 0)
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(otherSt.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(otherSt.RemoveDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(otherModel.Refresh(), jc.ErrorIsNil)
-	c.Assert(otherModel.Life(), gc.Equals, state.Dead)
+	c.Assert(otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	// Until the model is removed, we can't mark the controller model Dead.
 	err = s.State.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
-	err = otherSt.RemoveModel()
+	err = otherSt.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(s.State.SetDyingModelToDead(), jc.ErrorIsNil)
-	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
-	c.Assert(controllerModel.Life(), gc.Equals, state.Dead)
+	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C) {
@@ -757,7 +752,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		model, err := st2.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-		err = st2.RemoveModel()
+		err = st2.RemoveDyingModel()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Add a new, non-empty model. This should still prevent
@@ -1021,10 +1016,9 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 
 		c.Check(model.UniqueIndexExists(), jc.IsTrue)
 		c.Assert(st.ProcessDyingModel(), jc.ErrorIsNil)
-		c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+		c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
 
-		c.Assert(model.Refresh(), jc.ErrorIsNil)
-		c.Assert(model.Life(), gc.Equals, state.Dead)
+		c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 		c.Check(model.UniqueIndexExists(), jc.IsFalse)
 	}).Check()
 
@@ -1356,13 +1350,13 @@ func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
 	model1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model1.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(st1.RemoveModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(st2.RemoveModel(), jc.ErrorIsNil)
+	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 

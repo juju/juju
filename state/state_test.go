@@ -2221,7 +2221,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	err = st2.RemoveModel()
+	err = st2.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed model are reported in initial event.
@@ -2233,9 +2233,8 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Progress dying to dead, alive to dying; and see changes reported.
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	err = alive.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
@@ -2267,11 +2266,11 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Remove the model: reported.
 	c.Assert(app.Destroy(), jc.ErrorIsNil)
 	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(st1.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 
-	c.Assert(st1.RemoveModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 
@@ -2778,7 +2777,7 @@ func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
 
-	err = st.RemoveModel()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloud, err = s.State.Cloud(model.Cloud())
@@ -2795,7 +2794,7 @@ func (s *StateSuite) TestRemoveModelAliveModelFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	err := st.RemoveModel()
+	err := st.RemoveDyingModel()
 	c.Assert(err, gc.ErrorMatches, "can't remove model: model still alive")
 }
 
@@ -2948,7 +2947,7 @@ func (s *StateSuite) TestRemoveModelRemovesLogs(c *gc.C) {
 	writeLogs(c, st, 5)
 	writeLogs(c, s.State, 5)
 
-	err = st.RemoveModel()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertLogCount(c, s.State, 5)

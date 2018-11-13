@@ -1158,14 +1158,6 @@ func (m *Model) destroyOps(
 			}
 			prereqOps = storageOps
 		}
-	} else {
-		if !m.isControllerModel() && m.Type() == ModelTypeIAAS {
-			// The IAAS model is empty, and is not the controller
-			// model, so we can move it straight to Dead.
-			// Empty CAAS model still needs do namespace cleanup
-			// before moving model to dead.
-			nextLife = Dead
-		}
 	}
 
 	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {

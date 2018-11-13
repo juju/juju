@@ -160,7 +160,7 @@ func (s *AnnotationsModelSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
 
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.RemoveModel()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)

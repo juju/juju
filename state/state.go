@@ -211,16 +211,16 @@ func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
-// SetDyingModelToDead sets current dying model to dead.
-func (st *State) SetDyingModelToDead() error {
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if model.Life() != Dying {
-		return errors.Errorf("can't remove model: model is not dying")
-	}
+// setDyingModelToDead sets current dying model to dead.
+func (st *State) setDyingModelToDead() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if model.Life() != Dying {
+			return nil, errors.Trace(ErrModelNotDying)
+		}
 		ops := []txn.Op{{
 			C:      modelsC,
 			Id:     st.ModelUUID(),
@@ -237,15 +237,15 @@ func (st *State) SetDyingModelToDead() error {
 		}}
 		return ops, nil
 	}
-	if err = st.db().Run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-// RemoveModel sets current model to dead then removes all documents from
+// RemoveDyingModel sets current model to dead then removes all documents from
 // multi-model collections.
-func (st *State) RemoveModel() error {
+func (st *State) RemoveDyingModel() error {
 	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -255,13 +255,9 @@ func (st *State) RemoveModel() error {
 	}
 	if model.Life() == Dying {
 		// set model to dead if it's dying.
-		if err = st.SetDyingModelToDead(); err != nil {
+		if err = st.setDyingModelToDead(); err != nil {
 			return errors.Trace(err)
 		}
-	}
-	model, err = st.Model()
-	if err != nil {
-		return errors.Trace(err)
 	}
 	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
 	if errors.Cause(err) == txn.ErrAborted {

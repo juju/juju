@@ -273,8 +273,13 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 			return nil
 		case <-watcher.Changes():
 			// ensure namespace has been deleted - notfound error expected.
-			if _, err := k.GetNamespace(""); errors.IsNotFound(err) {
+			_, err := k.GetNamespace("")
+			if errors.IsNotFound(err) {
+				// namespace ha been deleted.
 				return nil
+			}
+			if err != nil {
+				return errors.Trace(err)
 			}
 			logger.Debugf("namespace %q is still been terminating", k.namespace)
 		}

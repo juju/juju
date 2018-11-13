@@ -125,10 +125,9 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	err = otherSt.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(otherSt.SetDyingModelToDead(), jc.ErrorIsNil)
 
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dead)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
 func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
@@ -159,7 +158,6 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	err = otherSt.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(otherSt.SetDyingModelToDead(), jc.ErrorIsNil)
 
 	c.Assert(undertakerClient.RemoveModel(), jc.ErrorIsNil)
 	c.Assert(otherSt.EnsureModelRemoved(), jc.ErrorIsNil)
