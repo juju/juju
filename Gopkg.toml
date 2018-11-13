@@ -523,7 +523,8 @@
 
 [[constraint]]
   name = "gopkg.in/yaml.v2"
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  revision = "2025133c382644467541934971b571f7896de32a"
+  source = "github.com/juju/yaml"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"

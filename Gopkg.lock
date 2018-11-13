@@ -1476,11 +1476,12 @@
   revision = "14b3d72120e8d10ea6e6b7f87f7175734b1faab8"
 
 [[projects]]
-  digest = "1:f0620375dd1f6251d9973b5f2596228cc8042e887cd7f827e4220bc1ce8c30e2"
+  digest = "1:3f8b7915cd2976859061a7ec7dd709fab168feff8d1b8d80615b5d465dafe0fb"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  revision = "2025133c382644467541934971b571f7896de32a"
+  source = "github.com/juju/yaml"
 
 [[projects]]
   digest = "1:09ea5dbe52206b2d102fe418b840ca297f63883101c596039d68391596fe9bf1"
