@@ -522,7 +522,7 @@
 
 [[constraint]]
   name = "gopkg.in/yaml.v2"
-  revision = "becf8cb7bf67695d7686db18bd4e3e6c9c863a9d"
+  revision = "2025133c382644467541934971b571f7896de32a"
   source = "github.com/juju/yaml"
 
 [[constraint]]
