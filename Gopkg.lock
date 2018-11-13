@@ -57,7 +57,7 @@
   revision = "89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518"
 
 [[projects]]
-  digest = "1:0790c179e0e90ed1a09f9714ebf1b69c8bfe240fbb56f44664294a34fbdd004d"
+  digest = "1:eb7820bae9e7a4d601b1c7319951215554b259e8266490361363b67d9ac8eed6"
   name = "github.com/altoros/gosigma"
   packages = [
     ".",
@@ -66,7 +66,8 @@
     "mock",
   ]
   pruneopts = ""
-  revision = "31228935eec685587914528585da4eb9b073c76d"
+  revision = "a27b59fe2be9d16e2b66f0d7acf5c852f844cc2b"
+  source = "github.com/juju/gosigma"
 
 [[projects]]
   digest = "1:8e384478a0e2aa016605896748d186832db7b7350a975bb26aa53ca702d19573"
