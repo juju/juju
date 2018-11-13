@@ -247,7 +247,9 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 			err = st.ProcessDyingModel()
 			if errors.Cause(err) != state.ErrModelNotDying {
 				c.Check(err, jc.ErrorIsNil)
-				if err == nil {
+				err2 := st.SetDyingModelToDead()
+				c.Check(err2, jc.ErrorIsNil)
+				if err == nil && err2 == nil {
 					// success!
 					return
 				}
