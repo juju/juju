@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/deque"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
