@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/cmd"
@@ -36,6 +37,10 @@ var (
 	// should be an explicit dependency, can't do it cleanly yet
 	unitManifolds = unit.Manifolds
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {

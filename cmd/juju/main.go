@@ -4,18 +4,25 @@
 package main
 
 import (
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cmd/juju/commands"
 	components "github.com/juju/juju/component/all"
+
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
 
 var log = loggo.GetLogger("juju.cmd.juju")
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 func init() {
 	if err := components.RegisterForClient(); err != nil {

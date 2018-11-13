@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"math/rand"
 	"runtime"
 	"time"
 
@@ -37,6 +38,10 @@ var (
 	// Exported for testing.
 	CaasOperatorManifolds = caasoperator.Manifolds
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
 type CaasOperatorAgent struct {
