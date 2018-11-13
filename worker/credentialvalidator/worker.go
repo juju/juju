@@ -63,18 +63,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		credential:      mc,
 	}
 
-	// It is possible that this model is on a cloud that does not
-	// necessarily require authentication. Consequently, a model
-	// is created without a set credential. However, later on,
-	// a credential may be added to a model. This worker will need to
-	// be restarted as there will be no credential watcher set to react to
-	// changes.
-	// TODO (anastasiamac 2018-05-30) when model-credential relationship no
-	// longer resides on model itself but has a dedicated document in mongo,
-	// we can have a watcher that will support the above corner case.
-
-	v.credential = mc
-
 	plan := catacomb.Plan{
 		Site: &v.catacomb,
 		Work: v.loop,
