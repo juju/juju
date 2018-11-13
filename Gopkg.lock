@@ -67,7 +67,7 @@
   ]
   pruneopts = ""
   revision = "a27b59fe2be9d16e2b66f0d7acf5c852f844cc2b"
-  source = "github.com/wallyworld/gosigma"
+  source = "github.com/juju/gosigma"
 
 [[projects]]
   digest = "1:8e384478a0e2aa016605896748d186832db7b7350a975bb26aa53ca702d19573"

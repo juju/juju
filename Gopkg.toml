@@ -39,7 +39,7 @@
 [[constraint]]
   revision = "a27b59fe2be9d16e2b66f0d7acf5c852f844cc2b"
   name = "github.com/altoros/gosigma"
-  source = "github.com/wallyworld/gosigma"
+  source = "github.com/juju/gosigma"
 
 [[constraint]]
   name = "github.com/coreos/go-systemd"
