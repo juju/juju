@@ -170,8 +170,8 @@ func (v *Value) ExcludeSpaces() []string {
 	return v.extractItems(*v.Spaces, false)
 }
 
-// HaveSpaces returns whether any spaces constraints were specified.
-func (v *Value) HaveSpaces() bool {
+// HasSpaces returns whether any spaces constraints were specified.
+func (v *Value) HasSpaces() bool {
 	return v.Spaces != nil && len(*v.Spaces) > 0
 }
 

@@ -413,13 +413,13 @@ func (s *ConstraintsSuite) TestIncludeExcludeAndHaveSpaces(c *gc.C) {
 	c.Check(*con.Spaces, gc.HasLen, 4)
 	c.Check(con.IncludeSpaces(), jc.SameContents, []string{"space1", "space3"})
 	c.Check(con.ExcludeSpaces(), jc.SameContents, []string{"space2", "space4"})
-	c.Check(con.HaveSpaces(), jc.IsTrue)
+	c.Check(con.HasSpaces(), jc.IsTrue)
 	con = constraints.MustParse("mem=4G")
-	c.Check(con.HaveSpaces(), jc.IsFalse)
+	c.Check(con.HasSpaces(), jc.IsFalse)
 	con = constraints.MustParse("mem=4G spaces=space-foo,^space-bar")
 	c.Check(con.IncludeSpaces(), jc.SameContents, []string{"space-foo"})
 	c.Check(con.ExcludeSpaces(), jc.SameContents, []string{"space-bar"})
-	c.Check(con.HaveSpaces(), jc.IsTrue)
+	c.Check(con.HasSpaces(), jc.IsTrue)
 }
 
 func (s *ConstraintsSuite) TestInvalidSpaces(c *gc.C) {
