@@ -1341,7 +1341,8 @@ func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg par
 		logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
 		return err
 	}
-	if status.Status(arg.Status) == status.ProvisioningError {
+	if status.Status(arg.Status) == status.ProvisioningError ||
+		status.Status(arg.Status) == status.Error {
 		s.Status = status.Error
 		logger.Debugf("SetInstanceStatus triggering SetStatus for %#v", s)
 		if err = machine.SetStatus(s); err != nil {
