@@ -1050,7 +1050,7 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
 	newModel, _ := s.importModel(c, s.State)
-	s.assertDestroyModelAdvancesLife(c, newModel, state.Dead)
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }
 
 func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
@@ -1066,10 +1066,8 @@ func (s *MigrationImportSuite) TestDestroyModelWithApplication(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.Model, life state.Life) {
-	err := m.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life)
 }
 

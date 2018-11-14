@@ -2235,9 +2235,11 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
-	err = alive.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
+	c.Assert(alive.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(alive.Refresh(), jc.ErrorIsNil)
+	c.Assert(alive.Life(), gc.Equals, state.Dying)
+	c.Assert(dying.Refresh(), jc.Satisfies, errors.IsNotFound)
+	wc.AssertChangeInSingleEvent(alive.UUID())
 }
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
@@ -2269,9 +2271,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
-
-	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
-	wc.AssertNoChange()
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {

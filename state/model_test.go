@@ -561,8 +561,11 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 	defer st2.Close()
 	model, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 	// Destroying an empty model also removes the name index doc.
 	c.Assert(model.UniqueIndexExists(), jc.IsFalse)
 }
@@ -589,6 +592,7 @@ func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
 
 	hostedModel, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostedModel.Refresh(), jc.ErrorIsNil)
 	c.Logf("model %s, life %s", hostedModel.UUID(), hostedModel.Life())
 	c.Assert(hostedModel.Life(), gc.Equals, state.Dead)
 }
@@ -687,10 +691,6 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(otherSt.RemoveDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
-
-	// Until the model is removed, we can't mark the controller model Dead.
-	err = s.State.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	err = otherSt.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
@@ -953,7 +953,9 @@ func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
-	c.Assert(m.Life(), gc.Equals, state.Dead)
+	c.Assert(m.Life(), gc.Equals, state.Dying)
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(m.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelSuite) TestDestroyModelWithApplicationOffers(c *gc.C) {

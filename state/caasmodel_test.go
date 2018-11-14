@@ -91,6 +91,7 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
@@ -205,6 +206,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	c.Assert(model2.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
@@ -260,11 +262,6 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 
 	c.Assert(otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
-	// Until the model is removed, we can't mark the controller model Dead.
-	err = s.State.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
-
-	c.Assert(otherSt.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
