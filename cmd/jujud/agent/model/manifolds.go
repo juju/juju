@@ -64,7 +64,6 @@ import (
 // model agent: that is, for the set of interdependent workers that observe
 // and manipulate a single model.
 type ManifoldsConfig struct {
-
 	// Agent identifies, and exposes configuration for, the controller
 	// machine running these manifolds and the model the manifolds
 	// should administer.
@@ -123,7 +122,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	machineTag := agentConfig.Tag().(names.MachineTag)
 	modelTag := agentConfig.Model()
 	result := dependency.Manifolds{
-
 		// The first group are foundational; the agent and clock
 		// which wrap those supplied in config, and the api-caller
 		// through which everything else communicates with the
@@ -296,13 +294,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-
 		// The environ tracker could/should be used by several other
 		// workers (firewaller, provisioners, address-cleaner?).
-		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
+		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName:  apiCallerName,
 			NewEnvironFunc: config.NewEnvironFunc,
-		})),
+		}))),
 
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
@@ -412,7 +409,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
-
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
