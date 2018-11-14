@@ -165,10 +165,6 @@ func (s *WorkerSuite) TestWaitsForClients(c *gc.C) {
 	// have finished with it.
 	s.mux.AddClient()
 
-	// Get the URL beforehand - we can't get it after the worker has
-	// been killed.
-	url := s.worker.URL()
-
 	// Shouldn't take effect until the client has done.
 	s.worker.Kill()
 
@@ -182,9 +178,6 @@ func (s *WorkerSuite) TestWaitsForClients(c *gc.C) {
 		c.Fatalf("didn't wait for clients to finish with the mux")
 	case <-time.After(coretesting.ShortWait):
 	}
-
-	// httpserver is still working.
-	s.makeRequest(c, url)
 
 	s.mux.ClientDone()
 	select {
