@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// TODO(wallyworld) - lp:1602508 - collections need to be defined in collections.go
 const (
 	logsDB      = "logs"
 	logsCPrefix = "logs."
@@ -50,6 +50,8 @@ type ControllerSessioner interface {
 
 	// IsController indicates if current state is controller.
 	IsController() bool
+	// clock returns the clock used by the state instance.
+	clock() clock.Clock
 }
 
 // ModelSessioner supports creating new mongo sessions for a model.
@@ -751,20 +753,27 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 	return rec, nil
 }
 
+// DebugLogger is a logger that implements Debugf.
+type DebugLogger interface {
+	Debugf(string, ...interface{})
+}
+
 // PruneLogs removes old log documents in order to control the size of
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) error {
+func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int, logger DebugLogger) (string, error) {
 	if !st.IsController() {
-		return errors.Errorf("pruning logs requires a controller state")
+		return "", errors.Errorf("pruning logs requires a controller state")
 	}
 	session, logsDB := initLogsSessionDB(st)
 	defer session.Close()
 
+	startTime := st.clock().Now()
+
 	logColls, err := getLogCollections(logsDB)
 	if err != nil {
-		return errors.Annotate(err, "failed to get log counts")
+		return "", errors.Annotate(err, "failed to get log counts")
 	}
 
 	pruneCounts := make(map[string]int)
@@ -775,25 +784,27 @@ func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) erro
 			"t": bson.M{"$lt": minLogTime.UnixNano()},
 		})
 		if err != nil {
-			return errors.Annotate(err, "failed to prune logs by time")
+			return "", errors.Annotate(err, "failed to prune logs by time")
 		}
 		pruneCounts[modelUUID] = removeInfo.Removed
 	}
 
 	// Do further pruning if the total size of the log collections is
 	// over the maximum size.
+	var endSize string
 	for {
 		collMB, err := getCollectionTotalMB(logColls)
 		if err != nil {
-			return errors.Annotate(err, "failed to retrieve log counts")
+			return "", errors.Annotate(err, "failed to retrieve log counts")
 		}
+		endSize = fmt.Sprintf("logs db now %d MB", collMB)
 		if collMB <= maxLogsMB {
 			break
 		}
 
 		modelUUID, count, err := findModelWithMostLogs(logColls)
 		if err != nil {
-			return errors.Annotate(err, "log count query failed")
+			return "", errors.Annotate(err, "log count query failed")
 		}
 		if count < 5000 {
 			break // Pruning is not worthwhile
@@ -813,7 +824,7 @@ func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) erro
 		var doc bson.M
 		err = tsQuery.One(&doc)
 		if err != nil {
-			return errors.Annotate(err, "log pruning timestamp query failed")
+			return "", errors.Annotate(err, "log pruning timestamp query failed")
 		}
 		thresholdTs := doc["t"]
 
@@ -822,17 +833,35 @@ func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) erro
 			"t": bson.M{"$lt": thresholdTs},
 		})
 		if err != nil {
-			return errors.Annotate(err, "log pruning failed")
+			return "", errors.Annotate(err, "log pruning failed")
 		}
 		pruneCounts[modelUUID] += removeInfo.Removed
 	}
 
+	totalRemoved := 0
+	modelCount := 0
 	for modelUUID, count := range pruneCounts {
 		if count > 0 {
+			totalRemoved += count
+			modelCount++
 			logger.Debugf("pruned %d logs for model %s", count, modelUUID)
 		}
 	}
-	return nil
+
+	var removed string
+	if totalRemoved == 0 {
+		removed = "no pruning necessary"
+	} else {
+		s := "s"
+		if modelCount == 1 {
+			s = ""
+		}
+		removed = fmt.Sprintf("pruned %d entries from %d model%s", totalRemoved, modelCount, s)
+	}
+	elapsed := st.clock().Now().Sub(startTime).Round(time.Millisecond)
+
+	message := fmt.Sprintf("pruning complete after %s, %s, %s", elapsed, removed, endSize)
+	return message, nil
 }
 
 func initLogsSessionDB(st MongoSessioner) (*mgo.Session, *mgo.Database) {
