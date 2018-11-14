@@ -10,8 +10,10 @@ import (
 )
 
 // Reporter gives visibility for the introspection worker into the
-// internals of the pubsub forwarding worker.
+// internals of the pubsub forwarding worker. Also defines the
+// Report method used by the engine report.
 type Reporter interface {
+	Report() map[string]interface{}
 	IntrospectionReport() string
 }
 
@@ -34,6 +36,16 @@ func (r *reporter) IntrospectionReport() string {
 		return "pubsub worker not started"
 	}
 	return r.worker.IntrospectionReport()
+}
+
+// Report hooks in to the worker's report mechanism.
+func (r *reporter) Report() map[string]interface{} {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.worker == nil {
+		return nil
+	}
+	return r.worker.Report()
 }
 
 func (r *reporter) setWorker(w worker.Worker) {
