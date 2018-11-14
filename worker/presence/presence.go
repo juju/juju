@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/forwarder"
-	jujuworker "github.com/juju/juju/worker"
 )
 
 // WorkerConfig defines the configuration values that the pubsub worker needs
@@ -51,45 +51,15 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 	// Don't return from NewWorker until the loop has started and
 	// has subscribed to everything.
 	started := make(chan struct{})
-	loop := func(stop <-chan struct{}) error {
-		w := &wrapper{
-			origin:   config.Origin,
-			hub:      config.Hub,
-			recorder: config.Recorder,
-			logger:   config.Logger,
-		}
-		multiplexer, err := config.Hub.NewMultiplexer()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer multiplexer.Unsubscribe()
-
-		if err := multiplexer.Add(forwarder.ConnectedTopic, w.forwarderConnect); err != nil {
-			return errors.Trace(err)
-		}
-		if err := multiplexer.Add(forwarder.DisconnectedTopic, w.forwarderDisconnect); err != nil {
-			return errors.Trace(err)
-		}
-		if err := multiplexer.Add(apiserver.ConnectTopic, w.agentLogin); err != nil {
-			return errors.Trace(err)
-		}
-		if err := multiplexer.Add(apiserver.DisconnectTopic, w.agentDisconnect); err != nil {
-			return errors.Trace(err)
-		}
-		if err := multiplexer.Add(apiserver.PresenceRequestTopic, w.presenceRequest); err != nil {
-			return errors.Trace(err)
-		}
-		if err := multiplexer.Add(apiserver.PresenceResponseTopic, w.presenceResponse); err != nil {
-			return errors.Trace(err)
-		}
-		// Let the caller know we are done.
-		close(started)
-		// Don't exit until we are told to. Exiting unsubscribes.
-		<-stop
-		config.Logger.Tracef("presence loop finished")
-		return nil
+	w := &wrapper{
+		origin:   config.Origin,
+		hub:      config.Hub,
+		recorder: config.Recorder,
+		logger:   config.Logger,
 	}
-	w := jujuworker.NewSimpleWorker(loop)
+	w.tomb.Go(func() error {
+		return w.loop(started)
+	})
 	select {
 	case <-started:
 	case <-time.After(10 * time.Second):
@@ -99,10 +69,56 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 }
 
 type wrapper struct {
+	tomb     tomb.Tomb
 	origin   string
 	hub      *pubsub.StructuredHub
 	recorder presence.Recorder
 	logger   Logger
+}
+
+// Report implements worker.Report.
+func (w *wrapper) Report() map[string]interface{} {
+	all := w.recorder.Connections()
+	result := make(map[string]interface{})
+	servers := all.Servers()
+	for _, name := range servers {
+		conns := all.ForServer(name)
+		result[name] = conns.Count()
+	}
+	return result
+}
+
+func (w *wrapper) loop(started chan struct{}) error {
+	multiplexer, err := w.hub.NewMultiplexer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer multiplexer.Unsubscribe()
+
+	if err := multiplexer.Add(forwarder.ConnectedTopic, w.forwarderConnect); err != nil {
+		return errors.Trace(err)
+	}
+	if err := multiplexer.Add(forwarder.DisconnectedTopic, w.forwarderDisconnect); err != nil {
+		return errors.Trace(err)
+	}
+	if err := multiplexer.Add(apiserver.ConnectTopic, w.agentLogin); err != nil {
+		return errors.Trace(err)
+	}
+	if err := multiplexer.Add(apiserver.DisconnectTopic, w.agentDisconnect); err != nil {
+		return errors.Trace(err)
+	}
+	if err := multiplexer.Add(apiserver.PresenceRequestTopic, w.presenceRequest); err != nil {
+		return errors.Trace(err)
+	}
+	if err := multiplexer.Add(apiserver.PresenceResponseTopic, w.presenceResponse); err != nil {
+		return errors.Trace(err)
+	}
+	// Let the caller know we are done.
+	close(started)
+	// Don't exit until we are told to. Exiting unsubscribes.
+	<-w.tomb.Dying()
+	w.logger.Tracef("presence loop finished")
+	return nil
 }
 
 func (w *wrapper) forwarderConnect(topic string, data forwarder.OriginTarget, err error) {
@@ -243,4 +259,14 @@ func (w *wrapper) presenceResponse(topic string, data apiserver.PresenceResponse
 	if err != nil {
 		w.logger.Errorf("UpdateServer error %v", err)
 	}
+}
+
+// Kill implements Worker.Kill().
+func (w *wrapper) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait implements Worker.Wait().
+func (w *wrapper) Wait() error {
+	return w.tomb.Wait()
 }

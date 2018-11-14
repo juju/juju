@@ -95,6 +95,26 @@ func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
 	return remote, nil
 }
 
+// Report provides information to the engine report.
+// It should be fast and minimally blocking.
+func (r *remoteServer) Report() map[string]interface{} {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	var status string
+	if r.connection == nil {
+		status = "disconnected"
+	} else {
+		status = "connected"
+	}
+	return map[string]interface{}{
+		"status":    status,
+		"addresses": r.info.Addrs,
+		"queue-len": r.pending.Len(),
+		"sent":      r.sent,
+	}
+}
+
 // IntrospectionReport is the method called by the subscriber to get
 // information about this server.
 func (r *remoteServer) IntrospectionReport() string {
