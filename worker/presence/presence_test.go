@@ -96,6 +96,26 @@ func (s *PresenceSuite) TestWorkerDies(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *PresenceSuite) TestReport(c *gc.C) {
+	w := s.worker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.recorder.Connect("machine-0", "model-uuid", "agent", 1, false, "")
+	s.recorder.Connect("machine-0", "model-uuid", "agent", 2, false, "")
+	s.recorder.Connect("machine-0", "model-uuid", "agent", 3, false, "")
+	s.recorder.Connect("machine-1", "model-uuid", "agent", 4, false, "")
+	s.recorder.Connect("machine-1", "model-uuid", "agent", 5, false, "")
+	s.recorder.Connect("machine-2", "model-uuid", "agent", 6, false, "")
+
+	reporter, ok := w.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"machine-0": 3,
+		"machine-1": 2,
+		"machine-2": 1,
+	})
+}
+
 func (s *PresenceSuite) TestForwarderConnectToOther(c *gc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)

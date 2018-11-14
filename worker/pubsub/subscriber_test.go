@@ -363,6 +363,25 @@ func (s *SubscriberSuite) TestIntrospectionReport(c *gc.C) {
 		"  Addresses: [10.1.2.5]\n")
 }
 
+func (s *SubscriberSuite) TestReport(c *gc.C) {
+	w := s.newHAWorker(c)
+
+	r, ok := w.(psworker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(r.Report(), jc.DeepEquals, map[string]interface{}{
+		"source": "machine-42",
+		"targets": map[string]interface{}{
+			"machine-3": map[string]interface{}{
+				"status":    "connected",
+				"addresses": []string{"10.1.2.3"},
+			},
+			"machine-5": map[string]interface{}{
+				"status":    "connected",
+				"addresses": []string{"10.1.2.5"},
+			},
+		}})
+}
+
 func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
 	subscribed := make(chan apiserver.DetailsRequest)
 	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
@@ -398,6 +417,13 @@ type fakeRemote struct {
 	psworker.RemoteServer
 	config   psworker.RemoteServerConfig
 	messages []*params.PubSubMessage
+}
+
+func (f *fakeRemote) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"status":    "connected",
+		"addresses": f.config.APIInfo.Addrs,
+	}
 }
 
 func (f *fakeRemote) IntrospectionReport() string {
