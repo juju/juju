@@ -103,15 +103,6 @@ func (s *WorkerSuite) TestModelCredentialWatcherError(c *gc.C) {
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
 }
 
-func (s *WorkerSuite) TestModelCredentialNeededButUnset(c *gc.C) {
-	s.facade.setupModelHasNoCredential()
-	s.credential.Valid = false
-	worker, err := testWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "model has no credential set but is on the cloud that requires it")
-	c.Assert(worker, gc.IsNil)
-	s.facade.CheckCallNames(c, "ModelCredential")
-}
-
 func (s *WorkerSuite) TestWatchError(c *gc.C) {
 	s.facade.SetErrors(nil, // ModelCredential call
 		nil,                      // WatchModelCredential call
@@ -122,17 +113,6 @@ func (s *WorkerSuite) TestWatchError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "watch fail")
 	c.Assert(worker, gc.IsNil)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential")
-}
-
-func (s *WorkerSuite) TestModelCredentialErrorWhileRunning(c *gc.C) {
-	s.facade.SetErrors(nil, nil, nil, errors.New("mc fail"))
-	worker, err := testWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.sendChange(c)
-	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "mc fail")
-	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) TestModelCredentialNotNeeded(c *gc.C) {

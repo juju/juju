@@ -417,3 +417,7 @@ func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
 func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instance.Instance, error) {
 	return nil, nil
 }
+
+func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+	return nil, nil
+}

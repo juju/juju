@@ -48,12 +48,6 @@ func (*ManifoldSuite) TestFilterErrChanged(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrBounce)
 }
 
-func (*ManifoldSuite) TestFilterErrModelDoesNotNeedCredential(c *gc.C) {
-	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
-	err := manifold.Filter(credentialvalidator.ErrModelMissingCredentialRequired)
-	c.Check(err, gc.Equals, dependency.ErrBounce)
-}
-
 func (*ManifoldSuite) TestFilterErrModelCredentialChanged(c *gc.C) {
 	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
 	err := manifold.Filter(credentialvalidator.ErrModelCredentialChanged)
@@ -91,8 +85,8 @@ func (*ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	})
 	manifold := credentialvalidator.Manifold(validManifoldConfig())
 
-	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
+	w, err := manifold.Start(context)
+	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
@@ -108,8 +102,8 @@ func (*ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	}
 	manifold := credentialvalidator.Manifold(config)
 
-	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
+	w, err := manifold.Start(context)
+	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "bort")
 }
 
@@ -128,8 +122,8 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	}
 	manifold := credentialvalidator.Manifold(config)
 
-	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
+	w, err := manifold.Start(context)
+	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "snerk")
 }
 
@@ -147,7 +141,7 @@ func (*ManifoldSuite) TestStartSuccess(c *gc.C) {
 	}
 	manifold := credentialvalidator.Manifold(config)
 
-	worker, err := manifold.Start(context)
+	w, err := manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expectWorker)
+	c.Check(w, gc.Equals, expectWorker)
 }

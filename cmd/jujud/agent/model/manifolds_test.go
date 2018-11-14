@@ -161,10 +161,10 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, worker)
 
-	var clock clock.Clock
-	err = manifold.Output(worker, &clock)
+	var aClock clock.Clock
+	err = manifold.Output(worker, &aClock)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(clock, gc.Equals, expectClock)
+	c.Check(aClock, gc.Equals, expectClock)
 }
 
 type fakeClock struct{ clock.Clock }
@@ -378,7 +378,9 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"agent": {},
 
@@ -424,7 +426,13 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"environ-tracker": {"agent", "api-caller", "clock", "is-responsible-flag"},
+	"environ-tracker": {
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"valid-credential-flag",
+	},
 
 	"firewaller": {
 		"agent",
@@ -566,7 +574,9 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"storage-provisioner": {
 		"agent",

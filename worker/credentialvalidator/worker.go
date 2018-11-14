@@ -20,11 +20,6 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 // or invalid credential became valid.
 var ErrValidityChanged = errors.New("cloud credential validity has changed")
 
-// ErrModelMissingCredentialRequired indicates that a Worker has been bounced
-// since the model does not have a cloud credential set but is on a cloud
-// that requires authentication.
-var ErrModelMissingCredentialRequired = errors.New("model has no credential set but is on the cloud that requires it")
-
 // ErrModelCredentialChanged indicates that a Worker has bounced because its
 // model's cloud credential has changed.
 var ErrModelCredentialChanged = errors.New("model cloud credential has changed")
@@ -177,16 +172,9 @@ func (v *validator) loop() error {
 }
 
 func modelCredential(v Facade) (base.StoredCredential, error) {
-	mc, exists, err := v.ModelCredential()
+	mc, _, err := v.ModelCredential()
 	if err != nil {
 		return base.StoredCredential{}, errors.Trace(err)
-	}
-	if !exists && !mc.Valid {
-		logger.Warningf("model credential is not set for the model but the cloud requires it")
-		// In this situation, where a model credential is not set and the model
-		// is on the cloud that requires a credential, we want the watcher to restart
-		// in hopes a new valid credential has been set on the model.
-		return base.StoredCredential{}, ErrModelMissingCredentialRequired
 	}
 	return mc, nil
 }

@@ -36,6 +36,7 @@ var (
 		"application-scaler",     // tertiary dependency: will be inactive because migration workers will be inactive
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
 		"compute-provisioner",
+		"environ-tracker",
 		"firewaller",
 		"instance-poller",
 		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
@@ -53,23 +54,23 @@ var (
 	}
 	aliveModelWorkers = []string{
 		"action-pruner",
+		"application-scaler",
 		"charm-revision-updater",
 		"compute-provisioner",
 		"environ-tracker",
 		"firewaller",
 		"instance-poller",
+		"log-forwarder",
 		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
-		"application-scaler",
+		"remote-relations",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
-		"remote-relations",
-		"log-forwarder",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",
