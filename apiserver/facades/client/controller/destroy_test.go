@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -142,6 +143,10 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
+	c.Assert(s.otherModel.State().RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(s.otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)

@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -1210,6 +1211,11 @@ func (m *Model) destroyOps(
 			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
 			switch err {
 			case errModelNotAlive:
+				// this empty hosted model is still dying.
+				logger.Errorf("destroy controller: waiting dying empty hosted model....")
+				// if err := waitDyingModelToDeadOrRemoved(newSt, model); err != nil {
+				// 	return nil, errors.Trace(err)
+				// }
 				dying++
 			case nil:
 				prereqOps = append(prereqOps, ops...)
@@ -1218,6 +1224,7 @@ func (m *Model) destroyOps(
 				if !IsModelNotEmptyError(err) {
 					return nil, errors.Trace(err)
 				}
+				logger.Errorf("destroy controller: got alive empty hosted model....")
 				aliveNonEmpty++
 			}
 		}
@@ -1319,6 +1326,36 @@ func (m *Model) destroyOps(
 		}
 	}
 	return append(prereqOps, ops...), nil
+}
+
+func waitDyingModelToDeadOrRemoved(st *State, m *Model) error {
+	w := st.WatchModelLives()
+	defer w.Kill()
+	timeout := time.After(60 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			return errors.Timeoutf("waiting for model %q to be dead or removed", m.UUID())
+		case modelUUIDs := <-w.Changes():
+			for _, mID := range modelUUIDs {
+				if mID == m.UUID() {
+					err := m.Refresh()
+					if errors.IsNotFound(err) {
+						// model has just been removed.
+						return nil
+					}
+					if err != nil {
+						return errors.Trace(err)
+					}
+					if m.Life() == Dead {
+						return nil
+					}
+					// wait for next change.
+					continue
+				}
+			}
+		}
+	}
 }
 
 // getEntityRefs reads the current model entity refs document for the model.

@@ -222,11 +222,11 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	defer st.Release()
 
 	// Progress the model to Dead.
-	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dead)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(newSt.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {

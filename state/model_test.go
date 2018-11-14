@@ -580,21 +580,29 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 }
 
-func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
+func (s *ModelSuite) TestDestroyControllerWithEmptyModel(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerModel.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	destroyStorage := true
+	c.Assert(controllerModel.Destroy(state.DestroyModelParams{
+		DestroyHostedModels: true,
+		DestroyStorage:      &destroyStorage,
+	}), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dying)
+	assertNeedsCleanup(c, s.State)
+	assertCleanupRuns(c, s.State)
 
 	hostedModel, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Refresh(), jc.ErrorIsNil)
 	c.Logf("model %s, life %s", hostedModel.UUID(), hostedModel.Life())
-	c.Assert(hostedModel.Life(), gc.Equals, state.Dead)
+	c.Assert(hostedModel.Life(), gc.Equals, state.Dying)
+	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(hostedModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
@@ -692,8 +700,6 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 
 	c.Assert(otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
-	err = otherSt.RemoveDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
