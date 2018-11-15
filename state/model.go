@@ -1244,33 +1244,21 @@ func (m *Model) destroyOps(
 		)
 	}
 
-	timeOfDying := m.st.nowToTheSecond()
-	modelUpdateValues := bson.D{
-		{"life", nextLife},
-		{"time-of-dying", timeOfDying},
-	}
 	var ops []txn.Op
-	if nextLife == Dead {
-		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
-			"time-of-death", timeOfDying,
-		})
-		ops = append(ops, txn.Op{
-			// Cleanup the owner:modelName unique key.
-			C:      usermodelnameC,
-			Id:     m.uniqueIndexID(),
-			Remove: true,
-		})
-	}
-
-	modelOp := txn.Op{
+	ops = append(ops,  txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
-	}
-	if !destroyingController || nextLife == Dead {
-		modelOp.Update = bson.D{{"$set", modelUpdateValues}}
-	}
-	ops = append(ops, modelOp)
+		Update: bson.D{
+			{
+				"$set",
+				bson.D{
+					{"life", nextLife},
+					{"time-of-dying", m.st.nowToTheSecond()},
+				},
+			},
+		},
+	})
 	if destroyingController {
 		// We're destroying the controller model, and being asked
 		// to check the validity of destroying hosted models,
