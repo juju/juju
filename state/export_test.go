@@ -450,6 +450,10 @@ func (m *Model) SetDead() error {
 	return m.st.db().RunTransaction(ops)
 }
 
+func (st *State) SetDyingModelToDead() error {
+	return st.setDyingModelToDead()
+}
+
 func HostedModelCount(c *gc.C, st *State) int {
 	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)

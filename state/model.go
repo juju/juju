@@ -1219,7 +1219,6 @@ func (m *Model) destroyOps(
 				if !IsModelNotEmptyError(err) {
 					return nil, errors.Trace(err)
 				}
-				logger.Errorf("destroy controller: got alive empty hosted model....")
 				aliveNonEmpty++
 			}
 		}
@@ -1245,11 +1244,13 @@ func (m *Model) destroyOps(
 	}
 
 	var ops []txn.Op
-	ops = append(ops,  txn.Op{
+	modelOp := txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
-		Update: bson.D{
+	}
+	if !destroyingController {
+		modelOp.Update = bson.D{
 			{
 				"$set",
 				bson.D{
@@ -1257,8 +1258,9 @@ func (m *Model) destroyOps(
 					{"time-of-dying", m.st.nowToTheSecond()},
 				},
 			},
-		},
-	})
+		}
+	}
+	ops = append(ops, modelOp)
 	if destroyingController {
 		// We're destroying the controller model, and being asked
 		// to check the validity of destroying hosted models,

@@ -2790,12 +2790,63 @@ func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	s.AssertModelDeleted(c, st)
 }
 
-func (s *StateSuite) TestRemoveModelAliveModelFails(c *gc.C) {
+func (s *StateSuite) TestRemoveDyingModelAliveModelFails(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	err := st.RemoveDyingModel()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "can't remove model: model still alive")
+}
+
+func (s *StateSuite) TestRemoveDyingModelForDyingModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	err := st.RemoveDyingModel()
-	c.Assert(err, gc.ErrorMatches, "can't remove model: model still alive")
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
+
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestRemoveDyingModelForDeadModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
+
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.SetDyingModelToDead()
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
+
+	err = st.SetDyingModelToDead()
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {

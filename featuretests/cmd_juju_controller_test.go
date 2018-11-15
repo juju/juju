@@ -223,7 +223,7 @@ func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
 
 func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:        "just-a-controller",
+		Name:        "just-a-hosted-model",
 		ConfigAttrs: testing.Attrs{"controller": true},
 		CloudRegion: "dummy-region",
 	})
@@ -245,7 +245,7 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 			err = st.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingModel()
-			if errors.Cause(err) != state.ErrModelNotDying {
+			if errors.Cause(err) != state.ErrModelNotDying && !state.IsModelNotEmptyError(err) {
 				c.Check(err, jc.ErrorIsNil)
 				err2 := st.RemoveDyingModel()
 				c.Check(err2, jc.ErrorIsNil)
