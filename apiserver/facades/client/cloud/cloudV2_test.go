@@ -374,7 +374,7 @@ func (s *cloudSuiteV2) TestRevokeCredentials(c *gc.C) {
 		Tag: "cloudcred-meep_bruce_three",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
@@ -385,7 +385,7 @@ func (s *cloudSuiteV2) TestRevokeCredentials(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.IsNil)
 
 	s.backend.CheckCall(
-		c, 1, "RemoveCloudCredential",
+		c, 2, "RemoveCloudCredential",
 		names.NewCloudCredentialTag("meep/bruce/three"),
 	)
 }
@@ -395,10 +395,44 @@ func (s *cloudSuiteV2) TestRevokeCredentialsAdminAccess(c *gc.C) {
 		Tag: "cloudcred-meep_julia_three",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can revoke others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentialsCantGetModels(c *gc.C) {
+	s.assertCredentialRemoved(c,
+		func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return nil, errors.New("no niet nope")
+		},
+		"[LOG] 0:00.000 WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope\n",
+	)
+}
+
+func (s *cloudSuiteV2) TestRevokeCredentialsLogModels(c *gc.C) {
+	s.assertCredentialRemoved(c,
+		func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+		"[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it\n",
+	)
+}
+
+type credentialModelFunction func(tag names.CloudCredentialTag) (map[string]string, error)
+
+func (s *cloudSuiteV2) assertCredentialRemoved(c *gc.C, f credentialModelFunction, expectedLog string) {
+	s.backend.credentialModelsF = f
+	results, err := s.apiv2.RevokeCredentials(params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_julia_three",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.DeepEquals, expectedLog)
 }
 
 var cloudTypes = map[string]string{
