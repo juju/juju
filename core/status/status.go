@@ -236,6 +236,7 @@ func (status Status) KnownInstanceStatus() bool {
 		ProvisioningError,
 		Allocating,
 		Running,
+		Error,
 		Unknown:
 		return true
 	}

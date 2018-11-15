@@ -363,7 +363,20 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		} else if err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
 			m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err))
+			// If Error, SetInstanceStatus in the provisioner api will also call
+			// SetStatus.
+			if err2 := m.SetInstanceStatus(status.Error, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
+			}
 		} else {
+			// Clean up any residual errors in the machine status from a previous
+			// upgrade charm profile failure.
+			if err2 := m.SetInstanceStatus(status.Running, "Running", nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
+			}
+			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
+				return errors.Annotatef(err2, "cannot set error status for machine %q agent", m)
+			}
 			m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
 		}
 	}
