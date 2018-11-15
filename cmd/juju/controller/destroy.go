@@ -250,12 +250,13 @@ upgrade the controller to version 2.3 or greater.
 		}
 
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		envStatus := updateStatus(0)
+		// wait for 2 seconds to let empty hosted models changed from alive to dying.
+		modelStatus := updateStatus(0)
 		if !c.destroyModels {
-			if err := c.checkNoAliveHostedModels(ctx, envStatus.models); err != nil {
+			if err := c.checkNoAliveHostedModels(ctx, modelStatus.models); err != nil {
 				return errors.Trace(err)
 			}
-			if hasHostedModels && !hasUnDeadModels(envStatus.models) {
+			if hasHostedModels && !hasUnDeadModels(modelStatus.models) {
 				// When we called DestroyController before, we were
 				// informed that there were hosted models remaining.
 				// When we checked just now, there were none. We should
@@ -264,7 +265,7 @@ upgrade the controller to version 2.3 or greater.
 			}
 		}
 		if !c.destroyStorage && !c.releaseStorage && hasPersistentStorage {
-			if err := c.checkNoPersistentStorage(ctx, envStatus); err != nil {
+			if err := c.checkNoPersistentStorage(ctx, modelStatus); err != nil {
 				return errors.Trace(err)
 			}
 			// When we called DestroyController before, we were
@@ -279,9 +280,9 @@ upgrade the controller to version 2.3 or greater.
 		// Check for both undead models and live machines, as machines may be
 		// in the controller model.
 		ctx.Infof("Waiting for hosted model resources to be reclaimed")
-		for ; hasUnreclaimedResources(envStatus); envStatus = updateStatus(2 * time.Second) {
-			ctx.Infof(fmtCtrStatus(envStatus.controller))
-			for _, model := range envStatus.models {
+		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
+			ctx.Infof(fmtCtrStatus(modelStatus.controller))
+			for _, model := range modelStatus.models {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}

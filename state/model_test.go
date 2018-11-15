@@ -586,11 +586,7 @@ func (s *ModelSuite) TestDestroyControllerWithEmptyModel(c *gc.C) {
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	destroyStorage := true
-	c.Assert(controllerModel.Destroy(state.DestroyModelParams{
-		DestroyHostedModels: true,
-		DestroyStorage:      &destroyStorage,
-	}), jc.ErrorIsNil)
+	c.Assert(controllerModel.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dying)
 	assertNeedsCleanup(c, s.State)

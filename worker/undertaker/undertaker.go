@@ -115,7 +115,6 @@ func (u *Undertaker) run() error {
 	if modelInfo.Life == params.Alive {
 		return errors.Errorf("model still alive")
 	}
-
 	if modelInfo.Life == params.Dying {
 		// TODO(axw) 2016-04-14 #1570285
 		// We should update status with information
