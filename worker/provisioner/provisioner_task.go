@@ -94,7 +94,10 @@ func NewProvisionerTask(
 		retryChanges = retryWatcher.Changes()
 		workers = append(workers, retryWatcher)
 	}
-	profileChanges := profileWatcher.Changes()
+	var profileChanges watcher.StringsChannel
+	if profileWatcher != nil {
+		profileChanges = profileWatcher.Changes()
+	}
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
 		machineTag:                 machineTag,
