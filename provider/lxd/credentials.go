@@ -130,6 +130,12 @@ func (p environProviderCredentials) RegisterCredentials() (map[string]*cloud.Clo
 				lxdnames.DefaultCloud: *localCertCredential,
 			},
 		},
+		lxdnames.DefaultCloudAltName: {
+			DefaultCredential: lxdnames.DefaultCloudAltName,
+			AuthCredentials: map[string]cloud.Credential{
+				lxdnames.DefaultCloudAltName: *localCertCredential,
+			},
+		},
 	}, nil
 }
 
