@@ -111,7 +111,16 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
-func (p environProviderCredentials) RegisterCredentials() (map[string]*cloud.CloudCredential, error) {
+func (p environProviderCredentials) RegisterCredentials(credentialName string) (map[string]*cloud.CloudCredential, error) {
+	// only register credentials if the operator is attempting to access "lxd"
+	// or "localhost"
+	if credentialName != lxdnames.DefaultCloud && credentialName != lxdnames.DefaultCloudAltName {
+		return make(map[string]*cloud.CloudCredential), nil
+	}
+
+	// register the local lxd credentials, not we register both "localhost" and
+	// "lxd" credentials at the same type, as they can be used interchangeably
+	// through out the use of the commands.
 	nopLogf := func(msg string, args ...interface{}) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {

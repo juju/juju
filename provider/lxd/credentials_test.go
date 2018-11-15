@@ -267,13 +267,19 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 	expected.Label = `LXD credential "localhost"`
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
-	credentials, err := provider.RegisterCredentials()
+	credentials, err := provider.RegisterCredentials("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
 		"localhost": {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
 				"localhost": expected,
+			},
+		},
+		"lxd": {
+			DefaultCredential: "lxd",
+			AuthCredentials: map[string]cloud.Credential{
+				"lxd": expected,
 			},
 		},
 	})
@@ -292,7 +298,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
-	credentials, err := provider.RegisterCredentials()
+	credentials, err := provider.RegisterCredentials("localhost")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := cloud.NewCredential(
@@ -310,6 +316,12 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
 				"localhost": expected,
+			},
+		},
+		"lxd": {
+			DefaultCredential: "lxd",
+			AuthCredentials: map[string]cloud.Credential{
+				"lxd": expected,
 			},
 		},
 	})
@@ -331,7 +343,7 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
-	credentials, err := provider.RegisterCredentials()
+	credentials, err := provider.RegisterCredentials("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := cloud.NewCredential(
@@ -349,6 +361,12 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
 				"localhost": expected,
+			},
+		},
+		"lxd": {
+			DefaultCredential: "lxd",
+			AuthCredentials: map[string]cloud.Credential{
+				"lxd": expected,
 			},
 		},
 	})

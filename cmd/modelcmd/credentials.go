@@ -186,11 +186,17 @@ func DetectCredential(cloudName string, provider environs.EnvironProvider) (*clo
 	return detected, nil
 }
 
+// RegisterCredentialsParams contains parameters for the RegisterCredentials function.
+type RegisterCredentialsParams struct {
+	// Cloud is the cloud definition.
+	Cloud cloud.Cloud
+}
+
 // RegisterCredentials returns any credentials that need to be registered for
 // a provider.
-func RegisterCredentials(provider environs.EnvironProvider) (map[string]*cloud.CloudCredential, error) {
+func RegisterCredentials(provider environs.EnvironProvider, args RegisterCredentialsParams) (map[string]*cloud.CloudCredential, error) {
 	if register, ok := provider.(environs.ProviderCredentialsRegister); ok {
-		found, err := register.RegisterCredentials()
+		found, err := register.RegisterCredentials(args.Cloud.Name)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "registering credentials for provider",

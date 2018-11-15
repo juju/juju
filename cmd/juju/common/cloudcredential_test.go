@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var _ = gc.Suite(&cloudCredentialSuite{})
@@ -67,7 +68,7 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 	}
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials().Return(map[string]*cloud.CloudCredential{
+	mockProvider.EXPECT().RegisterCredentials("fake").Return(map[string]*cloud.CloudCredential{
 		"fake": credential,
 	}, nil)
 	mockStore := common.NewMockCredentialStore(ctrl)
@@ -77,7 +78,11 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 
 	err := common.RegisterCredentials(&cmd.Context{
 		Stderr: stderr,
-	}, mockStore, mockProvider)
+	}, mockStore, mockProvider, modelcmd.RegisterCredentialsParams{
+		Cloud: cloud.Cloud{
+			Name: "fake",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr.String(), gc.Equals, "")
 }
@@ -87,14 +92,18 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials().Return(map[string]*cloud.CloudCredential{}, nil)
+	mockProvider.EXPECT().RegisterCredentials("fake").Return(map[string]*cloud.CloudCredential{}, nil)
 	mockStore := common.NewMockCredentialStore(ctrl)
 
 	stderr := new(bytes.Buffer)
 
 	err := common.RegisterCredentials(&cmd.Context{
 		Stderr: stderr,
-	}, mockStore, mockProvider)
+	}, mockStore, mockProvider, modelcmd.RegisterCredentialsParams{
+		Cloud: cloud.Cloud{
+			Name: "fake",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -103,13 +112,17 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials().Return(nil, errors.New("bad"))
+	mockProvider.EXPECT().RegisterCredentials("fake").Return(nil, errors.New("bad"))
 	mockStore := common.NewMockCredentialStore(ctrl)
 
 	stderr := new(bytes.Buffer)
 
 	err := common.RegisterCredentials(&cmd.Context{
 		Stderr: stderr,
-	}, mockStore, mockProvider)
+	}, mockStore, mockProvider, modelcmd.RegisterCredentialsParams{
+		Cloud: cloud.Cloud{
+			Name: "fake",
+		},
+	})
 	c.Assert(errors.Cause(err).Error(), gc.Matches, "bad")
 }
