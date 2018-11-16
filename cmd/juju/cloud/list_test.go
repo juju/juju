@@ -29,8 +29,11 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	// Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws-china[ ]*1[ ]*cn-north-1[ ]*ec2.*`)
+	// Check that we are producing the expected fields
+	c.Assert(out, gc.Matches, `Cloud        Regions  Default        Type        Description.*`)
+	// // Just check couple of snippets of the output to make sure it looks ok.
+	c.Assert(out, gc.Matches, `.*aws               [0-9]+  [a-z0-9-]+      ec2         Amazon Web Services.*`)
+	c.Assert(out, gc.Matches, `.*azure             [0-9]+  [a-z0-9-]+      azure       Microsoft Azure.*`)
 	// LXD should be there too.
 	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
 }
