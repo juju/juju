@@ -66,6 +66,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.config = httpserver.ManifoldConfig{
+		AgentName:            "machine-42",
 		CertWatcherName:      "cert-watcher",
 		HubName:              "hub",
 		StateName:            "state",
@@ -182,6 +183,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.AutocertListener = nil
 
 	c.Assert(config, jc.DeepEquals, httpserver.Config{
+		AgentName:            "machine-42",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		Hub:                  s.hub,
@@ -200,6 +202,9 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
+		func(cfg *httpserver.ManifoldConfig) { cfg.AgentName = "" },
+		"empty AgentName not valid",
+	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.CertWatcherName = "" },
 		"empty CertWatcherName not valid",
 	}, {
@@ -254,6 +259,7 @@ func (s *ManifoldSuite) TestStartWithRaftDisabled(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartNoAutocert(c *gc.C) {
 	s.manifold = httpserver.Manifold(httpserver.ManifoldConfig{
+		AgentName:            "machine-42",
 		CertWatcherName:      "cert-watcher",
 		StateName:            "state",
 		MuxName:              "mux",
