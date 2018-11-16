@@ -867,10 +867,10 @@ func (s *cloudSuite) TestRevokeCredentialsHasModel(c *gc.C) {
 		callsMade: []string{"ControllerTag", "CredentialModels"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
-				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: still in use by 1 model"))},
+				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 1 model"))},
 			},
 		},
-		expectedLog: "[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it\n",
+		expectedLog: "[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d\n",
 	}
 	s.assertRevokeCredentials(c, t)
 }
@@ -889,12 +889,13 @@ func (s *cloudSuite) TestRevokeCredentialsHasModels(c *gc.C) {
 		callsMade: []string{"ControllerTag", "CredentialModels"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
-				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: still in use by 2 models"))},
+				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 2 models"))},
 			},
 		},
 		expectedLog: `
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as model deadbeef-1bad-511d-8000-4b1d0d06f00d still uses it
+[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by models:
+- deadbeef-0bad-400d-8000-4b1d0d06f00d
+- deadbeef-1bad-511d-8000-4b1d0d06f00d
 `[1:],
 	}
 	s.assertRevokeCredentials(c, t)
@@ -918,7 +919,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceHasModel(c *gc.C) {
 			},
 		},
 		expectedLog: `
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it
+[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d
 `[1:],
 	}
 	s.assertRevokeCredentials(c, t)
@@ -939,12 +940,12 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{},
-				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_bruce_three: still in use by 1 model"))},
+				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_bruce_three: it is still used by 1 model"))},
 			},
 		},
 		expectedLog: `
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it
+[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d
+[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d
 `[1:],
 	}
 	s.assertRevokeCredentials(c, t)

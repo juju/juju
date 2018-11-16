@@ -417,7 +417,7 @@ func (s *cloudSuiteV2) TestRevokeCredentialsLogModels(c *gc.C) {
 				coretesting.ModelTag.Id(): "modelName",
 			}, nil
 		},
-		"[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but model deadbeef-0bad-400d-8000-4b1d0d06f00d still uses it\n",
+		"[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is still used by model deadbeef-0bad-400d-8000-4b1d0d06f00d\n",
 	)
 }
 

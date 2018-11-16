@@ -8,6 +8,7 @@ package cloud
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -702,9 +703,7 @@ func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResu
 		if len(models) > 0 {
 			// For backward compatibility, we must proceed here regardless of whether the credential is used by any models,
 			// but, at least, let's log it.
-			for uuid := range models {
-				logger.Warningf("credential %v will be deleted but model %v still uses it", tag, uuid)
-			}
+			logger.Warningf("credential %v will be deleted but it is still used by model%v", tag, modelsPretty(models))
 		}
 
 		if err := api.backend.RemoveCloudCredential(tag); err != nil {
@@ -721,6 +720,33 @@ func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResu
 // RevokeCredentialsCheckModels did not exist before V3.
 func (*CloudAPIV2) RevokeCredentialsCheckModels(_, _ struct{}) {}
 
+func plural(length int) string {
+	if length == 1 {
+		return ""
+	}
+	return "s"
+}
+
+func modelsPretty(in map[string]string) string {
+	// map keys are notoriously randomly ordered
+	uuids := []string{}
+	for uuid := range in {
+		uuids = append(uuids, uuid)
+	}
+	sort.Strings(uuids)
+
+	firstLine := ":\n- "
+	if len(uuids) == 1 {
+		firstLine = " "
+	}
+
+	return fmt.Sprintf("%v%v%v",
+		plural(len(in)),
+		firstLine,
+		strings.Join(uuids, "\n- "),
+	)
+}
+
 // RevokeCredentialsCheckModels revokes a set of cloud credentials.
 // If the credentials are used by any of the models, the credential deletion will be aborted.
 // If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
@@ -732,13 +758,6 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 	authFunc, err := api.getCredentialsAuthFunc()
 	if err != nil {
 		return results, err
-	}
-
-	plural := func(length int) string {
-		if length == 1 {
-			return ""
-		}
-		return "s"
 	}
 
 	opMessage := func(force bool) string {
@@ -771,18 +790,14 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 			logger.Warningf("could not get models that use credential %v: %v", tag, err)
 		}
 		if len(models) != 0 {
-			// map keys are notoriously randomly ordered
-			uuids := []string{}
-			for uuid := range models {
-				uuids = append(uuids, uuid)
-			}
-			sort.Strings(uuids)
-			for _, uuid := range uuids {
-				logger.Warningf("credential %v %v model %v still uses it", tag, opMessage(arg.Force), uuid)
-			}
+			logger.Warningf("credential %v %v it is used by model%v",
+				tag,
+				opMessage(arg.Force),
+				modelsPretty(models),
+			)
 			if !arg.Force {
 				// Some models still use this credential - do not delete this credential...
-				results.Results[i].Error = common.ServerError(errors.Errorf("cannot delete credential %v: still in use by %d model%v", tag, len(models), plural(len(models))))
+				results.Results[i].Error = common.ServerError(errors.Errorf("cannot delete credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
 				continue
 			}
 		}
