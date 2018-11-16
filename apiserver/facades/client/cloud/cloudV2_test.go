@@ -406,7 +406,7 @@ func (s *cloudSuiteV2) TestRevokeCredentialsCantGetModels(c *gc.C) {
 		func(tag names.CloudCredentialTag) (map[string]string, error) {
 			return nil, errors.New("no niet nope")
 		},
-		"[LOG] 0:00.000 WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope\n",
+		" WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope",
 	)
 }
 
@@ -417,7 +417,7 @@ func (s *cloudSuiteV2) TestRevokeCredentialsLogModels(c *gc.C) {
 				coretesting.ModelTag.Id(): "modelName",
 			}, nil
 		},
-		"[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is still used by model deadbeef-0bad-400d-8000-4b1d0d06f00d\n",
+		" WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is still used by model deadbeef-0bad-400d-8000-4b1d0d06f00d",
 	)
 }
 
@@ -432,7 +432,7 @@ func (s *cloudSuiteV2) assertCredentialRemoved(c *gc.C, f credentialModelFunctio
 	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.DeepEquals, expectedLog)
+	c.Assert(c.GetTestLog(), jc.Contains, expectedLog)
 }
 
 var cloudTypes = map[string]string{

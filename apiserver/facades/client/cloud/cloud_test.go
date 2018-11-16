@@ -803,7 +803,7 @@ type revokeCredentialData struct {
 	f           credentialModelFunction
 	args        []params.RevokeCredentialArg
 	results     params.ErrorResults
-	expectedLog string
+	expectedLog []string
 	callsMade   []string
 }
 
@@ -813,7 +813,9 @@ func (s *cloudSuite) assertRevokeCredentials(c *gc.C, test revokeCredentialData)
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, test.callsMade...)
 	c.Assert(results, gc.DeepEquals, test.results)
-	c.Assert(c.GetTestLog(), gc.DeepEquals, test.expectedLog)
+	for _, l := range test.expectedLog {
+		c.Assert(c.GetTestLog(), jc.Contains, l)
+	}
 }
 
 func (s *cloudSuite) TestRevokeCredentialsCantGetModels(c *gc.C) {
@@ -830,7 +832,7 @@ func (s *cloudSuite) TestRevokeCredentialsCantGetModels(c *gc.C) {
 				{common.ServerError(errors.New("no niet nope"))},
 			},
 		},
-		expectedLog: "",
+		expectedLog: []string{},
 	}
 	s.assertRevokeCredentials(c, t)
 }
@@ -849,7 +851,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceCantGetModels(c *gc.C) {
 				{}, // no error: credential deleted
 			},
 		},
-		expectedLog: "[LOG] 0:00.000 WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope\n",
+		expectedLog: []string{" WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope"},
 	}
 	s.assertRevokeCredentials(c, t)
 }
@@ -870,7 +872,7 @@ func (s *cloudSuite) TestRevokeCredentialsHasModel(c *gc.C) {
 				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 1 model"))},
 			},
 		},
-		expectedLog: "[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d\n",
+		expectedLog: []string{" WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 	}
 	s.assertRevokeCredentials(c, t)
 }
@@ -892,11 +894,10 @@ func (s *cloudSuite) TestRevokeCredentialsHasModels(c *gc.C) {
 				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 2 models"))},
 			},
 		},
-		expectedLog: `
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by models:
+		expectedLog: []string{` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by models:
 - deadbeef-0bad-400d-8000-4b1d0d06f00d
 - deadbeef-1bad-511d-8000-4b1d0d06f00d
-`[1:],
+`},
 	}
 	s.assertRevokeCredentials(c, t)
 }
@@ -918,9 +919,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceHasModel(c *gc.C) {
 				{},
 			},
 		},
-		expectedLog: `
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d
-`[1:],
+		expectedLog: []string{` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`},
 	}
 	s.assertRevokeCredentials(c, t)
 }
@@ -943,10 +942,10 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_bruce_three: it is still used by 1 model"))},
 			},
 		},
-		expectedLog: `
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d
-[LOG] 0:00.000 WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d
-`[1:],
+		expectedLog: []string{
+			` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
+			` WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
+		},
 	}
 	s.assertRevokeCredentials(c, t)
 }
