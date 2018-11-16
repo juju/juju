@@ -2217,6 +2217,11 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 // SetUpgradeCharmProfile sets a application name and a charm url for
 // machine's needing a charm profile change.  For a container only.
 func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
+	// If we're not a LXD container type, don't attempt to set any information
+	if m.ContainerType() != instance.LXD {
+		return nil
+	}
+
 	charmURL, err := charm.ParseURL(chURL)
 	if err != nil {
 		return errors.Trace(err)

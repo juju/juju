@@ -97,6 +97,7 @@ func NewProvisionerTask(
 	var profileChanges watcher.StringsChannel
 	if profileWatcher != nil {
 		profileChanges = profileWatcher.Changes()
+		workers = append(workers, profileWatcher)
 	}
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,

@@ -699,7 +699,9 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"hasvote", true}},
 		}}}
 		// Remove the charm profile.
-		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		if m.ContainerType() == instance.LXD {
+			ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can

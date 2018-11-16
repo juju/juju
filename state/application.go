@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/instance"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -1640,6 +1641,10 @@ func (a *Application) addUnitSubordinateCharmProfileOp(principalName string) (tx
 	machine, err := unit.machine()
 	if err != nil {
 		return txn.Op{}, false, err
+	}
+	// If we're not a LXD container type don't register the document.
+	if machine.ContainerType() != instance.LXD {
+		return txn.Op{}, false, nil
 	}
 	return machine.SetUpgradeCharmProfileOp(a.doc.Name, a.doc.CharmURL.String(), lxdprofile.EmptyStatus), true, nil
 }
