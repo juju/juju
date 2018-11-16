@@ -38,6 +38,7 @@ type ManifoldConfig struct {
 	APIServerName     string
 	RaftEnabledName   string
 
+	AgentName            string
 	Clock                clock.Clock
 	PrometheusRegisterer prometheus.Registerer
 
@@ -68,6 +69,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.APIServerName == "" {
 		return errors.NotValidf("empty APIServerName")
+	}
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -186,6 +190,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}
 
 	w, err := config.NewWorker(Config{
+		AgentName:            config.AgentName,
 		Clock:                config.Clock,
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		Hub:                  hub,

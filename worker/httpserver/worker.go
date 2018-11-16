@@ -29,6 +29,7 @@ var logger = loggo.GetLogger("juju.worker.httpserver")
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
+	AgentName            string
 	Clock                clock.Clock
 	TLSConfig            *tls.Config
 	AutocertHandler      http.Handler
@@ -43,6 +44,9 @@ type Config struct {
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
 	if config.TLSConfig == nil {
 		return errors.NotValidf("nil TLSConfig")
 	}
@@ -67,31 +71,71 @@ func NewWorker(config Config) (*Worker, error) {
 	w := &Worker{
 		config: config,
 		url:    make(chan string),
+		status: "starting",
 	}
+	var err error
+	var listener listener
+	if w.config.ControllerAPIPort == 0 {
+		listener, err = w.newSimpleListener()
+	} else {
+		listener, err = w.newDualPortListener()
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w.holdable = newHeldListener(listener, config.Clock)
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
+		listener.Close()
 		return nil, errors.Trace(err)
 	}
 	return w, nil
+}
+
+type reporter interface {
+	report() map[string]interface{}
 }
 
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 	url      chan string
+	holdable *heldListener
 
 	unsub func()
+
+	// mu controls access to both status and reporter.
+	mu     sync.Mutex
+	status string
 }
 
+// Kill implements worker.Kill.
 func (w *Worker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
+// Wait implements worker.Wait.
 func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// Report provides information for the engine report.
+func (w *Worker) Report() map[string]interface{} {
+	w.mu.Lock()
+	result := map[string]interface{}{
+		"api-port": w.config.APIPort,
+		"status":   w.status,
+		"ports":    w.holdable.report(),
+	}
+	if w.config.ControllerAPIPort != 0 {
+		result["api-port-open-delay"] = w.config.APIPortOpenDelay
+		result["controller-api-port"] = w.config.ControllerAPIPort
+	}
+	w.mu.Unlock()
+	return result
 }
 
 // URL returns the base URL of the HTTP server of the form
@@ -106,18 +150,6 @@ func (w *Worker) URL() string {
 }
 
 func (w *Worker) loop() error {
-	var err error
-	var listener listener
-	if w.config.ControllerAPIPort == 0 {
-		listener, err = w.newSimpleListener()
-	} else {
-		listener, err = w.newDualPortListener()
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	holdable := newHeldListener(listener, w.config.Clock)
-
 	serverLog := log.New(&loggoWrapper{
 		level:  loggo.WARNING,
 		logger: logger,
@@ -127,15 +159,24 @@ func (w *Worker) loop() error {
 		TLSConfig: w.config.TLSConfig,
 		ErrorLog:  serverLog,
 	}
-	go server.Serve(tls.NewListener(holdable, w.config.TLSConfig))
+	go func() {
+		err := server.Serve(tls.NewListener(w.holdable, w.config.TLSConfig))
+		if err != nil && err != http.ErrServerClosed {
+			logger.Errorf("server finished with error %v", err)
+		}
+	}()
 	defer func() {
 		logger.Infof("shutting down HTTP server")
 		// Shutting down the server will also close listener.
 		err := server.Shutdown(context.Background())
 		// Release the holdable listener to unblock any pending accepts.
-		holdable.release()
+		w.holdable.release()
 		w.catacomb.Kill(err)
 	}()
+
+	w.mu.Lock()
+	w.status = "running"
+	w.mu.Unlock()
 
 	if w.config.AutocertHandler != nil {
 		autocertServer := &http.Server{
@@ -154,33 +195,46 @@ func (w *Worker) loop() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
+			w.mu.Lock()
+			w.status = "dying"
+			w.mu.Unlock()
 			// Stop accepting new connections. This allows the mux
 			// to process all pending requests without having to deal with
 			// new ones.
-			holdable.hold()
+			w.holdable.hold()
 			// Asked to shutdown - make sure we wait until all clients
 			// have finished up.
 			w.config.Mux.Wait()
 			return w.catacomb.ErrDying()
-		case w.url <- listener.URL():
+		case w.url <- w.holdable.URL():
 		}
 	}
 }
 
 type heldListener struct {
-	net.Listener
+	listener
 	clock clock.Clock
 	cond  *sync.Cond
 	held  bool
 }
 
-func newHeldListener(l net.Listener, c clock.Clock) *heldListener {
+func newHeldListener(l listener, c clock.Clock) *heldListener {
 	var mu sync.Mutex
 	return &heldListener{
-		Listener: l,
+		listener: l,
 		clock:    c,
 		cond:     sync.NewCond(&mu),
 	}
+}
+
+func (h *heldListener) report() map[string]interface{} {
+	result := h.listener.report()
+	h.cond.L.Lock()
+	if h.held {
+		result["held"] = true
+	}
+	h.cond.L.Unlock()
+	return result
 }
 
 func (h *heldListener) hold() {
@@ -205,11 +259,12 @@ func (h *heldListener) Accept() (net.Conn, error) {
 		h.cond.Wait()
 	}
 	h.cond.L.Unlock()
-	return h.Listener.Accept()
+	return h.listener.Accept()
 }
 
 type listener interface {
 	net.Listener
+	reporter
 	URL() string
 }
 
@@ -231,6 +286,12 @@ func (s *simpleListener) URL() string {
 	return fmt.Sprintf("https://%s", s.Addr())
 }
 
+func (s *simpleListener) report() map[string]interface{} {
+	return map[string]interface{}{
+		"listening": s.Addr().String(),
+	}
+}
+
 func (w *Worker) newDualPortListener() (listener, error) {
 	// Only open the controller port until we have been told that
 	// the controller is ready. This is currently done by the event
@@ -244,17 +305,19 @@ func (w *Worker) newDualPortListener() (listener, error) {
 	listener, err := net.Listen("tcp", listenAddr)
 	logger.Infof("listening for controller connections on %q", listener.Addr())
 	dual := &dualListener{
+		agentName:          w.config.AgentName,
 		clock:              w.config.Clock,
 		delay:              w.config.APIPortOpenDelay,
 		apiPort:            w.config.APIPort,
 		controllerListener: listener,
+		status:             "waiting for signal to open agent port",
 		done:               make(chan struct{}),
 		errors:             make(chan error),
 		connections:        make(chan net.Conn),
 	}
 	go dual.accept(listener)
 
-	dual.unsub, err = w.config.Hub.Subscribe(apiserver.DetailsTopic, dual.openAPIPort)
+	dual.unsub, err = w.config.Hub.Subscribe(apiserver.ConnectTopic, dual.openAPIPort)
 	if err != nil {
 		dual.Close()
 		return nil, errors.Annotate(err, "unable to subscribe to details topic")
@@ -264,12 +327,14 @@ func (w *Worker) newDualPortListener() (listener, error) {
 }
 
 type dualListener struct {
-	clock   clock.Clock
-	delay   time.Duration
-	apiPort int
+	agentName string
+	clock     clock.Clock
+	delay     time.Duration
+	apiPort   int
 
 	controllerListener net.Listener
 	apiListener        net.Listener
+	status             string
 
 	mu     sync.Mutex
 	closer sync.Once
@@ -279,6 +344,21 @@ type dualListener struct {
 	connections chan net.Conn
 
 	unsub func()
+}
+
+func (d *dualListener) report() map[string]interface{} {
+	result := map[string]interface{}{
+		"controller": d.controllerListener.Addr().String(),
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.status != "" {
+		result["status"] = d.status
+	}
+	if d.apiListener != nil {
+		result["agent"] = d.apiListener.Addr().String()
+	}
+	return result
 }
 
 func (d *dualListener) accept(listener net.Listener) {
@@ -314,7 +394,16 @@ func (d *dualListener) Accept() (net.Conn, error) {
 		// temporary failures) that we don't want to interfere with.
 		return nil, err
 	case conn := <-d.connections:
-		return conn, nil
+		// Due to the non-deterministic nature of select, it is possible
+		// that if there was a pending accept call we may get a connection
+		// even though we are done. So check that before we return
+		// the conn.
+		select {
+		case <-d.done:
+			return nil, errors.New("listener has been closed")
+		default:
+			return conn, nil
+		}
 	}
 }
 
@@ -333,6 +422,7 @@ func (d *dualListener) Close() error {
 		// If we already have a close error, we don't really care
 		// about this one.
 	}
+	d.status = "closed ports"
 	return errors.Trace(err)
 }
 
@@ -353,9 +443,22 @@ func (d *dualListener) URL() string {
 }
 
 // openAPIPort opens the api port and starts accepting connections.
-func (d *dualListener) openAPIPort(_ string, _ map[string]interface{}) {
+func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, err error) {
+	if err != nil {
+		logger.Errorf("programming error: %v", err)
+		return
+	}
+	// If we get an api connection notification that originates from us,
+	// it means the api-caller has been established, so unblock.
+	if conn.Origin != d.agentName {
+		return
+	}
+
 	d.unsub()
 	if d.delay > 0 {
+		d.mu.Lock()
+		d.status = "waiting prior to opening agent port"
+		d.mu.Unlock()
 		logger.Infof("waiting for %s before allowing api connections", d.delay)
 		<-d.clock.After(d.delay)
 	}
@@ -384,4 +487,5 @@ func (d *dualListener) openAPIPort(_ string, _ map[string]interface{}) {
 	logger.Infof("listening for api connections on %q", listener.Addr())
 	d.apiListener = listener
 	go d.accept(listener)
+	d.status = ""
 }

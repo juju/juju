@@ -6,11 +6,13 @@ package agent_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/agent"
 )
 
@@ -81,6 +83,8 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestReport(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, version.MustParse("3.2.1"))
+
 	inputAgent := &dummyAgent{}
 	manifold := agent.Manifold(inputAgent)
 
@@ -91,8 +95,9 @@ func (s *ManifoldSuite) TestReport(c *gc.C) {
 	reporter, ok := agentWorker.(worker.Reporter)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
-		"model-uuid": "model-uuid",
 		"agent":      "machine-42",
+		"model-uuid": "model-uuid",
+		"version":    "3.2.1",
 	})
 }
 
