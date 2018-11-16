@@ -7,8 +7,11 @@ package cloud
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
 	"github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
@@ -23,6 +26,8 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.cloud")
 
 // CloudV3 defines the methods on the cloud API facade, version 3.
 type CloudV3 interface {
@@ -523,8 +528,8 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args param
 			arg.Credential.Attributes,
 		)
 
-		credentialModels, err := api.backend.CredentialModels(tag)
-		if err != nil && !errors.IsNotFound(err) {
+		models, err := api.credentialModels(tag)
+		if err != nil {
 			results[i].Error = common.ServerError(err)
 			if !force {
 				// Could not determine if credential has models - do not continue updating this credential...
@@ -533,24 +538,24 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args param
 		}
 
 		var modelsErred bool
-		if len(credentialModels) > 0 {
+		if len(models) > 0 {
 			// since we get a map here, for consistency ensure that models are added
 			// sorted by model uuid.
 			var uuids []string
-			for uuid := range credentialModels {
+			for uuid := range models {
 				uuids = append(uuids, uuid)
 			}
 			naturalsort.Sort(uuids)
-			var models []params.UpdateCredentialModelResult
+			var modelsResult []params.UpdateCredentialModelResult
 			for _, uuid := range uuids {
-				model := params.UpdateCredentialModelResult{ModelUUID: uuid, ModelName: credentialModels[uuid]}
+				model := params.UpdateCredentialModelResult{ModelUUID: uuid, ModelName: models[uuid]}
 				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
-				models = append(models, model)
+				modelsResult = append(modelsResult, model)
 				if len(model.Errors) > 0 {
 					modelsErred = true
 				}
 			}
-			results[i].Models = models
+			results[i].Models = modelsResult
 		}
 
 		if modelsErred {
@@ -573,6 +578,14 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args param
 		}
 	}
 	return params.UpdateCredentialResults{results}, nil
+}
+
+func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+	models, err := api.backend.CredentialModels(tag)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	return models, nil
 }
 
 func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
@@ -682,6 +695,17 @@ func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResu
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
+
+		models, err := api.credentialModels(tag)
+		if err != nil {
+			logger.Warningf("could not get models that use credential %v: %v", tag, err)
+		}
+		if len(models) > 0 {
+			// For backward compatibility, we must proceed here regardless of whether the credential is used by any models,
+			// but, at least, let's log it.
+			logger.Warningf("credential %v will be deleted but it is still used by model%v", tag, modelsPretty(models))
+		}
+
 		if err := api.backend.RemoveCloudCredential(tag); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
@@ -696,6 +720,33 @@ func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResu
 // RevokeCredentialsCheckModels did not exist before V3.
 func (*CloudAPIV2) RevokeCredentialsCheckModels(_, _ struct{}) {}
 
+func plural(length int) string {
+	if length == 1 {
+		return ""
+	}
+	return "s"
+}
+
+func modelsPretty(in map[string]string) string {
+	// map keys are notoriously randomly ordered
+	uuids := []string{}
+	for uuid := range in {
+		uuids = append(uuids, uuid)
+	}
+	sort.Strings(uuids)
+
+	firstLine := ":\n- "
+	if len(uuids) == 1 {
+		firstLine = " "
+	}
+
+	return fmt.Sprintf("%v%v%v",
+		plural(len(in)),
+		firstLine,
+		strings.Join(uuids, "\n- "),
+	)
+}
+
 // RevokeCredentialsCheckModels revokes a set of cloud credentials.
 // If the credentials are used by any of the models, the credential deletion will be aborted.
 // If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
@@ -708,6 +759,14 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 	if err != nil {
 		return results, err
 	}
+
+	opMessage := func(force bool) string {
+		if force {
+			return "will be deleted but"
+		}
+		return "cannot be deleted as"
+	}
+
 	for i, arg := range args.Credentials {
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
@@ -720,6 +779,29 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
+
+		models, err := api.credentialModels(tag)
+		if err != nil {
+			if !arg.Force {
+				// Could not determine if credential has models - do not continue updating this credential...
+				results.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			logger.Warningf("could not get models that use credential %v: %v", tag, err)
+		}
+		if len(models) != 0 {
+			logger.Warningf("credential %v %v it is used by model%v",
+				tag,
+				opMessage(arg.Force),
+				modelsPretty(models),
+			)
+			if !arg.Force {
+				// Some models still use this credential - do not delete this credential...
+				results.Results[i].Error = common.ServerError(errors.Errorf("cannot delete credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
+				continue
+			}
+		}
+
 		if err := api.backend.RemoveCloudCredential(tag); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}

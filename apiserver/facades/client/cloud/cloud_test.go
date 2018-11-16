@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/params"
@@ -769,7 +770,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
@@ -780,7 +781,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.IsNil)
 
 	s.backend.CheckCall(
-		c, 1, "RemoveCloudCredential",
+		c, 2, "RemoveCloudCredential",
 		names.NewCloudCredentialTag("meep/bruce/three"),
 	)
 }
@@ -792,10 +793,161 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can revoke others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+type revokeCredentialData struct {
+	f           credentialModelFunction
+	args        []params.RevokeCredentialArg
+	results     params.ErrorResults
+	expectedLog []string
+	callsMade   []string
+}
+
+func (s *cloudSuite) assertRevokeCredentials(c *gc.C, test revokeCredentialData) {
+	s.backend.credentialModelsF = test.f
+	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{test.args})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, test.callsMade...)
+	c.Assert(results, gc.DeepEquals, test.results)
+	for _, l := range test.expectedLog {
+		c.Assert(c.GetTestLog(), jc.Contains, l)
+	}
+}
+
+func (s *cloudSuite) TestRevokeCredentialsCantGetModels(c *gc.C) {
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return nil, errors.New("no niet nope")
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three"},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{common.ServerError(errors.New("no niet nope"))},
+			},
+		},
+		expectedLog: []string{},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsForceCantGetModels(c *gc.C) {
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return nil, errors.New("no niet nope")
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three", Force: true},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{}, // no error: credential deleted
+			},
+		},
+		expectedLog: []string{" WARNING juju.apiserver.cloud could not get models that use credential cloudcred-meep_julia_three: no niet nope"},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsHasModel(c *gc.C) {
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three"},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 1 model"))},
+			},
+		},
+		expectedLog: []string{" WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsHasModels(c *gc.C) {
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id():              "modelName",
+				"deadbeef-1bad-511d-8000-4b1d0d06f00d": "anotherModelName",
+			}, nil
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three"},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 2 models"))},
+			},
+		},
+		expectedLog: []string{` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by models:
+- deadbeef-0bad-400d-8000-4b1d0d06f00d
+- deadbeef-1bad-511d-8000-4b1d0d06f00d
+`},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsForceHasModel(c *gc.C) {
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three", Force: true},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{},
+			},
+		},
+		expectedLog: []string{` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three", Force: true},
+			{Tag: "cloudcred-meep_bruce_three"},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "CredentialModels"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{},
+				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_bruce_three: it is still used by 1 model"))},
+			},
+		},
+		expectedLog: []string{
+			` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
+			` WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
+		},
+	}
+	s.assertRevokeCredentials(c, t)
 }
 
 func (s *cloudSuite) TestCredential(c *gc.C) {
