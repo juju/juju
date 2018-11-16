@@ -4,6 +4,8 @@
 package modelcmd_test
 
 import (
+	"os"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -12,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -50,6 +53,8 @@ func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	store.Controllers["explicit"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "explicit", "-c", "explicit")
 	testEnsureControllerName(c, store, "explicit", "--controller", "explicit")
+	os.Setenv(osenv.JujuControllerEnvKey, "explicit")
+	testEnsureControllerName(c, store, "explicit")
 }
 
 func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {

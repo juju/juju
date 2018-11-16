@@ -143,6 +143,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuControllerEnvKey, "current-controller")
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{

@@ -5,6 +5,7 @@ package modelcmd
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -104,6 +106,9 @@ func (c *ControllerCommandBase) initController() error {
 func (c *ControllerCommandBase) initController0() error {
 	if c._controllerName == "" && !c.allowDefaultController {
 		return errors.New("no controller specified")
+	}
+	if c._controllerName == "" {
+		c._controllerName = os.Getenv(osenv.JujuControllerEnvKey)
 	}
 	store := c.ClientStore()
 	if c._controllerName == "" {

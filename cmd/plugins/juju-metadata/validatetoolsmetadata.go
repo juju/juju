@@ -24,12 +24,13 @@ import (
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {
-	return modelcmd.Wrap(&validateToolsMetadataCommand{})
+	return modelcmd.WrapController(&validateToolsMetadataCommand{})
 }
 
 // validateToolsMetadataCommand
 type validateToolsMetadataCommand struct {
-	imageMetadataCommandBase
+	modelcmd.ControllerCommandBase
+
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -151,9 +152,13 @@ func (c *validateToolsMetadataCommand) Init(args []string) error {
 
 func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
-
 	if c.providerType == "" {
-		environ, err := c.prepare(context)
+		context.Infof("no provider type specified, using bootstrapped cloud")
+		controllerName, err := c.ControllerName()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		environ, err := prepare(context, controllerName, c.ClientStore())
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
