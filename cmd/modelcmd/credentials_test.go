@@ -178,7 +178,9 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 	}
 
 	exp := mockProvider.EXPECT()
-	exp.RegisterCredentials("fake").Return(credential, nil)
+	exp.RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(credential, nil)
 
 	credentials, err := modelcmd.RegisterCredentials(mockProvider, modelcmd.RegisterCredentialsParams{
 		Cloud: cloud.Cloud{
@@ -198,7 +200,9 @@ func (s *credentialsSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 	credential := map[string]*cloud.CloudCredential{}
 
 	exp := mockProvider.EXPECT()
-	exp.RegisterCredentials("fake").Return(credential, nil)
+	exp.RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(credential, nil)
 
 	credentials, err := modelcmd.RegisterCredentials(mockProvider, modelcmd.RegisterCredentialsParams{
 		Cloud: cloud.Cloud{
@@ -216,7 +220,9 @@ func (s *credentialsSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 	mockProvider := modelcmd.NewMockTestCloudProvider(ctrl)
 
 	exp := mockProvider.EXPECT()
-	exp.RegisterCredentials("fake").Return(nil, errors.New("bad"))
+	exp.RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(nil, errors.New("bad"))
 
 	credentials, err := modelcmd.RegisterCredentials(mockProvider, modelcmd.RegisterCredentialsParams{
 		Cloud: cloud.Cloud{

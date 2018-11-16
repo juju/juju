@@ -68,7 +68,9 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 	}
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials("fake").Return(map[string]*cloud.CloudCredential{
+	mockProvider.EXPECT().RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(map[string]*cloud.CloudCredential{
 		"fake": credential,
 	}, nil)
 	mockStore := common.NewMockCredentialStore(ctrl)
@@ -92,7 +94,9 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials("fake").Return(map[string]*cloud.CloudCredential{}, nil)
+	mockProvider.EXPECT().RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(map[string]*cloud.CloudCredential{}, nil)
 	mockStore := common.NewMockCredentialStore(ctrl)
 
 	stderr := new(bytes.Buffer)
@@ -112,7 +116,9 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockProvider := common.NewMockTestCloudProvider(ctrl)
-	mockProvider.EXPECT().RegisterCredentials("fake").Return(nil, errors.New("bad"))
+	mockProvider.EXPECT().RegisterCredentials(cloud.Cloud{
+		Name: "fake",
+	}).Return(nil, errors.New("bad"))
 	mockStore := common.NewMockCredentialStore(ctrl)
 
 	stderr := new(bytes.Buffer)

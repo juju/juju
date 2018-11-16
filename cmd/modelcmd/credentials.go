@@ -196,7 +196,7 @@ type RegisterCredentialsParams struct {
 // a provider.
 func RegisterCredentials(provider environs.EnvironProvider, args RegisterCredentialsParams) (map[string]*cloud.CloudCredential, error) {
 	if register, ok := provider.(environs.ProviderCredentialsRegister); ok {
-		found, err := register.RegisterCredentials(args.Cloud.Name)
+		found, err := register.RegisterCredentials(args.Cloud)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "registering credentials for provider",

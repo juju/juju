@@ -1262,7 +1262,7 @@ func (m *MockProviderCredentialsRegister) EXPECT() *MockProviderCredentialsRegis
 }
 
 // RegisterCredentials mocks base method
-func (m *MockProviderCredentialsRegister) RegisterCredentials(arg0 string) (map[string]*cloud.CloudCredential, error) {
+func (m *MockProviderCredentialsRegister) RegisterCredentials(arg0 cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	ret := m.ctrl.Call(m, "RegisterCredentials", arg0)
 	ret0, _ := ret[0].(map[string]*cloud.CloudCredential)
 	ret1, _ := ret[1].(error)

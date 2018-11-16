@@ -137,7 +137,7 @@ type ProviderCredentialsRegister interface {
 	//
 	// If no credentials can be found, RegisterCredentials should return
 	// an error satisfying errors.IsNotFound.
-	RegisterCredentials(string) (map[string]*cloud.CloudCredential, error)
+	RegisterCredentials(cloud.Cloud) (map[string]*cloud.CloudCredential, error)
 }
 
 // RequestFinalizeCredential is an interface that an EnvironProvider implements
