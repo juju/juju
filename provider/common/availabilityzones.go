@@ -22,8 +22,8 @@ type AvailabilityZone interface {
 	Available() bool
 }
 
-// ZonedEnviron is an environs.Environ that has support for
-// availability zones.
+// ZonedEnviron is an environs.Environ that has support for availability zones.
+//go:generate mockgen -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/provider/common ZonedEnviron
 type ZonedEnviron interface {
 	environs.Environ
 
