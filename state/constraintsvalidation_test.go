@@ -70,14 +70,14 @@ var setConstraintsTests = []struct {
 	effectiveMachineCons:     "",
 }, {
 	about:        "(implicitly) empty fallback constraints never override set constraints",
-	consToSet:    "instance-type=foo-42 cpu-power=9001 spaces=bar",
+	consToSet:    "instance-type=foo-42 cpu-power=9001 spaces=bar zones=az1,az2",
 	consFallback: "",
 
 	effectiveModelCons: "", // model constraints are stored as empty.
 	// i.e. there are no fallbacks and all the following cases are the same.
-	effectiveApplicationCons: "instance-type=foo-42 cpu-power=9001 spaces=bar",
-	effectiveUnitCons:        "instance-type=foo-42 cpu-power=9001 spaces=bar",
-	effectiveMachineCons:     "instance-type=foo-42 cpu-power=9001 spaces=bar",
+	effectiveApplicationCons: "instance-type=foo-42 cpu-power=9001 spaces=bar zones=az1,az2",
+	effectiveUnitCons:        "instance-type=foo-42 cpu-power=9001 spaces=bar zones=az1,az2",
+	effectiveMachineCons:     "instance-type=foo-42 cpu-power=9001 spaces=bar zones=az1,az2",
 }, {
 	about:        "(implicitly) empty constraints never override explicitly set fallbacks",
 	consToSet:    "",
