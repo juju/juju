@@ -107,7 +107,7 @@ func (s *ModelStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.RemoveAllModelDocs()
+	err = s.st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

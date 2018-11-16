@@ -52,9 +52,9 @@ func (m *mockState) EnsureModelRemoved() error {
 	return nil
 }
 
-func (m *mockState) RemoveAllModelDocs() error {
-	if m.model.life != state.Dead {
-		return errors.New("model not dead")
+func (m *mockState) RemoveDyingModel() error {
+	if m.model.life == state.Alive {
+		return errors.New("model not dying or dead")
 	}
 	m.removed = true
 	return nil

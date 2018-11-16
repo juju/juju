@@ -60,7 +60,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		Machines:         api,
 		Status:           api,
 		Clock:            config.Clock,
-		CloudCallContext: common.NewCloudCallContext(credentialAPI),
+		CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

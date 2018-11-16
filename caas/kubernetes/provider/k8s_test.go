@@ -4,10 +4,15 @@
 package provider_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	testclock "github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -15,7 +20,10 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -256,6 +264,35 @@ func (s *K8sBrokerSuite) TestEnsureNamespace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(ns, nil),
+	)
+
+	out, err := s.broker.GetNamespace("test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, ns)
+}
+
+func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Get("unknown-namespace", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	out, err := s.broker.GetNamespace("unknown-namespace")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(out, gc.IsNil)
+}
+
 func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
@@ -276,19 +313,45 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	// Delete operations below return a not found to ensure it's treated as a no-op.
+	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
+	namespaceWatcher := s.k8sNewFakeWatcher()
+
 	gomock.InOrder(
+		s.mockNamespaces.EXPECT().Watch(
+			v1.ListOptions{
+				FieldSelector:        fields.OneTermEqualSelector("metadata.name", "test").String(),
+				IncludeUninitialized: true,
+			},
+		).
+			Return(namespaceWatcher, nil),
 		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
+			Return(nil),
 		s.mockStorageClass.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground),
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).Times(1).
 			Return(s.k8sNotFoundError()),
+		// still terminating.
+		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(ns, nil),
+		// terminated, not found returned.
+		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
 	)
+
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		for _, f := range []func(runtime.Object){w.Add, w.Modify, w.Delete} {
+			if !w.IsStopped() {
+				clk.WaitAdvance(time.Second, testing.LongWait, 1)
+				f(ns)
+			}
+		}
+	}(namespaceWatcher, s.clock)
 
 	err := s.broker.Destroy(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
 }
 
 func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {

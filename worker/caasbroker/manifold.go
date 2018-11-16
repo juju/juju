@@ -65,7 +65,7 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	case *storage.ProviderRegistry:
 		*result = inTracker.Broker()
 	default:
-		return errors.Errorf("expected *caas.Broker, *storage.ProviderRegistry, or *environs.CloudDestroyer, got %T", out)
+		return errors.Errorf("expected *caas.Broker, *storage.ProviderRegistry or *environs.CloudDestroyer, got %T", out)
 	}
 	return nil
 }

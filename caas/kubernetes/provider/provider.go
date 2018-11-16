@@ -6,6 +6,7 @@ package provider
 import (
 	"net/url"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -50,7 +51,7 @@ func (kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, er
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	broker, err := NewK8sBroker(args.Cloud, args.Config, newK8sClient)
+	broker, err := NewK8sBroker(args.Cloud, args.Config, newK8sClient, newKubernetesWatcher, jujuclock.WallClock)
 	if err != nil {
 		return nil, err
 	}

@@ -352,10 +352,10 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 			err = status[0].Error
 		}
 		if err != nil {
-			if params.ErrCode(err) != params.CodeNotFound {
-				ctx.Infof("Unable to get the model status from the API: %v.", err)
-			} else {
+			if params.IsCodeNotFound(err) {
 				ctx.Infof("Model destroyed.")
+			} else {
+				ctx.Infof("Unable to get the model status from the API: %v.", err)
 			}
 			return nil
 		}

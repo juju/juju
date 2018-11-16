@@ -2221,7 +2221,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	err = st2.RemoveAllModelDocs()
+	err = st2.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed model are reported in initial event.
@@ -2233,11 +2233,13 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Progress dying to dead, alive to dying; and see changes reported.
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st1.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
-	err = alive.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
+	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(alive.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(alive.Refresh(), jc.ErrorIsNil)
+	c.Assert(alive.Life(), gc.Equals, state.Dying)
+	c.Assert(dying.Refresh(), jc.Satisfies, errors.IsNotFound)
+	wc.AssertChangeInSingleEvent(alive.UUID())
 }
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
@@ -2264,16 +2266,12 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	err = app.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st1.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
-
-	err = st1.RemoveAllModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
@@ -2762,7 +2760,7 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	c.Check(permCount, gc.Equals, 0)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	st := s.State
 
 	userModelKey := s.insertFakeModelDocs(c, st)
@@ -2779,7 +2777,7 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
 
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloud, err = s.State.Cloud(model.Cloud())
@@ -2792,12 +2790,63 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	s.AssertModelDeleted(c, st)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsAliveModelFails(c *gc.C) {
+func (s *StateSuite) TestRemoveDyingModelAliveModelFails(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	err := st.RemoveDyingModel()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "can't remove model: model still alive")
+}
+
+func (s *StateSuite) TestRemoveDyingModelForDyingModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	err := st.RemoveAllModelDocs()
-	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
+
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestRemoveDyingModelForDeadModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
+
+	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.SetDyingModelToDead()
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
+	c.Assert(st.SetDyingModelToDead(), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
+
+	err = st.SetDyingModelToDead()
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
@@ -2937,7 +2986,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
 	assertLogCount(c, st, 0)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
+func (s *StateSuite) TestRemoveModelRemovesLogs(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -2949,7 +2998,7 @@ func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
 	writeLogs(c, st, 5)
 	writeLogs(c, s.State, 5)
 
-	err = st.RemoveAllModelDocs()
+	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertLogCount(c, s.State, 5)

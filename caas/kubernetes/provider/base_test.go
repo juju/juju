@@ -4,13 +4,18 @@
 package provider_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	jujuclock "github.com/juju/clock"
+	testclock "github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -25,6 +30,8 @@ import (
 
 type BaseSuite struct {
 	testing.BaseSuite
+
+	clock *testclock.Clock
 
 	broker caas.Broker
 
@@ -49,6 +56,8 @@ type BaseSuite struct {
 	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
+
+	watcher *provider.KubernetesWatcher
 }
 
 const testNamespace = "test"
@@ -137,9 +146,15 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 		return s.k8sClient, s.mockApiextensionsClient, nil
 	}
 
-	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient)
+	s.clock = testclock.NewClock(time.Time{})
+	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
+		w, err := provider.NewKubernetesWatcher(wi, name, clock)
+		c.Assert(err, jc.ErrorIsNil)
+		s.watcher = w
+		return s.watcher, err
+	}
+	s.broker, err = provider.NewK8sBroker(cloudSpec, cfg, newClient, newK8sWatcherForTest, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
-
 	return ctrl
 }
 
@@ -153,4 +168,8 @@ func (s *BaseSuite) k8sAlreadyExists() *k8serrors.StatusError {
 
 func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {
 	return &v1.DeleteOptions{PropagationPolicy: &policy}
+}
+
+func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
+	return watch.NewRaceFreeFake()
 }

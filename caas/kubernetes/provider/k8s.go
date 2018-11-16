@@ -14,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -66,6 +68,7 @@ const (
 var defaultPropagationPolicy = v1.DeletePropagationForeground
 
 type kubernetesClient struct {
+	clock jujuclock.Clock
 	kubernetes.Interface
 	apiextensionsClient apiextensionsclientset.Interface
 
@@ -78,6 +81,9 @@ type kubernetesClient struct {
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
+
+	// newWatcher is the k8s watcher generator.
+	newWatcher NewK8sWatcherFunc
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -91,8 +97,17 @@ type kubernetesClient struct {
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
+// NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
+type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
+
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+func NewK8sBroker(
+	cloudSpec environs.CloudSpec,
+	cfg *config.Config,
+	newClient NewK8sClientFunc,
+	newWatcher NewK8sWatcherFunc,
+	clock jujuclock.Clock,
+) (caas.Broker, error) {
 	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,11 +121,13 @@ func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient Ne
 		return nil, errors.Trace(err)
 	}
 	return &kubernetesClient{
+		clock:               clock,
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
 		namespace:           newCfg.Name(),
 		envCfg:              newCfg,
 		modelUUID:           newCfg.UUID(),
+		newWatcher:          newWatcher,
 	}, nil
 }
 
@@ -228,36 +245,74 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
+func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error {
+	watcher, err := k.WatchNamespace()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer watcher.Kill()
+
 	if err := k.deleteNamespace(); err != nil {
 		return errors.Annotate(err, "deleting model namespace")
 	}
+
 	// Delete any storage classes created as part of this model.
 	// Storage classes live outside the namespace so need to be deleted separately.
 	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-	err := k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
+	err = k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: modelSelector,
 	})
-	if !k8serrors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Annotate(err, "deleting model storage classes")
 	}
-	return nil
+	for {
+		select {
+		case <-callbacks.Dying():
+			return nil
+		case <-watcher.Changes():
+			// ensure namespace has been deleted - notfound error expected.
+			_, err := k.GetNamespace("")
+			if errors.IsNotFound(err) {
+				// namespace ha been deleted.
+				return nil
+			}
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("namespace %q is still been terminating", k.namespace)
+		}
+	}
 }
 
-// Namespaces returns name names of the namespaces on the cluster.
+// Namespaces returns names of the namespaces on the cluster.
 func (k *kubernetesClient) Namespaces() ([]string, error) {
 	namespaces := k.CoreV1().Namespaces()
 	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "listing namespaces")
 	}
 	result := make([]string, len(ns.Items))
 	for i, n := range ns.Items {
 		result[i] = n.Name
 	}
 	return result, nil
+}
+
+// GetNamespace returns the namespace for the specified name or current namespace.
+func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
+	if name == "" {
+		name = k.namespace
+	}
+	ns, err := k.CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("namespace %q", name)
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "getting namespaces")
+	}
+	return ns, nil
 }
 
 // EnsureNamespace ensures this broker's namespace is created.
@@ -275,17 +330,28 @@ func (k *kubernetesClient) deleteNamespace() error {
 	// deleteNamespace is used as a means to implement Destroy().
 	// All model resources are provisioned in the namespace;
 	// deleting the namespace will also delete those resources.
-	namespaces := k.CoreV1().Namespaces()
-	err := namespaces.Delete(k.namespace, &v1.DeleteOptions{
+	err := k.CoreV1().Namespaces().Delete(k.namespace, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
 	return errors.Trace(err)
+}
+
+// WatchNamespace returns a watcher which notifies when there
+// are changes to current namespace.
+func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
+	w, err := k.CoreV1().Namespaces().Watch(
+		v1.ListOptions{
+			FieldSelector:        fields.OneTermEqualSelector("metadata.name", k.namespace).String(),
+			IncludeUninitialized: true,
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k.newWatcher(w, k.namespace, k.clock)
 }
 
 // EnsureSecret ensures a secret exists for use with retrieving images from private registries
@@ -1415,7 +1481,7 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, appName)
+	return k.newWatcher(w, appName, k.clock)
 }
 
 // WatchOperator returns a watcher which notifies when there
@@ -1429,7 +1495,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newKubernetesWatcher(w, appName)
+	return k.newWatcher(w, appName, k.clock)
 }
 
 // jujuPVNameRegexp matches how Juju labels persistent volumes.

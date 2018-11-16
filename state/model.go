@@ -1011,7 +1011,6 @@ func (m *Model) Destroy(args DestroyModelParams) (err error) {
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		return ops, nil
 	}
 	return m.st.db().Run(buildTxn)
@@ -1159,12 +1158,6 @@ func (m *Model) destroyOps(
 			}
 			prereqOps = storageOps
 		}
-	} else {
-		if !m.isControllerModel() {
-			// The model is empty, and is not the controller
-			// model, so we can move it straight to Dead.
-			nextLife = Dead
-		}
 	}
 
 	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
@@ -1217,6 +1210,7 @@ func (m *Model) destroyOps(
 			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
 			switch err {
 			case errModelNotAlive:
+				// this empty hosted model is still dying.
 				dying++
 			case nil:
 				prereqOps = append(prereqOps, ops...)
@@ -1249,31 +1243,22 @@ func (m *Model) destroyOps(
 		)
 	}
 
-	timeOfDying := m.st.nowToTheSecond()
-	modelUpdateValues := bson.D{
-		{"life", nextLife},
-		{"time-of-dying", timeOfDying},
-	}
 	var ops []txn.Op
-	if nextLife == Dead {
-		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
-			"time-of-death", timeOfDying,
-		})
-		ops = append(ops, txn.Op{
-			// Cleanup the owner:modelName unique key.
-			C:      usermodelnameC,
-			Id:     m.uniqueIndexID(),
-			Remove: true,
-		})
-	}
-
 	modelOp := txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
 	}
-	if !destroyingController || nextLife == Dead {
-		modelOp.Update = bson.D{{"$set", modelUpdateValues}}
+	if !destroyingController {
+		modelOp.Update = bson.D{
+			{
+				"$set",
+				bson.D{
+					{"life", nextLife},
+					{"time-of-dying", m.st.nowToTheSecond()},
+				},
+			},
+		}
 	}
 	ops = append(ops, modelOp)
 	if destroyingController {

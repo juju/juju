@@ -68,7 +68,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				Machines:         api,
 				Status:           api,
 				Clock:            clock,
-				CloudCallContext: common.NewCloudCallContext(credentialAPI),
+				CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
