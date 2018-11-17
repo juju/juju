@@ -107,6 +107,10 @@ func (mock *mockConn) Broken() <-chan struct{} {
 	return mock.broken
 }
 
+func (mock *mockConn) Addr() string {
+	return "testing.invalid"
+}
+
 func (mock *mockConn) Close() error {
 	mock.stub.AddCall("Close")
 	return mock.stub.NextErr()
