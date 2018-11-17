@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
@@ -60,8 +61,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	c.Check(checkFilter, gc.PanicMatches, "arrgh")
 
 	s.agent = &mockAgent{
-		stub:  &s.Stub,
-		model: coretesting.ModelTag,
+		stub:   &s.Stub,
+		model:  coretesting.ModelTag,
+		entity: names.NewMachineTag("42"),
 	}
 	s.context = dt.StubContext(nil, map[string]interface{}{
 		"agent-name": s.agent,
@@ -106,7 +108,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
 
 	worker, err := s.manifold.Start(s.context)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "cannot open api: no api for you")
+	c.Check(err, gc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},

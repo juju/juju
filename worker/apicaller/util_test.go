@@ -179,7 +179,7 @@ func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(
 }
 
 func checkOpenCalls(c *gc.C, stub *testing.Stub, passwords ...string) {
-	calls := openCalls(names.ModelTag{}, nil, passwords...)
+	calls := openCalls(names.ModelTag{}, testEntity, passwords...)
 	stub.CheckCalls(c, calls)
 }
 

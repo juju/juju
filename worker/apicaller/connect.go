@@ -156,7 +156,9 @@ func connectFallback(
 		return nil, false, errors.Trace(err)
 	}
 	logger.Infof("[%s] %q successfully connected to %q",
-		shortModelUUID(info.ModelTag), info.Tag.String(), conn.Addr())
+		shortModelUUID(info.ModelTag),
+		info.Tag.String(),
+		conn.Addr())
 	return conn, didFallback, nil
 }
 
