@@ -40,6 +40,8 @@ auth-types: [access-key]
 regions:
   cn-north-1:
     endpoint: https://ec2.cn-north-1.amazonaws.com.cn
+  cn-northwest-1:
+    endpoint: https://ec2.cn-northwest-1.amazonaws.com.cn
 `[1:])
 }
 
@@ -157,10 +159,6 @@ type: joyent
 description: Joyent Cloud
 auth-types: [userpass]
 regions:
-  eu-ams-1:
-    endpoint: https://eu-ams-1.api.joyentcloud.com
-  us-sw-1:
-    endpoint: https://us-sw-1.api.joyentcloud.com
   us-east-1:
     endpoint: https://us-east-1.api.joyentcloud.com
   us-east-2:
@@ -169,5 +167,9 @@ regions:
     endpoint: https://us-east-3.api.joyentcloud.com
   us-west-1:
     endpoint: https://us-west-1.api.joyentcloud.com
+  us-sw-1:
+    endpoint: https://us-sw-1.api.joyentcloud.com
+  eu-ams-1:
+    endpoint: https://eu-ams-1.api.joyentcloud.com
 `[1:])
 }
