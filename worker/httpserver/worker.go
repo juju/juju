@@ -400,6 +400,7 @@ func (d *dualListener) Accept() (net.Conn, error) {
 		// the conn.
 		select {
 		case <-d.done:
+			conn.Close()
 			return nil, errors.New("listener has been closed")
 		default:
 			return conn, nil
@@ -448,9 +449,13 @@ func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, e
 		logger.Errorf("programming error: %v", err)
 		return
 	}
-	// If we get an api connection notification that originates from us,
-	// it means the api-caller has been established, so unblock.
-	if conn.Origin != d.agentName {
+	// We are wanting to make sure that the api-caller has connected before we
+	// open the api port. Each api connection is published with the origin tag.
+	// Any origin that matches our agent name means that someone has connected
+	// to us. We need to also check which agent connected as it is possible that
+	// one of the other HA controller could connect before we connect to
+	// ourselves.
+	if conn.Origin != d.agentName || conn.AgentTag != d.agentName {
 		return
 	}
 

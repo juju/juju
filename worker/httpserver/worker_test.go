@@ -343,10 +343,23 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	normalURL := parsed.String()
 	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
 
+	// Getting a connection from someone else doesn't unblock.
+	handled, err := s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
+		AgentTag: "machine-13",
+		Origin:   s.agentName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-handled:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("the handler should have exited early and not be waiting")
+	}
+
 	// Send API details on the hub - still no luck connecting on the
 	// non-controller port.
 	_, err = s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
-		Origin: s.agentName,
+		AgentTag: s.agentName,
+		Origin:   s.agentName,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
