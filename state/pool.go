@@ -216,13 +216,13 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 func (p *StatePool) GetModel(modelUUID string) (*Model, PoolHelper, error) {
 	ps, err := p.Get(modelUUID)
 	if err != nil {
-		return nil, ps, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	model, err := ps.Model()
 	if err != nil {
 		ps.Release()
-		return nil, ps, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	return model, ps, nil
