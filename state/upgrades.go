@@ -1819,3 +1819,27 @@ func MigrateAddModelPermissions(pool *StatePool) error {
 	}
 	return nil
 }
+
+// SetEnableDiskUUIDOnVsphere updates the settings for all vsphere
+// models to have enable-disk-uuid=false. The new default is true, but
+// this maintains the previous behaviour for upgraded models.
+func SetEnableDiskUUIDOnVsphere(pool *StatePool) error {
+	return errors.Trace(applyToAllModelSettings(pool.SystemState(), func(doc *settingsDoc) (bool, error) {
+		typeVal, found := doc.Settings["type"]
+		if !found {
+			return false, nil
+		}
+		typeStr, ok := typeVal.(string)
+		if !ok || typeStr != "vsphere" {
+			return false, nil
+		}
+		_, found = doc.Settings["enable-disk-uuid"]
+		if found {
+			// If the config option's already been set don't change
+			// it.
+			return false, nil
+		}
+		doc.Settings["enable-disk-uuid"] = false
+		return true, nil
+	}))
+}

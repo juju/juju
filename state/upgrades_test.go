@@ -2830,6 +2830,76 @@ func (s *upgradesSuite) TestMigrateAddModelPermissions(c *gc.C) {
 	s.assertUpgradedData(c, MigrateAddModelPermissions, expectUpgradedData{permissionsColl, expected})
 }
 
+func (s *upgradesSuite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
+	coll, closer := s.state.db().GetRawCollection(settingsC)
+	defer closer()
+
+	_, err := coll.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
+		"type": "someprovider",
+	})
+	defer m1.Close()
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{
+		"type": "vsphere",
+	})
+	defer m2.Close()
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{
+		"type":             "vsphere",
+		"enable-disk-uuid": true,
+	})
+	defer m3.Close()
+
+	err = coll.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	getAttrs := func(st *State) map[string]interface{} {
+		model, err := st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		cfg, err := model.ModelConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		attrs := cfg.AllAttrs()
+		attrs["resource-tags"] = ""
+		return attrs
+	}
+
+	expected1 := getAttrs(m1)
+	expected2 := getAttrs(m2)
+	expected2["enable-disk-uuid"] = false
+
+	expected3 := getAttrs(m3)
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":        m3.ModelUUID() + ":e",
+			"settings":   bson.M(expected3),
+			"model-uuid": m3.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	c.Logf(pretty.Sprint(expectedSettings))
+	s.assertUpgradedData(c, SetEnableDiskUUIDOnVsphere,
+		expectUpgradedData{coll, expectedSettings},
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

@@ -25,5 +25,12 @@ func stateStepsFor25() []Step {
 				return context.State().MigrateAddModelPermissions()
 			},
 		},
+		&upgradeStep{
+			description: "set enable-disk-uuid (if on vsphere)",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().SetEnableDiskUUIDOnVsphere()
+			},
+		},
 	}
 }
