@@ -227,6 +227,7 @@ func (env *sessionEnviron) newRawInstance(
 		UpdateProgress:         updateProgress,
 		UpdateProgressInterval: updateProgressInterval,
 		Clock:                  clock.WallClock,
+		EnableDiskUUID:         env.ecfg.enableDiskUUID(),
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.

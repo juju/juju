@@ -15,6 +15,7 @@ const (
 	cfgPrimaryNetwork  = "primary-network"
 	cfgExternalNetwork = "external-network"
 	cfgDatastore       = "datastore"
+	cfgEnableDiskUUID  = "enable-disk-uuid"
 )
 
 // configFields is the spec for each vmware config value's type.
@@ -23,12 +24,14 @@ var (
 		cfgExternalNetwork: schema.String(),
 		cfgDatastore:       schema.String(),
 		cfgPrimaryNetwork:  schema.String(),
+		cfgEnableDiskUUID:  schema.Bool(),
 	}
 
 	configDefaults = schema.Defaults{
 		cfgExternalNetwork: "",
 		cfgDatastore:       schema.Omit,
 		cfgPrimaryNetwork:  schema.Omit,
+		cfgEnableDiskUUID:  true,
 	}
 
 	configRequiredFields  = []string{}
@@ -90,6 +93,10 @@ func (c *environConfig) datastore() string {
 func (c *environConfig) primaryNetwork() string {
 	network, _ := c.attrs[cfgPrimaryNetwork].(string)
 	return network
+}
+
+func (c *environConfig) enableDiskUUID() bool {
+	return c.attrs[cfgEnableDiskUUID].(bool)
 }
 
 // validate checks vmware-specific config values.

@@ -133,6 +133,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 				ExtraConfig: []types.BaseOptionValue{
 					&types.OptionValue{Key: "k", Value: "v"},
 				},
+				Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 			},
 		}}},
 		{"CreatePropertyCollector", nil},
@@ -164,6 +165,24 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
+	})
+}
+
+func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.EnableDiskUUID = false
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCall(c, 26, "ImportVApp", &types.VirtualMachineImportSpec{
+		ConfigSpec: types.VirtualMachineConfigSpec{
+			Name: "vm-name.tmp",
+			ExtraConfig: []types.BaseOptionValue{
+				&types.OptionValue{Key: "k", Value: "v"},
+			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(false)},
+		},
 	})
 }
 
@@ -298,6 +317,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 					Device:    &networkDevice2,
 				},
 			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 		},
 	})
 }
@@ -344,6 +364,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 					Device:    &networkDevice,
 				},
 			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 		},
 	})
 }
@@ -452,6 +473,7 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		UpdateProgress:         func(status string) {},
 		UpdateProgressInterval: time.Second,
 		Clock:                  testclock.NewClock(time.Time{}),
+		EnableDiskUUID:         true,
 	}
 }
 

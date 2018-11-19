@@ -37,3 +37,9 @@ func (s *steps25Suite) TestMigrateAddModelPermissions(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps25Suite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
+	step := findStateStep(c, v25, `set enable-disk-uuid (if on vsphere)`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}

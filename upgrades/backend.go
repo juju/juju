@@ -57,6 +57,7 @@ type StateBackend interface {
 	MigrateStorageMachineIdFields() error
 	MigrateAddModelPermissions() error
 	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
+	SetEnableDiskUUIDOnVsphere() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -213,4 +214,8 @@ func (s stateBackend) LeaseNotifyTarget(w io.Writer, logger raftleasestore.Logge
 
 func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
 	return state.LegacyLeases(s.pool, localTime)
+}
+
+func (s stateBackend) SetEnableDiskUUIDOnVsphere() error {
+	return state.SetEnableDiskUUIDOnVsphere(s.pool)
 }

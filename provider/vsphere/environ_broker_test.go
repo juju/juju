@@ -133,6 +133,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 		Metadata:               startInstArgs.InstanceConfig.Tags,
 		ComputeResource:        s.client.computeResources[0],
 		UpdateProgressInterval: 5 * time.Second,
+		EnableDiskUUID:         true,
 	})
 
 	ovaLocation, ovaReadCloser, err := readOVA()
@@ -189,6 +190,25 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	c.Assert(createVMArgs.Folder, gc.Equals,
 		`Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "supercalifragilisticexpialidociou" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
+}
+
+func (s *environBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"enable-disk-uuid":   false,
+			"image-metadata-url": s.imageServer.URL,
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	call := s.client.Calls()[1]
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
