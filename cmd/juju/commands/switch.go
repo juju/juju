@@ -109,10 +109,13 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		logSwitch(ctx, currentName, &newName)
 	}()
 
-	// Switch is an alternative way of dealing with environments than using
-	// the JUJU_MODEL environment setting, and as such, doesn't play too well.
-	// If JUJU_MODEL is set we should report that as the current environment,
-	// and not allow switching when it is set.
+	// Switch is an alternative way of dealing with models rather than using
+	// the JUJU_CONTROLLER or JUJU_MODEL environment settings, and as such,
+	// doesn't play too well. If either is set we should report that as the
+	// current controller/model, and not allow switching when set.
+	if controller := os.Getenv(osenv.JujuControllerEnvKey); controller != "" {
+		return errors.Errorf("cannot switch when JUJU_CONTROLLER is overriding the controller (set to %q)", controller)
+	}
 	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
 		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}

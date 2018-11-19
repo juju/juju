@@ -53,7 +53,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 func runImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &imageMetadataCommand{}
 	cmd.SetClientStore(store)
-	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
 }
 
 var seriesVersions map[string]string = map[string]string{
@@ -165,7 +165,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 	}
 
 	ctx, err := runImageMetadata(c, s.store,
-		"-m", "ec2-controller:ec2-latest-lts",
+		"-c", "ec2-controller",
 		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +179,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	ctx, err := runImageMetadata(c, s.store,
-		"-d", s.dir, "-m", "ec2-controller:ec2", "-i", "1234", "--virt-type=pv", "--storage=root",
+		"-d", s.dir, "-c", "ec2-controller", "-i", "1234", "--virt-type=pv", "--storage=root",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -196,7 +196,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
 	ctx, err := runImageMetadata(c, s.store,
-		"-d", s.dir, "-m", "ec2-controller:ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",
+		"-d", s.dir, "-c", "ec2-controller", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -211,7 +211,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
 	ctx, err := runImageMetadata(c, s.store,
-		"-d", s.dir, "-m", "azure-controller:azure", "-r", "region", "-u", "endpoint", "-i", "1234",
+		"-d", s.dir, "-c", "azure-controller", "-r", "region", "-u", "endpoint", "-i", "1234",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -243,7 +243,7 @@ var errTests = []errTestParams{
 	},
 	{
 		// Missing endpoint/region for model with no HasRegion interface
-		args: []string{"-i", "1234", "-m", "azure-controller:azure"},
+		args: []string{"-i", "1234", "-c", "azure-controller"},
 	},
 }
 

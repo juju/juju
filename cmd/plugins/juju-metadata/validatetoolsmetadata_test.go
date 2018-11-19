@@ -33,7 +33,7 @@ var _ = gc.Suite(&ValidateToolsMetadataSuite{})
 func runValidateToolsMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateToolsMetadataCommand{}
 	cmd.SetClientStore(store)
-	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
 }
 
 var validateInitToolsErrorTests = []struct {
@@ -63,7 +63,7 @@ func (s *ValidateToolsMetadataSuite) TestInitErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		cmd := &validateToolsMetadataCommand{}
 		cmd.SetClientStore(s.store)
-		err := cmdtesting.InitCommand(modelcmd.Wrap(cmd), t.args)
+		err := cmdtesting.InitCommand(modelcmd.WrapController(cmd), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -123,7 +123,7 @@ func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region strin
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
-	ctx, err := runValidateToolsMetadata(c, s.store, "-m", "ec2-controller:ec2", "-j", "1.11.4", "-d", s.metadataDir)
+	ctx, err := runValidateToolsMetadata(c, s.store, "-c", "ec2-controller", "-j", "1.11.4", "-d", s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
@@ -135,7 +135,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1")
-	_, err := runValidateToolsMetadata(c, s.store, "-m", "ec2-controller:ec2", "-j", "1.11.4")
+	_, err := runValidateToolsMetadata(c, s.store, "-c", "ec2-controller", "-j", "1.11.4")
 	c.Assert(err, gc.ErrorMatches, `detecting credentials.*AWS_SECRET_ACCESS_KEY not found in environment`)
 }
 

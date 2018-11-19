@@ -4,18 +4,13 @@
 package main
 
 import (
-	"github.com/juju/gnuflag"
-
 	"github.com/juju/juju/api/imagemetadatamanager"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type cloudImageMetadataCommandBase struct {
-	imageMetadataCommandBase
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *cloudImageMetadataCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	c.imageMetadataCommandBase.SetFlags(f)
+	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 }
 
 // NewImageMetadataAPI returns a image metadata api for the root api endpoint
