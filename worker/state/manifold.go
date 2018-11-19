@@ -272,6 +272,11 @@ func newModelStateWorker(
 func (w *modelStateWorker) loop() error {
 	st, err := w.pool.Get(w.modelUUID)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// poolItem is marked as removed, try to remove it from pool.
+			w.pool.Remove(w.modelUUID)
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	defer func() {
