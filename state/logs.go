@@ -797,8 +797,8 @@ func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int, logg
 		if err != nil {
 			return "", errors.Annotate(err, "failed to retrieve log counts")
 		}
+		endSize = fmt.Sprintf("logs db now %d MB", collMB)
 		if collMB <= maxLogsMB {
-			endSize = fmt.Sprintf("logs db now %d MB", collMB)
 			break
 		}
 

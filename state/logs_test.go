@@ -251,7 +251,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	tsNoPrune := coretesting.NonZeroTime().Add(-3 * 24 * time.Hour)
 	msg, err := state.PruneLogs(s.State, tsNoPrune, 1, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(msg, gc.Equals, "pruning complete after 0s, pruned 3243 entries from 2 models, logs db now 1 MB")
+	c.Check(msg, gc.Matches, "pruning complete after .*s, pruned \\d+ entries from 2 models, logs db now \\d+ MB")
 	// Logs for first model should not be touched.
 	c.Assert(s.countLogs(c, s0), gc.Equals, startingLogsS0)
 
