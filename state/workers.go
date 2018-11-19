@@ -33,7 +33,6 @@ const (
 // workers when they fail.
 type workers struct {
 	state *State
-	//	model *Model
 	*worker.Runner
 }
 
@@ -51,28 +50,38 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 		}),
 	}
 	if hub == nil {
-		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+		if err := ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 			return watcher.New(st.getTxnLogCollection()), nil
-		})
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
 	} else {
-		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+		if err := ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 			return watcher.NewHubWatcher(hub, loggo.GetLogger("juju.state.watcher")), nil
-		})
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
+	if err := ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.modelTag), nil
-	})
-	ws.StartWorker(pingBatcherWorker, func() (worker.Worker, error) {
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := ws.StartWorker(pingBatcherWorker, func() (worker.Worker, error) {
 		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
-	})
-	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
 		manager, err := st.newLeaseManager(st.getLeadershipLeaseClient, leadershipSecretary{}, st.ModelUUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return manager, nil
-	})
-	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := ws.StartWorker(singularWorker, func() (worker.Worker, error) {
 		manager, err := st.newLeaseManager(st.getSingularLeaseClient,
 			singularSecretary{
 				controllerUUID: st.ControllerUUID(),
@@ -84,7 +93,9 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 			return nil, errors.Trace(err)
 		}
 		return manager, nil
-	})
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return ws, nil
 }
 
@@ -159,9 +170,29 @@ func (ws *workers) allManager(params WatchParams) *storeManager {
 		return newDeadStoreManager(errors.Trace(err))
 	}
 	// Note that StartWorker is idempotent if there's a race.
-	ws.StartWorker(allManagerWorker, func() (worker.Worker, error) {
-		return newStoreManager(newAllWatcherStateBacking(ws.state, params)), nil
-	})
+	if err := ws.StartWorker(allManagerWorker, func() (worker.Worker, error) {
+		// The allWatcher uses system state to load all the entities to watch.
+		// The system state is not ref counted like other states that are fetched
+		// from the state pool, so create a copy here and use that to guard against
+		// the possibility that the system state may be closed elsewhere.
+		// The state copy is closed then the store manager is released.
+		stCopy, err := Open(OpenParams{
+			Clock:                  ws.state.stateClock,
+			ControllerTag:          ws.state.controllerTag,
+			ControllerModelTag:     ws.state.modelTag,
+			MongoSession:           ws.state.session,
+			NewPolicy:              ws.state.newPolicy,
+			RunTransactionObserver: ws.state.runTransactionObserver,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newStoreManager(newAllWatcherStateBacking(stCopy, params)), nil
+	}); err != nil {
+		newDeadStoreManager(errors.Trace(err))
+	}
+	// Yes, this is recursive but it will exit early above as the
+	// worker will now be created.
 	return ws.allManager(params)
 }
 
@@ -173,9 +204,30 @@ func (ws *workers) allModelManager(pool *StatePool) *storeManager {
 	if errors.Cause(err) != worker.ErrNotFound {
 		return newDeadStoreManager(errors.Trace(err))
 	}
-	ws.StartWorker(allModelManagerWorker, func() (worker.Worker, error) {
-		return newStoreManager(NewAllModelWatcherStateBacking(ws.state, pool)), nil
-	})
+	if err := ws.StartWorker(allModelManagerWorker, func() (worker.Worker, error) {
+		// The allWatcher uses system state to load all the entities to watch.
+		// The system state is not ref counted like other states that are fetched
+		// from the state pool, so create a copy here and use that to guard against
+		// the possibility that the system state may be closed elsewhere.
+		// The state copy is closed then the store manager is released.
+		stCopy, err := Open(OpenParams{
+			Clock:                  ws.state.stateClock,
+			ControllerTag:          ws.state.controllerTag,
+			ControllerModelTag:     ws.state.modelTag,
+			MongoSession:           ws.state.session,
+			NewPolicy:              ws.state.newPolicy,
+			RunTransactionObserver: ws.state.runTransactionObserver,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return newStoreManager(NewAllModelWatcherStateBacking(stCopy, pool)), nil
+	}); err != nil {
+		return newDeadStoreManager(errors.Trace(err))
+	}
+	// Yes, this is recursive but it will exit early above as the
+	// worker will now be created.
 	return ws.allModelManager(pool)
 }
 

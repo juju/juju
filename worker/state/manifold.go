@@ -152,14 +152,20 @@ func (w *stateWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer w.stTracker.Done()
+	w.setStatePool(pool)
 
 	collector := statemetrics.New(statemetrics.NewStatePool(pool))
 	w.prometheusRegisterer.Register(collector)
-	defer w.prometheusRegisterer.Unregister(collector)
 
-	w.setStatePool(pool)
-	defer w.setStatePool(nil)
+	// Gather all cleanup steps here in one place to aid the
+	// reader in figuring out what is destroyed when.
+	defer func() {
+		w.prometheusRegisterer.Unregister(collector)
+		w.setStatePool(nil)
+		if err := w.stTracker.Done(); err != nil {
+			logger.Warningf("error closing state tracker worker: %v", err)
+		}
+	}()
 
 	modelWatcher := pool.SystemState().WatchModelLives()
 	w.catacomb.Add(modelWatcher)

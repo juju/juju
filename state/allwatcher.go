@@ -1329,8 +1329,8 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 
 // Release implements the Backing interface.
 func (b *allWatcherStateBacking) Release() error {
-	// allWatcherStateBacking doesn't need to release anything.
-	return nil
+	// The allWatcher gets a new copy of state so needs to close it.
+	return b.st.Close()
 }
 
 func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
@@ -1470,21 +1470,17 @@ func (b *allModelWatcherStateBacking) getState(modelUUID string) (*PooledState, 
 
 // Release implements the Backing interface.
 func (b *allModelWatcherStateBacking) Release() error {
-	// Nothing to release.
-	return nil
+	// The allWatcher gets a new copy of state so needs to close it.
+	return b.st.Close()
 }
 
 func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {
-	// Use a single new MongoDB connection for all the work here.
-	db, closer := st.newDB()
-	defer closer()
-
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range collectionByName {
 		if c.subsidiary {
 			continue
 		}
-		col, closer := db.GetCollection(c.name)
+		col, closer := st.db().GetCollection(c.name)
 		defer closer()
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
 

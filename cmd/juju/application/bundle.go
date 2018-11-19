@@ -26,7 +26,6 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -39,20 +38,9 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var watchAll = func(c *api.Client) (allWatcher, error) {
-	return c.WatchAll()
-}
-
 type allWatcher interface {
 	Next() ([]multiwatcher.Delta, error)
 	Stop() error
-}
-
-// deploymentLogger is used to notify clients about the bundle deployment
-// progress.
-type deploymentLogger interface {
-	// Infof formats and logs the given message.
-	Infof(string, ...interface{})
 }
 
 // deployBundle deploys the given bundle data using the given API client and
@@ -948,7 +936,7 @@ mainloop:
 var updateUnitStatusPeriod = watcher.Period + 5*time.Second
 
 // updateUnitStatus uses the mega-watcher to update units and machines info
-// (h.unitStatus) so that it reflects the current environment status.
+// (h.unitStatus) so that it reflects the current model status.
 // This function must be called assuming new delta changes are available or
 // will be available within the watcher time period. Otherwise, the function
 // unblocks and an error is returned.

@@ -4,6 +4,8 @@
 package statemetrics
 
 import (
+	"runtime/debug"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
@@ -133,6 +135,12 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *Collector) updateMetrics() {
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			logger.Errorf("state metrics could not be updated, state probably closed:\n%v", string(debug.Stack()))
+		}
+	}()
+
 	logger.Tracef("updating state metrics")
 	defer logger.Tracef("updated state metrics")
 

@@ -219,7 +219,10 @@ func newStoreManager(backing Backing) *storeManager {
 func (sm *storeManager) loop() error {
 	in := make(chan watcher.Change)
 	sm.backing.Watch(in)
-	defer sm.backing.Unwatch(in)
+	defer func() {
+		sm.backing.Unwatch(in)
+		sm.backing.Release()
+	}()
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
 	// storeManager.changed is idempotent with respect to both updates
