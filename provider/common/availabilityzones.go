@@ -14,6 +14,7 @@ import (
 )
 
 // AvailabilityZone describes a provider availability zone.
+//go:generate mockgen -package mocks -destination mocks/availability_zone.go github.com/juju/juju/provider/common AvailabilityZone
 type AvailabilityZone interface {
 	// Name returns the name of the availability zone.
 	Name() string
