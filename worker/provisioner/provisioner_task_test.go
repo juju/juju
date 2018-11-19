@@ -229,14 +229,13 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
 
 	// Wait for instance status to be set.
 	timeout := time.After(coretesting.LongWait)
-	select {
-	case <-time.After(coretesting.ShortWait):
-		_, msg, _ := m0.InstanceStatus()
-		if msg != "" {
-			break
+	for msg := ""; msg == ""; {
+		select {
+		case <-time.After(coretesting.ShortWait):
+			_, msg, _ = m0.InstanceStatus()
+		case <-timeout:
+			c.Fatalf("machine InstanceStatus was not set")
 		}
-	case <-timeout:
-		c.Fatalf("machine InstanceStatus was not set")
 	}
 
 	_, msg, err := m0.InstanceStatus()
@@ -316,7 +315,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	// Another machine from the same distribution group is already in az1,
 	// so we expect the machine to be created in az2.
 	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
-		names.NewMachineTag("1"): {"az1"},
+		names.NewMachineTag("0"): {"az1"},
 	})
 
 	m0 := &testMachine{
