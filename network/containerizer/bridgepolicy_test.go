@@ -1145,6 +1145,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNetworkingMet
 
 var bridgeNames = map[string]string{
 	"eno0":            "br-eno0",
+	"enovlan.123":     "br-enovlan-123",
 	"twelvechars0":    "br-twelvechars0",
 	"thirteenchars":   "b-thirteenchars",
 	"enfourteenchar":  "b-fourteenchar",
