@@ -36,7 +36,6 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 }
 
 var (
-	ContainerManagerConfig  = containerManagerConfig
 	GetContainerInitialiser = &getContainerInitialiser
 	GetToolsFinder          = &getToolsFinder
 	ResolvConfFiles         = &resolvConfFiles
@@ -53,7 +52,7 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	// sort to make comparisons in the tests easier.
-	sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
+	sort.Sort(azMachineFilterSort(task.availabilityZoneMachines))
 	retvalues := make([]AvailabilityZoneMachine, len(task.availabilityZoneMachines))
 	for i := range task.availabilityZoneMachines {
 		retvalues[i] = *task.availabilityZoneMachines[i]
@@ -66,10 +65,6 @@ func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvis
 	error,
 ) {
 	return p.(*provisionerTask).setupToStartMachine(machine, version)
-}
-
-func GetAPIProvisionerState(p Provisioner) *apiprovisioner.State {
-	return p.(*environProvisioner).st
 }
 
 func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(common.NetworkConfigSource) ([]params.NetworkConfig, error)) {

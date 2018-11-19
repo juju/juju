@@ -616,10 +616,10 @@ func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisio
 				logger.Debugf("machine %v is dead but keep-instance is true", instId)
 				continue
 			}
-			instance, found := task.instances[instId]
+			inst, found := task.instances[instId]
 			// If the instance is not found we can't stop it.
 			if found {
-				instances = append(instances, instance)
+				instances = append(instances, inst)
 			}
 		}
 	}
@@ -731,12 +731,12 @@ func (task *provisionerTask) constructStartInstanceParams(
 			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
 		}
 		volumes[i] = storage.VolumeParams{
-			volumeTag,
-			v.Size,
-			storage.ProviderType(v.Provider),
-			v.Attributes,
-			v.Tags,
-			&storage.VolumeAttachmentParams{
+			Tag:          volumeTag,
+			Size:         v.Size,
+			Provider:     storage.ProviderType(v.Provider),
+			Attributes:   v.Attributes,
+			ResourceTags: v.Tags,
+			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
 					Machine:  machineTag,
 					ReadOnly: v.Attachment.ReadOnly,
@@ -861,16 +861,15 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	if len(task.availabilityZoneMachines) > 0 {
 		return nil
 	}
-
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
-		// Nothing to do if the provider doesn't implement AvailabilityZonesAllocations
 		return nil
 	}
 
 	// In this case, AvailabilityZoneAllocations() will return all of the "available"
 	// availability zones and their instance allocations.
-	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, task.cloudCallCtx, []instance.Id{})
+	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(
+		zonedEnv, task.cloudCallCtx, []instance.Id{})
 	if err != nil {
 		return err
 	}
@@ -922,14 +921,18 @@ func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []strin
 }
 
 // machineAvailabilityZoneDistribution returns a suggested availability zone
-// for the specified machine to start in.  If the current provider does not
-// implement availability zones, "" and no error will be returned. Machines are
-// spread across availability zones based on lowest population of the "available" zones.
-// Machines in the same DistributionGroup are placed in different zones, spread
-// across availability zones based on lowest population of machines in that
-// DistributionGroup.  Machines are not placed in a zone they are excluded from.
+// for the specified machine to start in.
+// If the current provider does not implement availability zones, "" and no
+// error will be returned.
+// Machines are spread across availability zones based on lowest population of
+// the "available" zones, and any supplied zone constraints.
+// Machines in the same DistributionGroup are placed in different zones,
+// distributed based on lowest population of machines in that DistributionGroup.
+// Machines are not placed in a zone they are excluded from.
 // If availability zones are implemented and one isn't found, return NotFound error.
-func (task *provisionerTask) machineAvailabilityZoneDistribution(machineId string, distributionGroupMachineIds []string) (string, error) {
+func (task *provisionerTask) machineAvailabilityZoneDistribution(
+	machineId string, distGroupMachineIds []string, cons constraints.Value,
+) (string, error) {
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
 
@@ -937,14 +940,14 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machineId strin
 		return "", nil
 	}
 
+	// Assign an initial zone to a machine based on lowest population,
+	// accommodating any supplied zone constraints.
+	// If the machine has a distribution group, assign based on lowest zone
+	// population of the distribution group machine.
 	var machineZone string
-	// assign an initial az to a machine based on lowest population.
-	// if the machine has a distribution group, assign based on lowest
-	// az population of the distribution group machine.
-	if len(distributionGroupMachineIds) > 0 {
-		dgZoneMap := task.populateDistributionGroupZoneMap(distributionGroupMachineIds)
-		sort.Sort(byPopulationThenNames(dgZoneMap))
-
+	if len(distGroupMachineIds) > 0 {
+		dgZoneMap := azMachineFilterSort(task.populateDistributionGroupZoneMap(distGroupMachineIds)).FilterZones(cons)
+		sort.Sort(dgZoneMap)
 		for _, dgZoneMachines := range dgZoneMap {
 			if !dgZoneMachines.FailedMachineIds.Contains(machineId) &&
 				!dgZoneMachines.ExcludedMachineIds.Contains(machineId) {
@@ -959,8 +962,9 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machineId strin
 			}
 		}
 	} else {
-		sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
-		for _, zoneMachines := range task.availabilityZoneMachines {
+		zoneMap := azMachineFilterSort(task.availabilityZoneMachines).FilterZones(cons)
+		sort.Sort(zoneMap)
+		for _, zoneMachines := range zoneMap {
 			if !zoneMachines.FailedMachineIds.Contains(machineId) &&
 				!zoneMachines.ExcludedMachineIds.Contains(machineId) {
 				machineZone = zoneMachines.ZoneName
@@ -975,24 +979,48 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machineId strin
 	return machineZone, nil
 }
 
-type byPopulationThenNames []*AvailabilityZoneMachine
+// azMachineFilterSort extends a slice of AvailabilityZoneMachine references
+// with a sort implementation by zone population and name,
+// and filtration based on zones expressed in constraints.
+type azMachineFilterSort []*AvailabilityZoneMachine
 
-func (b byPopulationThenNames) Len() int {
-	return len(b)
+// FilterZones returns a new instance consisting of slice members limited to
+// zones expressed in the input constraints.
+// Absence of zone constraints leaves the return unfiltered.
+func (a azMachineFilterSort) FilterZones(cons constraints.Value) azMachineFilterSort {
+	if !cons.HasZones() {
+		return a
+	}
+
+	logger.Debugf("applying availability zone constraints: %s", strings.Join(*cons.Zones, ", "))
+	filtered := a[:0]
+	for _, azm := range a {
+		for _, zone := range *cons.Zones {
+			if azm.ZoneName == zone {
+				filtered = append(filtered, azm)
+				break
+			}
+		}
+	}
+	return filtered
 }
 
-func (b byPopulationThenNames) Less(i, j int) bool {
+func (a azMachineFilterSort) Len() int {
+	return len(a)
+}
+
+func (a azMachineFilterSort) Less(i, j int) bool {
 	switch {
-	case b[i].MachineIds.Size() < b[j].MachineIds.Size():
+	case a[i].MachineIds.Size() < a[j].MachineIds.Size():
 		return true
-	case b[i].MachineIds.Size() == b[j].MachineIds.Size():
-		return b[i].ZoneName < b[j].ZoneName
+	case a[i].MachineIds.Size() == a[j].MachineIds.Size():
+		return a[i].ZoneName < a[j].ZoneName
 	}
 	return false
 }
 
-func (b byPopulationThenNames) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
+func (a azMachineFilterSort) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
 }
 
 // startMachines starts a goroutine for each specified machine to
@@ -1062,8 +1090,9 @@ func (task *provisionerTask) setErrorStatus(message string, machine apiprovision
 	return nil
 }
 
-// setupToStartMachine gathers the nessecessary information, based on the specified
-// machine, to create ProvisioningInfo and StartInstanceParms to be used by startMachine.
+// setupToStartMachine gathers the necessary information,
+// based on the specified machine, to create ProvisioningInfo
+// and StartInstanceParams to be used by startMachine.
 func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineProvisioner, version *version.Number) (
 	environs.StartInstanceParams,
 	error,
@@ -1170,12 +1199,14 @@ func (task *provisionerTask) startMachine(
 	// one of the StartInstance calls returns an error satisfying
 	// environs.IsAvailabilityZoneIndependent.
 	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; {
-		startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(machine.Id(), distributionGroupMachineIds)
-		if err != nil {
+		if startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(
+			machine.Id(), distributionGroupMachineIds, startInstanceParams.Constraints,
+		); err != nil {
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 		if startInstanceParams.AvailabilityZone != "" {
-			logger.Infof("trying machine %s StartInstance in availability zone %s", machine, startInstanceParams.AvailabilityZone)
+			logger.Infof("trying machine %s StartInstance in availability zone %s",
+				machine, startInstanceParams.AvailabilityZone)
 		}
 
 		attemptResult, err := task.broker.StartInstance(task.cloudCallCtx, startInstanceParams)
@@ -1238,8 +1269,8 @@ func (task *provisionerTask) startMachine(
 	}
 
 	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
-	volumes := volumesToAPIserver(result.Volumes)
-	volumeNameToAttachmentInfo := volumeAttachmentsToAPIserver(result.VolumeAttachments)
+	volumes := volumesToAPIServer(result.Volumes)
+	volumeNameToAttachmentInfo := volumeAttachmentsToAPIServer(result.VolumeAttachments)
 
 	// gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
@@ -1269,7 +1300,8 @@ func (task *provisionerTask) startMachine(
 	}
 
 	logger.Infof(
-		"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
+		"started machine %s as instance %s with hardware %q, network config %+v, "+
+			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
 		result.Instance.Id(),
 		result.Hardware,
@@ -1287,8 +1319,8 @@ func (task *provisionerTask) startMachine(
 func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag string, machineProfiles []string) []string {
 	if names.IsContainerMachine(machineTag) {
 		if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
-			if names, err := manager.LXDProfileNames(instanceId); err == nil {
-				return lxdprofile.LXDProfileNames(names)
+			if profileNames, err := manager.LXDProfileNames(instanceId); err == nil {
+				return lxdprofile.LXDProfileNames(profileNames)
 			}
 		} else {
 			logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
@@ -1331,7 +1363,7 @@ func (task *provisionerTask) clearMachineAZFailures(machine apiprovisioner.Machi
 	}
 }
 
-func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, zoneName string) {
+func (task *provisionerTask) addMachineToAZMap(machine *apiprovisioner.Machine, zoneName string) {
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
@@ -1377,25 +1409,24 @@ func assocProvInfoAndMachCfg(
 	}
 }
 
-func volumesToAPIserver(volumes []storage.Volume) []params.Volume {
+func volumesToAPIServer(volumes []storage.Volume) []params.Volume {
 	result := make([]params.Volume, len(volumes))
 	for i, v := range volumes {
 		result[i] = params.Volume{
-			v.Tag.String(),
-			params.VolumeInfo{
-				v.VolumeId,
-				v.HardwareId,
-				v.WWN,
-				"", // pool
-				v.Size,
-				v.Persistent,
+			VolumeTag: v.Tag.String(),
+			Info: params.VolumeInfo{
+				VolumeId:   v.VolumeId,
+				HardwareId: v.HardwareId,
+				WWN:        v.WWN, // pool
+				Size:       v.Size,
+				Persistent: v.Persistent,
 			},
 		}
 	}
 	return result
 }
 
-func volumeAttachmentsToAPIserver(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
+func volumeAttachmentsToAPIServer(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
 	result := make(map[string]params.VolumeAttachmentInfo)
 	for _, a := range attachments {
 		var planInfo *params.VolumeAttachmentPlanInfo
@@ -1404,11 +1435,11 @@ func volumeAttachmentsToAPIserver(attachments []storage.VolumeAttachment) map[st
 			planInfo.DeviceAttributes = a.PlanInfo.DeviceAttributes
 		}
 		result[a.Volume.String()] = params.VolumeAttachmentInfo{
-			a.DeviceName,
-			a.DeviceLink,
-			a.BusAddress,
-			a.ReadOnly,
-			planInfo,
+			DeviceName: a.DeviceName,
+			DeviceLink: a.DeviceLink,
+			BusAddress: a.BusAddress,
+			ReadOnly:   a.ReadOnly,
+			PlanInfo:   planInfo,
 		}
 	}
 	return result

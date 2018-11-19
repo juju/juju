@@ -4,9 +4,13 @@
 package provisioner_test
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +22,7 @@ import (
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -29,6 +34,8 @@ import (
 	"github.com/juju/juju/instance"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/common/mocks"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -49,8 +56,8 @@ type ProvisionerTaskSuite struct {
 	machineStatusResults []apiprovisioner.MachineStatusResult
 	machineGetter        *testMachineGetter
 
-	instances       []instance.Instance
-	instanceBrocker *testInstanceBrocker
+	instances      []instance.Instance
+	instanceBroker *testInstanceBroker
 
 	callCtx           *context.CloudCallContext
 	invalidCredential bool
@@ -85,7 +92,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.instances = []instance.Instance{}
-	s.instanceBrocker = &testInstanceBrocker{
+	s.instanceBroker = &testInstanceBroker{
 		Stub:      &testing.Stub{},
 		callsChan: make(chan string, 2),
 		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
@@ -118,7 +125,7 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
 	err = workertest.CheckKilled(c, s.machineErrorRetryWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machineGetter.CheckNoCalls(c)
-	s.instanceBrocker.CheckNoCalls(c)
+	s.instanceBroker.CheckNoCalls(c)
 }
 
 func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
@@ -160,9 +167,9 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	s.waitForTask(c, []string{"AllInstances", "StopInstances"})
 
 	workertest.CleanKill(c, task)
-	close(s.instanceBrocker.callsChan)
+	close(s.instanceBroker.callsChan)
 	s.machineGetter.CheckCallNames(c, "Machines")
-	s.instanceBrocker.CheckCalls(c, []testing.StubCall{
+	s.instanceBroker.CheckCalls(c, []testing.StubCall{
 		{"AllInstances", []interface{}{s.callCtx}},
 		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
 	})
@@ -170,24 +177,8 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	c.Assert(m1.markForRemoval, jc.IsTrue)
 }
 
-func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
-	calls := []string{}
-	for {
-		select {
-		case call := <-s.instanceBrocker.callsChan:
-			calls = append(calls, call)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("stopping worker chan didn't stop")
-		}
-		if reflect.DeepEqual(expectedCalls, calls) {
-			// we are done
-			break
-		}
-	}
-}
-
 func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
-	s.instanceBrocker.SetErrors(
+	s.instanceBroker.SetErrors(
 		errors.New("errors 1"),
 		errors.New("errors 2"),
 	)
@@ -210,10 +201,179 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 	s.waitForTask(c, []string{"StartInstance", "StartInstance"})
 
 	workertest.CleanKill(c, task)
-	close(s.instanceBrocker.callsChan)
+	close(s.instanceBroker.callsChan)
 	s.machineGetter.CheckCallNames(c, "MachinesWithTransientErrors")
 	s.auth.CheckCallNames(c, "SetupAuthentication")
-	s.instanceBrocker.CheckCallNames(c, "StartInstance", "StartInstance")
+	s.instanceBroker.CheckCallNames(c, "StartInstance", "StartInstance")
+}
+
+func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+
+	// Constraint for availability zone az9 can not be satisfied;
+	// this broker only knows of az1, az2, az3.
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az9")
+	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az9",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
+	s.sendMachineErrorRetryChange(c)
+
+	// Wait for instance status to be set.
+	timeout := time.After(coretesting.LongWait)
+	select {
+	case <-time.After(coretesting.ShortWait):
+		_, msg, _ := m0.InstanceStatus()
+		if msg != "" {
+			break
+		}
+	case <-timeout:
+		c.Fatalf("machine InstanceStatus was not set")
+	}
+
+	_, msg, err := m0.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(msg, gc.Equals, "suitable availability zone for machine 0 not found")
+
+	workertest.CleanKill(c, task)
+}
+
+func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
+	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
+
+	// For the call to start instance, we expect the same zone constraint to
+	// be present, but we also expect that the zone in start instance params
+	// matches the constraint, based on being available in this environ.
+	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az1")
+	azConstraintsAndDerivedZone.addMatch("availability zone: az1", func(p environs.StartInstanceParams) bool {
+		return p.AvailabilityZone == "az1"
+	})
+
+	// Use satisfaction of this call as the synchronisation point.
+	started := make(chan struct{})
+	broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+		Instance: &testInstance{id: "instance-1"},
+	}, nil).Do(func(_ ...interface{}) {
+		go func() { started <- struct{}{} }()
+	})
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
+	s.sendMachineErrorRetryChange(c)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no matching call to StartInstance")
+	}
+
+	workertest.CleanKill(c, task)
+}
+
+func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
+	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil)
+
+	// For the call to start instance, we expect the same zone constraints to
+	// be present, but we also expect that the zone in start instance params
+	// was selected from the constraints, based on a machine from the same
+	// distribution group already being in one of the zones.
+	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
+	azConstraintsAndDerivedZone.addMatch("availability zone: az2", func(p environs.StartInstanceParams) bool {
+		return p.AvailabilityZone == "az2"
+	})
+
+	// Use satisfaction of this call as the synchronisation point.
+	started := make(chan struct{})
+	broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+		Instance: &testInstance{id: "instance-1"},
+	}, nil).Do(func(_ ...interface{}) {
+		go func() { started <- struct{}{} }()
+	})
+
+	// Another machine from the same distribution group is already in az1,
+	// so we expect the machine to be created in az2.
+	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
+		names.NewMachineTag("1"): {"az1"},
+	})
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1,az2",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
+	s.sendMachineErrorRetryChange(c)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no matching call to StartInstance")
+	}
+
+	workertest.CleanKill(c, task)
+}
+
+// setUpZonedEnviron creates a mock environ with instances based on those set
+// on the test suite, and 3 availability zones.
+func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks.MockZonedEnviron {
+	instanceIds := make([]instance.Id, len(s.instances))
+	for i, inst := range s.instances {
+		instanceIds[i] = inst.Id()
+	}
+
+	// Environ has 3 availability zones: az1, az2, az3.
+	zones := make([]common.AvailabilityZone, 3)
+	for i := 0; i < 3; i++ {
+		az := mocks.NewMockAvailabilityZone(ctrl)
+		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1))
+		az.EXPECT().Available().Return(true)
+		zones[i] = az
+	}
+
+	broker := mocks.NewMockZonedEnviron(ctrl)
+	exp := broker.EXPECT()
+	exp.AllInstances(s.callCtx).Return(s.instances, nil)
+	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return([]string{}, nil)
+	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
+	return broker
+}
+
+func (s *ProvisionerTaskSuite) waitForTask(c *gc.C, expectedCalls []string) {
+	var calls []string
+	for {
+		select {
+		case call := <-s.instanceBroker.callsChan:
+			calls = append(calls, call)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("stopping worker chan didn't stop")
+		}
+		if reflect.DeepEqual(expectedCalls, calls) {
+			// we are done
+			break
+		}
+	}
 }
 
 func (s *ProvisionerTaskSuite) sendModelMachinesChange(c *gc.C, ids ...string) {
@@ -263,7 +423,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		s.modelMachinesWatcher,
 		s.machineErrorRetryWatcher,
 		s.modelMachinesProfileWatcher,
-		s.instanceBrocker,
+		s.instanceBroker,
 		s.auth,
 		imagemetadata.ReleasedStream,
 		retryStrategy,
@@ -271,6 +431,29 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
+}
+
+func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
+	c *gc.C, broker environs.InstanceBroker, distributionGroups map[names.MachineTag][]string,
+) provisioner.ProvisionerTask {
+	task, err := provisioner.NewProvisionerTask(
+		coretesting.ControllerTag.Id(),
+		names.NewMachineTag("0"),
+		config.HarvestAll,
+		s.machineGetter,
+		&mockDistributionGroupFinder{groups: distributionGroups},
+		mockToolsFinder{},
+		s.modelMachinesWatcher,
+		s.machineErrorRetryWatcher,
+		s.modelMachinesProfileWatcher,
+		broker,
+		s.auth,
+		imagemetadata.ReleasedStream,
+		provisioner.NewRetryStrategy(0*time.Second, 0),
+		s.callCtx,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return task
 }
 
 type testMachineGetter struct {
@@ -290,7 +473,7 @@ func (m *testMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.Mach
 	return m.machinesWithTransientErrorsFunc()
 }
 
-type testInstanceBrocker struct {
+type testInstanceBroker struct {
 	*testing.Stub
 
 	callsChan chan string
@@ -298,25 +481,25 @@ type testInstanceBrocker struct {
 	allInstancesFunc func(ctx context.ProviderCallContext) ([]instance.Instance, error)
 }
 
-func (t *testInstanceBrocker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (t *testInstanceBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	t.AddCall("StartInstance", ctx, args)
 	t.callsChan <- "StartInstance"
 	return nil, t.NextErr()
 }
 
-func (t *testInstanceBrocker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	t.AddCall("StopInstances", ctx, ids)
 	t.callsChan <- "StopInstances"
 	return t.NextErr()
 }
 
-func (t *testInstanceBrocker) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	t.AddCall("AllInstances", ctx)
 	t.callsChan <- "AllInstances"
 	return t.allInstancesFunc(ctx)
 }
 
-func (t *testInstanceBrocker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+func (t *testInstanceBroker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	t.AddCall("MaintainInstance", ctx, args)
 	t.callsChan <- "MaintainInstance"
 	return nil
@@ -332,6 +515,8 @@ func (i *testInstance) Id() instance.Id {
 }
 
 type testMachine struct {
+	mu sync.Mutex
+
 	*apiprovisioner.Machine
 	id   string
 	life params.Life
@@ -340,6 +525,9 @@ type testMachine struct {
 	keepInstance bool
 
 	markForRemoval bool
+	constraints    string
+
+	instStatusMsg string
 }
 
 func (m *testMachine) Id() string {
@@ -375,8 +563,17 @@ func (m *testMachine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.id)
 }
 
-func (m *testMachine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
+func (m *testMachine) SetInstanceStatus(_ status.Status, message string, _ map[string]interface{}) error {
+	m.mu.Lock()
+	m.instStatusMsg = message
+	m.mu.Unlock()
 	return nil
+}
+
+func (m *testMachine) InstanceStatus() (status.Status, string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return status.Status(""), m.instStatusMsg, nil
 }
 
 func (m *testMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
@@ -403,6 +600,7 @@ func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return &params.ProvisioningInfo{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		Series:           jujuversion.SupportedLTS(),
+		Constraints:      constraints.MustParse(m.constraints),
 	}, nil
 }
 
@@ -410,7 +608,76 @@ type testAuthenticationProvider struct {
 	*testing.Stub
 }
 
-func (m *testAuthenticationProvider) SetupAuthentication(machine authentication.TaggedPasswordChanger) (*mongo.MongoInfo, *api.Info, error) {
+func (m *testAuthenticationProvider) SetupAuthentication(
+	machine authentication.TaggedPasswordChanger,
+) (*mongo.MongoInfo, *api.Info, error) {
 	m.AddCall("SetupAuthentication", machine)
 	return nil, nil, nil
+}
+
+// startInstanceParamsMatcher is a GoMock matcher that applies a collection of
+// conditions to an environs.StartInstanceParams.
+// All conditions must be true in order for a positive match.
+type startInstanceParamsMatcher struct {
+	matchers map[string]func(environs.StartInstanceParams) bool
+	failMsg  string
+}
+
+func (m *startInstanceParamsMatcher) Matches(params interface{}) bool {
+	siParams := params.(environs.StartInstanceParams)
+	for msg, match := range m.matchers {
+		if !match(siParams) {
+			m.failMsg = msg
+			return false
+		}
+	}
+	return true
+}
+
+func (m *startInstanceParamsMatcher) String() string {
+	return m.failMsg
+}
+
+func (m *startInstanceParamsMatcher) addMatch(msg string, match func(environs.StartInstanceParams) bool) {
+	m.matchers[msg] = match
+}
+
+// newAZConstraintStartInstanceParamsMatcher returns a matcher that tests
+// whether the candidate environs.StartInstanceParams has a constraints value
+// that includes exactly the input zones.
+func newAZConstraintStartInstanceParamsMatcher(zones ...string) *startInstanceParamsMatcher {
+	match := func(p environs.StartInstanceParams) bool {
+		if !p.Constraints.HasZones() {
+			return false
+		}
+		cZones := *p.Constraints.Zones
+		if len(cZones) != len(zones) {
+			return false
+		}
+		for _, z := range zones {
+			found := false
+			for _, cz := range cZones {
+				if z == cz {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+		return true
+	}
+	return newStartInstanceParamsMatcher(map[string]func(environs.StartInstanceParams) bool{
+		fmt.Sprint("AZ constraints:", strings.Join(zones, ", ")): match,
+	})
+}
+
+func newStartInstanceParamsMatcher(
+	matchers map[string]func(environs.StartInstanceParams) bool,
+) *startInstanceParamsMatcher {
+	if matchers == nil {
+		matchers = make(map[string]func(environs.StartInstanceParams) bool)
+	}
+	return &startInstanceParamsMatcher{matchers: matchers}
 }
