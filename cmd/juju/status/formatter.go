@@ -29,10 +29,11 @@ type statusFormatter struct {
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(status, "", isoTime, true)
+	return newStatusFormatter(status, "", isoTime, true, false)
 }
 
-func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime, showRelations bool) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime, showRelations, showStorage bool) *statusFormatter {
+	logger.Criticalf("newStatusFormatter.showStorage -> %t", showStorage)
 	sf := statusFormatter{
 		status:         status,
 		controllerName: controllerName,
