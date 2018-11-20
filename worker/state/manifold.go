@@ -272,6 +272,10 @@ func newModelStateWorker(
 func (w *modelStateWorker) loop() error {
 	st, err := w.pool.Get(w.modelUUID)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// ignore not found error here, because the pooledState has already been removed.
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	defer func() {
