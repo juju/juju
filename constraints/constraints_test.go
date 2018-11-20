@@ -531,9 +531,9 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Spaces3", constraints.Value{Spaces: &[]string{"space1", "^space2"}}},
 	{"InstanceType1", constraints.Value{InstanceType: strp("")}},
 	{"InstanceType2", constraints.Value{InstanceType: strp("foo")}},
-	{"Zones1", constraints.Value{Spaces: nil}},
-	{"Zones2", constraints.Value{Spaces: &[]string{}}},
-	{"Zones3", constraints.Value{Spaces: &[]string{"^az1", "^az2"}}},
+	{"Zones1", constraints.Value{Zones: nil}},
+	{"Zones2", constraints.Value{Zones: &[]string{}}},
+	{"Zones3", constraints.Value{Zones: &[]string{"az1", "az2"}}},
 	{"All", constraints.Value{
 		Arch:         strp("i386"),
 		Container:    ctypep("lxd"),
