@@ -52,12 +52,10 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	st := c.backend
 	if modelTag != c.backend.ModelTag() {
 		otherSt, releaser, err := c.backend.GetBackend(modelTag.Id())
-		if releaser != nil {
-			defer releaser()
-		}
 		if err != nil {
 			return status, errors.Trace(err)
 		}
+		defer releaser()
 		st = otherSt
 	}
 
