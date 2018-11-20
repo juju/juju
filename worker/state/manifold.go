@@ -273,8 +273,7 @@ func (w *modelStateWorker) loop() error {
 	st, err := w.pool.Get(w.modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// poolItem is marked as removed, try to remove it from pool.
-			w.pool.Remove(w.modelUUID)
+			// ignore not found error here, because the pooledState has already been removed.
 			return nil
 		}
 		return errors.Trace(err)
