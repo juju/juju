@@ -32,8 +32,7 @@ func (e *environProviderSuite) NewProvider(c *gc.C) environs.EnvironProvider {
 func (e *environProviderSuite) TestCloudSchma(c *gc.C) {
 	provider := e.NewProvider(c)
 	schema := provider.CloudSchema()
-	c.Assert(schema, gc.NotNil)
-	c.Assert(schema, jc.DeepEquals, oracle.OracleCloudSchema)
+	c.Assert(schema, gc.IsNil)
 }
 
 func (e *environProviderSuite) TestPing(c *gc.C) {

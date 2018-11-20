@@ -33,26 +33,63 @@ type CloudMetadataStore interface {
 }
 
 var usageAddCloudSummary = `
-Adds a user-defined cloud to Juju from among known cloud types.`[1:]
+Adds a cloud definition to Juju.
+`[1:]
 
 var usageAddCloudDetails = `
+Juju needs to know how to connect to clouds. A cloud definition 
+describes a cloud's endpoints and authentication requirements. Each
+definition is stored and accessed later as <cloud name>.
+
+If you are accessing a public cloud, running add-cloud unlikely to be 
+necessary.  Juju already contains definitions for the public cloud 
+providers it supports.
+
+add-cloud operates in two modes:
+
+    juju add-cloud
+    juju add-cloud <cloud name> <cloud definition file>
+
+When invoked without arguments, add-cloud begins an interactive session
+designed for working with private clouds.  The session will enable you 
+to instruct Juju how to connect to your private cloud.
+
+When <cloud definition file> is provided with <cloud name>, 
+Juju stores that definition its internal cache directly after 
+validating the contents.
+
+If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
+flag is required.
+
 A cloud definition file has the following YAML format:
 
-clouds:
-  mycloud:
-    type: openstack
+clouds:                           # mandatory
+  mycloud:                        # <cloud name> argument
+    type: openstack               # <cloud type>, see below
     auth-types: [ userpass ]
     regions:
       london:
         endpoint: https://london.mycloud.com:35574/v3.0/
 
-If the named cloud already exists, the `[1:] + "`--replace`" + ` option is required to 
-overwrite its configuration.
-Known cloud types: azure, cloudsigma, ec2, gce, joyent, lxd, maas, manual,
-openstack, rackspace
+<cloud types> for private clouds: 
+ - lxd
+ - maas
+ - manual
+ - openstack
+ - vsphere
+
+<cloud types> for public clouds:
+ - azure
+ - cloudsigma
+ - ec2
+ - gce
+ - joyent
+ - oci
 
 Examples:
+    juju add-cloud
     juju add-cloud mycloud ~/mycloud.yaml
+    juju add-cloud --replace mycloud ~/mycloud2.yaml
 
 See also: 
     clouds`
@@ -108,7 +145,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
+	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information for <cloud name>")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 }
 

@@ -323,9 +323,7 @@ func (*addSuite) TestInteractive(c *gc.C) {
 		"  lxd\n"+
 		"  maas\n"+
 		"  manual\n"+
-		"  oci\n"+
 		"  openstack\n"+
-		"  oracle\n"+
 		"  vsphere\n"+
 		"\n"+
 		"Select cloud type: \n",

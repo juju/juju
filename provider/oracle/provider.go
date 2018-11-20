@@ -28,27 +28,9 @@ type EnvironProvider struct{}
 
 var _ environs.CloudEnvironProvider = (*EnvironProvider)(nil)
 
-var cloudSchema = &jsonschema.Schema{
-	Type:     []jsonschema.Type{jsonschema.ObjectType},
-	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
-	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey},
-	Properties: map[string]*jsonschema.Schema{
-		cloud.EndpointKey: {
-			Singular: "the API endpoint url for the cloud",
-			Type:     []jsonschema.Type{jsonschema.StringType},
-			Format:   jsonschema.FormatURI,
-		},
-		cloud.AuthTypesKey: {
-			// don't need a prompt, since there's only one choice.
-			Type: []jsonschema.Type{jsonschema.ArrayType},
-			Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
-		},
-	},
-}
-
 // CloudSchema is defined on the environs.EnvironProvider interface.
 func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
-	return cloudSchema
+	return nil
 }
 
 // Ping implements environs.EnvironProvider.
