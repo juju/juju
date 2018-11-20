@@ -267,13 +267,57 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 	expected.Label = `LXD credential "localhost"`
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
-	credentials, err := provider.RegisterCredentials()
+	credentials, err := provider.RegisterCredentials(cloud.Cloud{
+		Name: "localhost",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
 		"localhost": {
 			DefaultCredential: "localhost",
 			AuthCredentials: map[string]cloud.Credential{
 				"localhost": expected,
+			},
+		},
+	})
+}
+
+func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(nil)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	expected := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": "server-cert",
+		},
+	)
+	expected.Label = `LXD credential "localhost"`
+
+	provider := deps.provider.(environs.ProviderCredentialsRegister)
+	credentials, err := provider.RegisterCredentials(cloud.Cloud{
+		Name: "lxd",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials, jc.DeepEquals, map[string]*cloud.CloudCredential{
+		"lxd": {
+			DefaultCredential: "lxd",
+			AuthCredentials: map[string]cloud.Credential{
+				"lxd": expected,
 			},
 		},
 	})
@@ -292,7 +336,9 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesJujuCert(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
-	credentials, err := provider.RegisterCredentials()
+	credentials, err := provider.RegisterCredentials(cloud.Cloud{
+		Name: "localhost",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := cloud.NewCredential(
@@ -331,7 +377,9 @@ func (s *credentialsSuite) TestRegisterCredentialsUsesLXCCert(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	provider := deps.provider.(environs.ProviderCredentialsRegister)
-	credentials, err := provider.RegisterCredentials()
+	credentials, err := provider.RegisterCredentials(cloud.Cloud{
+		Name: "localhost",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := cloud.NewCredential(

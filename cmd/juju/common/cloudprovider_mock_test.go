@@ -113,16 +113,16 @@ func (mr *MockTestCloudProviderMockRecorder) PrepareConfig(arg0 interface{}) *go
 }
 
 // RegisterCredentials mocks base method
-func (m *MockTestCloudProvider) RegisterCredentials() (map[string]*cloud.CloudCredential, error) {
-	ret := m.ctrl.Call(m, "RegisterCredentials")
+func (m *MockTestCloudProvider) RegisterCredentials(arg0 cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
+	ret := m.ctrl.Call(m, "RegisterCredentials", arg0)
 	ret0, _ := ret[0].(map[string]*cloud.CloudCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterCredentials indicates an expected call of RegisterCredentials
-func (mr *MockTestCloudProviderMockRecorder) RegisterCredentials() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCredentials", reflect.TypeOf((*MockTestCloudProvider)(nil).RegisterCredentials))
+func (mr *MockTestCloudProviderMockRecorder) RegisterCredentials(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCredentials", reflect.TypeOf((*MockTestCloudProvider)(nil).RegisterCredentials), arg0)
 }
 
 // Validate mocks base method

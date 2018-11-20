@@ -1262,16 +1262,16 @@ func (m *MockProviderCredentialsRegister) EXPECT() *MockProviderCredentialsRegis
 }
 
 // RegisterCredentials mocks base method
-func (m *MockProviderCredentialsRegister) RegisterCredentials() (map[string]*cloud.CloudCredential, error) {
-	ret := m.ctrl.Call(m, "RegisterCredentials")
+func (m *MockProviderCredentialsRegister) RegisterCredentials(arg0 cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
+	ret := m.ctrl.Call(m, "RegisterCredentials", arg0)
 	ret0, _ := ret[0].(map[string]*cloud.CloudCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterCredentials indicates an expected call of RegisterCredentials
-func (mr *MockProviderCredentialsRegisterMockRecorder) RegisterCredentials() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCredentials", reflect.TypeOf((*MockProviderCredentialsRegister)(nil).RegisterCredentials))
+func (mr *MockProviderCredentialsRegisterMockRecorder) RegisterCredentials(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCredentials", reflect.TypeOf((*MockProviderCredentialsRegister)(nil).RegisterCredentials), arg0)
 }
 
 // MockRequestFinalizeCredential is a mock of RequestFinalizeCredential interface

@@ -32,8 +32,9 @@ func RegisterCredentials(
 	ctx *cmd.Context,
 	store jujuclient.CredentialStore,
 	provider environs.EnvironProvider,
+	args modelcmd.RegisterCredentialsParams,
 ) error {
-	credentials, err := modelcmd.RegisterCredentials(provider)
+	credentials, err := modelcmd.RegisterCredentials(provider, args)
 	switch {
 	case errors.IsNotFound(err):
 		return nil

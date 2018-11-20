@@ -11,6 +11,10 @@ package lxdnames
 // the local lxd daemon.
 const DefaultCloud = "localhost"
 
+// DefaultCloudAltName is the alternative name of the default lxd cloud,
+// which corresponds to the local lxd daemon.
+const DefaultCloudAltName = "lxd"
+
 // DefaultLocalRegion is the name of the "region" we support in a local lxd,
 // which corresponds to the local lxd daemon.
 const DefaultLocalRegion = "localhost"
