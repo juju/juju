@@ -83,39 +83,23 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	var wantStorage, wantVolumes, wantFilesystems bool
+	params := GetCombinedStorageInfoParams{
+		Context: ctx, APIClient: api, Ids: c.ids,
+	}
 	switch {
 	case c.filesystem:
-		wantFilesystems = true
+		params.WantFilesystems = true
 	case c.volume:
-		wantVolumes = true
+		params.WantVolumes = true
 	default:
-		wantStorage = true
-		wantVolumes = true
-		wantFilesystems = true
+		params.WantStorage = true
+		params.WantVolumes = true
+		params.WantFilesystems = true
 	}
 
-	var combined combinedStorage
-	if wantFilesystems {
-		filesystems, err := generateListFilesystemsOutput(ctx, api, c.ids)
-		if err != nil {
-			return err
-		}
-		combined.Filesystems = filesystems
-	}
-	if wantVolumes {
-		volumes, err := generateListVolumeOutput(ctx, api, c.ids)
-		if err != nil {
-			return err
-		}
-		combined.Volumes = volumes
-	}
-	if wantStorage {
-		storageInstances, err := generateListStorageOutput(ctx, api)
-		if err != nil {
-			return err
-		}
-		combined.StorageInstances = storageInstances
+	combined, err := GetCombinedStorageInfo(params)
+	if err != nil {
+		return err
 	}
 	if combined.empty() {
 		if c.out.Name() == "tabular" {
@@ -126,7 +110,42 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, combined)
 }
 
-// StorageAPI defines the API methods that the storage commands use.
+// GetCombinedStorageInfoParams holds parameters for the GetCombinedStorageInfo call.
+type GetCombinedStorageInfoParams struct {
+	Context                                   *cmd.Context
+	APIClient                                 StorageListAPI
+	Ids                                       []string
+	WantStorage, WantVolumes, WantFilesystems bool
+}
+
+// GetCombinedStorageInfo returns a list of StorageInstances, Filesystems and Volumes for juju cmdline display purposes
+func GetCombinedStorageInfo(p GetCombinedStorageInfoParams) (*CombinedStorage, error) {
+	combined := &CombinedStorage{}
+	if p.WantFilesystems {
+		filesystems, err := generateListFilesystemsOutput(p.Context, p.APIClient, p.Ids)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		combined.Filesystems = filesystems
+	}
+	if p.WantVolumes {
+		volumes, err := generateListVolumeOutput(p.Context, p.APIClient, p.Ids)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		combined.Volumes = volumes
+	}
+	if p.WantStorage {
+		storageInstances, err := generateListStorageOutput(p.Context, p.APIClient)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		combined.StorageInstances = storageInstances
+	}
+	return combined, nil
+}
+
+// StorageListAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
 	ListStorageDetails() ([]params.StorageDetails, error)
@@ -146,18 +165,19 @@ func generateListStorageOutput(ctx *cmd.Context, api StorageListAPI) (map[string
 	return formatStorageDetails(results)
 }
 
-type combinedStorage struct {
+// CombinedStorage holds a list of StorageInstances, Filesystems and Volumes for juju cmdline display purposes.
+type CombinedStorage struct {
 	StorageInstances map[string]StorageInfo    `yaml:"storage,omitempty" json:"storage,omitempty"`
 	Filesystems      map[string]FilesystemInfo `yaml:"filesystems,omitempty" json:"filesystems,omitempty"`
 	Volumes          map[string]VolumeInfo     `yaml:"volumes,omitempty" json:"volumes,omitempty"`
 }
 
-func (c *combinedStorage) empty() bool {
+func (c *CombinedStorage) empty() bool {
 	return len(c.StorageInstances) == 0 && len(c.Filesystems) == 0 && len(c.Volumes) == 0
 }
 
 func formatListTabular(writer io.Writer, value interface{}) error {
-	combined := value.(combinedStorage)
+	combined := value.(CombinedStorage)
 	var newline bool
 	if len(combined.StorageInstances) > 0 {
 		// If we're listing storage in tabular format, we combine all
