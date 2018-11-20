@@ -40,6 +40,10 @@ func PatchGenerateVirtualMACAddress(patcher patcher) {
 	})
 }
 
+func PatchLXDViaSnap(patcher patcher, isSnap bool) {
+	patcher.PatchValue(&lxdViaSnap, func() bool { return isSnap })
+}
+
 func GetImageSources(mgr container.Manager) ([]RemoteServer, error) {
 	return mgr.(*containerManager).getImageSources()
 }
