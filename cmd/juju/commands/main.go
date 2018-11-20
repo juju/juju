@@ -88,7 +88,7 @@ Azure, OpenStack, and Rackspace. It also works very well with MAAS and
 LXD. Juju allows for easy installation and management of workloads on a
 chosen resource pool.
 
-See https://jujucharms.com/docs/stable/help for documentation.
+See https://jujucharms.com/docs/stable for documentation.
 
 Common commands:
 
