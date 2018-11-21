@@ -10,7 +10,6 @@ provides:
 extra-bindings:
   another:
 tags:
-  # https://jujucharms.com/docs/stable/authors-charm-metadata
   - misc
   - application_development
 subordinate: false

@@ -13,8 +13,8 @@ Amazon EC2, Google Compute Engine, or an OpenStack installation.
 in a directory called '.ssh' in your home directory. There are instructions on
 how to generate these keys at:
 
-    https://jujucharms.com/docs/stable/getting-started-keygen-win
+    https://docs.jujucharms.com/stable/en/getting-started-keygen-win
 
 To continue, please follow the online documentation at:
 
-    https://jujucharms.com/docs/stable/getting-started-other
+    https://docs.jujucharms.com/stable/en/getting-started
