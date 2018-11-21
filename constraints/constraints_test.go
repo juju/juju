@@ -455,6 +455,12 @@ func (s *ConstraintsSuite) TestHasZones(c *gc.C) {
 	c.Assert(con.Zones, gc.Not(gc.IsNil))
 	c.Check(*con.Zones, gc.HasLen, 3)
 	c.Check(con.HasZones(), jc.IsTrue)
+
+	con = constraints.MustParse("zones=")
+	c.Check(con.HasZones(), jc.IsFalse)
+
+	con = constraints.MustParse("spaces=space1,^space2")
+	c.Check(con.HasZones(), jc.IsFalse)
 }
 
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
