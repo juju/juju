@@ -182,6 +182,11 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestDistributeInstancesZonesFallback tests that when:
+//   1) there are empty machines satisfying zone constraints and;
+//   2) the policy instance distributor returns no viable machines
+// then instead of deploying to a new machine, one of the empty machines from
+// (1) is used for the unit.
 func (s *InstanceDistributorSuite) TestDistributeInstancesZonesFallback(c *gc.C) {
 	err := s.wordpress.SetConstraints(constraints.MustParse("zones=az1"))
 	c.Assert(err, jc.ErrorIsNil)
