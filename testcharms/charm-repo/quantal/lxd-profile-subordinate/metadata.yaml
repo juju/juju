@@ -4,7 +4,6 @@ maintainer: Juju QA
 description: |
   Run an Ubuntu system, with the given subordinate lxd-profile
 tags:
-  # https://jujucharms.com/docs/stable/authors-charm-metadata
   - misc
   - application_development
 subordinate: true
