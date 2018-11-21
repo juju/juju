@@ -213,13 +213,25 @@ var newAPIClientForStorage = func(c *statusCommand) (storage.StorageListAPI, err
 	return c.storageAPI, nil
 }
 
+func (c *statusCommand) close() (err error) {
+	if c.statusAPI != nil {
+		if e := c.statusAPI.Close(); e != nil {
+			err = errors.Wrapf(err, e, "closing statusAPI")
+		}
+	}
+	if c.storageAPI != nil {
+		if e := c.storageAPI.Close(); e != nil {
+			err = errors.Wrapf(err, e, "closing storageAPI")
+		}
+	}
+	return
+}
+
 func (c *statusCommand) getStatus() (*params.FullStatus, error) {
 	apiclient, err := newAPIClientForStatus(c)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer apiclient.Close()
-
 	return apiclient.Status(c.patterns)
 }
 
@@ -228,8 +240,6 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer apiclient.Close()
-
 	return storage.GetCombinedStorageInfo(
 		storage.GetCombinedStorageInfoParams{
 			Context:         ctx,
@@ -242,6 +252,12 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
+	defer func() {
+		if err := c.close(); err != nil {
+			logger.Warningf("closing api sessions %v", err)
+		}
+	}()
+
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()
 	if err != nil {
@@ -288,19 +304,27 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("provided %s always enabled in non tabular formats.", joinedMsg)
 		}
 	}
-	storageInfo, err := c.getStorageInfo(ctx)
-	if err != nil {
-		return err
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: controllerName,
+		isoTime:        c.isoTime,
+		showRelations:  showRelations,
+		showStorage:    showStorage,
 	}
-	logger.Criticalf("storageInfo -> \n%+v", storageInfo)
+	if showStorage {
+		storageInfo, err := c.getStorageInfo(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		formatterParams.storage = storageInfo
+	}
 
-	formatter := newStatusFormatter(status, controllerName, c.isoTime, showRelations, showStorage)
-	formatted, err := formatter.format()
+	formatted, err := newStatusFormatter(formatterParams).format()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = c.out.Write(ctx, formatted)
-	if err != nil {
+
+	if err = c.out.Write(ctx, formatted); err != nil {
 		return err
 	}
 

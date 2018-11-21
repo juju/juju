@@ -9,6 +9,7 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 )
@@ -20,6 +21,7 @@ type formattedStatus struct {
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
 	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Storage            *storage.CombinedStorage           `json:"storage,omitempty" yaml:"storage,omitempty"`
 	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 }
 
@@ -226,10 +228,10 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 
 	app := s.Applications[name]
 	match := func(u unitStatus) {
-		desiredUnitCount += 1
+		desiredUnitCount++
 		switch u.JujuStatusInfo.Current {
 		case status.Executing, status.Idle, status.Running:
-			currentUnitCount += 1
+			currentUnitCount++
 		}
 	}
 	// If the app is subordinate to other units, then this is a subordinate charm.
