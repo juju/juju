@@ -387,7 +387,14 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	}
 	w.Print(m.Id)
 	w.PrintStatus(m.JujuStatus.Current)
-	w.Println(m.DNSName, m.InstanceId, m.Series, az, m.MachineStatus.Message)
+
+	instanceId := string(m.InstanceId)
+	// Truncate Oracle's OCID strings
+	if strings.HasPrefix(instanceId, "ocid") {
+		instanceId = ellipsis + instanceId[len(instanceId)-6:]
+	}
+
+	w.Println(m.DNSName, instanceId, m.Series, az, m.MachineStatus.Message)
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}
