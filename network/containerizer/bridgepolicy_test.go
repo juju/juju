@@ -235,7 +235,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 			Type: state.BridgeDevice,
 		},
 		state.LinkLayerDeviceArgs{
-			Name: "br-eth10.100",
+			Name: "br-eth10-100",
 			Type: state.BridgeDevice,
 		},
 		state.LinkLayerDeviceArgs{
@@ -282,7 +282,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 		"br-eth3",
 		"br-eth4",
 		"br-eth10",
-		"br-eth10.100",
+		"br-eth10-100",
 	}
 
 	err = s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs[:])
@@ -865,7 +865,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerOneOfTwoBridg
 	// Only the first device (by sort order) should be selected
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens2.1",
-		BridgeName: "br-ens2.1",
+		BridgeName: "br-ens2-1",
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
@@ -944,7 +944,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerMultipleSpace
 		BridgeName: "br-eth0",
 	}, {
 		DeviceName: "eth0.1",
-		BridgeName: "br-eth0.1",
+		BridgeName: "br-eth0-1",
 	}, {
 		DeviceName: "eth1",
 		BridgeName: "br-eth1",
@@ -1056,7 +1056,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 		BridgeName: "br-eth0",
 	}, {
 		DeviceName: "eth0.100",
-		BridgeName: "br-eth0.100",
+		BridgeName: "br-eth0-100",
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
@@ -1122,7 +1122,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 		BridgeName: "br-bond0",
 	}, {
 		DeviceName: "bond0.100",
-		BridgeName: "br-bond0.100",
+		BridgeName: "br-bond0-100",
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 13)
 }
@@ -1151,7 +1151,7 @@ var bridgeNames = map[string]string{
 	"enfourteenchar":  "b-fourteenchar",
 	"enfifteenchars0": "b-fifteenchars0",
 	"fourteenchars1":  "b-5590a4-chars1",
-	"fifteenchars.12": "b-7e0acf-ars.12",
+	"fifteenchars.12": "b-38b496-ars-12",
 	"zeros0526193032": "b-000000-193032",
 	"enx00e07cc81e1d": "b-x00e07cc81e1d",
 }
