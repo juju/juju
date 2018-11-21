@@ -1655,6 +1655,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		Spaces:       optionalStringSlice("spaces"),
 		Tags:         optionalStringSlice("tags"),
 		VirtType:     optionalString("virttype"),
+		Zones:        optionalStringSlice("zones"),
 	}
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)
