@@ -165,6 +165,77 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	// because it's not very helpful and subject to change.
 }
 
+func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
+	newCharm := s.AddConfigCharm(c, "wordpress", sortableConfig, 123)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err := s.application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.SetCharmURL(newCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := s.unit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	// Initial event.
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("22090c06037bbaffecd736b45a466671762656c7d4c2e057a1873c2a606b89ed")
+
+	// Non-change is not reported.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Add an attribute that comes before.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"alphabetic": 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	config, err := s.unit.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config, gc.DeepEquals, charm.Settings{
+		// Ints that get round-tripped through mongo come back as int64.
+		"alphabetic": int64(1),
+		"blog-title": "sauceror central",
+		"zygomatic":  nil,
+	})
+	wc.AssertChange("5dddc8b4062afbe792bded92f27b998524a23c37680af41482c686c685eb2268")
+
+	// And one that comes after.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"zygomatic": 23,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("62c78a66f485e3fc736fec4f363c1c1a31629b6d53c4ce2005d41f89da7439a5")
+
+	// Change application's charm; nothing detected.
+	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
+	cfg = state.SetCharmConfig{Charm: newCharm}
+	err = s.application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Change application config for new charm; nothing detected.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"key": 42.0,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// NOTE: if we were to change the unit to use the new charm, we'd see
+	// another event, because the originally-watched document will become
+	// unreferenced and be removed. But I'm not testing that behaviour
+	// because it's not very helpful and subject to change.
+}
+
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 	subCharm := s.AddTestingCharm(c, "logging")
 	s.AddTestingApplication(c, "logging", subCharm)
