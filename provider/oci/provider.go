@@ -41,26 +41,26 @@ type environConfig struct {
 var _ config.ConfigSchemaSource = (*EnvironProvider)(nil)
 var _ environs.ProviderSchema = (*EnvironProvider)(nil)
 
-var cloudSchema = &jsonschema.Schema{
-	Type:     []jsonschema.Type{jsonschema.ObjectType},
-	Required: []string{cloud.RegionsKey, cloud.AuthTypesKey},
-	Order:    []string{cloud.RegionsKey, cloud.AuthTypesKey},
-	Properties: map[string]*jsonschema.Schema{
-		cloud.RegionsKey: {
-			Type:     []jsonschema.Type{jsonschema.ObjectType},
-			Singular: "region",
-			Plural:   "regions",
-			AdditionalProperties: &jsonschema.Schema{
-				Type: []jsonschema.Type{jsonschema.ObjectType},
-			},
-		},
-		cloud.AuthTypesKey: {
-			// don't need a prompt, since there's only one choice.
-			Type: []jsonschema.Type{jsonschema.ArrayType},
-			Enum: []interface{}{[]string{string(cloud.HTTPSigAuthType)}},
-		},
-	},
-}
+// var cloudSchema = &jsonschema.Schema{
+// 	Type:     []jsonschema.Type{jsonschema.ObjectType},
+// 	Required: []string{cloud.RegionsKey, cloud.AuthTypesKey},
+// 	Order:    []string{cloud.RegionsKey, cloud.AuthTypesKey},
+// 	Properties: map[string]*jsonschema.Schema{
+// 		cloud.RegionsKey: {
+// 			Type:     []jsonschema.Type{jsonschema.ObjectType},
+// 			Singular: "region",
+// 			Plural:   "regions",
+// 			AdditionalProperties: &jsonschema.Schema{
+// 				Type: []jsonschema.Type{jsonschema.ObjectType},
+// 			},
+// 		},
+// 		cloud.AuthTypesKey: {
+// 			// don't need a prompt, since there's only one choice.
+// 			Type: []jsonschema.Type{jsonschema.ArrayType},
+// 			Enum: []interface{}{[]string{string(cloud.HTTPSigAuthType)}},
+// 		},
+// 	},
+// }
 
 var configSchema = environschema.Fields{
 	"compartment-id": {
@@ -188,7 +188,7 @@ func (e EnvironProvider) Version() int {
 
 // CloudSchema implements environs.EnvironProvider.
 func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
-	return cloudSchema
+	return nil
 }
 
 // Ping implements environs.EnvironProvider.
