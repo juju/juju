@@ -113,8 +113,8 @@ Examples:
     juju show-status
     juju show-status mysql
     juju show-status nova-*
-	juju show-status --relations
-	juju show-status --storage
+    juju show-status --relations
+    juju show-status --storage
 
 See also:
     machines
@@ -254,7 +254,7 @@ func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStora
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer func() {
 		if err := c.close(); err != nil {
-			logger.Warningf("closing api sessions %v", err)
+			logger.Warningf("closing api sessions failed %v", err)
 		}
 	}()
 

@@ -28,40 +28,12 @@ type FullStatus struct {
 	RemoteApplications  map[string]RemoteApplicationStatus `json:"remote-applications"`
 	Offers              map[string]ApplicationOfferStatus  `json:"offers"`
 	Relations           []RelationStatus                   `json:"relations"`
-	Storage             []CombinedStorageInfo              `json:"combined-storage-info"`
 	ControllerTimestamp *time.Time                         `json:"controller-timestamp"`
 }
-
-// TODO
-type CombinedStorageInfo struct{}
 
 // IsEmpty checks all collections on FullStatus to determine if the status is empty.
 // Note that only the collections are checked here as Model information will always be populated.
 func (fs *FullStatus) IsEmpty() bool {
-	return len(fs.Applications) == 0 &&
-		len(fs.Machines) == 0 &&
-		len(fs.Offers) == 0 &&
-		len(fs.RemoteApplications) == 0 &&
-		len(fs.Relations) == 0 &&
-		len(fs.Storage) == 0
-}
-
-// FullStatusV1 holds information about the status of a juju model.
-// V1 is missing Storage.
-type FullStatusV1 struct {
-	Model               ModelStatusInfo                    `json:"model"`
-	Machines            map[string]MachineStatus           `json:"machines"`
-	Applications        map[string]ApplicationStatus       `json:"applications"`
-	RemoteApplications  map[string]RemoteApplicationStatus `json:"remote-applications"`
-	Offers              map[string]ApplicationOfferStatus  `json:"offers"`
-	Relations           []RelationStatus                   `json:"relations"`
-	ControllerTimestamp *time.Time                         `json:"controller-timestamp"`
-}
-
-// IsEmpty checks all collections on FullStatusV1 to determine if the status is empty.
-// Note that only the collections are checked here as Model information will always be populated.
-// V1 does not check Storage.
-func (fs *FullStatusV1) IsEmpty() bool {
 	return len(fs.Applications) == 0 &&
 		len(fs.Machines) == 0 &&
 		len(fs.Offers) == 0 &&
