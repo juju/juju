@@ -55,7 +55,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": formatListTabular,
+		"tabular": formatListTabularOne,
 	})
 	// TODO(axw) deprecate these flags, and introduce separate commands
 	// for listing just filesystems or volumes.
@@ -107,7 +107,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		return nil
 	}
-	return c.out.Write(ctx, combined)
+	return c.out.Write(ctx, *combined)
 }
 
 // GetCombinedStorageInfoParams holds parameters for the GetCombinedStorageInfo call.
@@ -176,21 +176,29 @@ func (c *CombinedStorage) empty() bool {
 	return len(c.StorageInstances) == 0 && len(c.Filesystems) == 0 && len(c.Volumes) == 0
 }
 
-func formatListTabular(writer io.Writer, value interface{}) error {
+// formatListTabularOne writes a tabular summary of storage instances or filesystems or volumes.
+func formatListTabularOne(writer io.Writer, value interface{}) error {
+	return formatListTabular(writer, value, false)
+}
+
+func formatListTabular(writer io.Writer, value interface{}, all bool) error {
 	combined := value.(CombinedStorage)
 	var newline bool
 	if len(combined.StorageInstances) > 0 {
 		// If we're listing storage in tabular format, we combine all
 		// of the information into a list of "storage".
-		if err := formatStorageListTabular(
+		if err := formatStorageInstancesListTabular(
 			writer,
 			combined.StorageInstances,
 			combined.Filesystems,
 			combined.Volumes,
 		); err != nil {
-			return err
+			return errors.Trace(err)
 		}
-		return nil
+		if !all {
+			return nil
+		}
+		newline = true
 	}
 	if len(combined.Filesystems) > 0 {
 		if newline {
@@ -198,6 +206,9 @@ func formatListTabular(writer io.Writer, value interface{}) error {
 		}
 		if err := formatFilesystemListTabular(writer, combined.Filesystems); err != nil {
 			return err
+		}
+		if !all {
+			return nil
 		}
 		newline = true
 	}
@@ -210,4 +221,9 @@ func formatListTabular(writer io.Writer, value interface{}) error {
 		}
 	}
 	return nil
+}
+
+// FormatListTabularAll writes a tabular summary of storage instances, filesystems and volumes.
+func FormatListTabularAll(writer io.Writer, value interface{}) error {
+	return formatListTabular(writer, value, true)
 }

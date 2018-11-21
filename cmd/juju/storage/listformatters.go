@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-// formatListTabular writes a tabular summary of storage instances.
-func formatStorageListTabular(
+// formatStorageInstancesListTabular writes a tabular summary of storage instances.
+func formatStorageInstancesListTabular(
 	writer io.Writer,
 	storageInfo map[string]StorageInfo,
 	filesystems map[string]FilesystemInfo,
