@@ -453,8 +453,8 @@ func isRunningLocally() (bool, error) {
 	return running, nil
 }
 
-// InstalledServiceName returns the name of the running for the LXD daemon.
-// If LXD is not installed, the return is an empty string.
+// InstalledServiceName returns the name of the running service for the LXD
+// daemon. If LXD is not installed, the return is an empty string.
 func InstalledServiceName() (string, error) {
 	names, err := service.ListServices()
 	if err != nil {
