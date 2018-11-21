@@ -1248,6 +1248,10 @@ type backingEntityDoc interface {
 	mongoId() string
 }
 
+// newAllWatcherStateBacking returns a backing implementation
+// to service an all watcher.
+// Note: the st passed in is managed by the backing instance.
+// It must use its own session (copy) as when the backing is relased, the st is closed.
 func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 	collectionNames := []string{
 		machinesC,
@@ -1333,6 +1337,10 @@ func (b *allWatcherStateBacking) Release() error {
 	return b.st.Close()
 }
 
+// NewAllModelWatcherStateBacking returns a backing implementation
+// to service a model all watcher.
+// Note: the st passed in is managed by the backing instance.
+// It must use its own session (copy) as when the backing is relased, the st is closed.
 func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 	collections := makeAllWatcherCollectionInfo(
 		modelsC,

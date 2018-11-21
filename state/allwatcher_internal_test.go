@@ -1327,14 +1327,23 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
-func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
-	return s.NewAllModelWatcherStateBackingForState(s.state)
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking(c *gc.C) Backing {
+	return s.NewAllModelWatcherStateBackingForState(c, s.state)
 }
 
-func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(c *gc.C, st *State) Backing {
 	pool := NewStatePool(st)
 	s.AddCleanup(func(*gc.C) { pool.Close() })
-	return NewAllModelWatcherStateBacking(st, pool)
+	stCopy, err := Open(OpenParams{
+		Clock:                  st.stateClock,
+		ControllerTag:          st.controllerTag,
+		ControllerModelTag:     st.modelTag,
+		MongoSession:           st.session,
+		NewPolicy:              st.newPolicy,
+		RunTransactionObserver: st.runTransactionObserver,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return NewAllModelWatcherStateBacking(stCopy, pool)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.
@@ -1346,7 +1355,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			test0 := changeTestFunc(c, s.state)
 
 			c.Logf("test %d. %s", i, test0.about)
-			b := s.NewAllModelWatcherStateBacking()
+			b := s.NewAllModelWatcherStateBacking(c)
 			defer b.Release()
 			all := newStore()
 
@@ -1562,7 +1571,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the model the entity belonged to has already died.
 
-	b := s.NewAllModelWatcherStateBacking()
+	b := s.NewAllModelWatcherStateBacking(c)
 	defer b.Release()
 	all := newStore()
 
@@ -1641,7 +1650,8 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 		},
 	)
 
-	b := s.NewAllModelWatcherStateBacking()
+	b := s.NewAllModelWatcherStateBacking(c)
+	defer b.Release()
 	all := newStore()
 	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1654,7 +1664,8 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 
 func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	// Init the test model.
-	b := s.NewAllModelWatcherStateBacking()
+	b := s.NewAllModelWatcherStateBacking(c)
+	defer b.Release()
 	all := newStore()
 	setModelConfigAttr(c, s.state, "http-proxy", "http://invalid")
 	setModelConfigAttr(c, s.state, "foo", "bar")
@@ -1689,7 +1700,8 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 
 func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
 	// Init the test model.
-	b := s.NewAllModelWatcherStateBacking()
+	b := s.NewAllModelWatcherStateBacking(c)
+	defer b.Release()
 	all := newStore()
 
 	all.Update(&multiwatcher.ModelInfo{
@@ -1754,7 +1766,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	backing := s.NewAllModelWatcherStateBackingForState(st0)
+	backing := s.NewAllModelWatcherStateBackingForState(c, st0)
 	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
