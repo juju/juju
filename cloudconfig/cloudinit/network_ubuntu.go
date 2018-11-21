@@ -432,6 +432,5 @@ if __name__ == "__main__":
     main()
 `
 
-const CloudInitNetworkConfigDisabled = `network:
-  config: "disabled"
+const CloudInitNetworkConfigDisabled = `config: "disabled"
 `
