@@ -110,15 +110,13 @@ func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) 
 }
 
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
-	// Momentarily, the only series with a dedicated cloud archive is precise,
-	// which we will use for the following test:
 	paccmder, err := commands.NewPackageCommander("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
+	PatchLXDViaSnap(s, false)
 	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
-	container := NewContainerInitialiser("trusty")
 
-	err = container.Initialise()
+	err = NewContainerInitialiser("trusty").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -126,16 +124,26 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	})
 }
 
+func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
+	PatchLXDViaSnap(s, true)
+	s.PatchValue(&series.MustHostSeries, func() string { return "cosmic" })
+
+	err := NewContainerInitialiser("cosmic").Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
+}
+
 func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
+	PatchLXDViaSnap(s, false)
+
 	// Here we want to test for any other series whilst avoiding the
 	// possibility of hitting a cloud archive-requiring release.
 	// As such, we simply pass an empty series.
 	paccmder, err := commands.NewPackageCommander("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	container := NewContainerInitialiser("")
-
-	err = container.Initialise()
+	err = NewContainerInitialiser("").Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
