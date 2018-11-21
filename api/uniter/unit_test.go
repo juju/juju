@@ -559,6 +559,37 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
+	// Make sure WatchConfigSettings returns an error when
+	// no charm URL is set, as its state counterpart does.
+	w, err := s.apiUnit.WatchConfigSettingsHash()
+	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+
+	// Now set the charm and try again.
+	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err = s.apiUnit.WatchConfigSettingsHash()
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event - this is the sha-256 hash of an empty bson.D.
+	wc.AssertChange("49e8e3297545c15ab6a79471a7a34d43e24a8f1cb25ea3d8417c61f699267a3f")
+
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("22090c06037bbaffecd736b45a466671762656c7d4c2e057a1873c2a606b89ed")
+
+	// Non-change is not reported.
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
 func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
 	watcher, err := s.apiUnit.WatchTrustConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
