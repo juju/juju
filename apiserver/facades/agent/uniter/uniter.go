@@ -35,7 +35,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v8) of the Uniter API.
+// UniterAPI implements the latest version (v9) of the Uniter API,
+// which changes WatchConfigSettings to a StringsWatcher that returns
+// a hash of the current config.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -64,9 +66,16 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV8 adds SetContainerSpec, GoalStates, CloudSpec,
+// WatchTrustConfigSettings, WatchActionNotifications,
+// UpgradeSeriesStatus, SetUpgradeSeriesStatus.
+type UniterAPIV8 struct {
+	UniterAPI
+}
+
 // UniterAPIV7 adds CMR support to NetworkInfo.
 type UniterAPIV7 struct {
-	UniterAPI
+	UniterAPIV8
 }
 
 // UniterAPIV6 adds NetworkInfo as a preferred method to calling NetworkConfig.
@@ -253,14 +262,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV7 creates an instance of the V7 uniter API.
-func NewUniterAPIV7(context facade.Context) (*UniterAPIV7, error) {
+// NewUniterAPIV8 creates an instance of the V8 uniter API.
+func NewUniterAPIV8(context facade.Context) (*UniterAPIV8, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV7{
+	return &UniterAPIV8{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV7 creates an instance of the V7 uniter API.
+func NewUniterAPIV7(context facade.Context) (*UniterAPIV7, error) {
+	uniterAPI, err := NewUniterAPIV8(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV7{
+		UniterAPIV8: *uniterAPI,
 	}, nil
 }
 
@@ -2672,4 +2692,60 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 	}
 
 	return unitsGoalState, nil
+}
+
+// WatchConfigSettingsHash returns a StringsWatcher that yields a hash
+// of the config values every time the config changes. The uniter can
+// save this hash and use it to decide whether the config-changed hook
+// needs to be run (or whether this was just an agent restart with no
+// substantive config change).
+func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		watcherId := ""
+		var changes []string
+		if canAccess(tag) {
+			watcherId, changes, err = u.watchOneUnitConfigSettingsHash(tag)
+		}
+		result.Results[i].StringsWatcherId = watcherId
+		result.Results[i].Changes = changes
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// Mask WatchConfigSettingsHash from the v8 API. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is
+// concerned.
+
+// WatchConfigSettingsHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchConfigSettingsHash(_, _ struct{}) {}
+
+func (u *UniterAPI) watchOneUnitConfigSettingsHash(tag names.UnitTag) (string, []string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", nil, err
+	}
+	configWatcher, err := unit.WatchConfigSettingsHash()
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	// Consume the initial event.
+	if changes, ok := <-configWatcher.Changes(); ok {
+		return u.resources.Register(configWatcher), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(configWatcher)
 }
