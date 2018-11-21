@@ -176,14 +176,15 @@ func (ws *workers) allManager(params WatchParams) *storeManager {
 		// from the state pool, so create a copy here and use that to guard against
 		// the possibility that the system state may be closed elsewhere.
 		// The state copy is closed then the store manager is released.
-		stCopy, err := Open(OpenParams{
-			Clock:                  ws.state.stateClock,
-			ControllerTag:          ws.state.controllerTag,
-			ControllerModelTag:     ws.state.modelTag,
-			MongoSession:           ws.state.session,
-			NewPolicy:              ws.state.newPolicy,
-			RunTransactionObserver: ws.state.runTransactionObserver,
-		})
+		session := ws.state.session.Copy()
+		stCopy, err := newState(
+			ws.state.modelTag,
+			ws.state.controllerModelTag,
+			session,
+			ws.state.newPolicy,
+			ws.state.stateClock,
+			ws.state.runTransactionObserver,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -210,14 +211,15 @@ func (ws *workers) allModelManager(pool *StatePool) *storeManager {
 		// from the state pool, so create a copy here and use that to guard against
 		// the possibility that the system state may be closed elsewhere.
 		// The state copy is closed then the store manager is released.
-		stCopy, err := Open(OpenParams{
-			Clock:                  ws.state.stateClock,
-			ControllerTag:          ws.state.controllerTag,
-			ControllerModelTag:     ws.state.modelTag,
-			MongoSession:           ws.state.session,
-			NewPolicy:              ws.state.newPolicy,
-			RunTransactionObserver: ws.state.runTransactionObserver,
-		})
+		session := ws.state.session.Copy()
+		stCopy, err := newState(
+			ws.state.modelTag,
+			ws.state.controllerModelTag,
+			session,
+			ws.state.newPolicy,
+			ws.state.stateClock,
+			ws.state.runTransactionObserver,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

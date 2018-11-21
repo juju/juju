@@ -1334,14 +1334,18 @@ func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking(c *gc.C) Back
 func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(c *gc.C, st *State) Backing {
 	pool := NewStatePool(st)
 	s.AddCleanup(func(*gc.C) { pool.Close() })
-	stCopy, err := Open(OpenParams{
-		Clock:                  st.stateClock,
-		ControllerTag:          st.controllerTag,
-		ControllerModelTag:     st.modelTag,
-		MongoSession:           st.session,
-		NewPolicy:              st.newPolicy,
-		RunTransactionObserver: st.runTransactionObserver,
-	})
+	session := st.session.Copy()
+	stCopy, err := newState(
+		st.modelTag,
+		st.controllerModelTag,
+		session,
+		st.newPolicy,
+		st.stateClock,
+		st.runTransactionObserver,
+	)
+	if err != nil {
+		session.Close()
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	return NewAllModelWatcherStateBacking(stCopy, pool)
 }
