@@ -4,12 +4,13 @@
 package azureauth
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 )
@@ -20,10 +21,10 @@ var authorizationUriRegexp = regexp.MustCompile(`authorization_uri="([^"]*)"`)
 
 // DiscoverAuthorizationID returns the OAuth authorization URI for the given
 // subscription ID. This can be used to determine the AD tenant ID.
-func DiscoverAuthorizationURI(client subscriptions.GroupClient, subscriptionID string) (*url.URL, error) {
+func DiscoverAuthorizationURI(ctx context.Context, client subscriptions.Client, subscriptionID string) (*url.URL, error) {
 	// We make an unauthenticated request to the Azure API, which
 	// responds with the authentication URL with the tenant ID in it.
-	result, err := client.Get(subscriptionID)
+	result, err := client.Get(ctx, subscriptionID)
 	if err == nil {
 		return nil, errors.New("expected unauthorized error response")
 	}

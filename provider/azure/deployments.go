@@ -4,7 +4,9 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"context"
+
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -26,13 +28,15 @@ func createDeployment(
 			Mode:     resources.Incremental,
 		},
 	}
-	_, errChan := client.CreateOrUpdate(
+	ctx := context.Background()
+	_, err = client.CreateOrUpdate(
+		ctx,
 		resourceGroup,
 		deploymentName,
 		deployment,
-		nil, // abort channel
 	)
-	if err := <-errChan; err != nil {
+	// veebers: I think its fine that we're ignoring the result future.
+	if err != nil {
 		return errors.Annotatef(err, "creating deployment %q", deploymentName)
 	}
 	return nil

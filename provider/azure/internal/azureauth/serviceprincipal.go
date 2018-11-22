@@ -4,14 +4,15 @@
 package azureauth
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/arm/authorization"
-	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -57,7 +58,7 @@ type ServicePrincipalParams struct {
 	// manager API.
 	ResourceManagerEndpoint string
 
-	// ResourceManagerResourceId is the resource ID of the resource mnager  API that is
+	// ResourceManagerResourceId is the resource ID of the resource manager  API that is
 	// used when acquiring access tokens.
 	ResourceManagerResourceId string
 
@@ -87,7 +88,7 @@ func (p ServicePrincipalParams) directoryClient(sender autorest.Sender, requestI
 	return directoryClient
 }
 
-func (p ServicePrincipalParams) authorizationClient(sender autorest.Sender, requestInspector autorest.PrepareDecorator) authorization.ManagementClient {
+func (p ServicePrincipalParams) authorizationClient(sender autorest.Sender, requestInspector autorest.PrepareDecorator) authorization.BaseClient {
 	authorizationClient := authorization.NewWithBaseURI(p.ResourceManagerEndpoint, p.SubscriptionId)
 	useragent.UpdateClient(&authorizationClient.Client)
 	authorizationClient.Authorizer = p.ResourceManagerAuthorizer
@@ -127,8 +128,8 @@ type ServicePrincipalCreator struct {
 // GraphResourceId, ResourceManagerEndpoint, ResourceManagerResourceId
 // and SubscriptionId need to be specified in params, the other values
 // will be derived.
-func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params ServicePrincipalParams) (appid, password string, _ error) {
-	subscriptionsClient := subscriptions.GroupClient{
+func (c *ServicePrincipalCreator) InteractiveCreate(ctx context.Context, stderr io.Writer, params ServicePrincipalParams) (appid, password string, _ error) {
+	subscriptionsClient := subscriptions.Client{
 		subscriptions.NewWithBaseURI(params.ResourceManagerEndpoint),
 	}
 	useragent.UpdateClient(&subscriptionsClient.Client)
@@ -136,6 +137,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 	setClientInspectors(&subscriptionsClient.Client, c.RequestInspector, "azure.subscriptions")
 
 	oauthConfig, tenantId, err := OAuthConfig(
+		ctx,
 		subscriptionsClient,
 		params.ResourceManagerEndpoint,
 		params.SubscriptionId,
@@ -181,7 +183,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 
 	// The application requires permissions for both ARM and AD, so we
 	// can use the token for both APIs.
-	graphToken := armSpt.Token
+	graphToken := armSpt.Token()
 	graphToken.Resource = params.GraphResourceId
 	graphSpt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, clientId, params.GraphResourceId, graphToken)
 	if err != nil {
@@ -201,17 +203,17 @@ func (c *ServicePrincipalCreator) InteractiveCreate(stderr io.Writer, params Ser
 	}
 	fmt.Fprintf(stderr, "Authenticated as %q.\n", userObject.DisplayName)
 
-	return c.Create(params)
+	return c.Create(ctx, params)
 }
 
 // Create creates a new service principal using the values specified in params.
-func (c *ServicePrincipalCreator) Create(params ServicePrincipalParams) (appid, password string, _ error) {
+func (c *ServicePrincipalCreator) Create(ctx context.Context, params ServicePrincipalParams) (appid, password string, _ error) {
 	servicePrincipalObjectId, password, err := c.createOrUpdateServicePrincipal(params)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 
-	if err := c.createRoleAssignment(params, servicePrincipalObjectId); err != nil {
+	if err := c.createRoleAssignment(ctx, params, servicePrincipalObjectId); err != nil {
 		return "", "", errors.Trace(err)
 	}
 
@@ -347,19 +349,20 @@ func getServicePrincipal(client ad.ServicePrincipalsClient) (ad.ServicePrincipal
 	return ad.ServicePrincipal{}, errors.NotFoundf("service principal")
 }
 
-func (c *ServicePrincipalCreator) createRoleAssignment(params ServicePrincipalParams, servicePrincipalObjectId string) error {
+func (c *ServicePrincipalCreator) createRoleAssignment(ctx context.Context, params ServicePrincipalParams, servicePrincipalObjectId string) error {
 	client := params.authorizationClient(c.Sender, c.RequestInspector)
 	// Find the role definition with the name "Owner".
 	roleScope := path.Join("subscriptions", params.SubscriptionId)
 	roleDefinitionsClient := authorization.RoleDefinitionsClient{client}
-	result, err := roleDefinitionsClient.List(roleScope, "roleName eq 'Owner'")
+	result, err := roleDefinitionsClient.List(ctx, roleScope, "roleName eq 'Owner'")
 	if err != nil {
 		return errors.Annotate(err, "listing role definitions")
 	}
-	if result.Value == nil || len(*result.Value) == 0 {
+	ownerRoles := result.Values()
+	if len(ownerRoles) == 0 {
 		return errors.NotFoundf("Owner role definition")
 	}
-	roleDefinitionId := (*result.Value)[0].ID
+	roleDefinitionId := ownerRoles[0].ID
 
 	// The UUID value for the role assignment name is unimportant. Azure
 	// will prevent multiple role assignments for the same role definition
@@ -373,6 +376,7 @@ func (c *ServicePrincipalCreator) createRoleAssignment(params ServicePrincipalPa
 	retryArgs := retry.CallArgs{
 		Func: func() error {
 			_, err := roleAssignmentsClient.Create(
+				ctx,
 				roleScope, roleAssignmentName,
 				authorization.RoleAssignmentCreateParameters{
 					Properties: &authorization.RoleAssignmentProperties{

@@ -4,15 +4,16 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
 	"sync"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
-	"github.com/Azure/azure-sdk-for-go/arm/disk"
-	armstorage "github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-03-30/compute"
+	armstorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-06-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -83,7 +84,7 @@ var azureStorageConfigChecker = schema.FieldMap(
 )
 
 type azureStorageConfig struct {
-	storageType disk.StorageAccountTypes
+	storageType compute.StorageAccountTypes
 }
 
 func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, error) {
@@ -93,7 +94,7 @@ func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, e
 	}
 	attrs = coerced.(map[string]interface{})
 	azureStorageConfig := &azureStorageConfig{
-		storageType: disk.StorageAccountTypes(attrs[accountTypeAttr].(string)),
+		storageType: compute.StorageAccountTypes(attrs[accountTypeAttr].(string)),
 	}
 	return azureStorageConfig, nil
 }
@@ -197,23 +198,37 @@ func (v *azureVolumeSource) createManagedDiskVolume(p storage.VolumeParams) (*st
 		return nil, errors.Trace(err)
 	}
 
+	diskTags := make(map[string]*string)
+	for k, v := range p.ResourceTags {
+		diskTags[k] = to.StringPtr(v)
+	}
 	diskName := p.Tag.String()
 	sizeInGib := mibToGib(p.Size)
-	diskModel := disk.Model{
+	diskModel := compute.Disk{
 		Name:     to.StringPtr(diskName),
 		Location: to.StringPtr(v.env.location),
-		Tags:     to.StringMapPtr(p.ResourceTags),
-		Properties: &disk.Properties{
-			AccountType:  cfg.storageType,
-			CreationData: &disk.CreationData{CreateOption: disk.Empty},
+		Tags:     diskTags,
+		Sku: &compute.DiskSku{
+			Name: cfg.storageType,
+		},
+		DiskProperties: &compute.DiskProperties{
+			CreationData: &compute.CreationData{CreateOption: compute.Empty},
 			DiskSizeGB:   to.Int32Ptr(int32(sizeInGib)),
 		},
 	}
 
-	diskClient := disk.DisksClient{v.env.disk}
-	resultCh, errCh := diskClient.CreateOrUpdate(v.env.resourceGroup, diskName, diskModel, nil)
-	result, err := <-resultCh, <-errCh
+	diskClient := compute.DisksClient{v.env.disk}
+	ctx := context.Background()
+	future, err := diskClient.CreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel)
+	if err != nil && !isNotFoundResponse(autorest.Response{future.Response()}) {
+		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
+	}
+	err = future.WaitForCompletion(ctx, diskClient.Client)
 	if err != nil {
+		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
+	}
+	result, err := future.Result(diskClient)
+	if err != nil && !isNotFoundResponse(result.Response) {
 		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
 	}
 
@@ -295,10 +310,11 @@ func (v *azureVolumeSource) createUnmanagedDiskVolume(
 	diskName := p.Tag.String()
 	sizeInGib := mibToGib(p.Size)
 	volumeAttachment, err := v.addDataDisk(
-		vm, diskName,
+		vm,
+		diskName,
 		p.Tag,
 		p.Attachment.Machine,
-		compute.Empty,
+		compute.DiskCreateOptionTypesEmpty,
 		to.Int32Ptr(int32(sizeInGib)),
 	)
 	if err != nil {
@@ -327,23 +343,20 @@ func (v *azureVolumeSource) ListVolumes() ([]string, error) {
 
 func (v *azureVolumeSource) listManagedDiskVolumes() ([]string, error) {
 	var volumeIds []string
-	diskClient := disk.DisksClient{v.env.disk}
-	list, err := diskClient.List()
+	diskClient := compute.DisksClient{v.env.disk}
+	list, err := diskClient.ListComplete(context.Background())
 	if err != nil {
 		return nil, errors.Annotate(err, "listing disks")
 	}
-	for list.Value != nil {
-		for _, disk := range *list.Value {
-			diskName := to.String(disk.Name)
-			if _, err := names.ParseVolumeTag(diskName); err != nil {
-				continue
-			}
-			volumeIds = append(volumeIds, diskName)
-		}
-		list, err = diskClient.ListNextResults(list)
+	for ; list.NotDone(); err = list.Next() {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing disks")
 		}
+		diskName := to.String(list.Value().Name)
+		if _, err := names.ParseVolumeTag(diskName); err != nil {
+			continue
+		}
+		volumeIds = append(volumeIds, diskName)
 	}
 	return volumeIds, nil
 }
@@ -392,14 +405,15 @@ func (v *azureVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Descr
 }
 
 func (v *azureVolumeSource) describeManagedDiskVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
-	diskClient := disk.DisksClient{v.env.disk}
+	diskClient := compute.DisksClient{v.env.disk}
 	results := make([]storage.DescribeVolumesResult, len(volumeIds))
 	var wg sync.WaitGroup
+	ctx := context.Background()
 	for i, volumeId := range volumeIds {
 		wg.Add(1)
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			disk, err := diskClient.Get(v.env.resourceGroup, volumeId)
+			disk, err := diskClient.Get(ctx, v.env.resourceGroup, volumeId)
 			if err != nil {
 				if isNotFoundResponse(disk.Response) {
 					err = errors.NotFoundf("disk %s", volumeId)
@@ -460,10 +474,19 @@ func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 }
 
 func (v *azureVolumeSource) destroyManagedDiskVolumes(volumeIds []string) ([]error, error) {
-	diskClient := disk.DisksClient{v.env.disk}
+	diskClient := compute.DisksClient{v.env.disk}
+	ctx := context.Background()
 	return foreachVolume(volumeIds, func(volumeId string) error {
-		resultCh, errCh := diskClient.Delete(v.env.resourceGroup, volumeId, nil)
-		if result, err := <-resultCh, <-errCh; err != nil && !isNotFoundResponse(result.Response) {
+		future, err := diskClient.Delete(ctx, v.env.resourceGroup, volumeId)
+		if err != nil && !isNotFoundResponse(autorest.Response{future.Response()}) {
+			return errors.Annotatef(err, "deleting disk %q", volumeId)
+		}
+		err = future.WaitForCompletion(ctx, diskClient.Client)
+		if err != nil {
+			return errors.Annotatef(err, "deleting disk %q", volumeId)
+		}
+		result, err := future.Result(diskClient)
+		if err != nil && !isNotFoundResponse(result.Response) {
 			return errors.Annotatef(err, "deleting disk %q", volumeId)
 		}
 		return nil
@@ -604,7 +627,7 @@ func (v *azureVolumeSource) attachVolume(
 		return volumeAttachment, false, nil
 	}
 
-	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, compute.Attach, nil)
+	volumeAttachment, err := v.addDataDisk(vm, diskName, p.Volume, p.Machine, compute.DiskCreateOptionTypesAttach, nil)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -628,7 +651,7 @@ func (v *azureVolumeSource) addDataDisk(
 	dataDisk := compute.DataDisk{
 		Lun:          to.Int32Ptr(lun),
 		Name:         to.StringPtr(diskName),
-		Caching:      compute.ReadWrite,
+		Caching:      compute.CachingTypesReadWrite,
 		CreateOption: createOption,
 		DiskSizeGB:   diskSizeGB,
 	}
@@ -758,17 +781,18 @@ type maybeVirtualMachine struct {
 // errors, for each of the specified instance IDs.
 func (v *azureVolumeSource) virtualMachines(instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
 	vmsClient := compute.VirtualMachinesClient{v.env.compute}
-	result, err := vmsClient.List(v.env.resourceGroup)
+	result, err := vmsClient.ListComplete(context.Background(), v.env.resourceGroup)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing virtual machines")
 	}
 
 	all := make(map[instance.Id]*compute.VirtualMachine)
-	if result.Value != nil {
-		for _, vm := range *result.Value {
-			vmCopy := vm
-			all[instance.Id(to.String(vm.Name))] = &vmCopy
+	for ; result.NotDone(); err = result.Next() {
+		if err != nil {
+			return nil, errors.Annotate(err, "listing disks")
 		}
+		vmCopy := result.Value()
+		all[instance.Id(to.String(vmCopy.Name))] = &vmCopy
 	}
 	results := make(map[instance.Id]*maybeVirtualMachine)
 	for _, id := range instanceIds {
@@ -798,11 +822,11 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			results[i] = vm.err
 			continue
 		}
-		_, errCh := vmsClient.CreateOrUpdate(
+		_, err := vmsClient.CreateOrUpdate(
+			context.Background(),
 			v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm,
-			nil, // abort channel
 		)
-		if err := <-errCh; err != nil {
+		if err != nil {
 			results[i] = err
 			vm.err = err
 			continue
@@ -907,7 +931,7 @@ func getStorageAccountKey(
 	resourceGroup, accountName string,
 ) (*armstorage.AccountKey, error) {
 	logger.Debugf("getting keys for storage account %q", accountName)
-	listKeysResult, err := client.ListKeys(resourceGroup, accountName)
+	listKeysResult, err := client.ListKeys(context.Background(), resourceGroup, accountName)
 	if err != nil {
 		if isNotFoundResponse(listKeysResult.Response) {
 			return nil, errors.NewNotFound(err, "storage account keys not found")

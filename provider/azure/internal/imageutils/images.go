@@ -4,12 +4,13 @@
 package imageutils
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-03-30/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -116,7 +117,8 @@ func ubuntuSKU(series, stream, location string, client compute.VirtualMachineIma
 		return "", errors.Trace(err)
 	}
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, ubuntuOffering)
-	result, err := client.ListSkus(location, ubuntuPublisher, ubuntuOffering)
+	ctx := context.Background()
+	result, err := client.ListSkus(ctx, location, ubuntuPublisher, ubuntuOffering)
 	if err != nil {
 		return "", errors.Annotate(err, "listing Ubuntu SKUs")
 	}

@@ -4,10 +4,11 @@
 package azure
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
@@ -84,10 +85,11 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*adal.ServiceP
 	subscriptionId := credAttrs[credAttrSubscriptionId]
 	appId := credAttrs[credAttrAppId]
 	appPassword := credAttrs[credAttrAppPassword]
-	client := subscriptions.GroupClient{subscriptions.NewWithBaseURI(cloud.Endpoint)}
+	client := subscriptions.Client{subscriptions.NewWithBaseURI(cloud.Endpoint)}
 	useragent.UpdateClient(&client.Client)
 	client.Sender = sender
-	oauthConfig, _, err := azureauth.OAuthConfig(client, cloud.Endpoint, subscriptionId)
+	ctx := context.Background()
+	oauthConfig, _, err := azureauth.OAuthConfig(ctx, client, cloud.Endpoint, subscriptionId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

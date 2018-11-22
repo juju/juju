@@ -4,12 +4,17 @@
 package resources
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/validation"
+	"github.com/Azure/go-autorest/tracing"
 )
+
+// The package's fully qualified name.
+const fqdn = "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
 
 // ResourcesClient wraps resources.GroupClient, providing methods for
 // dealing with generic resources.
@@ -20,16 +25,26 @@ import (
 // When this issue has been resolved, we should drop this code and use
 // the SDK's client directly.
 type ResourcesClient struct {
-	*resources.GroupClient
+	*resources.Client
 }
 
 // GetByID gets a resource by ID.
 //
-// See: resources.GroupClient.GetByID.
-func (client ResourcesClient) GetByID(resourceID, apiVersion string) (result resources.GenericResource, err error) {
-	req, err := client.GetByIDPreparer(resourceID)
+// See: resources.Client.GetByID.
+func (client ResourcesClient) GetByID(ctx context.Context, resourceID, apiVersion string) (result resources.GenericResource, err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/Client.GetByID")
+		defer func() {
+			sc := -1
+			if result.Response.Response != nil {
+				sc = result.Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	req, err := client.GetByIDPreparer(ctx, resourceID)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "resources.GroupClient", "GetByID", nil, "Failure preparing request")
+		err = autorest.NewErrorWithError(err, "resources.Client", "GetByID", nil, "Failure preparing request")
 		return
 	}
 	setAPIVersion(req, apiVersion)
@@ -37,67 +52,53 @@ func (client ResourcesClient) GetByID(resourceID, apiVersion string) (result res
 	resp, err := client.GetByIDSender(req)
 	if err != nil {
 		result.Response = autorest.Response{Response: resp}
-		err = autorest.NewErrorWithError(err, "resources.GroupClient", "GetByID", resp, "Failure sending request")
+		err = autorest.NewErrorWithError(err, "resources.Client", "GetByID", resp, "Failure sending request")
 		return
 	}
 
 	result, err = client.GetByIDResponder(resp)
 	if err != nil {
-		err = autorest.NewErrorWithError(err, "resources.GroupClient", "GetByID", resp, "Failure responding to request")
+		err = autorest.NewErrorWithError(err, "resources.Client", "GetByID", resp, "Failure responding to request")
 	}
+
 	return
 }
 
 // CreateOrUpdateByID creates a resource.
 //
-// See: resources.GroupClient.CreateOrUpdateByID.
-func (client ResourcesClient) CreateOrUpdateByID(
-	resourceID string,
-	parameters resources.GenericResource,
-	cancel <-chan struct{},
-	apiVersion string,
-) (<-chan resources.GenericResource, <-chan error) {
-	resultChan := make(chan resources.GenericResource, 1)
-	errChan := make(chan error, 1)
+// See: resources.Client.CreateOrUpdateByID.
+func (client ResourcesClient) CreateOrUpdateByID(ctx context.Context, resourceID string, parameters resources.GenericResource, apiVersion string) (result resources.CreateOrUpdateByIDFuture, err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/Client.CreateOrUpdateByID")
+		defer func() {
+			sc := -1
+			if result.Response() != nil {
+				sc = result.Response().StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
 	if err := validation.Validate([]validation.Validation{
 		{TargetValue: parameters,
 			Constraints: []validation.Constraint{{Target: "parameters.Kind", Name: validation.Null, Rule: false,
 				Chain: []validation.Constraint{{Target: "parameters.Kind", Name: validation.Pattern, Rule: `^[-\w\._,\(\)]+$`, Chain: nil}}}}}}); err != nil {
-		errChan <- validation.NewErrorWithValidationError(err, "resources.GroupClient", "CreateOrUpdateByID")
-		close(errChan)
-		close(resultChan)
-		return resultChan, errChan
+		return result, validation.NewError("resources.Client", "CreateOrUpdateByID", err.Error())
 	}
 
-	go func() {
-		var err error
-		var result resources.GenericResource
-		defer func() {
-			resultChan <- result
-			errChan <- err
-			close(resultChan)
-			close(errChan)
-		}()
-		req, err := client.CreateOrUpdateByIDPreparer(resourceID, parameters, cancel)
-		if err != nil {
-			err = autorest.NewErrorWithError(err, "resources.GroupClient", "CreateOrUpdateByID", nil, "Failure preparing request")
-			return
-		}
-		setAPIVersion(req, apiVersion)
+	req, err := client.CreateOrUpdateByIDPreparer(ctx, resourceID, parameters)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "resources.Client", "CreateOrUpdateByID", nil, "Failure preparing request")
+		return
+	}
+	setAPIVersion(req, apiVersion)
 
-		resp, err := client.CreateOrUpdateByIDSender(req)
-		if err != nil {
-			result.Response = autorest.Response{Response: resp}
-			err = autorest.NewErrorWithError(err, "resources.GroupClient", "CreateOrUpdateByID", resp, "Failure sending request")
-			return
-		}
+	result, err = client.CreateOrUpdateByIDSender(req)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "resources.Client", "CreateOrUpdateByID", result.Response(), "Failure sending request")
+		return
+	}
 
-		result, err = client.CreateOrUpdateByIDResponder(resp)
-		if err != nil {
-			err = autorest.NewErrorWithError(err, "resources.GroupClient", "CreateOrUpdateByID", resp, "Failure responding to request")
-		}
-	}()
-	return resultChan, errChan
+	return
 }
 
 func setAPIVersion(req *http.Request, apiVersion string) {

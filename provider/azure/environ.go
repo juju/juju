@@ -1,9 +1,10 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
+// Licesed under the AGPLv3, see LICENCE file for details.
 
 package azure
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,11 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
-	"github.com/Azure/azure-sdk-for-go/arm/disk"
-	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
-	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-03-30/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-06-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -101,11 +101,12 @@ type azureEnviron struct {
 	// authorizer is the authorizer we use for Azure.
 	authorizer *cloudSpecAuth
 
-	compute            compute.ManagementClient
-	disk               disk.ManagementClient
-	resources          resources.ManagementClient
-	storage            storage.ManagementClient
-	network            network.ManagementClient
+	compute compute.BaseClient
+	// do disk and compute need to be separate now?
+	disk               compute.BaseClient
+	resources          resources.BaseClient
+	storage            storage.BaseClient
+	network            network.BaseClient
 	storageClient      azurestorage.Client
 	storageAccountName string
 
@@ -174,7 +175,7 @@ func (env *azureEnviron) initEnviron() error {
 	}
 
 	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	env.disk = disk.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.disk = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.storage = storage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
@@ -257,10 +258,16 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, controller boo
 	)
 	env.mu.Unlock()
 
+	sanitisedTags := make(map[string]*string)
+	for k, v := range tags {
+		sanitisedTags[k] = to.StringPtr(v)
+	}
+
 	logger.Debugf("creating resource group %q", env.resourceGroup)
-	if _, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.Group{
+	ctx := stdcontext.Background()
+	if _, err := resourceGroupsClient.CreateOrUpdate(ctx, env.resourceGroup, resources.Group{
 		Location: to.StringPtr(env.location),
-		Tags:     to.StringMapPtr(tags),
+		Tags:     sanitisedTags,
 	}); err != nil {
 		return errors.Annotate(err, "creating resource group")
 	}
@@ -562,7 +569,7 @@ func (env *azureEnviron) createVirtualMachine(
 	storageAccountType string,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
-		ManagementClient: env.resources,
+		BaseClient: env.resources,
 	}
 	apiPorts := make([]int, 0, 2)
 	if instanceConfig.Controller != nil {
@@ -642,23 +649,25 @@ func (env *azureEnviron) createVirtualMachine(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			availabilitySetName,
 		)
-		var availabilitySetProperties interface{}
+		var (
+			availabilitySetProperties  interface{}
+			availabilityStorageOptions *storage.Sku
+		)
 		if maybeStorageAccount == nil {
 			// This model uses managed disks; we must create
 			// the availability set as "aligned" to support
 			// them.
 			availabilitySetProperties = &compute.AvailabilitySetProperties{
-				// Managed means the availability set is
-				// "aligned", allowing managed disks to be
-				// used.
-				Managed: to.BoolPtr(true),
-
 				// Azure complains when the fault domain count
 				// is not specified, even though it is meant
 				// to be optional and default to the maximum.
 				// The maximum depends on the location, and
 				// there is no API to query it.
 				PlatformFaultDomainCount: to.Int32Ptr(maxFaultDomains(env.location)),
+			}
+			// Availability needs to be 'Aligned' to support managed disks.
+			availabilityStorageOptions = &storage.Sku{
+				Name: "Aligned",
 			}
 		}
 		resources = append(resources, armtemplates.Resource{
@@ -668,6 +677,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Location:   env.location,
 			Tags:       envTags,
 			Properties: availabilitySetProperties,
+			StorageSku: availabilityStorageOptions,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -675,16 +685,19 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
+	// need to decide either standard or basic IP here based on existing machines (i.e. the controller)
 	publicIPAddressName := vmName + "-public-ip"
 	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: networkAPIVersion,
+		APIVersion: "2017-08-01",
 		Type:       "Microsoft.Network/publicIPAddresses",
 		Name:       publicIPAddressName,
 		Location:   env.location,
 		Tags:       vmTags,
+		StorageSku: &storage.Sku{Name: "Standard", Tier: "Regional"},
 		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: network.Dynamic,
+			PublicIPAddressVersion:   network.IPv4,
+			PublicIPAllocationMethod: network.Static,
 		},
 	})
 
@@ -887,8 +900,9 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.Deployme
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
 	var deployment *resources.DeploymentExtended
+	ctx := stdcontext.Background()
 	waitDeployment := func() error {
-		result, err := deploymentsClient.Get(env.resourceGroup, "common")
+		result, err := deploymentsClient.Get(ctx, env.resourceGroup, "common")
 		if err != nil {
 			if result.StatusCode == http.StatusNotFound {
 				// The controller model does not have a "common"
@@ -996,8 +1010,8 @@ func newStorageProfile(
 	osDiskSizeGB := mibToGB(instanceSpec.InstanceType.RootDisk)
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr(osDiskName),
-		CreateOption: compute.FromImage,
-		Caching:      compute.ReadWrite,
+		CreateOption: compute.DiskCreateOptionTypesFromImage,
+		Caching:      compute.CachingTypesReadWrite,
 		DiskSizeGB:   to.Int32Ptr(int32(osDiskSizeGB)),
 	}
 
@@ -1103,6 +1117,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		return nil
 	}
 
+	stdctx := stdcontext.Background()
 	// First up, cancel the deployments. Then we can identify the resources
 	// that need to be deleted without racing with their creation.
 	var wg sync.WaitGroup
@@ -1114,7 +1129,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		go func(i int, id instance.Id) {
 			defer wg.Done()
 			cancelResults[i] = errors.Annotatef(
-				env.cancelDeployment(string(id)),
+				env.cancelDeployment(stdctx, string(id)),
 				"canceling deployment %q", id,
 			)
 		}(i, id)
@@ -1165,6 +1180,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		go func(i int, id instance.Id) {
 			defer wg.Done()
 			err := env.deleteVirtualMachine(
+				stdctx,
 				id,
 				maybeStorageClient,
 				instanceNics[id],
@@ -1186,10 +1202,10 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // cancelDeployment cancels a template deployment.
-func (env *azureEnviron) cancelDeployment(name string) error {
+func (env *azureEnviron) cancelDeployment(ctx stdcontext.Context, name string) error {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	logger.Debugf("- canceling deployment %q", name)
-	cancelResult, err := deploymentsClient.Cancel(env.resourceGroup, name)
+	cancelResult, err := deploymentsClient.Cancel(ctx, env.resourceGroup, name)
 	if err != nil {
 		if cancelResult.Response != nil {
 			switch cancelResult.StatusCode {
@@ -1212,13 +1228,14 @@ func (env *azureEnviron) cancelDeployment(name string) error {
 // deleteVirtualMachine deletes a virtual machine and all of the resources that
 // it owns, and any corresponding network security rules.
 func (env *azureEnviron) deleteVirtualMachine(
+	ctx stdcontext.Context,
 	instId instance.Id,
 	maybeStorageClient internalazurestorage.Client,
 	networkInterfaces []network.Interface,
 	publicIPAddresses []network.PublicIPAddress,
 ) error {
 	vmClient := compute.VirtualMachinesClient{env.compute}
-	diskClient := disk.DisksClient{env.disk}
+	diskClient := compute.DisksClient{env.disk}
 	nicClient := network.InterfacesClient{env.network}
 	nsgClient := network.SecurityGroupsClient{env.network}
 	securityRuleClient := network.SecurityRulesClient{env.network}
@@ -1230,11 +1247,17 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
-	vmResultCh, errCh := vmClient.Delete(env.resourceGroup, vmName, nil)
-	if result, err := <-vmResultCh, <-errCh; err != nil {
-		if !isNotFoundResponse(result.Response) {
-			return errors.Annotate(err, "deleting virtual machine")
-		}
+	vmFuture, err := vmClient.Delete(ctx, env.resourceGroup, vmName)
+	if err != nil && !isNotFoundResponse(autorest.Response{vmFuture.Response()}) {
+		return errors.Annotate(err, "deleting virtual machine")
+	}
+	err = vmFuture.WaitForCompletion(ctx, vmClient.Client)
+	if err != nil {
+		return errors.Annotate(err, "deleting virtual machine")
+	}
+	result, err := vmFuture.Result(vmClient)
+	if err != nil && !isNotFoundResponse(result.Response) {
+		return errors.Annotate(err, "deleting virtual machine")
 	}
 
 	if maybeStorageClient != nil {
@@ -1247,11 +1270,17 @@ func (env *azureEnviron) deleteVirtualMachine(
 	} else {
 		// Delete the managed OS disk.
 		logger.Debugf("- deleting OS disk (%s)", vmName)
-		resultCh, errCh := diskClient.Delete(env.resourceGroup, vmName, nil)
-		if result, err := <-resultCh, <-errCh; err != nil {
-			if !isNotFoundResponse(result.Response) {
-				return errors.Annotate(err, "deleting OS disk")
-			}
+		diskFuture, err := diskClient.Delete(ctx, env.resourceGroup, vmName)
+		if err != nil && !isNotFoundResponse(autorest.Response{diskFuture.Response()}) {
+			return errors.Annotate(err, "deleting OS disk")
+		}
+		err = diskFuture.WaitForCompletion(ctx, diskClient.Client)
+		if err != nil {
+			return errors.Annotate(err, "deleting OS disk")
+		}
+		result, err := diskFuture.Result(diskClient)
+		if err != nil && !isNotFoundResponse(result.Response) {
+			return errors.Annotate(err, "deleting OS disk")
 		}
 	}
 
@@ -1267,11 +1296,17 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, nic := range networkInterfaces {
 		nicName := to.String(nic.Name)
 		logger.Tracef("deleting NIC %q", nicName)
-		resultCh, errCh := nicClient.Delete(env.resourceGroup, nicName, nil)
-		if result, err := <-resultCh, <-errCh; err != nil {
-			if !isNotFoundResponse(result) {
-				return errors.Annotate(err, "deleting NIC")
-			}
+		nicFuture, err := nicClient.Delete(ctx, env.resourceGroup, nicName)
+		if err != nil && !isNotFoundResponse(autorest.Response{nicFuture.Response()}) {
+			return errors.Annotate(err, "deleting NIC")
+		}
+		err = nicFuture.WaitForCompletion(ctx, nicClient.Client)
+		if err != nil {
+			return errors.Annotate(err, "deleting NIC")
+		}
+		result, err := nicFuture.Result(nicClient)
+		if err != nil && !isNotFoundResponse(result) {
+			return errors.Annotate(err, "deleting NIC")
 		}
 	}
 
@@ -1279,21 +1314,33 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, pip := range publicIPAddresses {
 		pipName := to.String(pip.Name)
 		logger.Tracef("deleting public IP %q", pipName)
-		resultCh, errCh := pipClient.Delete(env.resourceGroup, pipName, nil)
-		if result, err := <-resultCh, <-errCh; err != nil {
-			if !isNotFoundResponse(result) {
-				return errors.Annotate(err, "deleting public IP")
-			}
+		ipFuture, err := pipClient.Delete(ctx, env.resourceGroup, pipName)
+		if err != nil && !isNotFoundResponse(autorest.Response{ipFuture.Response()}) {
+			return errors.Annotate(err, "deleting public IP")
+		}
+		err = ipFuture.WaitForCompletion(ctx, pipClient.Client)
+		if err != nil {
+			return errors.Annotate(err, "deleting public IP")
+		}
+		result, err := ipFuture.Result(pipClient)
+		if err != nil && !isNotFoundResponse(result) {
+			return errors.Annotate(err, "deleting public IP")
 		}
 	}
 
 	// The deployment must be deleted last, or we risk leaking resources.
 	logger.Debugf("- deleting deployment (%s)", vmName)
-	resultCh, errCh := deploymentsClient.Delete(env.resourceGroup, vmName, nil)
-	if result, err := <-resultCh, <-errCh; err != nil {
-		if !isNotFoundResponse(result) {
-			return errors.Annotate(err, "deleting deployment")
-		}
+	deploymentFuture, err := deploymentsClient.Delete(ctx, env.resourceGroup, vmName)
+	if err != nil && !isNotFoundResponse(autorest.Response{deploymentFuture.Response()}) {
+		return errors.Annotate(err, "deleting deployment")
+	}
+	err = deploymentFuture.WaitForCompletion(ctx, deploymentsClient.Client)
+	if err != nil {
+		return errors.Annotate(err, "deleting deployment")
+	}
+	deploymentResult, err := deploymentFuture.Result(deploymentsClient)
+	if err != nil && !isNotFoundResponse(deploymentResult) {
+		return errors.Annotate(err, "deleting deployment")
 	}
 	return nil
 }
@@ -1350,33 +1397,33 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 		return errors.Trace(err)
 	}
 
-	apiVersions, err := collectAPIVersions(resources.ProvidersClient{env.resources})
+	stdctx := stdcontext.Background()
+	apiVersions, err := collectAPIVersions(stdctx, resources.ProvidersClient{env.resources})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	resourceClient := resources.GroupClient{env.resources}
-	res, err := groupClient.ListResources(env.resourceGroup, "", "", nil)
+	resourceClient := resources.Client{env.resources}
+	res, err := resourceClient.ListByResourceGroupComplete(stdctx, env.resourceGroup, "", "", nil)
 	if err != nil {
 		return errors.Annotate(err, "listing resources")
 	}
 	var failed []string
-	for res.Value != nil {
-		for _, resource := range *res.Value {
-			apiVersion := apiVersions[to.String(resource.Type)]
-			err := env.updateResourceControllerTag(
-				internalazureresources.ResourcesClient{&resourceClient},
-				resource, controllerUUID, apiVersion,
-			)
-			if err != nil {
-				name := to.String(resource.Name)
-				logger.Errorf("error updating resource tags for %q: %v", name, err)
-				failed = append(failed, name)
-			}
-		}
-		res, err = groupClient.ListResourcesNextResults(res)
+	for ; res.NotDone(); err = res.Next() {
 		if err != nil {
-			return errors.Annotate(err, "getting next page of resources")
+			return errors.Annotate(err, "listing resources")
+		}
+		resource := res.Value()
+		apiVersion := apiVersions[to.String(resource.Type)]
+		err := env.updateResourceControllerTag(
+			stdctx,
+			internalazureresources.ResourcesClient{&resourceClient},
+			resource, controllerUUID, apiVersion,
+		)
+		if err != nil {
+			name := to.String(resource.Name)
+			logger.Errorf("error updating resource tags for %q: %v", name, err)
+			failed = append(failed, name)
 		}
 	}
 
@@ -1387,7 +1434,8 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 }
 
 func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient, groupName, controllerUUID string) error {
-	group, err := client.Get(groupName)
+	ctx := stdcontext.Background()
+	group, err := client.Get(ctx, groupName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1396,26 +1444,25 @@ func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient
 		"updating resource group %s juju controller uuid to %s",
 		to.String(group.Name), controllerUUID,
 	)
-	groupTags := toTags(group.Tags)
-	groupTags[tags.JujuController] = controllerUUID
-	group.Tags = to.StringMapPtr(groupTags)
+	group.Tags[tags.JujuController] = to.StringPtr(controllerUUID)
 
 	// The Azure API forbids specifying ProvisioningState on the update.
 	if group.Properties != nil {
 		(*group.Properties).ProvisioningState = nil
 	}
 
-	_, err = client.CreateOrUpdate(groupName, group)
+	_, err = client.CreateOrUpdate(ctx, groupName, group)
 	return errors.Annotatef(err, "updating controller for resource group %q", groupName)
 }
 
 func (env *azureEnviron) updateResourceControllerTag(
+	ctx stdcontext.Context,
 	client internalazureresources.ResourcesClient,
 	stubResource resources.GenericResource,
 	controllerUUID string,
 	apiVersion string,
 ) error {
-	stubTags := toTags(stubResource.Tags)
+	stubTags := to.StringMap(stubResource.Tags)
 	if stubTags[tags.JujuController] == controllerUUID {
 		// No update needed.
 		return nil
@@ -1423,22 +1470,19 @@ func (env *azureEnviron) updateResourceControllerTag(
 
 	// Need to get the resource individually to ensure that the
 	// properties are populated.
-	resource, err := client.GetByID(to.String(stubResource.ID), apiVersion)
+	resource, err := client.GetByID(ctx, to.String(stubResource.ID), apiVersion)
 	if err != nil {
 		return errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name))
 	}
 
 	logger.Debugf("updating %s juju controller UUID to %s", to.String(stubResource.ID), controllerUUID)
-	resourceTags := toTags(resource.Tags)
-	resourceTags[tags.JujuController] = controllerUUID
-	resource.Tags = to.StringMapPtr(resourceTags)
-	_, errCh := client.CreateOrUpdateByID(
+	resource.Tags[tags.JujuController] = to.StringPtr(controllerUUID)
+	_, err = client.CreateOrUpdateByID(
+		ctx,
 		to.String(stubResource.ID),
 		resource,
-		nil, // cancel channel
 		apiVersion,
 	)
-	err = <-errCh
 	return errors.Annotatef(err, "updating controller for %q", to.String(resource.Name))
 }
 
@@ -1456,21 +1500,26 @@ func (env *azureEnviron) allInstances(
 	controllerOnly bool,
 ) ([]instance.Instance, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
-	deploymentsResult, err := deploymentsClient.List(resourceGroup, "", nil)
+	stdctx := stdcontext.Background()
+	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(stdctx, resourceGroup, "", nil)
 	if err != nil {
-		if isNotFoundResponse(deploymentsResult.Response) {
+		if isNotFoundResponse(deploymentsResult.Response().Response) {
 			// This will occur if the resource group does not
 			// exist, e.g. in a fresh hosted environment.
 			return nil, nil
 		}
 		return nil, errors.Trace(err)
 	}
-	if deploymentsResult.Value == nil || len(*deploymentsResult.Value) == 0 {
+	if !deploymentsResult.NotDone() {
 		return nil, nil
 	}
 
-	azureInstances := make([]*azureInstance, 0, len(*deploymentsResult.Value))
-	for _, deployment := range *deploymentsResult.Value {
+	var azureInstances []*azureInstance
+	for ; deploymentsResult.NotDone(); err = deploymentsResult.Next() {
+		if err != nil {
+			return nil, errors.Annotate(err, "listing resources")
+		}
+		deployment := deploymentsResult.Value()
 		name := to.String(deployment.Name)
 		if _, err := names.ParseMachineTag(name); err != nil {
 			// Deployments we create for Juju machines are named
@@ -1532,7 +1581,7 @@ func isControllerDeployment(deployment resources.DeploymentExtended) bool {
 func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 	logger.Debugf("destroying model %q", env.envName)
 	logger.Debugf("- deleting resource group %q", env.resourceGroup)
-	if err := env.deleteResourceGroup(env.resourceGroup); err != nil {
+	if err := env.deleteResourceGroup(stdcontext.Background(), env.resourceGroup); err != nil {
 		return errors.Trace(err)
 	}
 	// Resource groups are self-contained and fully encompass
@@ -1560,25 +1609,33 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 		tags.JujuController, controllerUUID,
 	)
 	client := resources.GroupsClient{env.resources}
-	result, err := client.List(filter, nil)
+	ctx := stdcontext.Background()
+	result, err := client.List(ctx, filter, nil)
 	if err != nil {
 		return errors.Annotate(err, "listing resource groups")
 	}
-	if result.Value == nil {
+	if !result.NotDone() {
 		return nil
 	}
 
+	// Walk all the pages of results so we can get a total list of groups to remove.
+	var groupNames []*string
+	for ; result.NotDone(); err = result.Next() {
+		for _, group := range result.Values() {
+			groupNames = append(groupNames, group.Name)
+		}
+	}
 	// Deleting groups can take a long time, so make sure they are
 	// deleted in parallel.
 	var wg sync.WaitGroup
-	errs := make([]error, len(*result.Value))
-	for i, group := range *result.Value {
-		groupName := to.String(group.Name)
-		logger.Debugf("  - deleting resource group %q", groupName)
+	errs := make([]error, len(groupNames))
+	for i, name := range groupNames {
+		groupName := to.String(name)
+		logger.Debugf("  - deleting resource group %q", name)
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if err := env.deleteResourceGroup(groupName); err != nil {
+			if err := env.deleteResourceGroup(ctx, groupName); err != nil {
 				errs[i] = errors.Annotatef(
 					err, "deleting resource group %q", groupName,
 				)
@@ -1608,10 +1665,17 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 	return errors.New(strings.Join(combined, "; "))
 }
 
-func (env *azureEnviron) deleteResourceGroup(resourceGroup string) error {
+func (env *azureEnviron) deleteResourceGroup(ctx stdcontext.Context, resourceGroup string) error {
 	client := resources.GroupsClient{env.resources}
-	resultCh, errCh := client.Delete(resourceGroup, nil)
-	result, err := <-resultCh, <-errCh
+	future, err := client.Delete(ctx, resourceGroup)
+	if err != nil && !isNotFoundResponse(autorest.Response{future.Response()}) {
+		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
+	}
+	err = future.WaitForCompletion(ctx, client.Client)
+	if err != nil {
+		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
+	}
+	result, err := future.Result(client)
 	if err != nil && !isNotFoundResponse(result) {
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
@@ -1659,7 +1723,7 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 	location := env.location
 	client := compute.VirtualMachineSizesClient{env.compute}
 
-	result, err := client.List(location)
+	result, err := client.List(stdcontext.Background(), location)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing VM sizes")
 	}
@@ -1738,7 +1802,7 @@ func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
 		return *env.storageAccount, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	account, err := client.GetProperties(env.resourceGroup, env.storageAccountName)
+	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName)
 	if err != nil {
 		if isNotFoundResponse(account.Response) {
 			// Remember that the account was not found
