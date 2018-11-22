@@ -107,6 +107,10 @@ func (mock *mockConn) Broken() <-chan struct{} {
 	return mock.broken
 }
 
+func (mock *mockConn) Addr() string {
+	return "testing.invalid"
+}
+
 func (mock *mockConn) Close() error {
 	mock.stub.AddCall("Close")
 	return mock.stub.NextErr()
@@ -175,7 +179,7 @@ func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(
 }
 
 func checkOpenCalls(c *gc.C, stub *testing.Stub, passwords ...string) {
-	calls := openCalls(names.ModelTag{}, nil, passwords...)
+	calls := openCalls(names.ModelTag{}, testEntity, passwords...)
 	stub.CheckCalls(c, calls)
 }
 

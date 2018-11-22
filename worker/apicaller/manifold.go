@@ -83,7 +83,9 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 		if errors.Cause(err) == ErrChangedPassword {
 			return nil, dependency.ErrBounce
 		} else if err != nil {
-			return nil, errors.Annotate(err, "cannot open api")
+			cfg := agent.CurrentConfig()
+			return nil, errors.Annotatef(err, "[%s] %q cannot open api",
+				shortModelUUID(cfg.Model()), cfg.Tag().String())
 		}
 		return newAPIConnWorker(conn), nil
 	}

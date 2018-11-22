@@ -21,6 +21,7 @@ import (
 	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/series"
+	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/service"
@@ -255,7 +256,12 @@ func editLXDBridgeFile(input string, subnet string) string {
 // apt.GetInstall.
 func ensureDependencies(series string) error {
 	if series == "precise" {
-		return fmt.Errorf("LXD is not supported in precise.")
+		return errors.NotSupportedf(`LXD containers on series "precise"`)
+	}
+
+	if lxdViaSnap() {
+		logger.Infof("LXD snap is installed; skipping package installation")
+		return nil
 	}
 
 	pacman, err := getPackageManager(series)
@@ -284,6 +290,12 @@ func ensureDependencies(series string) error {
 	}
 
 	return errors.Trace(err)
+}
+
+// lxdViaSnap interrogates the location of the Snap LXD socket in order
+// to determine if LXD is being provided via that method.
+var lxdViaSnap = func() bool {
+	return shared.IsUnixSocket("/var/snap/lxd/common/lxd/unix.socket")
 }
 
 // randomizedOctetRange is a variable for testing purposes.
@@ -376,26 +388,22 @@ func parseLXDBridgeConfigValues(input string) map[string]string {
 
 	for _, line := range strings.Split(input, "\n") {
 		line = strings.TrimSpace(line)
-
 		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
 			continue
 		}
 
 		tokens := strings.Split(line, "=")
-
 		if tokens[0] == "" {
 			continue // no key
 		}
 
 		value := ""
-
 		if len(tokens) > 1 {
 			value = tokens[1]
 			if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 				value = strings.Trim(value, `"`)
 			}
 		}
-
 		values[tokens[0]] = value
 	}
 	return values
@@ -424,41 +432,44 @@ func bridgeConfiguration(input string) (string, error) {
 var IsRunningLocally = isRunningLocally
 
 func isRunningLocally() (bool, error) {
-	installed, err := IsInstalledLocally()
-	if err != nil {
-		return installed, errors.Trace(err)
-	}
-	if !installed {
-		return false, nil
+	svcName, err := InstalledServiceName()
+	if svcName == "" || err != nil {
+		return false, errors.Trace(err)
 	}
 
 	hostSeries, err := series.HostSeries()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	svc, err := service.NewService("lxd", common.Conf{}, hostSeries)
+
+	svc, err := service.NewService(svcName, common.Conf{}, hostSeries)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-
 	running, err := svc.Running()
 	if err != nil {
 		return running, errors.Trace(err)
 	}
-
 	return running, nil
 }
 
-// IsInstalledLocally returns true if LXD is installed locally.
-func IsInstalledLocally() (bool, error) {
+// InstalledServiceName returns the name of the running service for the LXD
+// daemon. If LXD is not installed, the return is an empty string.
+func InstalledServiceName() (string, error) {
 	names, err := service.ListServices()
 	if err != nil {
-		return false, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
+
+	// Prefer the Snap service.
+	svcName := ""
 	for _, name := range names {
+		if name == "snap.lxd.daemon" {
+			return name, nil
+		}
 		if name == "lxd" {
-			return true, nil
+			svcName = name
 		}
 	}
-	return false, nil
+	return svcName, nil
 }

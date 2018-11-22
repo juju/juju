@@ -151,6 +151,7 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	}
 	otherModel, err := otherState.Model()
 	if err != nil {
+		otherState.Release()
 		return nil, nil, err
 	}
 	return modelManagerStateShim{otherState.State, otherModel, st.pool}, otherState.Release, nil

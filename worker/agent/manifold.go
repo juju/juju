@@ -10,6 +10,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/version"
 )
 
 // Manifold returns a manifold that starts a worker proxying the supplied Agent
@@ -66,7 +67,8 @@ func (w *agentWorker) Wait() error {
 func (w *agentWorker) Report() map[string]interface{} {
 	cfg := w.agent.CurrentConfig()
 	return map[string]interface{}{
-		"model-uuid": cfg.Model().Id(),
 		"agent":      cfg.Tag().String(),
+		"model-uuid": cfg.Model().Id(),
+		"version":    version.Current.String(),
 	}
 }

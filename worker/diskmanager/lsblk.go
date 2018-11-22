@@ -188,7 +188,7 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 		return errors.Annotate(err, msg)
 	}
 
-	var devpath, idBus, idSerial string
+	var devpath, idBus, idSerial, wwnWithExtension string
 
 	s := bufio.NewScanner(bytes.NewReader(output))
 	for s.Scan() {
@@ -210,6 +210,8 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 			idSerial = value
 		case "ID_WWN":
 			dev.WWN = value
+		case "ID_WWN_WITH_EXTENSION":
+			wwnWithExtension = value
 		default:
 			logger.Tracef("ignoring line: %q", line)
 		}
@@ -218,6 +220,14 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 		return errors.Annotate(err, "cannot parse udevadm output")
 	}
 
+	// For cases where there are logical disks attached to a
+	// controller (eg RAID), the controller itself has a WWN
+	// which is the ID_WWN value and each disk has a WWN with
+	// a vendor extension ID_WWN_WITH_EXTENSION added to
+	// identify the disk via the /dev/disk/by-id path.
+	if wwnWithExtension != "" {
+		dev.WWN = wwnWithExtension
+	}
 	if idBus != "" && idSerial != "" {
 		// ID_BUS will be something like "scsi" or "ata";
 		// ID_SERIAL will be something like ${MODEL}_${SERIALNO};

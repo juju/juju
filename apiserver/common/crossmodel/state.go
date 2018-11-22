@@ -31,7 +31,8 @@ func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	}
 	model, err := st.Model()
 	if err != nil {
-		return stateShim{}, closer, err
+		closer()
+		return nil, nil, err
 	}
 	return stateShim{st.State, model}, closer, err
 }

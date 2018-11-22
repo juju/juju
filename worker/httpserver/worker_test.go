@@ -30,6 +30,7 @@ import (
 type workerFixture struct {
 	testing.IsolationSuite
 	prometheusRegisterer stubPrometheusRegisterer
+	agentName            string
 	mux                  *apiserverhttp.Mux
 	clock                *testclock.Clock
 	hub                  *pubsub.StructuredHub
@@ -48,8 +49,9 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = pubsub.NewStructuredHub(nil)
-
+	s.agentName = "machine-42"
 	s.config = httpserver.Config{
+		AgentName:            s.agentName,
 		Clock:                s.clock,
 		TLSConfig:            tlsConfig,
 		Mux:                  s.mux,
@@ -73,6 +75,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
+		func(cfg *httpserver.Config) { cfg.AgentName = "" },
+		"empty AgentName not valid",
+	}, {
 		func(cfg *httpserver.Config) { cfg.TLSConfig = nil },
 		"nil TLSConfig not valid",
 	}, {
@@ -313,6 +318,19 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(parsed.Port(), gc.Equals, fmt.Sprint(controllerPort))
 
+	reportPorts := map[string]interface{}{
+		"controller": fmt.Sprintf("[::]:%d", s.config.ControllerAPIPort),
+		"status":     "waiting for signal to open agent port",
+	}
+	report := map[string]interface{}{
+		"api-port":            s.config.APIPort,
+		"api-port-open-delay": s.config.APIPortOpenDelay,
+		"controller-api-port": s.config.ControllerAPIPort,
+		"status":              "running",
+		"ports":               reportPorts,
+	}
+	c.Check(worker.Report(), jc.DeepEquals, report)
+
 	// Requests on that port work.
 	c.Assert(request(controllerURL), jc.ErrorIsNil)
 
@@ -321,15 +339,33 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	normalURL := parsed.String()
 	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
 
+	// Getting a connection from someone else doesn't unblock.
+	handled, err := s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
+		AgentTag: "machine-13",
+		Origin:   s.agentName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-handled:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("the handler should have exited early and not be waiting")
+	}
+
 	// Send API details on the hub - still no luck connecting on the
 	// non-controller port.
-	_, err = s.hub.Publish(apiserver.DetailsTopic, map[string]interface{}{})
+	_, err = s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
+		AgentTag: s.agentName,
+		Origin:   s.agentName,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(request(controllerURL), jc.ErrorIsNil)
 	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
+
+	reportPorts["status"] = "waiting prior to opening agent port"
+	c.Check(worker.Report(), jc.DeepEquals, report)
 
 	// After the required delay the port eventually opens.
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
@@ -345,4 +381,8 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	// Requests on both ports work.
 	c.Assert(request(controllerURL), jc.ErrorIsNil)
 	c.Assert(request(normalURL), jc.ErrorIsNil)
+
+	delete(reportPorts, "status")
+	reportPorts["agent"] = fmt.Sprintf("[::]:%d", s.config.APIPort)
+	c.Check(worker.Report(), jc.DeepEquals, report)
 }

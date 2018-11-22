@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -151,11 +152,22 @@ func connectFallback(
 	// At this point we've run out of reasons to retry connecting,
 	// and just go with whatever error we last saw (if any).
 	if err != nil {
-		logger.Debugf("failed to connect")
+		logger.Debugf("[%s] failed to connect", shortModelUUID(info.ModelTag))
 		return nil, false, errors.Trace(err)
 	}
-	logger.Debugf("connected")
+	logger.Infof("[%s] %q successfully connected to %q",
+		shortModelUUID(info.ModelTag),
+		info.Tag.String(),
+		conn.Addr())
 	return conn, didFallback, nil
+}
+
+func shortModelUUID(model names.ModelTag) string {
+	uuid := model.Id()
+	if len(uuid) > 6 {
+		return uuid[:6]
+	}
+	return uuid
 }
 
 // ScaryConnect logs into the API using the supplied agent's credentials,
@@ -239,7 +251,8 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Debugf("password changed")
+		logger.Infof("[%s] password changed for %q",
+			shortModelUUID(agentConfig.Model()), entity.String())
 		return nil, ErrChangedPassword
 	}
 

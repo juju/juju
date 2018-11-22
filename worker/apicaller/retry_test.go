@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/worker/apicaller"
+	"gopkg.in/juju/names.v2"
 )
 
 // RetryStrategySuite exercises the cases where we need to connect
@@ -32,6 +33,8 @@ type RetryStrategySuite struct {
 
 var _ = gc.Suite(&RetryStrategySuite{})
 
+var testEntity = names.NewMachineTag("42")
+
 func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(
@@ -42,7 +45,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(&mockAgent{stub: stub}, apiOpen)
+		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen)
 	})
 	checkOpenCalls(c, stub, "new", "new", "new")
 	c.Check(conn, gc.NotNil)
@@ -60,7 +63,7 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(&mockAgent{stub: stub}, apiOpen)
+		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen)
 	})
 	checkOpenCalls(c, stub, "new", "old", "old", "old")
 	c.Check(err, jc.ErrorIsNil)
@@ -90,7 +93,7 @@ func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(&mockAgent{stub: stub}, apiOpen)
+		return connect(&mockAgent{stub: stub, entity: testEntity}, apiOpen)
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err
@@ -119,7 +122,7 @@ func checkWaitNeverProvisioned(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 	// TODO(katco): 2016-08-09: lp:1611427
 	strategy := utils.AttemptStrategy{Min: 3}
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(&mockAgent{stub: stub}, apiOpen)
+		return connect(&mockAgent{stub: stub, entity: testEntity}, apiOpen)
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err
