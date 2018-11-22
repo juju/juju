@@ -64,7 +64,7 @@ var _ = gc.Suite(&TLSStateAutocertSuite{})
 func (s *TLSStateAutocertSuite) SetUpSuite(c *gc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.autocertQueried = true
-		http.Error(w, "burp", http.StatusInternalServerError)
+		http.Error(w, "burp", http.StatusUnavailableForLegalReasons)
 	}))
 	s.ControllerConfig = map[string]interface{}{
 		"autocert-dns-name": "public.invalid",
