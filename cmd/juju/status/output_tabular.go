@@ -96,8 +96,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if fs.Storage != nil {
-		fmt.Fprintln(tw)
-		storage.FormatListTabularAll(tw, *fs.Storage)
+		storage.FormatStorageListForStatusTabular(tw, *fs.Storage)
 	}
 
 	endSection(tw)

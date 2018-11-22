@@ -21,7 +21,6 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	// print("[Filesystems]")
 
 	haveMachines := false
 	filesystemAttachmentInfos := make(filesystemAttachmentInfos, 0, len(infos))

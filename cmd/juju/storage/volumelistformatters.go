@@ -21,7 +21,6 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	// print("[Volumes]")
 
 	haveMachines := false
 	volumeAttachmentInfos := make(volumeAttachmentInfos, 0, len(infos))
