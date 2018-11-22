@@ -180,7 +180,9 @@ var skippedDeviceNames = set.NewStrings(
 // 2. Add b- to device name, if it doesn't fit in 15 characters then:
 // 3a. For devices starting in 'en' remove 'en' and add 'b-'
 // 3b. For all other devices 'b-' + 6-char hash of name + '-' + last 6 chars of name
+// 4. If using the device name directly always replace '.' with '-', to make sure that bridges from VLANs won't break
 func BridgeNameForDevice(device string) string {
+	device = strings.Replace(device, ".", "-", -1)
 	switch {
 	case len(device) < 13:
 		return fmt.Sprintf("br-%s", device)
