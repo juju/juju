@@ -185,11 +185,11 @@ func BridgeNameForDevice(device string) string {
 	device = strings.Replace(device, ".", "-", -1)
 	switch {
 	case len(device) < 13:
-		return fmt.Sprintf("br-%s", strings.Replace(device, ".", "-", -1))
+		return fmt.Sprintf("br-%s", device)
 	case len(device) == 13:
-		return fmt.Sprintf("b-%s", strings.Replace(device, ".", "-", -1))
+		return fmt.Sprintf("b-%s", device)
 	case device[:2] == "en":
-		return fmt.Sprintf("b-%s", strings.Replace(device[2:], ".", "-", -1))
+		return fmt.Sprintf("b-%s", device[2:])
 	default:
 		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
 		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
