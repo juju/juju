@@ -6,7 +6,7 @@ package azure
 import (
 	"context"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -23,7 +23,7 @@ func createDeployment(
 		return errors.Trace(err)
 	}
 	deployment := resources.Deployment{
-		&resources.DeploymentProperties{
+		Properties: &resources.DeploymentProperties{
 			Template: &templateMap,
 			Mode:     resources.Incremental,
 		},
@@ -35,7 +35,6 @@ func createDeployment(
 		deploymentName,
 		deployment,
 	)
-	// veebers: I think its fine that we're ignoring the result future.
 	if err != nil {
 		return errors.Annotatef(err, "creating deployment %q", deploymentName)
 	}

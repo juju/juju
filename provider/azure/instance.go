@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -101,7 +101,8 @@ func instanceNetworkInterfaces(
 	resourceGroup string,
 	nicClient network.InterfacesClient,
 ) (map[instance.Id][]network.Interface, error) {
-	nicsResult, err := nicClient.ListComplete(stdcontext.Background(), resourceGroup)
+	ctx := stdcontext.Background()
+	nicsResult, err := nicClient.ListComplete(ctx, resourceGroup)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing network interfaces")
 	}
@@ -109,7 +110,7 @@ func instanceNetworkInterfaces(
 		return nil, nil
 	}
 	instanceNics := make(map[instance.Id][]network.Interface)
-	for ; nicsResult.NotDone(); err = nicsResult.Next() {
+	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(ctx) {
 		nic := nicsResult.Value()
 		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
 		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
@@ -124,7 +125,8 @@ func instancePublicIPAddresses(
 	resourceGroup string,
 	pipClient network.PublicIPAddressesClient,
 ) (map[instance.Id][]network.PublicIPAddress, error) {
-	pipsResult, err := pipClient.ListComplete(stdcontext.Background(), resourceGroup)
+	ctx := stdcontext.Background()
+	pipsResult, err := pipClient.ListComplete(ctx, resourceGroup)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing public IP addresses")
 	}
@@ -132,7 +134,7 @@ func instancePublicIPAddresses(
 		return nil, nil
 	}
 	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for ; pipsResult.NotDone(); err = pipsResult.Next() {
+	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(ctx) {
 		pip := pipsResult.Value()
 		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
 		instancePips[instanceId] = append(instancePips[instanceId], pip)
@@ -314,10 +316,13 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 			stdcontext.Background(),
 			inst.env.resourceGroup, securityGroupName, ruleName,
 		)
-		if err != nil && !isNotFoundResponse(autorest.Response{future.Response()}) {
-			return errors.Annotatef(err, "deleting security rule %q", ruleName)
+		if err != nil {
+			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+				return errors.Annotatef(err, "deleting security rule %q", ruleName)
+			}
+			continue
 		}
-		err = future.WaitForCompletion(stdctx, securityRuleClient.Client)
+		err = future.WaitForCompletionRef(stdctx, securityRuleClient.Client)
 		if err != nil {
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}
@@ -451,10 +456,13 @@ func deleteInstanceNetworkSecurityRules(
 			internalSecurityGroupName,
 			ruleName,
 		)
-		if err != nil && !isNotFoundResponse(autorest.Response{future.Response()}) {
-			return errors.Annotatef(err, "deleting security rule %q", ruleName)
+		if err != nil {
+			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+				return errors.Annotatef(err, "deleting security rule %q", ruleName)
+			}
+			continue
 		}
-		err = future.WaitForCompletion(ctx, securityRuleClient.Client)
+		err = future.WaitForCompletionRef(ctx, securityRuleClient.Client)
 		if err != nil {
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}

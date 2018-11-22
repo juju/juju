@@ -4,10 +4,11 @@
 package azureauth_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -30,9 +31,10 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *gc.C) {
 	})
 	sender.AppendResponse(resp)
 
-	client := subscriptions.NewGroupClient()
+	client := subscriptions.NewClient()
+	ctx := context.Background()
 	client.Sender = sender
-	authURI, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
+	authURI, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authURI, jc.DeepEquals, &url.URL{
 		Scheme: "https",
@@ -46,9 +48,10 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIMissingHeader(c *gc.C) {
 	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
 	sender.AppendResponse(resp)
 
-	client := subscriptions.NewGroupClient()
+	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
+	ctx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, `WWW-Authenticate header not found`)
 }
 
@@ -58,9 +61,10 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIHeaderMismatch(c *gc.C) {
 	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{`foo bar baz`})
 	sender.AppendResponse(resp)
 
-	client := subscriptions.NewGroupClient()
+	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
+	ctx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, `authorization_uri not found in WWW-Authenticate header \("foo bar baz"\)`)
 }
 
@@ -69,9 +73,10 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedSuccess(c *gc.C) {
 	resp := mocks.NewResponseWithStatus("", http.StatusOK)
 	sender.AppendResponse(resp)
 
-	client := subscriptions.NewGroupClient()
+	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
+	ctx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response")
 }
 
@@ -80,9 +85,10 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedStatusCode(c *gc.C)
 	resp := mocks.NewResponseWithStatus("", http.StatusNotFound)
 	sender.AppendResponse(resp)
 
-	client := subscriptions.NewGroupClient()
+	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
+	ctx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response, got 404: .*")
 }
 

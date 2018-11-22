@@ -7,14 +7,14 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/validation"
 	"github.com/Azure/go-autorest/tracing"
 )
 
 // The package's fully qualified name.
-const fqdn = "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+const fqdn = "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 
 // ResourcesClient wraps resources.GroupClient, providing methods for
 // dealing with generic resources.

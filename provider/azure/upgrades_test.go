@@ -6,10 +6,10 @@ package azure_test
 import (
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
-	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
-	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -176,7 +176,8 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	unmarshalRequestBody(c, s.requests[2], &actual)
 	c.Assert(actual.Properties, gc.NotNil)
 	c.Assert(actual.Properties.Template, gc.NotNil)
-	resources := (*actual.Properties.Template)["resources"].([]interface{})
+	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(resources, gc.HasLen, len(templateResources))
 }
 
@@ -192,7 +193,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	vms := []compute.VirtualMachine{{
 		Tags: nil,
 	}, {
-		Tags: &controllerTags,
+		Tags: controllerTags,
 	}}
 	vmListSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
 		Value: &vms,

@@ -101,7 +101,7 @@ github.com/prometheus/procfs	git	abf152e5f3e97f2fafac028d2cc06c1feb87ffa5	2016-0
 github.com/rogpeppe/fastuuid	git	6724a57986aff9bff1a1770e9347036def7c89f6	2015-01-06T09:32:20Z
 github.com/satori/go.uuid	git	b2ce2384e17bbe0c6d34077efa39dbab3e09123b	2018-10-28T12:50:25Z
 github.com/vmware/govmomi	git	05504416e95561e1478196d7058721c827a7bb8c	2018-03-06T20:02:55Z
-go.opencensus.io	git	91a0276ece6ad4cbdc4b46116f88d2b47a5f58e5	2018-11-12T17:26:09Z
+go.opencensus.io/	git	91a0276ece6ad4cbdc4b46116f88d2b47a5f58e5	2018-11-12T17:26:09Z
 golang.org/x/crypto	git	650f4a345ab4e5b245a3034b110ebc7299e68186	2018-02-14T00:00:28Z
 golang.org/x/net	git	61147c48b25b599e5b561d2e9c4f3e1ef489ca41	2018-04-06T21:48:16Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z

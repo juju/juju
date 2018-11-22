@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -118,7 +119,7 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
-	c.Assert(calls[0].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(calls[0].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
@@ -216,7 +217,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
-	c.Assert(calls[0].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(calls[0].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
@@ -233,7 +234,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 		TenantId:       "tenant-id",
 	})
 	c.Assert(calls[1].FuncName, gc.Equals, "Create")
-	c.Assert(calls[1].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(calls[1].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
@@ -298,7 +299,7 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
-	c.Assert(calls[0].Args[0], jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(calls[0].Args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:   "https://graph.invalid/",
 		GraphResourceId: "https://graph.invalid/",
 		GraphAuthorizer: autorest.NewBearerAuthorizer(&adal.Token{
@@ -336,7 +337,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 
 	s.servicePrincipalCreator.CheckCallNames(c, "InteractiveCreate")
 	args := s.servicePrincipalCreator.Calls()[0].Args
-	c.Assert(args[1], jc.DeepEquals, azureauth.ServicePrincipalParams{
+	c.Assert(args[2], jc.DeepEquals, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid/",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -587,13 +588,13 @@ type servicePrincipalCreator struct {
 	testing.Stub
 }
 
-func (c *servicePrincipalCreator) InteractiveCreate(stderr io.Writer, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
-	c.MethodCall(c, "InteractiveCreate", stderr, params)
+func (c *servicePrincipalCreator) InteractiveCreate(ctx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
+	c.MethodCall(c, "InteractiveCreate", ctx, stderr, params)
 	return "appid", "service-principal-password", c.NextErr()
 }
 
-func (c *servicePrincipalCreator) Create(params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
-	c.MethodCall(c, "Create", params)
+func (c *servicePrincipalCreator) Create(ctx context.Context, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
+	c.MethodCall(c, "Create", ctx, params)
 	return "appid", "service-principal-password", c.NextErr()
 }
 

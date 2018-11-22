@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-03-30/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-06-01/storage"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -63,13 +63,18 @@ const (
 	// that cannot be cancelled.
 	serviceErrorCodeDeploymentCannotBeCancelled = "DeploymentCannotBeCancelled"
 
+	// serviceErrorCodeResourceGroupBeingDeleted is the error code for
+	// service errors in response to an attempt to cancel a deployment
+	// that has already started to be deleted..
+	serviceErrorCodeResourceGroupBeingDeleted = "ResourceGroupBeingDeleted"
+
 	// controllerAvailabilitySet is the name of the availability set
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
 
-	computeAPIVersion = "2016-04-30-preview"
-	networkAPIVersion = "2017-03-01"
-	storageAPIVersion = "2016-12-01"
+	computeAPIVersion = "2018-10-01"
+	networkAPIVersion = "2018-08-01"
+	storageAPIVersion = "2018-07-01"
 )
 
 type azureEnviron struct {
@@ -101,8 +106,7 @@ type azureEnviron struct {
 	// authorizer is the authorizer we use for Azure.
 	authorizer *cloudSpecAuth
 
-	compute compute.BaseClient
-	// do disk and compute need to be separate now?
+	compute            compute.BaseClient
 	disk               compute.BaseClient
 	resources          resources.BaseClient
 	storage            storage.BaseClient
@@ -685,11 +689,10 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	// need to decide either standard or basic IP here based on existing machines (i.e. the controller)
 	publicIPAddressName := vmName + "-public-ip"
 	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: "2017-08-01",
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/publicIPAddresses",
 		Name:       publicIPAddressName,
 		Location:   env.location,
@@ -1213,7 +1216,8 @@ func (env *azureEnviron) cancelDeployment(ctx stdcontext.Context, name string) e
 				return errors.NewNotFound(err, fmt.Sprintf("deployment %q not found", name))
 			case http.StatusConflict:
 				if err, ok := errorutils.ServiceError(err); ok {
-					if err.Code == serviceErrorCodeDeploymentCannotBeCancelled {
+					if err.Code == serviceErrorCodeDeploymentCannotBeCancelled ||
+						err.Code == serviceErrorCodeResourceGroupBeingDeleted {
 						// Deployments can only canceled while they're running.
 						return nil
 					}
@@ -1251,15 +1255,16 @@ func (env *azureEnviron) deleteVirtualMachine(
 	if err != nil && !isNotFoundResponse(autorest.Response{vmFuture.Response()}) {
 		return errors.Annotate(err, "deleting virtual machine")
 	}
-	err = vmFuture.WaitForCompletion(ctx, vmClient.Client)
-	if err != nil {
-		return errors.Annotate(err, "deleting virtual machine")
+	if !isNotFoundResponse(autorest.Response{vmFuture.Response()}) {
+		err = vmFuture.WaitForCompletionRef(ctx, vmClient.Client)
+		if err != nil {
+			return errors.Annotate(err, "deleting virtual machine")
+		}
+		result, err := vmFuture.Result(vmClient)
+		if err != nil && !isNotFoundResponse(result) {
+			return errors.Annotate(err, "deleting virtual machine")
+		}
 	}
-	result, err := vmFuture.Result(vmClient)
-	if err != nil && !isNotFoundResponse(result.Response) {
-		return errors.Annotate(err, "deleting virtual machine")
-	}
-
 	if maybeStorageClient != nil {
 		logger.Debugf("- deleting OS VHD (%s)", vmName)
 		blobClient := maybeStorageClient.GetBlobService()
@@ -1267,23 +1272,24 @@ func (env *azureEnviron) deleteVirtualMachine(
 		vhdBlob := vhdContainer.Blob(vmName)
 		_, err := vhdBlob.DeleteIfExists(nil)
 		return errors.Annotate(err, "deleting OS VHD")
-	} else {
-		// Delete the managed OS disk.
-		logger.Debugf("- deleting OS disk (%s)", vmName)
-		diskFuture, err := diskClient.Delete(ctx, env.resourceGroup, vmName)
-		if err != nil && !isNotFoundResponse(autorest.Response{diskFuture.Response()}) {
-			return errors.Annotate(err, "deleting OS disk")
-		}
-		err = diskFuture.WaitForCompletion(ctx, diskClient.Client)
+	}
+
+	// Delete the managed OS disk.
+	logger.Debugf("- deleting OS disk (%s)", vmName)
+	diskFuture, err := diskClient.Delete(ctx, env.resourceGroup, vmName)
+	if err != nil && !isNotFoundResponse(autorest.Response{diskFuture.Response()}) {
+		return errors.Annotate(err, "deleting OS disk")
+	}
+	if !isNotFoundResponse(autorest.Response{diskFuture.Response()}) {
+		err = diskFuture.WaitForCompletionRef(ctx, diskClient.Client)
 		if err != nil {
 			return errors.Annotate(err, "deleting OS disk")
 		}
 		result, err := diskFuture.Result(diskClient)
-		if err != nil && !isNotFoundResponse(result.Response) {
+		if err != nil && !isNotFoundResponse(result) {
 			return errors.Annotate(err, "deleting OS disk")
 		}
 	}
-
 	logger.Debugf("- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
 		env.resourceGroup, instId,
@@ -1300,13 +1306,15 @@ func (env *azureEnviron) deleteVirtualMachine(
 		if err != nil && !isNotFoundResponse(autorest.Response{nicFuture.Response()}) {
 			return errors.Annotate(err, "deleting NIC")
 		}
-		err = nicFuture.WaitForCompletion(ctx, nicClient.Client)
-		if err != nil {
-			return errors.Annotate(err, "deleting NIC")
-		}
-		result, err := nicFuture.Result(nicClient)
-		if err != nil && !isNotFoundResponse(result) {
-			return errors.Annotate(err, "deleting NIC")
+		if !isNotFoundResponse(autorest.Response{nicFuture.Response()}) {
+			err = nicFuture.WaitForCompletionRef(ctx, nicClient.Client)
+			if err != nil {
+				return errors.Annotate(err, "deleting NIC")
+			}
+			result, err := nicFuture.Result(nicClient)
+			if err != nil && !isNotFoundResponse(result) {
+				return errors.Annotate(err, "deleting NIC")
+			}
 		}
 	}
 
@@ -1318,13 +1326,15 @@ func (env *azureEnviron) deleteVirtualMachine(
 		if err != nil && !isNotFoundResponse(autorest.Response{ipFuture.Response()}) {
 			return errors.Annotate(err, "deleting public IP")
 		}
-		err = ipFuture.WaitForCompletion(ctx, pipClient.Client)
-		if err != nil {
-			return errors.Annotate(err, "deleting public IP")
-		}
-		result, err := ipFuture.Result(pipClient)
-		if err != nil && !isNotFoundResponse(result) {
-			return errors.Annotate(err, "deleting public IP")
+		if !isNotFoundResponse(autorest.Response{ipFuture.Response()}) {
+			err = ipFuture.WaitForCompletionRef(ctx, pipClient.Client)
+			if err != nil {
+				return errors.Annotate(err, "deleting public IP")
+			}
+			result, err := ipFuture.Result(pipClient)
+			if err != nil && !isNotFoundResponse(result) {
+				return errors.Annotate(err, "deleting public IP")
+			}
 		}
 	}
 
@@ -1334,13 +1344,15 @@ func (env *azureEnviron) deleteVirtualMachine(
 	if err != nil && !isNotFoundResponse(autorest.Response{deploymentFuture.Response()}) {
 		return errors.Annotate(err, "deleting deployment")
 	}
-	err = deploymentFuture.WaitForCompletion(ctx, deploymentsClient.Client)
-	if err != nil {
-		return errors.Annotate(err, "deleting deployment")
-	}
-	deploymentResult, err := deploymentFuture.Result(deploymentsClient)
-	if err != nil && !isNotFoundResponse(deploymentResult) {
-		return errors.Annotate(err, "deleting deployment")
+	if !isNotFoundResponse(autorest.Response{deploymentFuture.Response()}) {
+		err = deploymentFuture.WaitForCompletionRef(ctx, deploymentsClient.Client)
+		if err != nil {
+			return errors.Annotate(err, "deleting deployment")
+		}
+		deploymentResult, err := deploymentFuture.Result(deploymentsClient)
+		if err != nil && !isNotFoundResponse(deploymentResult) {
+			return errors.Annotate(err, "deleting deployment")
+		}
 	}
 	return nil
 }
@@ -1409,7 +1421,7 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 		return errors.Annotate(err, "listing resources")
 	}
 	var failed []string
-	for ; res.NotDone(); err = res.Next() {
+	for ; res.NotDone(); err = res.NextWithContext(stdctx) {
 		if err != nil {
 			return errors.Annotate(err, "listing resources")
 		}
@@ -1515,7 +1527,7 @@ func (env *azureEnviron) allInstances(
 	}
 
 	var azureInstances []*azureInstance
-	for ; deploymentsResult.NotDone(); err = deploymentsResult.Next() {
+	for ; deploymentsResult.NotDone(); err = deploymentsResult.NextWithContext(stdctx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources")
 		}
@@ -1620,7 +1632,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 
 	// Walk all the pages of results so we can get a total list of groups to remove.
 	var groupNames []*string
-	for ; result.NotDone(); err = result.Next() {
+	for ; result.NotDone(); err = result.NextWithContext(ctx) {
 		for _, group := range result.Values() {
 			groupNames = append(groupNames, group.Name)
 		}
@@ -1668,10 +1680,13 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 func (env *azureEnviron) deleteResourceGroup(ctx stdcontext.Context, resourceGroup string) error {
 	client := resources.GroupsClient{env.resources}
 	future, err := client.Delete(ctx, resourceGroup)
-	if err != nil && !isNotFoundResponse(autorest.Response{future.Response()}) {
-		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
+	if err != nil {
+		if !isNotFoundResponse(autorest.Response{future.Response()}) {
+			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
+		}
+		return nil
 	}
-	err = future.WaitForCompletion(ctx, client.Client)
+	err = future.WaitForCompletionRef(ctx, client.Client)
 	if err != nil {
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}

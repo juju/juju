@@ -1,6 +1,6 @@
 package armtemplates
 
-import "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-06-01/storage"
+import "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 
 const (
 	schema         = "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"

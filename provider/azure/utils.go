@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -66,11 +66,11 @@ func collectAPIVersions(ctx context.Context, client resources.ProvidersClient) (
 	result := make(map[string]string)
 
 	var res resources.ProviderListResultIterator
-	res, err := client.ListComplete(context.Background(), nil, "")
+	res, err := client.ListComplete(ctx, nil, "")
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	for ; res.NotDone(); err = res.Next() {
+	for ; res.NotDone(); err = res.NextWithContext(ctx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources")
 		}

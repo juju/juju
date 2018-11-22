@@ -14,10 +14,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
-	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
-	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -55,9 +55,9 @@ import (
 const (
 	storageAccountName = "juju400d80004b1d0d06f00d"
 
-	computeAPIVersion = "2016-04-30-preview"
-	networkAPIVersion = "2017-03-01"
-	storageAPIVersion = "2016-12-01"
+	computeAPIVersion = "2018-10-01"
+	networkAPIVersion = "2018-08-01"
+	storageAPIVersion = "2018-07-01"
 )
 
 var (
@@ -156,7 +156,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	s.group = &resources.Group{
 		Location: to.StringPtr("westus"),
-		Tags:     &s.envTags,
+		Tags:     s.envTags,
 		Properties: &resources.GroupProperties{
 			ProvisioningState: to.StringPtr("Succeeded"),
 		},
@@ -189,7 +189,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.storageAccount = &storage.Account{
 		Name: to.StringPtr("my-storage-account"),
 		Type: to.StringPtr("Standard_LRS"),
-		Tags: &s.envTags,
+		Tags: s.envTags,
 		AccountProperties: &storage.AccountProperties{
 			PrimaryEndpoints: &storage.Endpoints{
 				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", storageAccountName)),
@@ -267,6 +267,7 @@ func openEnviron(
 		discoverAuthSender(),
 		tokenRefreshSender(),
 	}
+	azure.SetRetries(env)
 	err = azure.ForceTokenRefresh(env)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -317,7 +318,7 @@ func fakeCloudSpec() environs.CloudSpec {
 func tokenRefreshSender() *azuretesting.MockSender {
 	tokenRefreshSender := azuretesting.NewSenderWithValue(&adal.Token{
 		AccessToken: "access-token",
-		ExpiresOn:   fmt.Sprint(time.Now().Add(time.Hour).Unix()),
+		ExpiresOn:   json.Number(fmt.Sprint(time.Now().Add(time.Hour).Unix())),
 		Type:        "Bearer",
 	})
 	tokenRefreshSender.PathPattern = ".*/oauth2/token"
@@ -399,13 +400,38 @@ func (s *environSuite) storageAccountSender() *azuretesting.MockSender {
 	return s.makeSender(".*/storageAccounts/"+storageAccountName, s.storageAccount)
 }
 
+func (s *environSuite) storageAccountErrorSender(err error, repeat int) *azuretesting.MockSender {
+	return s.makeErrorSenderWithContent(".*/storageAccounts/"+storageAccountName, s.storageAccount, err, repeat)
+}
+
 func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
 	return s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
+}
+
+func (s *environSuite) storageAccountKeysErrorSender(err error, repeat int) *azuretesting.MockSender {
+	return s.makeErrorSenderWithContent(".*/storageAccounts/.*/listKeys", s.storageAccountKeys, err, repeat)
 }
 
 func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.MockSender {
 	sender := azuretesting.NewSenderWithValue(v)
 	sender.PathPattern = pattern
+	return sender
+}
+
+func (s *environSuite) makeErrorSender(pattern string, err error, repeat int) *azuretesting.MockSender {
+	return s.makeErrorSenderWithContent(pattern, nil, err, repeat)
+}
+
+func (s *environSuite) makeErrorSenderWithContent(pattern string, v interface{}, err error, repeat int) *azuretesting.MockSender {
+
+	sender := azuretesting.NewSenderWithValue(nil)
+	sender.PathPattern = pattern
+	content, jerr := json.Marshal(v)
+	if err != nil {
+		panic(jerr)
+	}
+	sender.AppendResponse(mocks.NewResponseWithContent(string(content)))
+	sender.SetAndRepeatError(err, repeat)
 	return sender
 }
 
@@ -936,11 +962,16 @@ func (s *environSuite) assertStartInstanceRequests(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			args.availabilitySetName,
 		)
-		var availabilitySetProperties interface{}
+		var (
+			availabilitySetProperties  interface{}
+			availabilityStorageOptions *storage.Sku
+		)
 		if !args.unmanagedStorage {
 			availabilitySetProperties = &compute.AvailabilitySetProperties{
-				Managed:                  to.BoolPtr(true),
 				PlatformFaultDomainCount: to.Int32Ptr(3),
+			}
+			availabilityStorageOptions = &storage.Sku{
+				Name: "Aligned",
 			}
 		}
 		templateResources = append(templateResources, armtemplates.Resource{
@@ -950,6 +981,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       to.StringMap(s.envTags),
 			Properties: availabilitySetProperties,
+			StorageSku: availabilityStorageOptions,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -959,8 +991,8 @@ func (s *environSuite) assertStartInstanceRequests(
 
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr("machine-0"),
-		CreateOption: compute.FromImage,
-		Caching:      compute.ReadWrite,
+		CreateOption: compute.DiskCreateOptionTypesFromImage,
+		Caching:      compute.CachingTypesReadWrite,
 		DiskSizeGB:   to.Int32Ptr(int32(args.diskSizeGB)),
 	}
 	if args.unmanagedStorage {
@@ -980,8 +1012,10 @@ func (s *environSuite) assertStartInstanceRequests(
 		Location:   "westus",
 		Tags:       to.StringMap(s.vmTags),
 		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: network.Dynamic,
+			PublicIPAllocationMethod: network.Static,
+			PublicIPAddressVersion:   "IPv4",
 		},
+		StorageSku: &storage.Sku{Name: "Standard", Tier: "Regional"},
 	}, {
 		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkInterfaces",
@@ -1029,7 +1063,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		"resources":      templateResources,
 	}
 	deployment := &resources.Deployment{
-		&resources.DeploymentProperties{
+		Properties: &resources.DeploymentProperties{
 			Template: &templateMap,
 			Mode:     resources.Incremental,
 		},
@@ -1088,7 +1122,8 @@ func (s *environSuite) assertStartInstanceRequests(
 	unmarshalRequestBody(c, startInstanceRequests.deployment, &actual)
 	c.Assert(actual.Properties, gc.NotNil)
 	c.Assert(actual.Properties.Template, gc.NotNil)
-	resources := (*actual.Properties.Template)["resources"].([]interface{})
+	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(resources, gc.HasLen, len(templateResources))
 
 	vmResourceIndex := len(resources) - 1
@@ -1231,10 +1266,11 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 
 func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
 	env := s.openEnviron(c)
+	azure.SetRetries(env)
 	sender := mocks.NewSender()
-	sender.AppendResponse(mocks.NewResponseWithStatus(
+	sender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"resource group not found", http.StatusNotFound,
-	))
+	), 2)
 	s.sender = azuretesting.Senders{sender}
 	_, err := env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1267,13 +1303,13 @@ func (s *environSuite) TestAllInstancesIgnoresCommonDeployment(c *gc.C) {
 func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 	sender0 := mocks.NewSender()
-	sender0.AppendResponse(mocks.NewResponseWithStatus(
+	sender0.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"vm not found", http.StatusNotFound,
-	))
+	), 2)
 	sender1 := mocks.NewSender()
-	sender1.AppendResponse(mocks.NewResponseWithStatus(
+	sender1.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"vm not found", http.StatusNotFound,
-	))
+	), 2)
 	s.sender = azuretesting.Senders{sender0, sender1}
 	err := env.StopInstances(s.callCtx, "a", "b")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1283,9 +1319,10 @@ func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
 	// skip storage, so we get to deleting security rules
 	s.PatchValue(&s.storageAccountKeys.Keys, nil)
 	env := s.openEnviron(c)
+	azure.SetRetries(env)
 
-	nsgSender := s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup())
-	nsgSender.SetError(autorest.NewErrorWithError(errors.New("autorest/azure: Service returned an error."), "network.SecurityGroupsClient", "Get", &http.Response{StatusCode: http.StatusNotFound}, "Failure responding to request"))
+	nsgErr := autorest.NewErrorWithError(errors.New("autorest/azure: Service returned an error."), "network.SecurityGroupsClient", "Get", &http.Response{StatusCode: http.StatusNotFound}, "Failure responding to request")
+	nsgSender := s.makeErrorSenderWithContent(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup(), nsgErr, 2)
 
 	s.sender = azuretesting.Senders{
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
@@ -1348,11 +1385,10 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 	env := s.openEnviron(c)
+	azure.SetRetries(env)
 
-	vmDeleteSender0 := s.makeSender(".*/virtualMachines/machine-[01]", nil)
-	vmDeleteSender1 := s.makeSender(".*/virtualMachines/machine-[01]", nil)
-	vmDeleteSender0.SetError(errors.New("blargh"))
-	vmDeleteSender1.SetError(errors.New("blargh"))
+	vmDeleteSender0 := s.makeErrorSender(".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
+	vmDeleteSender1 := s.makeErrorSender(".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
 
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
@@ -1376,9 +1412,9 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 
 	cancelSender := mocks.NewSender()
-	cancelSender.AppendResponse(mocks.NewResponseWithStatus(
+	cancelSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"deployment not found", http.StatusNotFound,
-	))
+	), 2)
 	s.sender = azuretesting.Senders{cancelSender}
 	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1414,8 +1450,8 @@ func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
 	env := s.openEnviron(c)
-	errorSender := s.storageAccountSender()
-	errorSender.SetError(errors.New("blargh"))
+	azure.SetRetries(env)
+	errorSender := s.storageAccountErrorSender(errors.New("blargh"), 2)
 	s.sender = azuretesting.Senders{
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
 		errorSender,
@@ -1426,8 +1462,8 @@ func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesStorageAccountKeysError(c *gc.C) {
 	env := s.openEnviron(c)
-	errorSender := s.storageAccountKeysSender()
-	errorSender.SetError(errors.New("blargh"))
+	azure.SetRetries(env)
+	errorSender := s.storageAccountKeysErrorSender(errors.New("blargh"), 2)
 	s.sender = azuretesting.Senders{
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
 		s.storageAccountSender(),
@@ -1540,11 +1576,7 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	result := resources.GroupListResult{Value: &groups}
 
 	makeErrorSender := func(err string) *azuretesting.MockSender {
-		errorSender := &azuretesting.MockSender{
-			Sender:      mocks.NewSender(),
-			PathPattern: ".*/resourcegroups/group[12].*",
-		}
-		errorSender.SetError(errors.New(err))
+		errorSender := s.makeErrorSender(".*/resourcegroups/group[12].*", errors.New(err), 2)
 		return errorSender
 	}
 
@@ -1558,15 +1590,17 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	destroyErr := env.DestroyController(s.callCtx, s.controllerUUID)
 	// checked below, once we know the order of deletions.
 
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 5)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[2].Method, gc.Equals, "DELETE") // retry
+	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[4].Method, gc.Equals, "DELETE") // retry
 
 	// Groups are deleted concurrently, so there's no known order.
 	groupsDeleted := []string{
 		path.Base(s.requests[1].URL.Path),
-		path.Base(s.requests[2].URL.Path),
+		path.Base(s.requests[3].URL.Path),
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
 
@@ -1630,13 +1664,13 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		c.Check(req.URL.Query().Get("api-version"), gc.Equals, expectedVersion)
 	}
 	// Resource group get and update.
-	checkAPIVersion(0, "GET", "2016-09-01")
-	checkAPIVersion(1, "PUT", "2016-09-01")
+	checkAPIVersion(0, "GET", "2018-05-01")
+	checkAPIVersion(1, "PUT", "2018-05-01")
 	// Resources.
-	checkAPIVersion(4, "GET", "2016-12-17")
-	checkAPIVersion(5, "PUT", "2016-12-17")
-	checkAPIVersion(6, "GET", "2016-12-13")
-	checkAPIVersion(7, "PUT", "2016-12-13")
+	checkAPIVersion(4, "GET", "2018-05-01")
+	checkAPIVersion(5, "PUT", "2018-05-01")
+	checkAPIVersion(6, "GET", "2018-05-01")
+	checkAPIVersion(7, "PUT", "2018-05-01")
 
 	checkTagsAndProperties := func(ix uint) {
 		req := s.requests[ix]
@@ -1648,10 +1682,10 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		err = json.Unmarshal(data, &resource)
 		c.Assert(err, jc.ErrorIsNil)
 
-		rTags := to.StringMap(*resource.Tags)
+		rTags := to.StringMap(resource.Tags)
 		c.Check(rTags["something else"], gc.Equals, "good")
 		c.Check(rTags[tags.JujuController], gc.Equals, "new-controller")
-		c.Check(*resource.Properties, gc.DeepEquals, map[string]interface{}{"has-properties": true})
+		c.Check(resource.Properties, gc.DeepEquals, map[string]interface{}{"has-properties": true})
 	}
 	checkTagsAndProperties(5)
 	checkTagsAndProperties(7)
@@ -1668,7 +1702,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	// Check that the provisioning state wasn't sent back.
 	c.Check((*group.Properties).ProvisioningState, gc.IsNil)
 
-	gTags := to.StringMap(*group.Tags)
+	gTags := to.StringMap(group.Tags)
 	c.Check(gTags["something else"], gc.Equals, "good")
 	c.Check(gTags[tags.JujuController], gc.Equals, "new-controller")
 }
@@ -1681,7 +1715,7 @@ func makeProvidersResult() resources.ProviderListResult {
 			APIVersions:  &[]string{"2016-12-15", "2014-02-02"},
 		}, {
 			ResourceType: to.StringPtr("liars/scissor"),
-			APIVersions:  &[]string{"2016-12-17", "2015-03-02"},
+			APIVersions:  &[]string{"2018-05-01", "2015-03-02"},
 		}},
 	}, {
 		Namespace: to.StringPtr("Tuneyards.Bizness"),
@@ -1690,7 +1724,7 @@ func makeProvidersResult() resources.ProviderListResult {
 			APIVersions:  &[]string{"2016-12-14", "2014-04-02"},
 		}, {
 			ResourceType: to.StringPtr("micachu"),
-			APIVersions:  &[]string{"2016-12-13", "2015-05-02"},
+			APIVersions:  &[]string{"2018-05-01", "2015-05-02"},
 		}},
 	}}
 	return resources.ProviderListResult{Value: &providers}
@@ -1702,19 +1736,19 @@ func makeResourcesResult() resources.ListResult {
 		Name:     to.StringPtr("boxing-day-blues"),
 		Type:     to.StringPtr("Beck.Replica/liars/scissor"),
 		Location: to.StringPtr("westus"),
-		Tags: to.StringMapPtr(map[string]string{
-			tags.JujuController: "old-controller",
-			"something else":    "good",
-		}),
+		Tags: map[string]*string{
+			tags.JujuController: to.StringPtr("old-controller"),
+			"something else":    to.StringPtr("good"),
+		},
 	}, {
 		ID:       to.StringPtr("/subscriptions/foo/resourcegroups/bar/providers/Tuneyards.Bizness/micachu/drop-dead"),
 		Name:     to.StringPtr("drop-dead"),
 		Type:     to.StringPtr("Tuneyards.Bizness/micachu"),
 		Location: to.StringPtr("westus"),
-		Tags: to.StringMapPtr(map[string]string{
-			tags.JujuController: "old-controller",
-			"something else":    "good",
-		}),
+		Tags: map[string]*string{
+			tags.JujuController: to.StringPtr("old-controller"),
+			"something else":    to.StringPtr("good"),
+		},
 	}}
 	return resources.ListResult{Value: &theResources}
 }
@@ -1726,45 +1760,34 @@ func makeResourceGroupResult() resources.Group {
 		Properties: &resources.GroupProperties{
 			ProvisioningState: to.StringPtr("very yes"),
 		},
-		Tags: to.StringMapPtr(map[string]string{
-			tags.JujuController: "old-controller",
-			"something else":    "good",
-		}),
+		Tags: map[string]*string{
+			tags.JujuController: to.StringPtr("old-controller"),
+			"something else":    to.StringPtr("good"),
+		},
 	}
 }
 
 func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 	env := s.openEnviron(c)
-	sender := s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil)
-	sender.SetError(errors.New("uhoh"))
+	sender := s.makeErrorSender(
+		".*/resourcegroups/juju-testmodel-.*",
+		errors.New("uhoh"),
+		4)
 	s.sender = azuretesting.Senders{sender}
-
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
-	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
-	c.Assert(s.requests, gc.HasLen, 1)
-}
-
-func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
-	env := s.openEnviron(c)
-	errorSender := s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil)
-	errorSender.SetError(errors.New("uhoh"))
-	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		errorSender,
-	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 2)
 }
 
-func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 	env := s.openEnviron(c)
-	errorSender := s.makeSender(".*/providers", nil)
-	errorSender.SetError(errors.New("uhoh"))
+	errorSender := s.makeErrorSender(
+		".*/resourcegroups/juju-testmodel-.*",
+		errors.New("uhoh"),
+		2)
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		errorSender,
 	}
 
@@ -1773,10 +1796,29 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 	c.Assert(s.requests, gc.HasLen, 3)
 }
 
+func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.makeErrorSender(
+		".*/providers",
+		errors.New("uhoh"),
+		2)
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		errorSender,
+	}
+
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, gc.HasLen, 4)
+}
+
 func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 	env := s.openEnviron(c)
-	errorSender := s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", nil)
-	errorSender.SetError(errors.New("ouch!"))
+	errorSender := s.makeErrorSender(
+		".*/resourceGroups/juju-testmodel-.*/resources",
+		errors.New("ouch!"),
+		2)
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
@@ -1786,7 +1828,7 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
-	c.Assert(s.requests, gc.HasLen, 4)
+	c.Assert(s.requests, gc.HasLen, 5)
 }
 
 func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
@@ -1795,7 +1837,7 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 
 	// Give the first resource the right controller tag so it doesn't need updating.
 	res1 := (*resourcesResult.Value)[0]
-	(*res1.Tags)[tags.JujuController] = to.StringPtr("new-controller")
+	res1.Tags[tags.JujuController] = to.StringPtr("new-controller")
 	res2 := (*resourcesResult.Value)[1]
 
 	env := s.openEnviron(c)
@@ -1824,9 +1866,10 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 
 	env := s.openEnviron(c)
 
-	errorSender := s.makeSender(
-		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", nil)
-	errorSender.SetError(errors.New("flagrant error! virus=very yes"))
+	errorSender := s.makeErrorSender(
+		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues",
+		errors.New("flagrant error! virus=very yes"),
+		2)
 
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
@@ -1843,7 +1886,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
-	c.Check(s.requests, gc.HasLen, 7)
+	c.Check(s.requests, gc.HasLen, 8)
 }
 
 func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
@@ -1855,9 +1898,10 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 
 	env := s.openEnviron(c)
 
-	errorSender := s.makeSender(
-		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", nil)
-	errorSender.SetError(errors.New("oopsie"))
+	errorSender := s.makeErrorSender(
+		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues",
+		errors.New("oopsie"),
+		2)
 
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
@@ -1875,5 +1919,5 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
-	c.Check(s.requests, gc.HasLen, 8)
+	c.Check(s.requests, gc.HasLen, 9)
 }

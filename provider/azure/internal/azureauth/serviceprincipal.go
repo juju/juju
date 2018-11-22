@@ -212,11 +212,9 @@ func (c *ServicePrincipalCreator) Create(ctx context.Context, params ServicePrin
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-
 	if err := c.createRoleAssignment(ctx, params, servicePrincipalObjectId); err != nil {
 		return "", "", errors.Trace(err)
 	}
-
 	return jujuApplicationId, password, nil
 }
 

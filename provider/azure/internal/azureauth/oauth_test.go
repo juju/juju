@@ -4,10 +4,11 @@
 package azureauth_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -37,9 +38,10 @@ func oauthConfigSender() autorest.Sender {
 }
 
 func (s *OAuthConfigSuite) TestOAuthConfig(c *gc.C) {
-	client := subscriptions.GroupClient{subscriptions.NewWithBaseURI("https://testing.invalid")}
+	client := subscriptions.Client{subscriptions.NewWithBaseURI("https://testing.invalid")}
 	client.Sender = oauthConfigSender()
-	cfg, tenantId, err := azureauth.OAuthConfig(client, "https://testing.invalid", "subscription-id")
+	ctx := context.Background()
+	cfg, tenantId, err := azureauth.OAuthConfig(ctx, client, "https://testing.invalid", "subscription-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tenantId, gc.Equals, fakeTenantId)
 

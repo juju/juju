@@ -7,8 +7,8 @@ import (
 	stdcontext "context"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-03-30/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -86,7 +86,8 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 func isControllerEnviron(env *azureEnviron) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	result, err := client.ListComplete(stdcontext.Background(), env.resourceGroup)
+	ctx := stdcontext.Background()
+	result, err := client.ListComplete(ctx, env.resourceGroup)
 	if err != nil {
 		return false, errors.Annotate(err, "listing virtual machines")
 	}
@@ -98,7 +99,7 @@ func isControllerEnviron(env *azureEnviron) (bool, error) {
 		return false, nil
 	}
 
-	for ; result.NotDone(); err = result.Next() {
+	for ; result.NotDone(); err = result.NextWithContext(ctx) {
 		if err != nil {
 			return false, errors.Annotate(err, "iterating machines")
 		}
