@@ -105,12 +105,8 @@ install dependencies and other features.  It is advisable, when installing
 
 Juju needs some dependencies in order to be installed and the preferred way to
 collect the necessary packages is to use the provided `Makefile`.
-<<<<<<< HEAD
-The target `dep` will download the go packages listed in `Gopkg.lock`. The following bash code will install the dependencies.
-=======
-The target `godeps` will download the go packages listed in `dependencies.tsv`.
+The target `dep` will download the go packages listed in `Gopkg.lock`.
 The following bash code will install the dependencies.
->>>>>>> upstream/2.4
 
     cd $GOPATH/src/github.com/juju/juju
     export JUJU_MAKE_GODEPS=true
