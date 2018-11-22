@@ -13,6 +13,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
 	containerlxd "github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
@@ -121,9 +122,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 		if !reflect.DeepEqual(spec.Devices, nics) {
 			return false
 		}
-		return spec.Config[containerlxd.NetworkConfigKey] == `network:
-  config: "disabled"
-`
+		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
 	}
 
 	exp := svr.EXPECT()
