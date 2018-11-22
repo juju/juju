@@ -21,7 +21,7 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("[Filesystems]")
+	// print("[Filesystems]")
 
 	haveMachines := false
 	filesystemAttachmentInfos := make(filesystemAttachmentInfos, 0, len(infos))
@@ -70,9 +70,9 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	sort.Sort(filesystemAttachmentInfos)
 
 	if haveMachines {
-		print("Machine", "Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
+		print("Machine", "Unit", "Storage Id", "Filesystem Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
 	} else {
-		print("Unit", "Storage", "Id", "Provider id", "Mountpoint", "Size", "State", "Message")
+		print("Unit", "Storage Id", "Filesystem Id", "Provider id", "Mountpoint", "Size", "State", "Message")
 	}
 
 	for _, info := range filesystemAttachmentInfos {

@@ -23,16 +23,16 @@ func formatStorageInstancesListTabular(
 ) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("[Storage]")
+	// w.Println("[Storage]")
 
-	storageProviderId := make(map[string]string)
+	// storageProviderId := make(map[string]string)
 	storageSize := make(map[string]uint64)
 	storagePool := make(map[string]string)
 	for _, f := range filesystems {
 		if f.Pool != "" {
 			storagePool[f.Storage] = f.Pool
 		}
-		storageProviderId[f.Storage] = f.ProviderFilesystemId
+		// storageProviderId[f.Storage] = f.ProviderFilesystemId
 		storageSize[f.Storage] = f.Size
 	}
 	for _, v := range volumes {
@@ -41,22 +41,22 @@ func formatStorageInstancesListTabular(
 		if v.Pool != "" {
 			storagePool[v.Storage] = v.Pool
 		}
-		storageProviderId[v.Storage] = v.ProviderVolumeId
-		// For size, we want to use the size of the fileystem
+		// storageProviderId[v.Storage] = v.ProviderVolumeId
+		// For size, we want to use the size of the filesystem
 		// rather than the volume.
 		if _, ok := storageSize[v.Storage]; !ok {
 			storageSize[v.Storage] = v.Size
 		}
 	}
 
-	w.Print("Unit", "Id", "Type")
+	w.Print("Unit", "Storage Id", "Type")
 	if len(storagePool) > 0 {
 		// Older versions of Juju do not include
 		// the pool name in the storage details.
 		// We omit the column in that case.
 		w.Print("Pool")
 	}
-	w.Println("Provider id", "Size", "Status", "Message")
+	w.Println("Size", "Status", "Message")
 
 	byUnit := make(map[string]map[string]storageAttachmentInfo)
 	for storageId, storageInfo := range storageInfo {
@@ -117,7 +117,7 @@ func formatStorageInstancesListTabular(
 				w.Print(storagePool[info.storageId])
 			}
 			w.Print(
-				storageProviderId[info.storageId],
+				// storageProviderId[info.storageId],
 				sizeStr,
 			)
 			w.PrintStatus(info.status.Current)
