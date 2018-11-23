@@ -234,6 +234,10 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// another event, because the originally-watched document will become
 	// unreferenced and be removed. But I'm not testing that behaviour
 	// because it's not very helpful and subject to change.
+
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("")
 }
 
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {

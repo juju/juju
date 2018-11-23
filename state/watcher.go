@@ -3749,8 +3749,6 @@ func (w *settingsHashWatcher) loop() error {
 				return tomb.ErrDying
 			}
 			newHash, err := w.hash()
-			// TODO(babbageclunk): how should we handle notfound? Stop
-			// the watcher, or return ""? Something else?
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -3768,7 +3766,9 @@ func (w *settingsHashWatcher) hash() (string, error) {
 	settings, closer := w.db.GetCollection(settingsC)
 	defer closer()
 	var doc settingsDoc
-	if err := settings.FindId(w.id).One(&doc); err != nil {
+	if err := settings.FindId(w.id).One(&doc); err == mgo.ErrNotFound {
+		return "", nil
+	} else if err != nil {
 		return "", errors.Trace(err)
 	}
 	// Ensure elements are in a consistent order.
