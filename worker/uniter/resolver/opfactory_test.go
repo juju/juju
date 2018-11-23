@@ -105,21 +105,33 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ConfigVersion = 1
+	f.RemoteState.ConfigHash = "confighash"
+	f.RemoteState.TrustHash = "trusthash"
+	f.RemoteState.AddressesHash = "addresseshash"
 	f.RemoteState.UpdateStatusVersion = 3
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.ConfigVersion = 2
+	f.RemoteState.ConfigHash = "newhash"
+	f.RemoteState.TrustHash = "badhash"
+	f.RemoteState.AddressesHash = "differenthash"
 	f.RemoteState.UpdateStatusVersion = 4
 
-	_, err = op.Commit(operation.State{})
+	resultState, err := op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultState, gc.NotNil)
 
 	// Local state's ConfigVersion should be set to what
 	// RemoteState's ConfigVersion was when the operation
 	// was constructed.
 	c.Assert(f.LocalState.ConfigVersion, gc.Equals, 1)
 	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
+	// The hashes need to be set on the result state, because that is
+	// written to disk by the executor before the next step is picked.
+	c.Assert(resultState.ConfigHash, gc.Equals, "confighash")
+	c.Assert(resultState.TrustHash, gc.Equals, "trusthash")
+	c.Assert(resultState.AddressesHash, gc.Equals, "addresseshash")
 }
 
 func (s *ResolverOpFactorySuite) TestLeaderSettingsChanged(c *gc.C) {

@@ -40,7 +40,7 @@ type Unit interface {
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
-	WatchConfigSettings() (watcher.NotifyWatcher, error)
+	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)

@@ -58,7 +58,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			},
 			unitWatcher:                      newMockNotifyWatcher(),
 			addressesWatcher:                 newMockNotifyWatcher(),
-			configSettingsWatcher:            newMockNotifyWatcher(),
+			configSettingsWatcher:            newMockStringsWatcher(),
 			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
@@ -150,7 +150,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.unit.addressesWatcher.changes <- struct{}{}
-	s.st.unit.configSettingsWatcher.changes <- struct{}{}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
 	if s.st.unit.upgradeSeriesWatcher != nil {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
@@ -169,7 +169,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 
 func (s *WatcherSuite) signalAll() {
 	s.st.unit.unitWatcher.changes <- struct{}{}
-	s.st.unit.configSettingsWatcher.changes <- struct{}{}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
@@ -201,6 +201,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigVersion:         expectedVersion,
+		ConfigHash:            "confighash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
@@ -224,6 +225,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigVersion:         expectedVersion,
+		ConfigHash:            "confighash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   "",
@@ -257,7 +259,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.st.unit.configSettingsWatcher.changes <- struct{}{}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	assertOneChange()
 	expectVersion := initial.ConfigVersion + 2
 	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)

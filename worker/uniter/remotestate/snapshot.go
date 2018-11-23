@@ -50,6 +50,18 @@ type Snapshot struct {
 	// the unit's config settings.
 	ConfigVersion int
 
+	// ConfigHash is a hash of the last published version of the
+	// unit's config settings.
+	ConfigHash string
+
+	// TrustHash is a hash of the last published version of the unit's
+	// trust settings.
+	TrustHash string
+
+	// AddressesHash is a hash of the last published addresses for the
+	// unit's machine/container.
+	AddressesHash string
+
 	// Leader indicates whether or not the unit is the
 	// elected leader.
 	Leader bool

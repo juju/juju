@@ -285,7 +285,11 @@ func (s *uniterResolver) nextOp(
 		}
 	}
 
-	if localState.ConfigVersion != remoteState.ConfigVersion {
+	versionChanged := localState.ConfigVersion != remoteState.ConfigVersion
+	configHashChanged := localState.ConfigHash != remoteState.ConfigHash
+	trustHashChanged := localState.TrustHash != remoteState.TrustHash
+	addressesHashChanged := localState.AddressesHash != remoteState.AddressesHash
+	if versionChanged || configHashChanged || trustHashChanged || addressesHashChanged {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
