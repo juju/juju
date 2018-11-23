@@ -188,9 +188,9 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration change is updated on both application and
-	// charm config which increments it twice.
-	expectedVersion := 3
+	// Note that the configuration change is updated on both application config and
+	// addresses which increments it twice.
+	expectedVersion := 2
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -212,9 +212,9 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration change is updated on both application and
-	// charm config which increments it twice.
-	expectedVersion := 3
+	// Note that the configuration change is updated on both application config and
+	// addresses which increments it twice.
+	expectedVersion := 2
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -254,14 +254,14 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
+	expectVersion := initial.ConfigVersion + 1
+	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)
 
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	assertOneChange()
-	expectVersion := initial.ConfigVersion + 2
 	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)
 
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
