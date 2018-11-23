@@ -154,14 +154,28 @@ func (w *stateWorker) loop() error {
 	}
 	defer w.stTracker.Done()
 
-	collector := statemetrics.New(statemetrics.NewStatePool(pool))
-	w.prometheusRegisterer.Register(collector)
-	defer w.prometheusRegisterer.Unregister(collector)
+	// Due to the current speed issues around gathering the state metrics,
+	// we allow the controller admins to specify a feature flat to disable
+	// collection. This is a short term measure until we have the model
+	// cache in the apiserver. The state metrics are just counts of models,
+	// machines, and users along with their life and status. When we have
+	// the caching middle tier, this will be almost instant rather than hitting
+	// the database.
+	systemState := pool.SystemState()
+	controllerConfig, err := systemState.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !controllerConfig.Features().Contains("disable-state-metrics") {
+		collector := statemetrics.New(statemetrics.NewStatePool(pool))
+		w.prometheusRegisterer.Register(collector)
+		defer w.prometheusRegisterer.Unregister(collector)
+	}
 
 	w.setStatePool(pool)
 	defer w.setStatePool(nil)
 
-	modelWatcher := pool.SystemState().WatchModelLives()
+	modelWatcher := systemState.WatchModelLives()
 	w.catacomb.Add(modelWatcher)
 
 	modelStateWorkers := make(map[string]worker.Worker)
