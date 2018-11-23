@@ -23,7 +23,7 @@ func formatStorageInstancesListTabular(writer io.Writer, s CombinedStorage) erro
 	storagePool, storageSize := getStoragePoolAndSize(s)
 	units, byUnit := sortStorageInstancesByUnitId(s)
 
-	w.Print("Unit", "Storage Id", "Type")
+	w.Print("Unit", "Storage id", "Type")
 	if len(storagePool) > 0 {
 		// Older versions of Juju do not include
 		// the pool name in the storage details.
@@ -153,7 +153,7 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 	units, byUnit := sortStorageInstancesByUnitId(s)
 
 	w.Println()
-	w.Print("Unit", "Storage Id", "Type")
+	w.Print("Unit", "Storage id", "Type")
 	if len(storagePool) > 0 {
 		w.Print("Pool")
 	}

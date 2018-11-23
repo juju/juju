@@ -133,9 +133,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	expected := `
-[Storage]
-Unit             Id      Type   Provider id  Size  Status   Message
-storage-block/0  data/0  block                     pending  
+Unit             Storage id  Type   Size  Status   Message
+storage-block/0  data/0      block        pending  
 
 `[1:]
 	runList(c, expected)
@@ -147,9 +146,8 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
 	expected := `
-[Storage]
-Unit             Id      Type   Provider id  Size  Status   Message
-storage-block/0  data/0  block                     pending  
+Unit             Storage id  Type   Size  Status   Message
+storage-block/0  data/0      block        pending  
 
 `[1:]
 	runList(c, expected)
@@ -471,9 +469,8 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	stdout, _, err := runVolumeList(c, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-[Volumes]
-Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
-0        storage-block/0  data/0   0/0                             pending  
+Machine  Unit             Storage id  Volume id  Provider Id  Device  Size  State    Message
+0        storage-block/0  data/0      0/0                                    pending  
 
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)
@@ -592,9 +589,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	context, err := runJujuCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
-[Storage]
-Unit                  Id      Type        Provider id  Size  Status   Message
-storage-filesystem/0  data/0  filesystem                     pending  
+Unit                  Storage id  Type        Size  Status   Message
+storage-filesystem/0  data/0      filesystem        pending  
 
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
@@ -614,10 +610,9 @@ storage-filesystem/0  data/0  filesystem                     pending
 	context, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
-[Storage]
-Unit                  Id      Type        Provider id  Size  Status   Message
-storage-filesystem/0  data/0  filesystem                     pending  
-storage-filesystem/0  data/1  filesystem                     pending  
+Unit                  Storage id  Type        Size  Status   Message
+storage-filesystem/0  data/0      filesystem        pending  
+storage-filesystem/0  data/1      filesystem        pending  
 
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
@@ -667,11 +662,10 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	ctx, err := runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-[Storage]
-Unit             Id         Type   Pool         Provider id  Size    Status     Message
-                 allecto/2  block  modelscoped  vol-ume      1.0GiB  detaching  
-storage-block/0  data/0     block                                    pending    
-storage-block/1  data/1     block                                    pending    
+Unit             Storage id  Type   Pool         Size    Status     Message
+                 allecto/2   block  modelscoped  1.0GiB  detaching  
+storage-block/0  data/0      block                       pending    
+storage-block/1  data/1      block                       pending    
 
 `[1:])
 
@@ -696,11 +690,10 @@ storage-block/1  data/1     block                                    pending
 	ctx, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-[Storage]
-Unit             Id         Type   Pool         Provider id  Size    Status     Message
-storage-block/0  data/0     block                                    pending    
-storage-block/1  allecto/2  block  modelscoped  vol-ume      1.0GiB  attaching  
-storage-block/1  data/1     block                                    pending    
+Unit             Storage id  Type   Pool         Size    Status     Message
+storage-block/0  data/0      block                       pending    
+storage-block/1  allecto/2   block  modelscoped  1.0GiB  attaching  
+storage-block/1  data/1      block                       pending    
 
 `[1:])
 }

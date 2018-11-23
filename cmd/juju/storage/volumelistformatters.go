@@ -69,9 +69,9 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	sort.Sort(volumeAttachmentInfos)
 
 	if haveMachines {
-		print("Machine", "Unit", "Storage Id", "Volumes Id", "Provider Id", "Device", "Size", "State", "Message")
+		print("Machine", "Unit", "Storage id", "Volume id", "Provider Id", "Device", "Size", "State", "Message")
 	} else {
-		print("Unit", "Storage Id", "Volumes Id", "Provider Id", "Size", "State", "Message")
+		print("Unit", "Storage id", "Volume id", "Provider Id", "Size", "State", "Message")
 	}
 
 	for _, info := range volumeAttachmentInfos {

@@ -20,10 +20,10 @@ import (
 )
 
 type statusFormatter struct {
-	storage                             *storage.CombinedStorage
 	status                              *params.FullStatus
 	controllerName                      string
 	relations                           map[int]params.RelationStatus
+	storage                             *storage.CombinedStorage
 	isoTime, showRelations, showStorage bool
 }
 
