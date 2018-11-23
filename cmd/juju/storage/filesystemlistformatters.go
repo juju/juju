@@ -69,9 +69,9 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	sort.Sort(filesystemAttachmentInfos)
 
 	if haveMachines {
-		print("Machine", "Unit", "Storage Id", "Filesystem Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
+		print("Machine", "Unit", "Storage Id", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
 	} else {
-		print("Unit", "Storage Id", "Filesystem Id", "Provider id", "Mountpoint", "Size", "State", "Message")
+		print("Unit", "Storage Id", "Id", "Provider id", "Mountpoint", "Size", "State", "Message")
 	}
 
 	for _, info := range filesystemAttachmentInfos {

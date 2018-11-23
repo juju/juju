@@ -123,9 +123,9 @@ func getStoragePoolAndSize(s CombinedStorage) (map[string]string, map[string]uin
 	return storagePool, storageSize
 }
 
-func getFilesystemAttachments(combined CombinedStorage, attachmentInfo storageAttachmentInfo) FilesystemAttachment {
+func getFilesystemAttachment(combined CombinedStorage, attachmentInfo storageAttachmentInfo) FilesystemAttachment {
 	for _, f := range combined.Filesystems {
-		getAllAttachments := func() map[string]FilesystemAttachment {
+		combineAllAttachments := func() map[string]FilesystemAttachment {
 			all := map[string]FilesystemAttachment{}
 			for k, v := range f.Attachments.Machines {
 				all[k] = v
@@ -137,7 +137,7 @@ func getFilesystemAttachments(combined CombinedStorage, attachmentInfo storageAt
 		}
 
 		if f.Storage == attachmentInfo.storageId {
-			if attachment, ok := getAllAttachments()[attachmentInfo.unitId]; ok {
+			if attachment, ok := combineAllAttachments()[attachmentInfo.unitId]; ok {
 				return attachment
 			}
 		}
@@ -176,7 +176,7 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 			if len(storagePool) > 0 {
 				w.Print(storagePool[info.storageId])
 			}
-			w.Print(getFilesystemAttachments(s, info).MountPoint)
+			w.Print(getFilesystemAttachment(s, info).MountPoint)
 			w.Print(humanizeStorageSize(storageSize[storageId]))
 			w.PrintStatus(info.status.Current)
 			w.Println(info.status.Message)
@@ -201,7 +201,7 @@ type storageAttachmentInfo struct {
 	status    EntityStatus
 }
 
-// slashSeparatedIds represents a list of slash seperated ids.
+// slashSeparatedIds represents a list of slash separated ids.
 type slashSeparatedIds []string
 
 func (s slashSeparatedIds) Len() int {

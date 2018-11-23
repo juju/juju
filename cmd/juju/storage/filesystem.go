@@ -64,7 +64,7 @@ func generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI, ids []s
 
 	results, err := api.ListFilesystems(ids)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// filter out valid output, if any

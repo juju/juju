@@ -301,7 +301,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 			} else {
 				joinedMsg += " option is"
 			}
-			ctx.Infof("provided %s always enabled in non tabular formats.", joinedMsg)
+			ctx.Infof("provided %s always enabled in non tabular formats", joinedMsg)
 		}
 	}
 	formatterParams := newStatusFormatterParams{

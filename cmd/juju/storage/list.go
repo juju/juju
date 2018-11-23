@@ -157,7 +157,7 @@ type StorageListAPI interface {
 func generateListStorageOutput(ctx *cmd.Context, api StorageListAPI) (map[string]StorageInfo, error) {
 	results, err := api.ListStorageDetails()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results) == 0 {
 		return nil, nil

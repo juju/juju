@@ -519,6 +519,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -565,6 +566,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -607,6 +609,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -650,6 +653,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -701,6 +705,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -734,6 +739,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -763,6 +769,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -792,6 +799,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -819,6 +827,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedApplication,
 					"exposed-application": unexposedApplication,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -838,6 +847,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedApplication,
 					"exposed-application": exposedApplication,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -866,6 +876,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedApplication,
 					"exposed-application": exposedApplication,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -945,6 +956,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1080,6 +1092,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1117,6 +1130,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1158,6 +1172,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1193,6 +1208,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1234,6 +1250,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1296,6 +1313,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1403,6 +1421,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1510,6 +1529,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1566,6 +1586,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1625,6 +1646,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1832,6 +1854,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -1945,6 +1968,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2109,6 +2133,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2223,6 +2248,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2290,6 +2316,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2380,6 +2407,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2469,6 +2497,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2530,6 +2559,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2593,6 +2623,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2658,6 +2689,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2722,6 +2754,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2874,6 +2907,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2902,6 +2936,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -2964,6 +2999,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3046,6 +3082,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3073,6 +3110,7 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3122,6 +3160,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3210,6 +3249,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3242,6 +3282,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3270,6 +3311,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"storage":      M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3397,6 +3439,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -3460,6 +3503,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
 				},
@@ -4416,6 +4460,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		},
 		"machines":     M{},
 		"applications": M{},
+		"storage":      M{},
 		"controller": M{
 			"timestamp": "15:04:05+07:00",
 		},
@@ -5215,6 +5260,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n" +
+		"storage: {}\n" +
 		"controller:\n" +
 		"  timestamp: 15:04:05+07:00\n"
 
@@ -5523,6 +5569,7 @@ var statusTimeTest = test(
 					},
 				}),
 			},
+			"storage": M{},
 			"controller": M{
 				"timestamp": "15:04:05",
 			},
@@ -5708,8 +5755,30 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
-	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
+	logger.Criticalf("stdout -> \n%q", stdout)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--storage")
+	c.Assert(string(stderr), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations", "--storage")
+	c.Assert(string(stderr), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
@@ -5719,6 +5788,7 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	_, stdout, stderr := runStatus(c, "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
