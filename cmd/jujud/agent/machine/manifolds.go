@@ -108,6 +108,12 @@ const (
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
 
+	// AgentName is the name of the machine agent, like "machine-12".
+	// This will never change during the execution of an agent, and
+	// is used to provide this as config into a worker rather than
+	// making the worker get it from the agent worker itself.
+	AgentName string
+
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -735,6 +741,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIServerName:        apiServerName,
 			RaftTransportName:    raftTransportName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
+			AgentName:            config.AgentName,
 			Clock:                config.Clock,
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,

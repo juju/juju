@@ -83,6 +83,15 @@ ID_WWN=foo
 `, storage.BlockDevice{WWN: "foo"})
 }
 
+func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *gc.C) {
+	// If ID_WWN_WITH_EXTENSION is found, then we should use that
+	// in preference to the ID_WWN value.
+	s.testListBlockDevicesExtended(c, `
+ID_WWN_WITH_EXTENSION=foobar
+ID_WWN=foo
+`, storage.BlockDevice{WWN: "foobar"})
+}
+
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
 	// If ID_BUS is scsi, then we should get a
 	// BusAddress value.

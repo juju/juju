@@ -459,8 +459,9 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	}
 
 	agentConfig := a.CurrentConfig()
+	agentName := a.Tag().String()
 	machineLock, err := machinelock.New(machinelock.Config{
-		AgentName:   a.Tag().String(),
+		AgentName:   agentName,
 		Clock:       clock.WallClock,
 		Logger:      loggo.GetLogger("juju.machinelock"),
 		LogFilename: agent.MachineLockLogFilename(agentConfig),
@@ -473,7 +474,7 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	a.machineLock = machineLock
 	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
-	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
+	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
@@ -496,7 +497,7 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
+func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion version.Number) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		engine, err := dependency.NewEngine(dependencyEngineConfig())
 		if err != nil {
@@ -549,6 +550,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 
 		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
+			AgentName:               agentName,
 			Agent:                   agent.APIHostPortsSetter{Agent: a},
 			RootDir:                 a.rootDir,
 			AgentConfigChanged:      a.configChangedVal,

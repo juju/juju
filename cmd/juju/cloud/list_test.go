@@ -29,6 +29,7 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
+
 	// Check that we are producing the expected fields
 	c.Assert(out, gc.Matches, `Cloud        Regions  Default        Type        Description.*`)
 	// // Just check couple of snippets of the output to make sure it looks ok.
