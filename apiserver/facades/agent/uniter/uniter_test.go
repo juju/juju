@@ -1044,7 +1044,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"22090c06037bbaffecd736b45a466671762656c7d4c2e057a1873c2a606b89ed"},
+				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

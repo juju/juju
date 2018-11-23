@@ -184,7 +184,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	// Initial event.
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange("22090c06037bbaffecd736b45a466671762656c7d4c2e057a1873c2a606b89ed")
+	wc.AssertChange("606cdac123d3d8d3031fe93db3d5afd9c95f709dfbc17e5eade1332b081ec6f9")
 
 	// Non-change is not reported.
 	err = s.application.UpdateCharmConfig(charm.Settings{
@@ -207,14 +207,14 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 		"blog-title": "sauceror central",
 		"zygomatic":  nil,
 	})
-	wc.AssertChange("5dddc8b4062afbe792bded92f27b998524a23c37680af41482c686c685eb2268")
+	wc.AssertChange("886b9586df944be35b189e5678a85ac0b2ed4da46fcb10cecfd8c06b6d1baf0f")
 
 	// And one that comes after.
 	err = s.application.UpdateCharmConfig(charm.Settings{
 		"zygomatic": 23,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("62c78a66f485e3fc736fec4f363c1c1a31629b6d53c4ce2005d41f89da7439a5")
+	wc.AssertChange("9ca0a511647f09db8fab07be3c70f49cc93f38f300ca82d6e26ec7d4a8b1b4c2")
 
 	// Change application's charm; nothing detected.
 	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
@@ -238,6 +238,43 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("")
+}
+
+func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
+	// Config hashes should be different if the charm url changes,
+	// even if the config is otherwise unchanged. This ensures that
+	// config-changed will be run on a unit after its charm is
+	// upgraded.
+	c.Logf("charm url %s", s.charm.URL())
+	err := s.application.UpdateCharmConfig(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	w1, err := s.unit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w1)
+
+	wc1 := testing.NewStringsWatcherC(c, s.State, w1)
+	wc1.AssertChange("2e1f49c3e8b53892b822558401af33589522094681276a98458595114e04c0c1")
+
+	newCharm := s.AddConfigCharm(c, "wordpress", wordpressConfig, 125)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.application.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf("new charm url %s", newCharm.URL())
+	err = s.unit.SetCharmURL(newCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	w3, err := s.unit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w3)
+
+	wc3 := testing.NewStringsWatcherC(c, s.State, w3)
+	wc3.AssertChange("35412457529c9e0b64b7642ad0f76137ee13b104c94136d0c18b2fe54ddf5d36")
 }
 
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {

@@ -3704,6 +3704,7 @@ func newSettingsHashWatcher(st *State, localID string) StringsWatcher {
 		commonWatcher: newCommonWatcher(st),
 		out:           make(chan []string),
 		id:            st.docID(localID),
+		name:          localID,
 	}
 	w.tomb.Go(func() error {
 		defer close(w.out)
@@ -3714,8 +3715,9 @@ func newSettingsHashWatcher(st *State, localID string) StringsWatcher {
 
 type settingsHashWatcher struct {
 	commonWatcher
-	id  string
-	out chan []string
+	id   string
+	name string
+	out  chan []string
 }
 
 func (w *settingsHashWatcher) Changes() <-chan []string {
@@ -3786,6 +3788,7 @@ func (w *settingsHashWatcher) hash() (string, error) {
 		return "", errors.Trace(err)
 	}
 	hash := sha256.New()
+	hash.Write([]byte(w.name))
 	hash.Write(data)
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
