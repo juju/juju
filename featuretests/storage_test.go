@@ -470,7 +470,7 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 Machine  Unit             Storage id  Volume id  Provider Id  Device  Size  State    Message
-0        storage-block/0  data/0      0/0                                    pending  
+0        storage-block/0  data/0      0/0                                   pending  
 
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)

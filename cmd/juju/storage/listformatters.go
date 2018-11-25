@@ -127,10 +127,15 @@ func getFilesystemAttachment(combined CombinedStorage, attachmentInfo storageAtt
 	for _, f := range combined.Filesystems {
 		combineAllAttachments := func() map[string]FilesystemAttachment {
 			all := map[string]FilesystemAttachment{}
-			for k, v := range f.Attachments.Machines {
+			attachment := f.Attachments
+
+			if attachment == nil {
+				return all
+			}
+			for k, v := range attachment.Machines {
 				all[k] = v
 			}
-			for k, v := range f.Attachments.Containers {
+			for k, v := range attachment.Containers {
 				all[k] = v
 			}
 			return all
@@ -153,7 +158,7 @@ func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedSto
 	units, byUnit := sortStorageInstancesByUnitId(s)
 
 	w.Println()
-	w.Print("Unit", "Storage id", "Type")
+	w.Print("Storage Unit", "Storage id", "Type")
 	if len(storagePool) > 0 {
 		w.Print("Pool")
 	}

@@ -20,11 +20,11 @@ import (
 )
 
 type statusFormatter struct {
-	status                              *params.FullStatus
-	controllerName                      string
-	relations                           map[int]params.RelationStatus
-	storage                             *storage.CombinedStorage
-	isoTime, showRelations, showStorage bool
+	status                 *params.FullStatus
+	controllerName         string
+	relations              map[int]params.RelationStatus
+	storage                *storage.CombinedStorage
+	isoTime, showRelations bool
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
@@ -39,10 +39,10 @@ func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatte
 }
 
 type newStatusFormatterParams struct {
-	storage                             *storage.CombinedStorage
-	status                              *params.FullStatus
-	controllerName                      string
-	isoTime, showRelations, showStorage bool
+	storage                *storage.CombinedStorage
+	status                 *params.FullStatus
+	controllerName         string
+	isoTime, showRelations bool
 }
 
 func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
@@ -53,7 +53,6 @@ func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
 		relations:      make(map[int]params.RelationStatus),
 		isoTime:        p.isoTime,
 		showRelations:  p.showRelations,
-		showStorage:    p.showStorage,
 	}
 	if p.showRelations {
 		for _, relation := range p.status.Relations {
@@ -117,7 +116,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
 	}
-	if sf.showStorage {
+	if sf.storage != nil {
 		out.Storage = sf.storage
 	}
 	return out, nil

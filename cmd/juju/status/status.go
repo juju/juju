@@ -295,7 +295,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		providedIgnoredFlags := c.checkProvidedIgnoredFlagF()
 		if !providedIgnoredFlags.IsEmpty() {
 			// For non-tabular formats this is redundant and needs to be mentioned to the user.
-			joinedMsg := strings.Join(providedIgnoredFlags.Values(), ", ")
+			joinedMsg := strings.Join(providedIgnoredFlags.SortedValues(), ", ")
 			if providedIgnoredFlags.Size() > 1 {
 				joinedMsg += " options are"
 			} else {
@@ -309,7 +309,6 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		controllerName: controllerName,
 		isoTime:        c.isoTime,
 		showRelations:  showRelations,
-		showStorage:    showStorage,
 	}
 	if showStorage {
 		storageInfo, err := c.getStorageInfo(ctx)
