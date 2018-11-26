@@ -588,13 +588,13 @@ type servicePrincipalCreator struct {
 	testing.Stub
 }
 
-func (c *servicePrincipalCreator) InteractiveCreate(ctx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
-	c.MethodCall(c, "InteractiveCreate", ctx, stderr, params)
+func (c *servicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
+	c.MethodCall(c, "InteractiveCreate", sdkCtx, stderr, params)
 	return "appid", "service-principal-password", c.NextErr()
 }
 
-func (c *servicePrincipalCreator) Create(ctx context.Context, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
-	c.MethodCall(c, "Create", ctx, params)
+func (c *servicePrincipalCreator) Create(sdkCtx context.Context, params azureauth.ServicePrincipalParams) (appId, password string, _ error) {
+	c.MethodCall(c, "Create", sdkCtx, params)
 	return "appid", "service-principal-password", c.NextErr()
 }
 

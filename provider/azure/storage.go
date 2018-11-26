@@ -218,12 +218,12 @@ func (v *azureVolumeSource) createManagedDiskVolume(p storage.VolumeParams) (*st
 	}
 
 	diskClient := compute.DisksClient{v.env.disk}
-	ctx := context.Background()
-	future, err := diskClient.CreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel)
+	sdkCtx := context.Background()
+	future, err := diskClient.CreateOrUpdate(sdkCtx, v.env.resourceGroup, diskName, diskModel)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
 	}
-	err = future.WaitForCompletionRef(ctx, diskClient.Client)
+	err = future.WaitForCompletionRef(sdkCtx, diskClient.Client)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
 	}
@@ -344,12 +344,12 @@ func (v *azureVolumeSource) ListVolumes() ([]string, error) {
 func (v *azureVolumeSource) listManagedDiskVolumes() ([]string, error) {
 	var volumeIds []string
 	diskClient := compute.DisksClient{v.env.disk}
-	ctx := context.Background()
-	list, err := diskClient.ListComplete(ctx)
+	sdkCtx := context.Background()
+	list, err := diskClient.ListComplete(sdkCtx)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing disks")
 	}
-	for ; list.NotDone(); err = list.NextWithContext(ctx) {
+	for ; list.NotDone(); err = list.NextWithContext(sdkCtx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing disks")
 		}
@@ -409,12 +409,12 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(volumeIds []string) ([]st
 	diskClient := compute.DisksClient{v.env.disk}
 	results := make([]storage.DescribeVolumesResult, len(volumeIds))
 	var wg sync.WaitGroup
-	ctx := context.Background()
+	sdkCtx := context.Background()
 	for i, volumeId := range volumeIds {
 		wg.Add(1)
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			disk, err := diskClient.Get(ctx, v.env.resourceGroup, volumeId)
+			disk, err := diskClient.Get(sdkCtx, v.env.resourceGroup, volumeId)
 			if err != nil {
 				if isNotFoundResponse(disk.Response) {
 					err = errors.NotFoundf("disk %s", volumeId)
@@ -476,16 +476,16 @@ func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 
 func (v *azureVolumeSource) destroyManagedDiskVolumes(volumeIds []string) ([]error, error) {
 	diskClient := compute.DisksClient{v.env.disk}
-	ctx := context.Background()
+	sdkCtx := context.Background()
 	return foreachVolume(volumeIds, func(volumeId string) error {
-		future, err := diskClient.Delete(ctx, v.env.resourceGroup, volumeId)
+		future, err := diskClient.Delete(sdkCtx, v.env.resourceGroup, volumeId)
 		if err != nil {
 			if !isNotFoundResponse(autorest.Response{future.Response()}) {
 				return errors.Annotatef(err, "deleting disk %q", volumeId)
 			}
 			return nil
 		}
-		err = future.WaitForCompletionRef(ctx, diskClient.Client)
+		err = future.WaitForCompletionRef(sdkCtx, diskClient.Client)
 		if err != nil {
 			return errors.Annotatef(err, "deleting disk %q", volumeId)
 		}
@@ -785,14 +785,14 @@ type maybeVirtualMachine struct {
 // errors, for each of the specified instance IDs.
 func (v *azureVolumeSource) virtualMachines(instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
 	vmsClient := compute.VirtualMachinesClient{v.env.compute}
-	ctx := context.Background()
-	result, err := vmsClient.ListComplete(ctx, v.env.resourceGroup)
+	sdkCtx := context.Background()
+	result, err := vmsClient.ListComplete(sdkCtx, v.env.resourceGroup)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing virtual machines")
 	}
 
 	all := make(map[instance.Id]*compute.VirtualMachine)
-	for ; result.NotDone(); err = result.NextWithContext(ctx) {
+	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing disks")
 		}
@@ -827,9 +827,9 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			results[i] = vm.err
 			continue
 		}
-		ctx := context.Background()
+		sdkCtx := context.Background()
 		future, err := vmsClient.CreateOrUpdate(
-			ctx,
+			sdkCtx,
 			v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm,
 		)
 		if err != nil {
@@ -837,7 +837,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			vm.err = err
 			continue
 		}
-		err = future.WaitForCompletionRef(ctx, vmsClient.Client)
+		err = future.WaitForCompletionRef(sdkCtx, vmsClient.Client)
 		if err != nil {
 			results[i] = err
 			vm.err = err

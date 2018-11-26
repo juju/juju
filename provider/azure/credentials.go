@@ -35,8 +35,8 @@ const (
 )
 
 type ServicePrincipalCreator interface {
-	InteractiveCreate(ctx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
-	Create(ctx context.Context, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
+	InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
+	Create(sdkCtx context.Context, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
 }
 
 type AzureCLI interface {
@@ -190,7 +190,8 @@ func (c environProviderCredentials) deviceCodeCredential(
 	args environs.FinalizeCredentialParams,
 	params azureauth.ServicePrincipalParams,
 ) (*cloud.Credential, error) {
-	applicationId, password, err := c.servicePrincipalCreator.InteractiveCreate(context.Background(), ctx.GetStderr(), params)
+	sdkCtx := context.Background()
+	applicationId, password, err := c.servicePrincipalCreator.InteractiveCreate(sdkCtx, ctx.GetStderr(), params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

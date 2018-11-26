@@ -88,8 +88,8 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*adal.ServiceP
 	client := subscriptions.Client{subscriptions.NewWithBaseURI(cloud.Endpoint)}
 	useragent.UpdateClient(&client.Client)
 	client.Sender = sender
-	ctx := context.Background()
-	oauthConfig, _, err := azureauth.OAuthConfig(ctx, client, cloud.Endpoint, subscriptionId)
+	sdkCtx := context.Background()
+	oauthConfig, _, err := azureauth.OAuthConfig(sdkCtx, client, cloud.Endpoint, subscriptionId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

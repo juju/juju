@@ -128,7 +128,7 @@ type ServicePrincipalCreator struct {
 // GraphResourceId, ResourceManagerEndpoint, ResourceManagerResourceId
 // and SubscriptionId need to be specified in params, the other values
 // will be derived.
-func (c *ServicePrincipalCreator) InteractiveCreate(ctx context.Context, stderr io.Writer, params ServicePrincipalParams) (appid, password string, _ error) {
+func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params ServicePrincipalParams) (appid, password string, _ error) {
 	subscriptionsClient := subscriptions.Client{
 		subscriptions.NewWithBaseURI(params.ResourceManagerEndpoint),
 	}
@@ -137,7 +137,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(ctx context.Context, stderr 
 	setClientInspectors(&subscriptionsClient.Client, c.RequestInspector, "azure.subscriptions")
 
 	oauthConfig, tenantId, err := OAuthConfig(
-		ctx,
+		sdkCtx,
 		subscriptionsClient,
 		params.ResourceManagerEndpoint,
 		params.SubscriptionId,
@@ -203,16 +203,16 @@ func (c *ServicePrincipalCreator) InteractiveCreate(ctx context.Context, stderr 
 	}
 	fmt.Fprintf(stderr, "Authenticated as %q.\n", userObject.DisplayName)
 
-	return c.Create(ctx, params)
+	return c.Create(sdkCtx, params)
 }
 
 // Create creates a new service principal using the values specified in params.
-func (c *ServicePrincipalCreator) Create(ctx context.Context, params ServicePrincipalParams) (appid, password string, _ error) {
+func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServicePrincipalParams) (appid, password string, _ error) {
 	servicePrincipalObjectId, password, err := c.createOrUpdateServicePrincipal(params)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	if err := c.createRoleAssignment(ctx, params, servicePrincipalObjectId); err != nil {
+	if err := c.createRoleAssignment(sdkCtx, params, servicePrincipalObjectId); err != nil {
 		return "", "", errors.Trace(err)
 	}
 	return jujuApplicationId, password, nil
@@ -347,12 +347,12 @@ func getServicePrincipal(client ad.ServicePrincipalsClient) (ad.ServicePrincipal
 	return ad.ServicePrincipal{}, errors.NotFoundf("service principal")
 }
 
-func (c *ServicePrincipalCreator) createRoleAssignment(ctx context.Context, params ServicePrincipalParams, servicePrincipalObjectId string) error {
+func (c *ServicePrincipalCreator) createRoleAssignment(sdkCtx context.Context, params ServicePrincipalParams, servicePrincipalObjectId string) error {
 	client := params.authorizationClient(c.Sender, c.RequestInspector)
 	// Find the role definition with the name "Owner".
 	roleScope := path.Join("subscriptions", params.SubscriptionId)
 	roleDefinitionsClient := authorization.RoleDefinitionsClient{client}
-	result, err := roleDefinitionsClient.List(ctx, roleScope, "roleName eq 'Owner'")
+	result, err := roleDefinitionsClient.List(sdkCtx, roleScope, "roleName eq 'Owner'")
 	if err != nil {
 		return errors.Annotate(err, "listing role definitions")
 	}
@@ -374,7 +374,7 @@ func (c *ServicePrincipalCreator) createRoleAssignment(ctx context.Context, para
 	retryArgs := retry.CallArgs{
 		Func: func() error {
 			_, err := roleAssignmentsClient.Create(
-				ctx,
+				sdkCtx,
 				roleScope, roleAssignmentName,
 				authorization.RoleAssignmentCreateParameters{
 					Properties: &authorization.RoleAssignmentProperties{

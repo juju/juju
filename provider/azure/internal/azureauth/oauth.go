@@ -15,12 +15,12 @@ import (
 // manager endpoint and subscription ID. This will make a request to the
 // resource manager API to discover the Active Directory tenant ID.
 func OAuthConfig(
-	ctx context.Context,
+	sdkCtx context.Context,
 	client subscriptions.Client,
 	resourceManagerEndpoint string,
 	subscriptionId string,
 ) (*adal.OAuthConfig, string, error) {
-	authURI, err := DiscoverAuthorizationURI(ctx, client, subscriptionId)
+	authURI, err := DiscoverAuthorizationURI(sdkCtx, client, subscriptionId)
 	if err != nil {
 		return nil, "", errors.Annotate(err, "detecting auth URI")
 	}

@@ -117,8 +117,8 @@ func ubuntuSKU(series, stream, location string, client compute.VirtualMachineIma
 		return "", errors.Trace(err)
 	}
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, ubuntuOffering)
-	ctx := context.Background()
-	result, err := client.ListSkus(ctx, location, ubuntuPublisher, ubuntuOffering)
+	sdkCtx := context.Background()
+	result, err := client.ListSkus(sdkCtx, location, ubuntuPublisher, ubuntuOffering)
 	if err != nil {
 		return "", errors.Annotate(err, "listing Ubuntu SKUs")
 	}

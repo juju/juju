@@ -86,20 +86,20 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 func isControllerEnviron(env *azureEnviron) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	ctx := stdcontext.Background()
-	result, err := client.ListComplete(ctx, env.resourceGroup)
+	sdkCtx := stdcontext.Background()
+	result, err := client.ListComplete(sdkCtx, env.resourceGroup)
 	if err != nil {
 		return false, errors.Annotate(err, "listing virtual machines")
 	}
 
-	if !result.NotDone() {
+	if result.Response().IsEmpty() {
 		// No machines implies this is not the controller model, as
 		// there must be a controller machine for the upgrades to be
 		// running!
 		return false, nil
 	}
 
-	for ; result.NotDone(); err = result.NextWithContext(ctx) {
+	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
 		if err != nil {
 			return false, errors.Annotate(err, "iterating machines")
 		}

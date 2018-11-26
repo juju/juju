@@ -400,16 +400,16 @@ func (s *environSuite) storageAccountSender() *azuretesting.MockSender {
 	return s.makeSender(".*/storageAccounts/"+storageAccountName, s.storageAccount)
 }
 
-func (s *environSuite) storageAccountErrorSender(err error, repeat int) *azuretesting.MockSender {
-	return s.makeErrorSenderWithContent(".*/storageAccounts/"+storageAccountName, s.storageAccount, err, repeat)
+func (s *environSuite) storageAccountErrorSender(c *gc.C, err error, repeat int) *azuretesting.MockSender {
+	return s.makeErrorSenderWithContent(c, ".*/storageAccounts/"+storageAccountName, s.storageAccount, err, repeat)
 }
 
 func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
 	return s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
 }
 
-func (s *environSuite) storageAccountKeysErrorSender(err error, repeat int) *azuretesting.MockSender {
-	return s.makeErrorSenderWithContent(".*/storageAccounts/.*/listKeys", s.storageAccountKeys, err, repeat)
+func (s *environSuite) storageAccountKeysErrorSender(c *gc.C, err error, repeat int) *azuretesting.MockSender {
+	return s.makeErrorSenderWithContent(c, ".*/storageAccounts/.*/listKeys", s.storageAccountKeys, err, repeat)
 }
 
 func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.MockSender {
@@ -418,18 +418,15 @@ func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.M
 	return sender
 }
 
-func (s *environSuite) makeErrorSender(pattern string, err error, repeat int) *azuretesting.MockSender {
-	return s.makeErrorSenderWithContent(pattern, nil, err, repeat)
+func (s *environSuite) makeErrorSender(c *gc.C, pattern string, err error, repeat int) *azuretesting.MockSender {
+	return s.makeErrorSenderWithContent(c, pattern, nil, err, repeat)
 }
 
-func (s *environSuite) makeErrorSenderWithContent(pattern string, v interface{}, err error, repeat int) *azuretesting.MockSender {
-
+func (s *environSuite) makeErrorSenderWithContent(c *gc.C, pattern string, v interface{}, err error, repeat int) *azuretesting.MockSender {
 	sender := azuretesting.NewSenderWithValue(nil)
 	sender.PathPattern = pattern
 	content, jerr := json.Marshal(v)
-	if err != nil {
-		panic(jerr)
-	}
+	c.Assert(jerr, jc.ErrorIsNil)
 	sender.AppendResponse(mocks.NewResponseWithContent(string(content)))
 	sender.SetAndRepeatError(err, repeat)
 	return sender
@@ -1322,7 +1319,7 @@ func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
 	azure.SetRetries(env)
 
 	nsgErr := autorest.NewErrorWithError(errors.New("autorest/azure: Service returned an error."), "network.SecurityGroupsClient", "Get", &http.Response{StatusCode: http.StatusNotFound}, "Failure responding to request")
-	nsgSender := s.makeErrorSenderWithContent(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup(), nsgErr, 2)
+	nsgSender := s.makeErrorSenderWithContent(c, ".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup(), nsgErr, 2)
 
 	s.sender = azuretesting.Senders{
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
@@ -1387,8 +1384,8 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 	env := s.openEnviron(c)
 	azure.SetRetries(env)
 
-	vmDeleteSender0 := s.makeErrorSender(".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
-	vmDeleteSender1 := s.makeErrorSender(".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
+	vmDeleteSender0 := s.makeErrorSender(c, ".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
+	vmDeleteSender1 := s.makeErrorSender(c, ".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
 
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
@@ -1451,7 +1448,7 @@ func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
 	env := s.openEnviron(c)
 	azure.SetRetries(env)
-	errorSender := s.storageAccountErrorSender(errors.New("blargh"), 2)
+	errorSender := s.storageAccountErrorSender(c, errors.New("blargh"), 2)
 	s.sender = azuretesting.Senders{
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
 		errorSender,
@@ -1463,7 +1460,7 @@ func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
 func (s *environSuite) TestStopInstancesStorageAccountKeysError(c *gc.C) {
 	env := s.openEnviron(c)
 	azure.SetRetries(env)
-	errorSender := s.storageAccountKeysErrorSender(errors.New("blargh"), 2)
+	errorSender := s.storageAccountKeysErrorSender(c, errors.New("blargh"), 2)
 	s.sender = azuretesting.Senders{
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
 		s.storageAccountSender(),
@@ -1576,7 +1573,7 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	result := resources.GroupListResult{Value: &groups}
 
 	makeErrorSender := func(err string) *azuretesting.MockSender {
-		errorSender := s.makeErrorSender(".*/resourcegroups/group[12].*", errors.New(err), 2)
+		errorSender := s.makeErrorSender(c, ".*/resourcegroups/group[12].*", errors.New(err), 2)
 		return errorSender
 	}
 
@@ -1770,6 +1767,7 @@ func makeResourceGroupResult() resources.Group {
 func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 	env := s.openEnviron(c)
 	sender := s.makeErrorSender(
+		c,
 		".*/resourcegroups/juju-testmodel-.*",
 		errors.New("uhoh"),
 		4)
@@ -1783,6 +1781,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeErrorSender(
+		c,
 		".*/resourcegroups/juju-testmodel-.*",
 		errors.New("uhoh"),
 		2)
@@ -1799,6 +1798,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeErrorSender(
+		c,
 		".*/providers",
 		errors.New("uhoh"),
 		2)
@@ -1816,6 +1816,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeErrorSender(
+		c,
 		".*/resourceGroups/juju-testmodel-.*/resources",
 		errors.New("ouch!"),
 		2)
@@ -1867,6 +1868,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 	env := s.openEnviron(c)
 
 	errorSender := s.makeErrorSender(
+		c,
 		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues",
 		errors.New("flagrant error! virus=very yes"),
 		2)
@@ -1899,6 +1901,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 	env := s.openEnviron(c)
 
 	errorSender := s.makeErrorSender(
+		c,
 		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues",
 		errors.New("oopsie"),
 		2)

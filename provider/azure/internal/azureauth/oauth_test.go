@@ -40,8 +40,8 @@ func oauthConfigSender() autorest.Sender {
 func (s *OAuthConfigSuite) TestOAuthConfig(c *gc.C) {
 	client := subscriptions.Client{subscriptions.NewWithBaseURI("https://testing.invalid")}
 	client.Sender = oauthConfigSender()
-	ctx := context.Background()
-	cfg, tenantId, err := azureauth.OAuthConfig(ctx, client, "https://testing.invalid", "subscription-id")
+	sdkCtx := context.Background()
+	cfg, tenantId, err := azureauth.OAuthConfig(sdkCtx, client, "https://testing.invalid", "subscription-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tenantId, gc.Equals, fakeTenantId)
 

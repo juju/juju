@@ -32,9 +32,9 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *gc.C) {
 	sender.AppendResponse(resp)
 
 	client := subscriptions.NewClient()
-	ctx := context.Background()
+	sdkCtx := context.Background()
 	client.Sender = sender
-	authURI, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
+	authURI, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authURI, jc.DeepEquals, &url.URL{
 		Scheme: "https",
@@ -50,8 +50,8 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIMissingHeader(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	ctx := context.Background()
-	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
+	sdkCtx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, `WWW-Authenticate header not found`)
 }
 
@@ -63,8 +63,8 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIHeaderMismatch(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	ctx := context.Background()
-	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
+	sdkCtx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, `authorization_uri not found in WWW-Authenticate header \("foo bar baz"\)`)
 }
 
@@ -75,8 +75,8 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedSuccess(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	ctx := context.Background()
-	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
+	sdkCtx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response")
 }
 
@@ -87,8 +87,8 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedStatusCode(c *gc.C)
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	ctx := context.Background()
-	_, err := azureauth.DiscoverAuthorizationURI(ctx, client, "subscription_id")
+	sdkCtx := context.Background()
+	_, err := azureauth.DiscoverAuthorizationURI(sdkCtx, client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response, got 404: .*")
 }
 

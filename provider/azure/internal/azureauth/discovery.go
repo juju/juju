@@ -21,10 +21,10 @@ var authorizationUriRegexp = regexp.MustCompile(`authorization_uri="([^"]*)"`)
 
 // DiscoverAuthorizationID returns the OAuth authorization URI for the given
 // subscription ID. This can be used to determine the AD tenant ID.
-func DiscoverAuthorizationURI(ctx context.Context, client subscriptions.Client, subscriptionID string) (*url.URL, error) {
+func DiscoverAuthorizationURI(sdkCtx context.Context, client subscriptions.Client, subscriptionID string) (*url.URL, error) {
 	// We make an unauthenticated request to the Azure API, which
 	// responds with the authentication URL with the tenant ID in it.
-	result, err := client.Get(ctx, subscriptionID)
+	result, err := client.Get(sdkCtx, subscriptionID)
 	if err == nil {
 		return nil, errors.New("expected unauthorized error response")
 	}

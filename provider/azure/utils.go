@@ -62,15 +62,15 @@ func isNotFoundResponse(resp autorest.Response) bool {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(ctx context.Context, client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(sdkCtx context.Context, client resources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
 	var res resources.ProviderListResultIterator
-	res, err := client.ListComplete(ctx, nil, "")
+	res, err := client.ListComplete(sdkCtx, nil, "")
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	for ; res.NotDone(); err = res.NextWithContext(ctx) {
+	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources")
 		}

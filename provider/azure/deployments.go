@@ -28,9 +28,9 @@ func createDeployment(
 			Mode:     resources.Incremental,
 		},
 	}
-	ctx := context.Background()
+	sdkCtx := context.Background()
 	_, err = client.CreateOrUpdate(
-		ctx,
+		sdkCtx,
 		resourceGroup,
 		deploymentName,
 		deployment,

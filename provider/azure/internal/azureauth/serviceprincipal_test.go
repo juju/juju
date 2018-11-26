@@ -191,9 +191,9 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 
 	var stderr bytes.Buffer
 	subscriptionId := "22222222-2222-2222-2222-222222222222"
-	ctx := context.Background()
+	sdkCtx := context.Background()
 
-	appId, password, err := spc.InteractiveCreate(ctx, &stderr, azureauth.ServicePrincipalParams{
+	appId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -265,8 +265,8 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		Clock:            s.clock,
 		NewUUID:          s.newUUID,
 	}
-	ctx := context.Background()
-	_, _, err := spc.InteractiveCreate(ctx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, _, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -309,8 +309,8 @@ func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C,
 		Clock:            s.clock,
 		NewUUID:          s.newUUID,
 	}
-	ctx := context.Background()
-	_, password, err := spc.InteractiveCreate(ctx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -379,8 +379,8 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 		},
 		NewUUID: s.newUUID,
 	}
-	ctx := context.Background()
-	_, password, err := spc.InteractiveCreate(ctx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -425,8 +425,8 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		},
 		NewUUID: s.newUUID,
 	}
-	ctx := context.Background()
-	_, password, err := spc.InteractiveCreate(ctx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
