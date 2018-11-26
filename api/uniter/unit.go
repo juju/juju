@@ -551,7 +551,7 @@ func (u *Unit) ClearResolved() error {
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
-// unit's application configuration settings. The unit must have a charm URL
+// unit's charm configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
@@ -559,29 +559,13 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 }
 
 // WatchConfigSettingsHash returns a watcher for observing changes to
-// the unit's application configuration settings (with a hash of the
+// the unit's charm configuration settings (with a hash of the
 // settings content so we can determine whether it has changed since
 // it was last seen by the uniter). The unit must have a charm URL set
 // before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 func (u *Unit) WatchConfigSettingsHash() (watcher.StringsWatcher, error) {
-	var results params.StringsWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("WatchConfigSettingsHash", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
-	return w, nil
+	return getHashWatcher(u, "WatchConfigSettingsHash")
 }
 
 // WatchTrustConfigSettings will return a watcher to monitor at least the trust
@@ -590,6 +574,14 @@ func (u *Unit) WatchConfigSettingsHash() (watcher.StringsWatcher, error) {
 // and do not monitor for application configuration settings such as "trust".
 func (u *Unit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
 	return getSettingsWatcher(u, "WatchTrustConfigSettings")
+}
+
+// WatchConfigSettingsHash returns a watcher for observing changes to
+// the unit's application configuration settings (with a hash of the
+// settings content so we can determine whether it has changed since
+// it was last seen by the uniter).
+func (u *Unit) WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error) {
+	return getHashWatcher(u, "WatchTrustConfigSettingsHash")
 }
 
 func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, error) {
@@ -609,6 +601,26 @@ func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, erro
 		return nil, result.Error
 	}
 	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall(methodName, args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
