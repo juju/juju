@@ -75,7 +75,7 @@ func generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI, ids []string
 
 	results, err := api.ListVolumes(ids)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// filter out valid output, if any
 	var valid []params.VolumeDetails

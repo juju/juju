@@ -14,34 +14,48 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
 type statusFormatter struct {
-	status         *params.FullStatus
-	controllerName string
-	relations      map[int]params.RelationStatus
-	isoTime        bool
-	showRelations  bool
+	status                 *params.FullStatus
+	controllerName         string
+	relations              map[int]params.RelationStatus
+	storage                *storage.CombinedStorage
+	isoTime, showRelations bool
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(status, "", isoTime, true)
+	return newStatusFormatter(
+		newStatusFormatterParams{
+			status:        status,
+			isoTime:       isoTime,
+			showRelations: true,
+		})
 }
 
-func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime, showRelations bool) *statusFormatter {
+type newStatusFormatterParams struct {
+	storage                *storage.CombinedStorage
+	status                 *params.FullStatus
+	controllerName         string
+	isoTime, showRelations bool
+}
+
+func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
 	sf := statusFormatter{
-		status:         status,
-		controllerName: controllerName,
+		storage:        p.storage,
+		status:         p.status,
+		controllerName: p.controllerName,
 		relations:      make(map[int]params.RelationStatus),
-		isoTime:        isoTime,
-		showRelations:  showRelations,
+		isoTime:        p.isoTime,
+		showRelations:  p.showRelations,
 	}
-	if showRelations {
-		for _, relation := range status.Relations {
+	if p.showRelations {
+		for _, relation := range p.status.Relations {
 			sf.relations[relation.Id] = relation
 		}
 	}
@@ -101,6 +115,9 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	for _, rel := range sf.relations {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
+	}
+	if sf.storage != nil {
+		out.Storage = sf.storage
 	}
 	return out, nil
 }

@@ -21,7 +21,6 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("[Volumes]")
 
 	haveMachines := false
 	volumeAttachmentInfos := make(volumeAttachmentInfos, 0, len(infos))
@@ -70,9 +69,9 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	sort.Sort(volumeAttachmentInfos)
 
 	if haveMachines {
-		print("Machine", "Unit", "Storage", "Id", "Provider Id", "Device", "Size", "State", "Message")
+		print("Machine", "Unit", "Storage id", "Volume id", "Provider Id", "Device", "Size", "State", "Message")
 	} else {
-		print("Unit", "Storage", "Id", "Provider Id", "Size", "State", "Message")
+		print("Unit", "Storage id", "Volume id", "Provider Id", "Size", "State", "Message")
 	}
 
 	for _, info := range volumeAttachmentInfos {

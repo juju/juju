@@ -11,55 +11,57 @@ import (
 
 	"github.com/dustin/go-humanize"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/juju/cmd/output"
 )
 
-// formatListTabular writes a tabular summary of storage instances.
-func formatStorageListTabular(
-	writer io.Writer,
-	storageInfo map[string]StorageInfo,
-	filesystems map[string]FilesystemInfo,
-	volumes map[string]VolumeInfo,
-) error {
+// formatStorageInstancesListTabular writes a tabular summary of storage instances.
+func formatStorageInstancesListTabular(writer io.Writer, s CombinedStorage) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("[Storage]")
 
-	storageProviderId := make(map[string]string)
-	storageSize := make(map[string]uint64)
-	storagePool := make(map[string]string)
-	for _, f := range filesystems {
-		if f.Pool != "" {
-			storagePool[f.Storage] = f.Pool
-		}
-		storageProviderId[f.Storage] = f.ProviderFilesystemId
-		storageSize[f.Storage] = f.Size
-	}
-	for _, v := range volumes {
-		// This will intentionally override the provider ID
-		// and pool for a volume-backed filesystem.
-		if v.Pool != "" {
-			storagePool[v.Storage] = v.Pool
-		}
-		storageProviderId[v.Storage] = v.ProviderVolumeId
-		// For size, we want to use the size of the fileystem
-		// rather than the volume.
-		if _, ok := storageSize[v.Storage]; !ok {
-			storageSize[v.Storage] = v.Size
-		}
-	}
+	storagePool, storageSize := getStoragePoolAndSize(s)
+	units, byUnit := sortStorageInstancesByUnitId(s)
 
-	w.Print("Unit", "Id", "Type")
+	w.Print("Unit", "Storage id", "Type")
 	if len(storagePool) > 0 {
 		// Older versions of Juju do not include
 		// the pool name in the storage details.
 		// We omit the column in that case.
 		w.Print("Pool")
 	}
-	w.Println("Provider id", "Size", "Status", "Message")
+	w.Println("Size", "Status", "Message")
 
+	for _, unit := range units {
+		// Then sort by storage ids
+		byStorage := byUnit[unit]
+		storageIds := make([]string, 0, len(byStorage))
+		for storageId := range byStorage {
+			storageIds = append(storageIds, storageId)
+		}
+		sort.Strings(slashSeparatedIds(storageIds))
+
+		for _, storageId := range storageIds {
+			info := byStorage[storageId]
+			w.Print(info.unitId)
+			w.Print(info.storageId)
+			w.Print(info.kind)
+			if len(storagePool) > 0 {
+				w.Print(storagePool[info.storageId])
+			}
+			w.Print(humanizeStorageSize(storageSize[storageId]))
+			w.PrintStatus(info.status.Current)
+			w.Println(info.status.Message)
+		}
+	}
+	tw.Flush()
+
+	return nil
+}
+
+func sortStorageInstancesByUnitId(s CombinedStorage) ([]string, map[string]map[string]storageAttachmentInfo) {
 	byUnit := make(map[string]map[string]storageAttachmentInfo)
-	for storageId, storageInfo := range storageInfo {
+	for storageId, storageInfo := range s.StorageInstances {
 		if storageInfo.Attachments == nil {
 			byStorage := byUnit[""]
 			if byStorage == nil {
@@ -88,15 +90,81 @@ func formatStorageListTabular(
 		}
 	}
 
-	// First sort by units
-	units := make([]string, 0, len(storageInfo))
+	// sort by units
+	units := make([]string, 0, len(s.StorageInstances))
 	for unit := range byUnit {
 		units = append(units, unit)
 	}
 	sort.Strings(slashSeparatedIds(units))
+	return units, byUnit
+}
+
+func getStoragePoolAndSize(s CombinedStorage) (map[string]string, map[string]uint64) {
+	storageSize := make(map[string]uint64)
+	storagePool := make(map[string]string)
+	for _, f := range s.Filesystems {
+		if f.Pool != "" {
+			storagePool[f.Storage] = f.Pool
+		}
+		storageSize[f.Storage] = f.Size
+	}
+	for _, v := range s.Volumes {
+		// This will intentionally override the provider ID
+		// and pool for a volume-backed filesystem.
+		if v.Pool != "" {
+			storagePool[v.Storage] = v.Pool
+		}
+		// For size, we want to use the size of the filesystem
+		// rather than the volume.
+		if _, ok := storageSize[v.Storage]; !ok {
+			storageSize[v.Storage] = v.Size
+		}
+	}
+	return storagePool, storageSize
+}
+
+func getFilesystemAttachment(combined CombinedStorage, attachmentInfo storageAttachmentInfo) FilesystemAttachment {
+	for _, f := range combined.Filesystems {
+		combineAllAttachments := func() map[string]FilesystemAttachment {
+			all := map[string]FilesystemAttachment{}
+			attachment := f.Attachments
+
+			if attachment == nil {
+				return all
+			}
+			for k, v := range attachment.Machines {
+				all[k] = v
+			}
+			for k, v := range attachment.Containers {
+				all[k] = v
+			}
+			return all
+		}
+
+		if f.Storage == attachmentInfo.storageId {
+			if attachment, ok := combineAllAttachments()[attachmentInfo.unitId]; ok {
+				return attachment
+			}
+		}
+	}
+	return FilesystemAttachment{}
+}
+
+// FormatStorageListForStatusTabular writes a tabular summary of storage for status tabular view.
+func FormatStorageListForStatusTabular(writer *ansiterm.TabWriter, s CombinedStorage) error {
+	w := output.Wrapper{writer}
+
+	storagePool, storageSize := getStoragePoolAndSize(s)
+	units, byUnit := sortStorageInstancesByUnitId(s)
+
+	w.Println()
+	w.Print("Storage Unit", "Storage id", "Type")
+	if len(storagePool) > 0 {
+		w.Print("Pool")
+	}
+	w.Println("Mountpoint", "Size", "Status", "Message")
 
 	for _, unit := range units {
-		// Then sort by storage ids
 		byStorage := byUnit[unit]
 		storageIds := make([]string, 0, len(byStorage))
 		for storageId := range byStorage {
@@ -106,27 +174,29 @@ func formatStorageListTabular(
 
 		for _, storageId := range storageIds {
 			info := byStorage[storageId]
-			var sizeStr string
-			if size := storageSize[storageId]; size > 0 {
-				sizeStr = humanize.IBytes(size * humanize.MiByte)
-			}
+
 			w.Print(info.unitId)
 			w.Print(info.storageId)
 			w.Print(info.kind)
 			if len(storagePool) > 0 {
 				w.Print(storagePool[info.storageId])
 			}
-			w.Print(
-				storageProviderId[info.storageId],
-				sizeStr,
-			)
+			w.Print(getFilesystemAttachment(s, info).MountPoint)
+			w.Print(humanizeStorageSize(storageSize[storageId]))
 			w.PrintStatus(info.status.Current)
 			w.Println(info.status.Message)
 		}
 	}
-	tw.Flush()
-
+	w.Flush()
 	return nil
+}
+
+func humanizeStorageSize(size uint64) string {
+	var sizeStr string
+	if size > 0 {
+		sizeStr = humanize.IBytes(size * humanize.MiByte)
+	}
+	return sizeStr
 }
 
 type storageAttachmentInfo struct {
@@ -136,6 +206,7 @@ type storageAttachmentInfo struct {
 	status    EntityStatus
 }
 
+// slashSeparatedIds represents a list of slash separated ids.
 type slashSeparatedIds []string
 
 func (s slashSeparatedIds) Len() int {

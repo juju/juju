@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/relation"
@@ -92,6 +93,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	if len(fs.Relations) > 0 {
 		printRelations(tw, fs.Relations)
+	}
+
+	if fs.Storage != nil {
+		storage.FormatStorageListForStatusTabular(tw, *fs.Storage)
 	}
 
 	endSection(tw)

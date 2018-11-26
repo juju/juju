@@ -30,6 +30,12 @@ var allowedMethodsDuringMigration = map[string]set.Strings{
 	"Client": set.NewStrings(
 		"FullStatus", // for "juju status"
 	),
+	"Storage": set.NewStrings(
+		// for "juju status --storage"
+		"ListFilesystems",
+		"ListVolumes",
+		"ListStorageDetails",
+	),
 	"SSHClient": set.NewStrings( // allow all SSH client related calls
 		"PublicAddress",
 		"PrivateAddress",
