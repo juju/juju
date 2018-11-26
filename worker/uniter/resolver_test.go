@@ -422,3 +422,24 @@ func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
 }
+
+func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			ConfigHash:    "config",
+			TrustHash:     "trust",
+			AddressesHash: "addresses",
+		},
+	}
+	s.remoteState.ConfigHash = "config"
+	s.remoteState.TrustHash = "trust"
+	s.remoteState.AddressesHash = "addresses"
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}

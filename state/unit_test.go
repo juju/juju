@@ -216,6 +216,14 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("9ca0a511647f09db8fab07be3c70f49cc93f38f300ca82d6e26ec7d4a8b1b4c2")
 
+	// Setting a value to int64 instead of int has no effect on the
+	// hash.
+	err = s.application.UpdateCharmConfig(charm.Settings{
+		"alphabetic": int64(1),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
 	// Change application's charm; nothing detected.
 	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
 	cfg = state.SetCharmConfig{Charm: newCharm}

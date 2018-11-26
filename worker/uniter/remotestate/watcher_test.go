@@ -188,8 +188,8 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration change is updated on both application config and
-	// addresses which increments it twice.
+	// Note that the configuration version is updated on both trust
+	// and address changes which increments it twice.
 	expectedVersion := 2
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
@@ -212,8 +212,8 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration change is updated on both application config and
-	// addresses which increments it twice.
+	// Note that the configuration version is updated on both trust
+	// and address changes which increments it twice.
 	expectedVersion := 2
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
