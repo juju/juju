@@ -949,7 +949,8 @@ func getStorageAccountKey(
 	resourceGroup, accountName string,
 ) (*armstorage.AccountKey, error) {
 	logger.Debugf("getting keys for storage account %q", accountName)
-	listKeysResult, err := client.ListKeys(context.Background(), resourceGroup, accountName)
+	sdkCtx := context.Background()
+	listKeysResult, err := client.ListKeys(sdkCtx, resourceGroup, accountName)
 	if err != nil {
 		if isNotFoundResponse(listKeysResult.Response) {
 			return nil, errors.NewNotFound(err, "storage account keys not found")

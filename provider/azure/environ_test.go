@@ -1597,15 +1597,16 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	// Groups are deleted concurrently, so there's no known order.
 	groupsDeleted := []string{
 		path.Base(s.requests[1].URL.Path),
+		path.Base(s.requests[2].URL.Path),
 		path.Base(s.requests[3].URL.Path),
+		path.Base(s.requests[4].URL.Path),
 	}
-	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group1", "group2", "group2"})
 
 	c.Check(destroyErr, gc.ErrorMatches,
 		`deleting resource group "group1":.*; `+
 			`deleting resource group "group2":.*`)
-	c.Check(destroyErr, gc.ErrorMatches, ".*foo.*")
-	c.Check(destroyErr, gc.ErrorMatches, ".*bar.*")
+	c.Check(destroyErr, gc.ErrorMatches, ".*(foo|bar).*")
 }
 
 func (s *environSuite) TestInstanceInformation(c *gc.C) {

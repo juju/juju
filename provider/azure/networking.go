@@ -247,7 +247,8 @@ func networkSecurityRules(
 	nsgClient network.SecurityGroupsClient,
 	resourceGroup string,
 ) ([]network.SecurityRule, error) {
-	nsg, err := nsgClient.Get(context.Background(), resourceGroup, internalSecurityGroupName, "")
+	sdkCtx := context.Background()
+	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
 		if isNotFoundResponse(nsg.Response) {
 			return nil, errors.NotFoundf("security group")

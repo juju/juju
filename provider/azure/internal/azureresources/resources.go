@@ -16,11 +16,11 @@ import (
 // The package's fully qualified name.
 const fqdn = "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 
-// ResourcesClient wraps resources.GroupClient, providing methods for
+// ResourcesClient wraps resources.Client, providing methods for
 // dealing with generic resources.
 //
 // NOTE(axw) this wrapper is necessary only to work around an issue in
-// the generated GroupClient, which hard-codes the API version:
+// the generated Client, which hard-codes the API version:
 //     https://github.com/Azure/azure-sdk-for-go/issues/741
 // When this issue has been resolved, we should drop this code and use
 // the SDK's client directly.

@@ -225,7 +225,8 @@ func (c environProviderCredentials) azureCLICredential(
 	}
 	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(resourceManagerAuthorizer.Token())
 
-	applicationId, password, err := c.servicePrincipalCreator.Create(context.Background(), params)
+	sdkCtx := context.Background()
+	applicationId, password, err := c.servicePrincipalCreator.Create(sdkCtx, params)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get service principal")
 	}
@@ -250,7 +251,8 @@ func (c environProviderCredentials) accountCredential(
 	if err != nil {
 		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
 	}
-	applicationId, password, err := c.servicePrincipalCreator.Create(context.Background(), azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	applicationId, password, err := c.servicePrincipalCreator.Create(sdkCtx, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphResourceId:           cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphAuthorizer:           autorest.NewBearerAuthorizer(graphToken.Token()),
