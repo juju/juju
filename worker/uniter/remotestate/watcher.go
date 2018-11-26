@@ -220,7 +220,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenTrustConfigChange bool
-	trustConfigw, err := w.unit.WatchTrustConfigSettings()
+	trustConfigw, err := w.unit.WatchTrustConfigSettingsHash()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -371,17 +371,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	resetUpdateStatusTimer := func() {
 		updateStatusTimer = w.updateStatusChannel(updateStatusInterval).After()
 	}
-	configChanged := func(changeOccured bool, event *bool) error {
-		logger.Debugf("got config change: ok=%t", changeOccured)
-		if !changeOccured {
-			return errors.New("config watcher closed")
-		}
-		if err := w.configChanged(); err != nil {
-			return errors.Trace(err)
-		}
-		observedEvent(event)
-		return nil
-	}
 
 	for {
 		select {
@@ -416,16 +405,20 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if len(hashes) != 1 {
 				return errors.New("expected one hash in config change")
 			}
-			if err := w.configHashChanged(hashes[0]); err != nil {
-				return errors.Trace(err)
-			}
+			w.configHashChanged(hashes[0])
 			observedEvent(&seenConfigChange)
 
-		case _, ok := <-trustConfigw.Changes():
-			err = configChanged(ok, &seenTrustConfigChange)
-			if err != nil {
-				return errors.Trace(err)
+		case hashes, ok := <-trustConfigw.Changes():
+			logger.Debugf("got trust config change: ok=%t, hashes=%v", ok, hashes)
+			if !ok {
+				return errors.New("trust config watcher closed")
 			}
+			if len(hashes) != 1 {
+				return errors.New("expected one hash in trust config change")
+			}
+			w.trustHashChanged(hashes[0])
+			observedEvent(&seenTrustConfigChange)
+
 		case _, ok := <-upgradeSeriesChanges:
 			logger.Debugf("got upgrade series change")
 			if !ok {
@@ -435,14 +428,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
+
 		case _, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
 				return errors.New("addresses watcher closed")
 			}
-			if err := w.addressesChanged(); err != nil {
-				return errors.Trace(err)
-			}
+			w.addressesChanged()
 			observedEvent(&seenAddressesChange)
 
 		case _, ok := <-leaderSettingsw.Changes():
@@ -654,25 +646,22 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) configChanged() error {
-	w.mu.Lock()
-	w.current.ConfigVersion++
-	w.mu.Unlock()
-	return nil
-}
-
-func (w *RemoteStateWatcher) configHashChanged(value string) error {
+func (w *RemoteStateWatcher) configHashChanged(value string) {
 	w.mu.Lock()
 	w.current.ConfigHash = value
 	w.mu.Unlock()
-	return nil
 }
 
-func (w *RemoteStateWatcher) addressesChanged() error {
+func (w *RemoteStateWatcher) trustHashChanged(value string) {
+	w.mu.Lock()
+	w.current.TrustHash = value
+	w.mu.Unlock()
+}
+
+func (w *RemoteStateWatcher) addressesChanged() {
 	w.mu.Lock()
 	w.current.ConfigVersion++
 	w.mu.Unlock()
-	return nil
 }
 
 func (w *RemoteStateWatcher) leaderSettingsChanged() error {

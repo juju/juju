@@ -202,7 +202,7 @@ type mockUnit struct {
 	unitWatcher                      *mockNotifyWatcher
 	addressesWatcher                 *mockNotifyWatcher
 	configSettingsWatcher            *mockStringsWatcher
-	applicationConfigSettingsWatcher *mockNotifyWatcher
+	applicationConfigSettingsWatcher *mockStringsWatcher
 	upgradeSeriesWatcher             *mockNotifyWatcher
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
@@ -241,7 +241,7 @@ func (u *mockUnit) WatchConfigSettingsHash() (watcher.StringsWatcher, error) {
 	return u.configSettingsWatcher, nil
 }
 
-func (u *mockUnit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error) {
 	return u.applicationConfigSettingsWatcher, nil
 }
 
