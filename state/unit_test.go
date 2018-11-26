@@ -13,8 +13,10 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -217,7 +219,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	wc.AssertChange("9ca0a511647f09db8fab07be3c70f49cc93f38f300ca82d6e26ec7d4a8b1b4c2")
 
 	// Setting a value to int64 instead of int has no effect on the
-	// hash.
+	// hash (the information always comes back as int64).
 	err = s.application.UpdateCharmConfig(charm.Settings{
 		"alphabetic": int64(1),
 	})
@@ -283,6 +285,47 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 
 	wc3 := testing.NewStringsWatcherC(c, s.State, w3)
 	wc3.AssertChange("35412457529c9e0b64b7642ad0f76137ee13b104c94136d0c18b2fe54ddf5d36")
+}
+
+func (s *UnitSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
+	w, err := s.unit.WatchApplicationConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
+
+	schema := environschema.Fields{
+		"username":    environschema.Attr{Type: environschema.Tstring},
+		"alive":       environschema.Attr{Type: environschema.Tbool},
+		"skill-level": environschema.Attr{Type: environschema.Tint},
+		"options":     environschema.Attr{Type: environschema.Tattrs},
+	}
+
+	err = s.application.UpdateApplicationConfig(application.ConfigAttributes{
+		"username":    "abbas",
+		"alive":       true,
+		"skill-level": 23,
+		"options": map[string]string{
+			"fortuna": "crescis",
+			"luna":    "velut",
+			"status":  "malus",
+		},
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange("fa3b92db7c37210ed80da08c522abbe8ffffc9982ad2136342f3df8f221b5768")
+
+	// For reasons that I don't understand, application config
+	// converts int64s to int while charm config converts ints to
+	// int64 - I'm not going to try to untangle that now.
+	err = s.application.UpdateApplicationConfig(application.ConfigAttributes{
+		"username":    "bob",
+		"skill-level": int64(23),
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange("d437a3b548fecf7f8c7748bf8d2acab0960ceb53f316a22803a6ca7442a9b8b3")
 }
 
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {

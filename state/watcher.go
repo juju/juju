@@ -1885,6 +1885,15 @@ func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 	return newSettingsHashWatcher(u.st, charmConfigKey), nil
 }
 
+// WatchApplicationConfigSettingsHash is the same as
+// WatchConfigSettingsHash but watches the application's config rather
+// than charm configuration. Yields a hash of the application config
+// with each change.
+func (u *Unit) WatchApplicationConfigSettingsHash() (StringsWatcher, error) {
+	applicationConfigKey := applicationConfigKey(u.ApplicationName())
+	return newSettingsHashWatcher(u.st, applicationConfigKey), nil
+}
+
 // WatchMeterStatus returns a watcher observing changes that affect the meter status
 // of a unit.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
@@ -3773,16 +3782,9 @@ func (w *settingsHashWatcher) hash() (string, error) {
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
-	// Ensure elements are in a consistent order.
-	var items bson.D
-	for name, value := range doc.Settings {
-		items = append(items, bson.DocElem{Name: name, Value: value})
-	}
-	// We know that there aren't any equal names because the source is
-	// a map.
-	sort.Slice(items, func(i int, j int) bool {
-		return items[i].Name < items[j].Name
-	})
+	// Ensure elements are in a consistent order. If any are maps,
+	// replace them with the equivalent sorted bson.Ds.
+	items := toSortedBsonD(doc.Settings)
 	data, err := bson.Marshal(items)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -3791,4 +3793,20 @@ func (w *settingsHashWatcher) hash() (string, error) {
 	hash.Write([]byte(w.name))
 	hash.Write(data)
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func toSortedBsonD(values map[string]interface{}) bson.D {
+	var items bson.D
+	for name, value := range values {
+		if mapValue, ok := value.(map[string]interface{}); ok {
+			value = toSortedBsonD(mapValue)
+		}
+		items = append(items, bson.DocElem{Name: name, Value: value})
+	}
+	// We know that there aren't any equal names because the source is
+	// a map.
+	sort.Slice(items, func(i int, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+	return items
 }
