@@ -511,7 +511,7 @@
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"
-  revision = "b46b9d99652d633b91999fe4a973cb93aefa3515"
+  revision = "9ecfba03d10a21015af9bbd42aa0512dc0cf9514"
   source = "github.com/juju/mgo"
 
 [[constraint]]
