@@ -93,6 +93,21 @@ type State struct {
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
+
+	// ConfigHash stores a hash of the latest known charm
+	// configuration settings - it's used to determine whether we need
+	// to run config-changed.
+	ConfigHash string `yaml:"config-hash,omitempty"`
+
+	// TrustHash stores a hash of the latest known charm trust
+	// configuration settings - it's used to determine whether we need
+	// to run config-changed.
+	TrustHash string `yaml:"trust-hash,omitempty"`
+
+	// AddressesHash stores a hash of the latest known
+	// machine/container addresses - it's used to determine whether we
+	// need to run config-changed.
+	AddressesHash string `yaml:"addresses-hash,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.

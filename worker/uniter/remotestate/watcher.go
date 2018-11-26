@@ -209,7 +209,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenConfigChange bool
-	charmConfigw, err := w.unit.WatchConfigSettings()
+	charmConfigw, err := w.unit.WatchConfigSettingsHash()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -408,11 +408,19 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenApplicationChange)
 
-		case _, ok := <-charmConfigw.Changes():
-			err = configChanged(ok, &seenConfigChange)
-			if err != nil {
-				return err
+		case hashes, ok := <-charmConfigw.Changes():
+			logger.Debugf("got config change: ok=%t, hashes=%v", ok, hashes)
+			if !ok {
+				return errors.New("config watcher closed")
 			}
+			if len(hashes) != 1 {
+				return errors.New("expected one hash in config change")
+			}
+			if err := w.configHashChanged(hashes[0]); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenConfigChange)
+
 		case _, ok := <-trustConfigw.Changes():
 			err = configChanged(ok, &seenTrustConfigChange)
 			if err != nil {
@@ -649,6 +657,13 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 func (w *RemoteStateWatcher) configChanged() error {
 	w.mu.Lock()
 	w.current.ConfigVersion++
+	w.mu.Unlock()
+	return nil
+}
+
+func (w *RemoteStateWatcher) configHashChanged(value string) error {
+	w.mu.Lock()
+	w.current.ConfigHash = value
 	w.mu.Unlock()
 	return nil
 }

@@ -519,6 +519,22 @@ options:
   other: {default: None, description: My Other, type: string}
 `
 
+var sortableConfig = `
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+  alphabetic:
+    type: int
+    description: Something early in the alphabet.
+  zygomatic:
+    type: int
+    description: Something late in the alphabet.
+`
+
+var wordpressConfig = `
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+`
+
 var setCharmConfigTests = []struct {
 	summary     string
 	startconfig string

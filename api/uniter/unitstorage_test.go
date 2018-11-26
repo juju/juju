@@ -21,7 +21,7 @@ type unitStorageSuite struct {
 
 var _ = gc.Suite(&unitStorageSuite{})
 
-const expectedAPIVersion = 8
+const expectedAPIVersion = 9
 
 func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
 	tag := names.NewUnitTag(t)

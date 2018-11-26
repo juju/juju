@@ -21,7 +21,7 @@ type storageSuite struct {
 	coretesting.BaseSuite
 }
 
-const expectedVersion = 8
+const expectedVersion = 9
 
 func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 	storageAttachmentIds := []params.StorageAttachmentId{{

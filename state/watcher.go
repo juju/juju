@@ -4,9 +4,11 @@
 package state
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1871,6 +1873,18 @@ func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, u.st.docID(applicationConfigKey)), nil
 }
 
+// WatchConfigSettingsHash returns a watcher that yields a hash of the
+// unit's charm config settings whenever they are changed. The
+// returned watcher will be valid only while the application's charm
+// URL is not changed.
+func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
+	}
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
+	return newSettingsHashWatcher(u.st, charmConfigKey), nil
+}
+
 // WatchMeterStatus returns a watcher observing changes that affect the meter status
 // of a unit.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
@@ -3683,4 +3697,98 @@ func (w *containerAddressesWatcher) loop() error {
 			out = nil
 		}
 	}
+}
+
+func newSettingsHashWatcher(st *State, localID string) StringsWatcher {
+	w := &settingsHashWatcher{
+		commonWatcher: newCommonWatcher(st),
+		out:           make(chan []string),
+		id:            st.docID(localID),
+		name:          localID,
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+type settingsHashWatcher struct {
+	commonWatcher
+	id   string
+	name string
+	out  chan []string
+}
+
+func (w *settingsHashWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *settingsHashWatcher) loop() error {
+	settings, closer := w.db.GetCollection(settingsC)
+	revno, err := getTxnRevno(settings, w.id)
+	closer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settingsCh := make(chan watcher.Change)
+	w.watcher.Watch(settingsC, w.id, revno, settingsCh)
+	defer w.watcher.Unwatch(settingsC, w.id, settingsCh)
+
+	lastHash, err := w.hash()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-settingsCh:
+			if _, ok := collect(change, settingsCh, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			newHash, err := w.hash()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if lastHash != newHash {
+				lastHash = newHash
+				out = w.out
+			}
+		case out <- []string{lastHash}:
+			out = nil
+		}
+	}
+}
+
+func (w *settingsHashWatcher) hash() (string, error) {
+	settings, closer := w.db.GetCollection(settingsC)
+	defer closer()
+	var doc settingsDoc
+	if err := settings.FindId(w.id).One(&doc); err == mgo.ErrNotFound {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Ensure elements are in a consistent order.
+	var items bson.D
+	for name, value := range doc.Settings {
+		items = append(items, bson.DocElem{Name: name, Value: value})
+	}
+	// We know that there aren't any equal names because the source is
+	// a map.
+	sort.Slice(items, func(i int, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+	data, err := bson.Marshal(items)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	hash := sha256.New()
+	hash.Write([]byte(w.name))
+	hash.Write(data)
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

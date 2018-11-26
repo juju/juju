@@ -368,3 +368,78 @@ func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
 }
+
+func (s *resolverSuite) TestRunsConfigChangedIfConfigHashChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:       operation.Continue,
+			Installed:  true,
+			Started:    true,
+			ConfigHash: "somehash",
+		},
+	}
+	s.remoteState.ConfigHash = "differenthash"
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *resolverSuite) TestRunsConfigChangedIfTrustHashChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+			TrustHash: "somehash",
+		},
+	}
+	s.remoteState.TrustHash = "differenthash"
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			AddressesHash: "somehash",
+		},
+	}
+	s.remoteState.AddressesHash = "differenthash"
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+}
+
+func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		State: operation.State{
+			Kind:          operation.Continue,
+			Installed:     true,
+			Started:       true,
+			ConfigHash:    "config",
+			TrustHash:     "trust",
+			AddressesHash: "addresses",
+		},
+	}
+	s.remoteState.ConfigHash = "config"
+	s.remoteState.TrustHash = "trust"
+	s.remoteState.AddressesHash = "addresses"
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}

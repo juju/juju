@@ -249,7 +249,7 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		Step: Pending,
 	}
 
-	var hi *hook.Info = &hook.Info{Kind: hooks.ConfigChanged}
+	hi := &hook.Info{Kind: hooks.ConfigChanged}
 	switch rh.info.Kind {
 	case hooks.ConfigChanged:
 		if state.Started {
@@ -269,6 +269,9 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	case hooks.PostSeriesUpgrade:
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	newState := change.apply(state)
