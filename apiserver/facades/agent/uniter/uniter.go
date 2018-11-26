@@ -36,8 +36,8 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 // UniterAPI implements the latest version (v9) of the Uniter API,
-// which changes WatchConfigSettings to a StringsWatcher that returns
-// a hash of the current config.
+// which adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash
+// and WatchUnitAddressesHash.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -2700,6 +2700,40 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
 func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
+	getWatcher := func(u *state.Unit) (state.StringsWatcher, error) {
+		return u.WatchConfigSettingsHash()
+	}
+	result, err := u.watchHashes(args, getWatcher)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// WatchTrustConfigSettingsHash returns a StringsWatcher that yields a
+// hash of the application config values whenever they change. The
+// uniter can use the hash to determine whether the actual values have
+// changed since it last saw the config.
+func (u *UniterAPI) WatchTrustConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
+	getWatcher := func(u *state.Unit) (state.StringsWatcher, error) {
+		return u.WatchApplicationConfigSettingsHash()
+	}
+	result, err := u.watchHashes(args, getWatcher)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// Mask WatchConfigSettingsHash from the v8 API. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is
+// concerned.
+
+// WatchConfigSettingsHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchConfigSettingsHash(_, _ struct{}) {}
+
+func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -2717,7 +2751,7 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 		watcherId := ""
 		var changes []string
 		if canAccess(tag) {
-			watcherId, changes, err = u.watchOneUnitConfigSettingsHash(tag)
+			watcherId, changes, err = u.watchOneUnitHashes(tag, getWatcher)
 		}
 		result.Results[i].StringsWatcherId = watcherId
 		result.Results[i].Changes = changes
@@ -2726,26 +2760,18 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 	return result, nil
 }
 
-// Mask WatchConfigSettingsHash from the v8 API. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is
-// concerned.
-
-// WatchConfigSettingsHash isn't on the v8 API.
-func (u *UniterAPIV8) WatchConfigSettingsHash(_, _ struct{}) {}
-
-func (u *UniterAPI) watchOneUnitConfigSettingsHash(tag names.UnitTag) (string, []string, error) {
+func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (string, []string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", nil, err
 	}
-	configWatcher, err := unit.WatchConfigSettingsHash()
+	w, err := getWatcher(unit)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
 	// Consume the initial event.
-	if changes, ok := <-configWatcher.Changes(); ok {
-		return u.resources.Register(configWatcher), changes, nil
+	if changes, ok := <-w.Changes(); ok {
+		return u.resources.Register(w), changes, nil
 	}
-	return "", nil, watcher.EnsureErr(configWatcher)
+	return "", nil, watcher.EnsureErr(w)
 }

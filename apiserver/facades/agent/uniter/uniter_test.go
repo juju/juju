@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1045,6 +1046,46 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{
 				StringsWatcherId: "1",
 				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
+	schema := environschema.Fields{
+		"trust": environschema.Attr{Type: environschema.Tbool},
+	}
+	err := s.wordpress.UpdateApplicationConfig(coreapplication.ConfigAttributes{
+		"trust": true,
+	}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.WatchTrustConfigSettingsHash(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				StringsWatcherId: "1",
+				Changes:          []string{"2f1368bde39be8106dcdca15e35cc3b5f7db5b8e429806369f621a47fb938519"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
