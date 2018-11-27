@@ -12,23 +12,31 @@
   revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"
 
 [[projects]]
-  digest = "1:80444c34ef063df6ea1e396fa6da5dfb3d59188434f950f065673d9fdbecd64a"
-  name = "github.com/Azure/azure-sdk-for-go"
-  packages = [
-    "arm/authorization",
-    "arm/compute",
-    "arm/disk",
-    "arm/network",
-    "arm/resources/resources",
-    "arm/resources/subscriptions",
-    "arm/storage",
-    "storage",
-  ]
+  digest = "1:e1b859e3d9e90007d5fbf25edf57733b224f1857f6592636130afab3af8cfae7"
+  name = "contrib.go.opencensus.io/exporter/ocagent"
+  packages = ["."]
   pruneopts = ""
-  revision = "03719f665513a71a89cf687d260c39a120ac00e7"
+  revision = "00af367e65149ff1f2f4b93bbfbb84fd9297170d"
+  version = "v0.2.0"
 
 [[projects]]
-  digest = "1:22879a0e28e22295a288d68322d06b86ffb1e9a52d0fc096a972383a61190bd5"
+  digest = "1:104a76acf9b416dbdd96477ac50a92ee5091f6b2c735f8516a005572f3be4a36"
+  name = "github.com/Azure/azure-sdk-for-go"
+  packages = [
+    "services/authorization/mgmt/2015-07-01/authorization",
+    "services/compute/mgmt/2018-10-01/compute",
+    "services/network/mgmt/2018-08-01/network",
+    "services/resources/mgmt/2016-06-01/subscriptions",
+    "services/resources/mgmt/2018-05-01/resources",
+    "services/storage/mgmt/2018-07-01/storage",
+    "storage",
+    "version",
+  ]
+  pruneopts = ""
+  revision = "9699bdefa481d47c5c7638a1cc05d87ce53601fd"
+
+[[projects]]
+  digest = "1:597d79297997cdf9f13427b0644558c6b845451607a6893c9b00b3625ab1f4f3"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -38,9 +46,12 @@
     "autorest/mocks",
     "autorest/to",
     "autorest/validation",
+    "logger",
+    "tracing",
+    "version",
   ]
   pruneopts = ""
-  revision = "10cfe58defab0c9a33be1f7b3ee656857670b509"
+  revision = "528b76fd0ebec0682f3e3da7c808cd472b999615"
 
 [[projects]]
   digest = "1:938442698d78071f7a2adaf832eae58490140d8c988c49fca4983f6978625432"
@@ -96,6 +107,19 @@
   packages = ["."]
   pruneopts = ""
   revision = "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd"
+
+[[projects]]
+  digest = "1:0b2d5839372f6dc106fcaa70b6bd5832789a633c4e470540f76c2ec6c560e1c1"
+  name = "github.com/census-instrumentation/opencensus-proto"
+  packages = [
+    "gen-go/agent/common/v1",
+    "gen-go/agent/trace/v1",
+    "gen-go/resource/v1",
+    "gen-go/trace/v1",
+  ]
+  pruneopts = ""
+  revision = "7f2434bc10da710debe5c4315ed6d4df454b4024"
+  version = "v0.1.0"
 
 [[projects]]
   branch = "master"
@@ -196,6 +220,7 @@
     "ptypes/any",
     "ptypes/duration",
     "ptypes/timestamp",
+    "ptypes/wrappers",
   ]
   pruneopts = ""
   revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
@@ -825,6 +850,14 @@
   revision = "d0d66b4842f459c6c3e039a9e2f25eff02174ab1"
 
 [[projects]]
+  digest = "1:f95025d583786875a71183888acc9d0987fc96f12d4f5afab3d7558797ea1c5a"
+  name = "github.com/marstr/guid"
+  packages = ["."]
+  pruneopts = ""
+  revision = "8bd9a64bf37eb297b492a4101fb28e80ac0b290f"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:cfa7624647544ca72d17bd70a40cfd03ba928f37fac4c92d1915a8672628f751"
   name = "github.com/masterzen/azure-sdk-for-go"
   packages = [
@@ -1006,11 +1039,12 @@
   revision = "6724a57986aff9bff1a1770e9347036def7c89f6"
 
 [[projects]]
-  digest = "1:199c77c90c5d0b5a51a80a3360abad0a9e51ce85fb49f06691fe91c6e2d91451"
-  name = "github.com/satori/uuid"
+  digest = "1:7f569d906bdd20d906b606415b7d794f798f91a62fcfb6a4daa6d50690fb7a3f"
+  name = "github.com/satori/go.uuid"
   packages = ["."]
   pruneopts = ""
-  revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:0a52bcb568386d98f4894575d53ce3e456f56471de6897bb8b9de13c33d9340e"
@@ -1044,6 +1078,30 @@
   ]
   pruneopts = ""
   revision = "05504416e95561e1478196d7058721c827a7bb8c"
+
+[[projects]]
+  digest = "1:ad67dfd3799a2c58f6c65871dd141d8b53f61f600aec48ce8d7fa16a4d5476f8"
+  name = "go.opencensus.io"
+  packages = [
+    ".",
+    "exemplar",
+    "internal",
+    "internal/tagencoding",
+    "plugin/ochttp",
+    "plugin/ochttp/propagation/b3",
+    "plugin/ochttp/propagation/tracecontext",
+    "stats",
+    "stats/internal",
+    "stats/view",
+    "tag",
+    "trace",
+    "trace/internal",
+    "trace/propagation",
+    "trace/tracestate",
+  ]
+  pruneopts = ""
+  revision = "b7bf3cdb64150a8c8c53b769fdeb2ba581bd4d4b"
+  version = "v0.18.0"
 
 [[projects]]
   digest = "1:53c4b75f22ea7757dea07eae380ea42de547ae6865a5e3b41866754a8a8219c9"
@@ -1109,7 +1167,15 @@
   revision = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4"
 
 [[projects]]
-  digest = "1:407b5f905024dd94ee08c1777fabb380fb3d380f92a7f7df2592be005337eeb3"
+  branch = "master"
+  digest = "1:88ecca26e54f601a8733c9a31d9f0883b915216a177673f0467f6b864fd0d90f"
+  name = "golang.org/x/sync"
+  packages = ["semaphore"]
+  pruneopts = ""
+  revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
+
+[[projects]]
+  digest = "1:2e1aadff5bda52e267975408bf6b5e90135fc643829c9e4e964ff82c3826a1dd"
   name = "golang.org/x/sys"
   packages = [
     "unix",
@@ -1119,7 +1185,7 @@
     "windows/svc/mgr",
   ]
   pruneopts = ""
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "0cf1ed9e522b7dbb416f080a5c8003de9b702bf4"
 
 [[projects]]
   digest = "1:75a8b2050f6576c5ebc0f4985ad976cca7e4c1834c73a2a15d522a2d8d143963"
@@ -1160,6 +1226,7 @@
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
+    "support/bundler",
   ]
   pruneopts = ""
   revision = "ed10e890a8366167a7ce33fac2b12447987bcb1c"
@@ -1182,6 +1249,49 @@
   pruneopts = ""
   revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
   version = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:212d4045ef941b209a154001718705dc723bd77e0200fcea36d15ec87ed49dec"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  pruneopts = ""
+  revision = "b5d43981345bdb2c233eb4bf3277847b48c6fdc6"
+
+[[projects]]
+  digest = "1:1293087271e314cfa2b3decededba2ecba0ff327e7b7809e00f73f616449191c"
+  name = "google.golang.org/grpc"
+  packages = [
+    ".",
+    "balancer",
+    "balancer/base",
+    "balancer/roundrobin",
+    "codes",
+    "connectivity",
+    "credentials",
+    "encoding",
+    "encoding/proto",
+    "grpclog",
+    "internal",
+    "internal/backoff",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpcrand",
+    "internal/transport",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "resolver",
+    "resolver/dns",
+    "resolver/passthrough",
+    "stats",
+    "status",
+    "tap",
+  ]
+  pruneopts = ""
+  revision = "2e463a05d100327ca47ac218281906921038fd95"
+  version = "v1.16.0"
 
 [[projects]]
   digest = "1:cd0f0871b8ef94a03ee2b06ddce020e8bb44489e2d59163f8ab0a622921b946f"
@@ -1644,13 +1754,12 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Azure/azure-sdk-for-go/arm/authorization",
-    "github.com/Azure/azure-sdk-for-go/arm/compute",
-    "github.com/Azure/azure-sdk-for-go/arm/disk",
-    "github.com/Azure/azure-sdk-for-go/arm/network",
-    "github.com/Azure/azure-sdk-for-go/arm/resources/resources",
-    "github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions",
-    "github.com/Azure/azure-sdk-for-go/arm/storage",
+    "github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization",
+    "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute",
+    "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network",
+    "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions",
+    "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources",
+    "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage",
     "github.com/Azure/azure-sdk-for-go/storage",
     "github.com/Azure/go-autorest/autorest",
     "github.com/Azure/go-autorest/autorest/adal",
@@ -1658,6 +1767,7 @@
     "github.com/Azure/go-autorest/autorest/mocks",
     "github.com/Azure/go-autorest/autorest/to",
     "github.com/Azure/go-autorest/autorest/validation",
+    "github.com/Azure/go-autorest/tracing",
     "github.com/EvilSuperstars/go-cidrman",
     "github.com/altoros/gosigma",
     "github.com/altoros/gosigma/data",

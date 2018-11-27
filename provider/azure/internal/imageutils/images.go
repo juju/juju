@@ -4,7 +4,7 @@
 package imageutils
 
 import (
-	"context"
+	stdcontext "context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -120,7 +120,7 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 		return "", errors.Trace(err)
 	}
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, ubuntuOffering)
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	result, err := client.ListSkus(sdkCtx, location, ubuntuPublisher, ubuntuOffering)
 	if err != nil {
 		return "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)

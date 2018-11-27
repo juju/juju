@@ -1465,6 +1465,7 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Annotate(err, "listing resources"), ctx)
 	}
+	var failed []string
 	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
 		if err != nil {
 			return errors.Annotate(err, "listing resources")
@@ -1478,8 +1479,13 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 			resource, controllerUUID, apiVersion,
 		)
 		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, "getting next page of resources"), ctx)
+			name := to.String(resource.Name)
+			logger.Errorf("error updating resource tags for %q: %v", name, err)
+			failed = append(failed, name)
 		}
+	}
+	if len(failed) > 0 {
+		return errors.Errorf("failed to update controller for some resources: %v", failed)
 	}
 
 	return nil
@@ -1720,7 +1726,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 	return errors.New(strings.Join(combined, "; "))
 }
 
-func (env *azureEnviron) deleteResourceGroup(sdkCtx stdcontext.Context, resourceGroup string) error {
+func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) error {
 	client := resources.GroupsClient{env.resources}
 	future, err := client.Delete(sdkCtx, resourceGroup)
 	if err != nil {

@@ -276,7 +276,9 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 func (s *storageSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
 	mockSender := mocks.NewSender()
 	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
-	s.sender = azuretesting.Senders{mockSender}
+	s.sender = azuretesting.Senders{
+		mockSender,
+	}
 }
 
 func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
@@ -321,31 +323,35 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidCredential, jc.IsTrue)
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 3)
+	// account for the retry attemptd for volumes 1,2
+	c.Assert(s.requests, gc.HasLen, 5)
 	c.Assert(s.requests[0].Method, gc.Equals, "PUT") // create volume-0
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // create volume-1
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // create volume-2
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // create volume-2
 
-	makeDisk := func(name string, size int32) *disk.Model {
+	makeDisk := func(name string, size int32) *compute.Disk {
 		tags := map[string]*string{
 			"foo": to.StringPtr("bar"),
 		}
-		return &disk.Model{
+		return &compute.Disk{
 			Name:     to.StringPtr(name),
 			Location: to.StringPtr("westus"),
-			Tags:     &tags,
-			Properties: &disk.Properties{
-				AccountType: disk.StorageAccountTypes("Standard_LRS"),
-				DiskSizeGB:  to.Int32Ptr(size),
-				CreationData: &disk.CreationData{
-					CreateOption: "Empty",
+			Tags:     tags,
+			DiskProperties: &compute.DiskProperties{
+				DiskSizeGB: to.Int32Ptr(size),
+				CreationData: &compute.CreationData{
+					CreateOption: compute.Empty,
 				},
+			},
+			Sku: &compute.DiskSku{
+				Name: compute.DiskStorageAccountTypes("Standard_LRS"),
 			},
 		}
 	}
+	// account for the retry attemptd for volumes 1,2
 	assertRequestBody(c, s.requests[0], makeDisk("volume-0", 1))
 	assertRequestBody(c, s.requests[1], makeDisk("volume-1", 2))
-	assertRequestBody(c, s.requests[2], makeDisk("volume-2", 1))
+	assertRequestBody(c, s.requests[3], makeDisk("volume-2", 1))
 }
 
 func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
@@ -572,16 +578,12 @@ func (s *storageSuite) TestListVolumesLegacy(c *gc.C) {
 func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 	volumeSource := s.volumeSource(c, false)
 	sender := mocks.NewSender()
-	// sender.SetError(errors.New("no disks for you"))
-	// s.sender = azuretesting.Senders{sender}
-	// _, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	sender.SetAndRepeatError(errors.New("no disks for you"), -1)
 	s.sender = azuretesting.Senders{
 		sender,
 		sender, // for the retry attempt
 	}
 	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
-	// _, err := volumeSource.ListVolumes()
 	c.Assert(err, gc.ErrorMatches, "listing disks: .*: no disks for you")
 }
 

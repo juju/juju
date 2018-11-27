@@ -4,7 +4,7 @@
 package azure
 
 import (
-	"context"
+	stdcontext "context"
 
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/juju/errors"
@@ -31,7 +31,7 @@ func createDeployment(
 			Mode:     resources.Incremental,
 		},
 	}
-	sdkCtx := context.Background()
+	sdkCtx := stdcontext.Background()
 	_, err = client.CreateOrUpdate(
 		sdkCtx,
 		resourceGroup,

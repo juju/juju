@@ -4,7 +4,7 @@
 package azure
 
 import (
-	"context"
+	stdcontext "context"
 	"math/rand"
 	"net/http"
 	"time"
@@ -65,7 +65,7 @@ func isNotFoundResponse(resp autorest.Response) bool {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(ctx context.ProviderCallContext, sdkCtx context.Context, client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, client resources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
 	var res resources.ProviderListResultIterator

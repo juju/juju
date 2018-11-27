@@ -620,7 +620,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 func (s *environSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
 	mockSender := mocks.NewSender()
-	mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
+	mockSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 2)
 	s.sender = azuretesting.Senders{mockSender}
 }
 
@@ -1392,12 +1392,13 @@ func (s *environSuite) TestStopInstancesInvalidCredential(c *gc.C) {
 	err := env.StopInstances(s.callCtx, "a", "b")
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
-	// This call is expected to have made 2 calls. Although we do undersntad that we could have gotten
+	// This call is expected to have made 2 calls. Although we do understand that we could have gotten
 	// an invalid credential for one of the instances, the actual stop command to cloud api is done
 	// in a separate go routine for each instance. These goroutine do not really communicate with each other.
 	// There will be as many routines as there are instances and only once they all complete, will we have a chance to
 	// stop proceeding.
-	c.Assert(s.requests, gc.HasLen, 2)
+	// There is also a retry from go-autorest to count
+	c.Assert(s.requests, gc.HasLen, 3)
 }
 
 func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
