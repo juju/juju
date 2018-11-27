@@ -100,7 +100,7 @@ type discoveryCheck struct {
 
 var discoveryFuncs = []discoveryCheck{
 	{InitSystemUpstart, upstart.IsRunning},
-	{InitSystemSystemd, systemd.IsRunning},
+	{InitSystemSystemd, func() (bool, error) { return systemd.IsRunning(), nil }},
 	{InitSystemWindows, windows.IsRunning},
 }
 
