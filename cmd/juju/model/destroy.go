@@ -6,6 +6,7 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -359,6 +360,31 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 			}
 			return nil
 		}
+		isErrorMessage := func(s string) bool {
+			return strings.Contains(s, "error")
+		}
+		logger.Criticalf("status -> \n%+v", status)
+		for _, s := range status {
+			for _, v := range s.Machines {
+				if isErrorMessage(v.Status) {
+					ctx.Infof("unable to destroy machine: %+v, \nerror: %q\ntry `juju status` for more details.", v, v.Status)
+					return nil
+				}
+			}
+			for _, v := range s.Filesystems {
+				if isErrorMessage(v.Status) {
+					ctx.Infof("unable to destroy filesystem: %+v, \nerror: %q\ntry `juju status --storage` for more details.", v, v.Status)
+					return nil
+				}
+			}
+			for _, v := range s.Volumes {
+				if isErrorMessage(v.Status) {
+					ctx.Infof("unable to destroy volume: %+v, \nerror: %q\ntry `juju status --storage` for more details.", v, v.Status)
+					return nil
+				}
+			}
+		}
+
 		if l := len(status); l != 1 {
 			ctx.Infof("error finding model status: expected one result, got %d", l)
 			return nil
