@@ -320,7 +320,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 			inst.env.resourceGroup, securityGroupName, ruleName,
 		)
 		if err != nil {
-			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+			if !isNotFoundResponse(future.Response()) {
 				return errors.Annotatef(err, "deleting security rule %q", ruleName)
 			}
 			continue
@@ -330,7 +330,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}
 		result, err := future.Result(securityRuleClient)
-		if err != nil && !isNotFoundResponse(result) {
+		if err != nil && !isNotFoundResult(result) {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}
@@ -461,7 +461,7 @@ func deleteInstanceNetworkSecurityRules(
 			ruleName,
 		)
 		if err != nil {
-			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+			if !isNotFoundResponse(future.Response()) {
 				return errors.Annotatef(err, "deleting security rule %q", ruleName)
 			}
 			continue
@@ -471,7 +471,7 @@ func deleteInstanceNetworkSecurityRules(
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}
 		result, err := future.Result(securityRuleClient)
-		if err != nil && !isNotFoundResponse(result) {
+		if err != nil && !isNotFoundResult(result) {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}

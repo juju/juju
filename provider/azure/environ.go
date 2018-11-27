@@ -1260,24 +1260,31 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
+	vmErrMsg := "deleting virtual machine"
 	vmFuture, err := vmClient.Delete(sdkCtx, env.resourceGroup, vmName)
 	if err != nil {
-		msg := "deleting virtual machine"
 		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, msg)
+			return invalidatedCredential(err, vmErrMsg)
 		}
-		if !isNotFoundResponse(autorest.Response{vmFuture.Response()}) {
-			return errors.Annotate(err, msg)
+		if !isNotFoundResponse(vmFuture.Response()) {
+			return errors.Annotate(err, vmErrMsg)
 		}
-	}
-	if err == nil {
+	} else {
 		err = vmFuture.WaitForCompletionRef(sdkCtx, vmClient.Client)
 		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, vmErrMsg)
+			}
 			return errors.Annotate(err, "deleting virtual machine")
 		}
 		result, err := vmFuture.Result(vmClient)
-		if err != nil && !isNotFoundResponse(result) {
-			return errors.Annotate(err, "deleting virtual machine")
+		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, vmErrMsg)
+			}
+			if !isNotFoundResult(result) {
+				return errors.Annotate(err, "deleting virtual machine")
+			}
 		}
 	}
 	if maybeStorageClient != nil {
@@ -1294,24 +1301,32 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// Delete the managed OS disk.
 	logger.Debugf("- deleting OS disk (%s)", vmName)
+	diskErrMsg := "deleting OS disk"
 	diskFuture, err := diskClient.Delete(sdkCtx, env.resourceGroup, vmName)
 	if err != nil {
-		msg := "deleting OS disk"
 		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, msg)
+			return invalidatedCredential(err, diskErrMsg)
 		}
-		if !isNotFoundResponse(autorest.Response{diskFuture.Response()}) {
-			return errors.Annotate(err, msg)
+		if !isNotFoundResponse(diskFuture.Response()) {
+			return errors.Annotate(err, diskErrMsg)
 		}
 	}
 	if err == nil {
 		err = diskFuture.WaitForCompletionRef(sdkCtx, diskClient.Client)
 		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, diskErrMsg)
+			}
 			return errors.Annotate(err, "deleting OS disk")
 		}
 		result, err := diskFuture.Result(diskClient)
-		if err != nil && !isNotFoundResponse(result) {
-			return errors.Annotate(err, "deleting OS disk")
+		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, diskErrMsg)
+			}
+			if !isNotFoundResult(result) {
+				return errors.Annotate(err, "deleting OS disk")
+			}
 		}
 	}
 	logger.Debugf("- deleting security rules (%s)", vmName)
@@ -1324,54 +1339,67 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 
 	logger.Debugf("- deleting network interfaces (%s)", vmName)
+	networkErrMsg := "deleting NIC"
 	for _, nic := range networkInterfaces {
 		nicName := to.String(nic.Name)
 		logger.Tracef("deleting NIC %q", nicName)
 		nicFuture, err := nicClient.Delete(sdkCtx, env.resourceGroup, nicName)
 		if err != nil {
-			msg := "deleting NIC"
 			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, msg)
+				return invalidatedCredential(err, networkErrMsg)
 			}
-			if !isNotFoundResponse(autorest.Response{nicFuture.Response()}) {
-				return errors.Annotate(err, msg)
+			if !isNotFoundResponse(nicFuture.Response()) {
+				return errors.Annotate(err, networkErrMsg)
 			}
-		}
-		if err == nil {
+		} else {
 			err = nicFuture.WaitForCompletionRef(sdkCtx, nicClient.Client)
 			if err != nil {
+				if errorutils.MaybeInvalidateCredential(err, ctx) {
+					return invalidatedCredential(err, networkErrMsg)
+				}
 				return errors.Annotate(err, "deleting NIC")
 			}
 			result, err := nicFuture.Result(nicClient)
-			if err != nil && !isNotFoundResponse(result) {
-				return errors.Annotate(err, "deleting NIC")
+			if err != nil {
+				if errorutils.MaybeInvalidateCredential(err, ctx) {
+					return invalidatedCredential(err, networkErrMsg)
+				}
+				if !isNotFoundResult(result) {
+					return errors.Annotate(err, "deleting NIC")
+				}
 			}
 		}
 	}
 
 	logger.Debugf("- deleting public IPs (%s)", vmName)
+	ipErrMsg := "deleting public IP"
 	for _, pip := range publicIPAddresses {
 		pipName := to.String(pip.Name)
 		logger.Tracef("deleting public IP %q", pipName)
 		ipFuture, err := pipClient.Delete(sdkCtx, env.resourceGroup, pipName)
 		if err != nil {
-			msg := "deleting public IP"
 			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, msg)
+				return invalidatedCredential(err, ipErrMsg)
 			}
-
-			if !isNotFoundResponse(autorest.Response{ipFuture.Response()}) {
-				return errors.Annotate(err, msg)
+			if !isNotFoundResponse(ipFuture.Response()) {
+				return errors.Annotate(err, ipErrMsg)
 			}
-		}
-		if err == nil {
+		} else {
 			err = ipFuture.WaitForCompletionRef(sdkCtx, pipClient.Client)
 			if err != nil {
+				if errorutils.MaybeInvalidateCredential(err, ctx) {
+					return invalidatedCredential(err, ipErrMsg)
+				}
 				return errors.Annotate(err, "deleting public IP")
 			}
 			result, err := ipFuture.Result(pipClient)
-			if err != nil && !isNotFoundResponse(result) {
-				return errors.Annotate(err, "deleting public IP")
+			if err != nil {
+				if errorutils.MaybeInvalidateCredential(err, ctx) {
+					return invalidatedCredential(err, ipErrMsg)
+				}
+				if !isNotFoundResult(result) {
+					return errors.Annotate(err, "deleting public IP")
+				}
 			}
 		}
 	}
@@ -1379,24 +1407,30 @@ func (env *azureEnviron) deleteVirtualMachine(
 	// The deployment must be deleted last, or we risk leaking resources.
 	logger.Debugf("- deleting deployment (%s)", vmName)
 	deploymentFuture, err := deploymentsClient.Delete(sdkCtx, env.resourceGroup, vmName)
+	deploymentErrMsg := "deleting deployment"
 	if err != nil {
-		msg := "deleting deployment"
 		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, msg)
+			return invalidatedCredential(err, deploymentErrMsg)
 		}
-
-		if !isNotFoundResponse(autorest.Response{deploymentFuture.Response()}) {
-			return errors.Annotate(err, msg)
+		if !isNotFoundResponse(deploymentFuture.Response()) {
+			return errors.Annotate(err, deploymentErrMsg)
 		}
-	}
-	if err == nil {
+	} else {
 		err = deploymentFuture.WaitForCompletionRef(sdkCtx, deploymentsClient.Client)
 		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, deploymentErrMsg)
+			}
 			return errors.Annotate(err, "deleting deployment")
 		}
 		deploymentResult, err := deploymentFuture.Result(deploymentsClient)
-		if err != nil && !isNotFoundResponse(deploymentResult) {
-			return errors.Annotate(err, "deleting deployment")
+		if err != nil {
+			if errorutils.MaybeInvalidateCredential(err, ctx) {
+				return invalidatedCredential(err, deploymentErrMsg)
+			}
+			if !isNotFoundResult(deploymentResult) {
+				return errors.Annotate(err, "deleting deployment")
+			}
 		}
 	}
 	return nil
@@ -1562,7 +1596,7 @@ func (env *azureEnviron) allInstances(
 	sdkCtx := stdcontext.Background()
 	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, "", nil)
 	if err != nil {
-		if isNotFoundResponse(deploymentsResult.Response().Response) {
+		if isNotFoundResult(deploymentsResult.Response().Response) {
 			// This will occur if the resource group does not
 			// exist, e.g. in a fresh hosted environment.
 			return nil, nil
@@ -1731,7 +1765,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 	future, err := client.Delete(sdkCtx, resourceGroup)
 	if err != nil {
 		errorutils.HandleCredentialError(err, ctx)
-		if !isNotFoundResponse(autorest.Response{future.Response()}) {
+		if !isNotFoundResponse(future.Response()) {
 			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 		}
 		return nil
@@ -1741,7 +1775,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
 	result, err := future.Result(client)
-	if err != nil && !isNotFoundResponse(result) {
+	if err != nil && !isNotFoundResult(result) {
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
 	return nil
@@ -1869,7 +1903,7 @@ func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
 	client := storage.AccountsClient{env.storage}
 	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName)
 	if err != nil {
-		if isNotFoundResponse(account.Response) {
+		if isNotFoundResult(account.Response) {
 			// Remember that the account was not found
 			// by storing a pointer to a nil pointer.
 			env.storageAccount = new(*storage.Account)

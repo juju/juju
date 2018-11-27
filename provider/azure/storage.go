@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
 	armstorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -230,7 +229,7 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 		return nil, errorutils.HandleCredentialError(errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id()), ctx)
 	}
 	result, err := future.Result(diskClient)
-	if err != nil && !isNotFoundResponse(result.Response) {
+	if err != nil && !isNotFoundResult(result.Response) {
 		return nil, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id())
 	}
 
@@ -419,7 +418,7 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(ctx context.ProviderCallC
 			defer wg.Done()
 			disk, err := diskClient.Get(sdkCtx, v.env.resourceGroup, volumeId)
 			if err != nil {
-				if isNotFoundResponse(disk.Response) {
+				if isNotFoundResult(disk.Response) {
 					err = errors.NotFoundf("disk %s", volumeId)
 				}
 				results[i].Error = errorutils.HandleCredentialError(err, ctx)
@@ -483,7 +482,7 @@ func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.ProviderCallCo
 	return foreachVolume(volumeIds, func(volumeId string) error {
 		future, err := diskClient.Delete(sdkCtx, v.env.resourceGroup, volumeId)
 		if err != nil {
-			if !isNotFoundResponse(autorest.Response{future.Response()}) {
+			if !isNotFoundResponse(future.Response()) {
 				return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting disk %q", volumeId), ctx)
 			}
 			return nil
@@ -493,7 +492,7 @@ func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.ProviderCallCo
 			return errors.Annotatef(err, "deleting disk %q", volumeId)
 		}
 		result, err := future.Result(diskClient)
-		if err != nil && !isNotFoundResponse(result) {
+		if err != nil && !isNotFoundResult(result) {
 			return errors.Annotatef(err, "deleting disk %q", volumeId)
 		}
 		return nil
@@ -959,7 +958,7 @@ func getStorageAccountKey(
 	sdkCtx := stdcontext.Background()
 	listKeysResult, err := client.ListKeys(sdkCtx, resourceGroup, accountName)
 	if err != nil {
-		if isNotFoundResponse(listKeysResult.Response) {
+		if isNotFoundResult(listKeysResult.Response) {
 			return nil, errors.NewNotFound(err, "storage account keys not found")
 		}
 		return nil, errors.Annotate(err, "listing storage account keys")

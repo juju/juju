@@ -53,7 +53,11 @@ func randomAdminPassword() string {
 	return string(password)
 }
 
-func isNotFoundResponse(resp autorest.Response) bool {
+func isNotFoundResponse(resp *http.Response) bool {
+	return isNotFoundResult(autorest.Response{resp})
+}
+
+func isNotFoundResult(resp autorest.Response) bool {
 	if resp.Response != nil && resp.StatusCode == http.StatusNotFound {
 		return true
 	}
