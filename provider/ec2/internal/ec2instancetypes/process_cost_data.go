@@ -176,6 +176,15 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 			// to include the cost of OS.
 			continue
 		}
+		// TODO (hml) 2018-11-28
+		// Triplicate instance names were found, date differed
+		// at: capacitystatus, usagetype and instancesku. None
+		// of which had been checked.  InstanceSku was empty for
+		// 1 name, but referenced the 1st in the other 2.
+		// Verify this is the correct thing to do.
+		if productInfo.InstanceSku != "" {
+			continue
+		}
 		if productInfo.Tenancy != "Shared" {
 			continue
 		}
@@ -341,6 +350,7 @@ func locationToRegion(loc string) (string, bool) {
 		"Asia Pacific (Sydney)":      "ap-southeast-2",
 		"Asia Pacific (Mumbai)":      "ap-south-1",
 		"South America (Sao Paulo)":  "sa-east-1",
+		"AWS GovCloud (US-East)":     "us-gov-east-1",
 		"AWS GovCloud (US)":          "us-gov-west-1",
 
 		// NOTE(axw) at the time of writing, there is no
@@ -392,6 +402,7 @@ type ProductAttributes struct {
 	Tenancy               string `json:"tenancy"`               // Dedicated|Host|Shared
 	ProcessorArchitecture string `json:"processorArchitecture"` // (32-bit or )?64-bit
 	PreInstalledSW        string `json:"preInstalledSw"`        // e.g. NA|SQL Web|SQL Std
+	InstanceSku           string `json:"instancesku"`
 }
 
 type terms struct {
