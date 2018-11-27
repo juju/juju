@@ -72,7 +72,7 @@ func collectAPIVersions(sdkCtx context.Context, client resources.ProvidersClient
 	}
 	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
 		if err != nil {
-			return nil, errors.Annotate(err, "listing resources")
+			return map[string]string{}, errors.Trace(err)
 		}
 
 		provider := res.Value()
