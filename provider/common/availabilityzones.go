@@ -152,6 +152,10 @@ var internalAvailabilityZoneAllocations = AvailabilityZoneAllocations
 
 // DistributeInstances is a common function for implement the
 // state.InstanceDistributor policy based on availability zone spread.
+// TODO (manadart 2018-11-27) This method signature has grown to the point
+// where the argument list should be replaced with a struct.
+// At that time limitZones could be transformed to a map so that lookups in the
+// filtering below are more efficient.
 func DistributeInstances(
 	env ZonedEnviron, ctx context.ProviderCallContext, candidates, group []instance.Id, limitZones []string,
 ) ([]instance.Id, error) {
