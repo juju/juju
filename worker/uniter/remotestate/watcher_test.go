@@ -59,7 +59,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			unitWatcher:                      newMockNotifyWatcher(),
 			addressesWatcher:                 newMockNotifyWatcher(),
 			configSettingsWatcher:            newMockStringsWatcher(),
-			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
+			applicationConfigSettingsWatcher: newMockStringsWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
@@ -151,7 +151,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
-	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
 	if s.st.unit.upgradeSeriesWatcher != nil {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	}
@@ -170,7 +170,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 func (s *WatcherSuite) signalAll() {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
-	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
@@ -188,9 +188,8 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration version is updated on both trust
-	// and address changes which increments it twice.
-	expectedVersion := 2
+	// Note that the configuration version is updated on address changes (for now).
+	expectedVersion := 1
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -202,6 +201,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigVersion:         expectedVersion,
 		ConfigHash:            "confighash",
+		TrustHash:             "trusthash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
@@ -212,9 +212,8 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration version is updated on both trust
-	// and address changes which increments it twice.
-	expectedVersion := 2
+	// Note that the configuration version is updated on address changes (for now).
+	expectedVersion := 1
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -226,6 +225,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigVersion:         expectedVersion,
 		ConfigHash:            "confighash",
+		TrustHash:             "trusthash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   "",

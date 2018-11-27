@@ -41,7 +41,7 @@ type Unit interface {
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
 	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
-	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
+	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)

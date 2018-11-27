@@ -618,6 +618,35 @@ func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
 	notifyWatcher.AssertOneChange()
 }
 
+func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
+	watcher, err := s.apiUnit.WatchTrustConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
+
+	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, s.BackingState.StartSync)
+	defer stringsWatcher.AssertStops()
+
+	// Initial event - this is the hash of the settings key
+	// a#wordpress#application + an empty bson.D.
+	stringsWatcher.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
+
+	// Update application config and see if it is reported
+	trustFieldKey := "trust"
+	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
+		trustFieldKey: true,
+	},
+		[]string{},
+		environschema.Fields{trustFieldKey: {
+			Description: "Does this application have access to trusted credentials",
+			Type:        environschema.Tbool,
+			Group:       environschema.JujuGroup,
+		}},
+		schema.Defaults{
+			trustFieldKey: false,
+		},
+	)
+	stringsWatcher.AssertChange("2f1368bde39be8106dcdca15e35cc3b5f7db5b8e429806369f621a47fb938519")
+}
+
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	w, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err, jc.ErrorIsNil)
