@@ -47,13 +47,13 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cores=4",
-		itype:  "t3.xlarge",
+		itype:  "c4.xlarge",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "mem=10G",
-		itype:  "r5.large",
+		itype:  "c5n.xlarge",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -71,7 +71,7 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cpu-power=800",
-		itype:  "c5.large",
+		itype:  "c4.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -133,8 +133,11 @@ var findInstanceSpecTests = []struct {
 }
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
+	size := len(findInstanceSpecTests)
 	for i, test := range findInstanceSpecTests {
-		c.Logf("\ntest %d: %q; %q; %q; %v", i, test.series, test.arches, test.cons, test.storage)
+		c.Logf("\ntest %d of %d: %q; %q; %q; %q; %q; %v", i, size,
+			test.series, test.arches, test.cons, test.itype, test.image,
+			test.storage)
 		stor := test.storage
 		if len(stor) == 0 {
 			stor = []string{ssdStorage, ebsStorage}
