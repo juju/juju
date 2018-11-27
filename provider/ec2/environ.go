@@ -390,8 +390,10 @@ const (
 )
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (e *environ) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
-	return common.DistributeInstances(e, ctx, candidates, distributionGroup)
+func (e *environ) DistributeInstances(
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
+	return common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.

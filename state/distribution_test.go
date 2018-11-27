@@ -32,7 +32,9 @@ type mockInstanceDistributor struct {
 	err               error
 }
 
-func (p *mockInstanceDistributor) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+func (p *mockInstanceDistributor) DistributeInstances(
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
 	result := p.result
@@ -182,16 +184,11 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestDistributeInstancesZonesFallback tests that when:
-//   1) there are empty machines satisfying zone constraints and;
-//   2) the policy instance distributor returns no viable machines
-// then instead of deploying to a new machine, one of the empty machines from
-// (1) is used for the unit.
-func (s *InstanceDistributorSuite) TestDistributeInstancesZonesFallback(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c *gc.C) {
 	err := s.wordpress.SetConstraints(constraints.MustParse("zones=az1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Initial unit to get a distribution group.
+	// Initial unit, assigned to machine 0, to get a distribution group.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machines[0])
@@ -214,9 +211,8 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesZonesFallback(c *gc.C)
 	unit, err = s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Since there is a zone constraint, we should still get a return even
-	// though the distributor returns no instances.
-	s.distributor.result = []instance.Id{}
+	// Only machine 1 is empty, and in the desired AZ.
+	s.distributor.result = []instance.Id{"i-blah-1"}
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
 

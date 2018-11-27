@@ -2608,7 +2608,11 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// Shuffle machines to reduce likelihood of collisions.
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
-	if instances, err = distributeUnit(u, instances, cons.HasZones()); err != nil {
+	var limitZones []string
+	if cons.HasZones() {
+		limitZones = *cons.Zones
+	}
+	if instances, err = distributeUnit(u, instances, limitZones); err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}

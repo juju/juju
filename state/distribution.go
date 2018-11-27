@@ -16,9 +16,7 @@ import (
 // and asks the InstanceDistributor policy (if any) which ones are suitable
 // for assigning the unit to. If there is no InstanceDistributor, or the
 // distribution group is empty, then all of the candidates will be returned.
-// If fallback is true and distribution resulted in no instances,
-// return all of the input candidates.
-func distributeUnit(u *Unit, candidates []instance.Id, fallback bool) ([]instance.Id, error) {
+func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]instance.Id, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
@@ -43,14 +41,7 @@ func distributeUnit(u *Unit, candidates []instance.Id, fallback bool) ([]instanc
 	if len(distributionGroup) == 0 {
 		return candidates, nil
 	}
-	if distCandidates, err := distributor.DistributeInstances(CallContext(u.st), candidates, distributionGroup); err != nil || len(distCandidates) > 0 {
-		return distCandidates, err
-	}
-
-	if fallback {
-		return candidates, nil
-	}
-	return nil, nil
+	return distributor.DistributeInstances(CallContext(u.st), candidates, distributionGroup, limitZones)
 }
 
 // ApplicationInstances returns the instance IDs of provisioned
