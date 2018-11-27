@@ -169,7 +169,7 @@ func (s *containerSetupSuite) setUpContainerWorker(c *gc.C) (watcher.StringsHand
 			return nil, nil
 		})
 
-	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+	_ = runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return watcher.NewStringsWorker(watcher.StringsConfig{
 			Handler: handler,
 		})
@@ -192,7 +192,7 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	s.machine.EXPECT().Id().Return("0").AnyTimes()
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType) container.Initialiser {
 		return s.initialiser
 	})
 
@@ -298,7 +298,6 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 	).SetArg(2, resultSource).MinTimes(1)
 
 	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
-	s.machine.EXPECT().Series().Return("bionic", nil)
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input

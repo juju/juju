@@ -211,11 +211,7 @@ func (cs *ContainerSetup) getManagerConfig(containerType instance.ContainerType)
 // initContainerDependencies ensures that the host machine is set-up to manage
 // containers of the input type.
 func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, containerType instance.ContainerType) error {
-	series, err := cs.machine.Series()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	initialiser := getContainerInitialiser(containerType, series)
+	initialiser := getContainerInitialiser(containerType)
 
 	releaser, err := cs.acquireLock(fmt.Sprintf("%s container initialisation", containerType), abort)
 	if err != nil {
@@ -310,9 +306,9 @@ func (cs *ContainerSetup) TearDown() error {
 }
 
 // getContainerInitialiser exists to patch out in tests.
-var getContainerInitialiser = func(ct instance.ContainerType, series string) container.Initialiser {
+var getContainerInitialiser = func(ct instance.ContainerType) container.Initialiser {
 	if ct == instance.LXD {
-		return lxd.NewContainerInitialiser(series)
+		return lxd.NewContainerInitialiser()
 	}
 	return kvm.NewContainerInitialiser()
 }
