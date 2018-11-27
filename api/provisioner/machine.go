@@ -71,12 +71,6 @@ type MachineProvisioner interface {
 	// provider-level resources cleaned up and be removed.
 	MarkForRemoval() error
 
-	// Series returns the operating system series running on the machine.
-	//
-	// NOTE: Unlike state.Machine.Series(), this method returns an error
-	// as well, because it needs to do an API call.
-	Series() (string, error)
-
 	// AvailabilityZone returns an underlying provider's availability zone
 	// for a machine.
 	AvailabilityZone() (string, error)
@@ -322,26 +316,6 @@ func (m *Machine) MarkForRemoval() error {
 		return err
 	}
 	return result.OneError()
-}
-
-// Series implements MachineProvisioner.Series.
-func (m *Machine) Series() (string, error) {
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.st.facade.FacadeCall("Series", args, &results)
-	if err != nil {
-		return "", err
-	}
-	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Result, nil
 }
 
 // AvailabilityZone implements MachineProvisioner.AvailabilityZone.

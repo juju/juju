@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/os/series"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
@@ -114,9 +113,9 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	PatchLXDViaSnap(s, false)
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	PatchHostSeries(s, "trusty")
 
-	err = NewContainerInitialiser("trusty").Initialise()
+	err = NewContainerInitialiser().Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -126,9 +125,9 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 
 func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
 	PatchLXDViaSnap(s, true)
-	s.PatchValue(&series.MustHostSeries, func() string { return "cosmic" })
+	PatchHostSeries(s, "cosmic")
 
-	err := NewContainerInitialiser("cosmic").Initialise()
+	err := NewContainerInitialiser().Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
@@ -140,10 +139,12 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	// Here we want to test for any other series whilst avoiding the
 	// possibility of hitting a cloud archive-requiring release.
 	// As such, we simply pass an empty series.
+	PatchHostSeries(s, "")
+
 	paccmder, err := commands.NewPackageCommander("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = NewContainerInitialiser("").Initialise()
+	err = NewContainerInitialiser().Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -153,8 +154,9 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 
 func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
 	s.patchDF100GB()
+	PatchHostSeries(s, "bionic")
 
-	container := NewContainerInitialiser("bionic")
+	container := NewContainerInitialiser()
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -163,8 +165,9 @@ func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
 
 func (s *InitialiserSuite) TestLXDInitTrusty(c *gc.C) {
 	s.patchDF100GB()
+	PatchHostSeries(s, "trusty")
 
-	container := NewContainerInitialiser("trusty")
+	container := NewContainerInitialiser()
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -177,8 +180,9 @@ func (s *InitialiserSuite) TestLXDInitTrusty(c *gc.C) {
 
 func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
+	PatchHostSeries(s, "trusty")
 
-	container := NewContainerInitialiser("xenial")
+	container := NewContainerInitialiser()
 	cont, ok := container.(*containerInitialiser)
 	if !ok {
 		c.Fatalf("Unexpected type of container initialized: %T", container)
@@ -233,6 +237,8 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		c.Skip("no lxd on windows")
 	}
 
+	PatchHostSeries(s, "")
+
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
@@ -252,7 +258,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser("")
+	container := NewContainerInitialiser()
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }

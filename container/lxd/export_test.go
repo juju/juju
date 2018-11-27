@@ -44,6 +44,10 @@ func PatchLXDViaSnap(patcher patcher, isSnap bool) {
 	patcher.PatchValue(&lxdViaSnap, func() bool { return isSnap })
 }
 
+func PatchHostSeries(patcher patcher, series string) {
+	patcher.PatchValue(&hostSeries, func() (string, error) { return series, nil })
+}
+
 func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	return mgr.(*containerManager).getImageSources()
 }

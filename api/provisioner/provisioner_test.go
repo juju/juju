@@ -337,23 +337,6 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestSeries(c *gc.C) {
-	// Create a fresh machine with different series.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiMachine := s.assertGetOneMachine(c, foobarMachine.MachineTag())
-	series, err := apiMachine.Series()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "foobar")
-
-	// Now try machine 0.
-	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
-	series, err = apiMachine.Series()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "quantal")
-}
-
 func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
 	template := state.MachineTemplate{

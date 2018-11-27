@@ -28,12 +28,11 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-var requiredPackages = []string{
-	"lxd",
-}
+var hostSeries = series.HostSeries
+
+var requiredPackages = []string{"lxd"}
 
 type containerInitialiser struct {
-	series         string
 	getExecCommand func(string, ...string) *exec.Cmd
 }
 
@@ -42,17 +41,20 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
-func NewContainerInitialiser(series string) container.Initialiser {
+func NewContainerInitialiser() container.Initialiser {
 	return &containerInitialiser{
-		series,
 		exec.Command,
 	}
 }
 
 // Initialise is specified on the container.Initialiser interface.
 func (ci *containerInitialiser) Initialise() error {
-	err := ensureDependencies(ci.series)
+	localSeries, err := hostSeries()
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := ensureDependencies(localSeries); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -67,7 +69,7 @@ func (ci *containerInitialiser) Initialise() error {
 	}
 
 	// LXD init is only run on Xenial and later.
-	if ci.series == "trusty" {
+	if localSeries == "trusty" {
 		return nil
 	}
 
