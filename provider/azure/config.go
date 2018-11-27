@@ -6,7 +6,7 @@ package azure
 import (
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
