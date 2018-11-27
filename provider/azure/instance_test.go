@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
@@ -49,6 +49,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
+	azure.SetRetries(s.env)
 	s.sender = nil
 	s.requests = nil
 	s.networkInterfaces = []network.Interface{
@@ -89,7 +90,7 @@ func makeNetworkInterface(nicName, vmName string, ipConfigurations ...network.In
 	tags := map[string]*string{"juju-machine-name": &vmName}
 	return network.Interface{
 		Name: to.StringPtr(nicName),
-		Tags: &tags,
+		Tags: tags,
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
 		},
@@ -110,7 +111,7 @@ func makePublicIPAddress(pipName, vmName, ipAddress string) network.PublicIPAddr
 	tags := map[string]*string{"juju-machine-name": &vmName}
 	pip := network.PublicIPAddress{
 		Name:                            to.StringPtr(pipName),
-		Tags:                            &tags,
+		Tags:                            tags,
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{},
 	}
 	if ipAddress != "" {
@@ -392,9 +393,9 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 
 	sender := mocks.NewSender()
 	notFoundSender := mocks.NewSender()
-	notFoundSender.AppendResponse(mocks.NewResponseWithStatus(
+	notFoundSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"rule not found", http.StatusNotFound,
-	))
+	), 2)
 	s.sender = azuretesting.Senders{sender, notFoundSender, notFoundSender, notFoundSender}
 
 	err := fwInst.ClosePorts(s.callCtx, "0", []jujunetwork.IngressRule{

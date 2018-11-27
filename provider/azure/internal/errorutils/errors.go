@@ -26,6 +26,11 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 	if r, ok := err.(*azure.RequestError); ok {
 		return r.ServiceError, true
 	}
+	// The error Azure gives us back can also be a struct
+	// not a pointer.
+	if r, ok := err.(azure.RequestError); ok {
+		return r.ServiceError, true
+	}
 	return nil, false
 }
 

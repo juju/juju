@@ -6,7 +6,7 @@ package imageutils_test
 import (
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -31,7 +31,7 @@ var _ = gc.Suite(&imageutilsSuite{})
 func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockSender = mocks.NewSender()
-	s.client.ManagementClient = compute.New("subscription-id")
+	s.client.BaseClient = compute.New("subscription-id")
 	s.client.Sender = s.mockSender
 	s.callCtx = context.NewCloudCallContext()
 }

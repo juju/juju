@@ -191,11 +191,11 @@
 
 [[constraint]]
   name = "github.com/Azure/azure-sdk-for-go"
-  revision = "03719f665513a71a89cf687d260c39a120ac00e7"
+  revision = "9699bdefa481d47c5c7638a1cc05d87ce53601fd"
 
-[[constraint]]
+[[override]]
   name = "github.com/Azure/go-autorest"
-  revision = "10cfe58defab0c9a33be1f7b3ee656857670b509"
+  revision = "528b76fd0ebec0682f3e3da7c808cd472b999615"
 
 [[override]]
   name = "github.com/ajstarks/svgo"
@@ -463,7 +463,7 @@
 
 [[constraint]]
   name = "golang.org/x/sys"
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "0cf1ed9e522b7dbb416f080a5c8003de9b702bf4"
 
 [[override]]
   name = "golang.org/x/text"

@@ -5,13 +5,14 @@ package azureauth_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/arm/authorization"
+	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -51,7 +52,7 @@ func deviceCodeSender() autorest.Sender {
 func tokenSender() autorest.Sender {
 	return azuretesting.NewSenderWithValue(adal.Token{
 		RefreshToken: "refresh-token",
-		ExpiresOn:    fmt.Sprint(time.Now().Add(time.Hour).Unix()),
+		ExpiresOn:    json.Number(fmt.Sprint(time.Now().Add(time.Hour).Unix())),
 	})
 }
 
@@ -135,7 +136,7 @@ func roleAssignmentSender() autorest.Sender {
 
 func roleAssignmentAlreadyExistsSender() autorest.Sender {
 	sender := mocks.NewSender()
-	body := mocks.NewBody(`{"error":{"code":"RoleAssignmentExists"}}`)
+	body := mocks.NewBody(`{"error":{"code":"RoleAssignmentExists", "message":"Odata v4 compliant message"}}`)
 	sender.AppendResponse(mocks.NewResponseWithBodyAndStatus(body, http.StatusConflict, ""))
 	return sender
 }
@@ -191,8 +192,9 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 
 	var stderr bytes.Buffer
 	subscriptionId := "22222222-2222-2222-2222-222222222222"
+	sdkCtx := context.Background()
 
-	appId, password, err := spc.InteractiveCreate(&stderr, azureauth.ServicePrincipalParams{
+	appId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -264,7 +266,8 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		Clock:            s.clock,
 		NewUUID:          s.newUUID,
 	}
-	_, _, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, _, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -307,7 +310,8 @@ func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C,
 		Clock:            s.clock,
 		NewUUID:          s.newUUID,
 	}
-	_, password, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -376,7 +380,8 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 		},
 		NewUUID: s.newUUID,
 	}
-	_, password, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -421,7 +426,8 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		},
 		NewUUID: s.newUUID,
 	}
-	_, password, err := spc.InteractiveCreate(ioutil.Discard, azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	_, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",

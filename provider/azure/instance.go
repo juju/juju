@@ -4,11 +4,12 @@
 package azure
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -103,16 +104,18 @@ func instanceNetworkInterfaces(
 	resourceGroup string,
 	nicClient network.InterfacesClient,
 ) (map[instance.Id][]network.Interface, error) {
-	nicsResult, err := nicClient.List(resourceGroup)
+	sdkCtx := stdcontext.Background()
+	nicsResult, err := nicClient.ListComplete(sdkCtx, resourceGroup)
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing network interfaces"), ctx)
 	}
-	if nicsResult.Value == nil || len(*nicsResult.Value) == 0 {
+	if nicsResult.Response().IsEmpty() {
 		return nil, nil
 	}
 	instanceNics := make(map[instance.Id][]network.Interface)
-	for _, nic := range *nicsResult.Value {
-		instanceId := instance.Id(toTags(nic.Tags)[jujuMachineNameTag])
+	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(sdkCtx) {
+		nic := nicsResult.Value()
+		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
 		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
 	}
 	return instanceNics, nil
@@ -126,16 +129,18 @@ func instancePublicIPAddresses(
 	resourceGroup string,
 	pipClient network.PublicIPAddressesClient,
 ) (map[instance.Id][]network.PublicIPAddress, error) {
-	pipsResult, err := pipClient.List(resourceGroup)
+	sdkCtx := stdcontext.Background()
+	pipsResult, err := pipClient.ListComplete(sdkCtx, resourceGroup)
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing public IP addresses"), ctx)
 	}
-	if pipsResult.Value == nil || len(*pipsResult.Value) == 0 {
+	if pipsResult.Response().IsEmpty() {
 		return nil, nil
 	}
 	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for _, pip := range *pipsResult.Value {
-		instanceId := instance.Id(toTags(pip.Tags)[jujuMachineNameTag])
+	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(sdkCtx) {
+		pip := pipsResult.Value()
+		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
 		instancePips[instanceId] = append(instancePips[instanceId], pip)
 	}
 	return instancePips, nil
@@ -209,7 +214,8 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	}
 
 	securityGroupName := internalSecurityGroupName
-	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName, "")
+	sdkCtx := stdcontext.Background()
+	nsg, err := nsgClient.Get(sdkCtx, inst.env.resourceGroup, securityGroupName, "")
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
@@ -282,11 +288,11 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 				Direction:                network.SecurityRuleDirectionInbound,
 			},
 		}
-		_, errCh := securityRuleClient.CreateOrUpdate(
+		_, err = securityRuleClient.CreateOrUpdate(
+			sdkCtx,
 			inst.env.resourceGroup, securityGroupName, ruleName, securityRule,
-			nil, // abort channel
 		)
-		if err := <-errCh; err != nil {
+		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
 		}
 		securityRules = append(securityRules, securityRule)
@@ -303,17 +309,28 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 	// on changes made by the provisioner.
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	sdkCtx := stdcontext.Background()
 
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 		logger.Debugf("deleting security rule %q", ruleName)
-		resultCh, errCh := securityRuleClient.Delete(
+		future, err := securityRuleClient.Delete(
+			stdcontext.Background(),
 			inst.env.resourceGroup, securityGroupName, ruleName,
-			nil, // abort channel
 		)
-		result, err := <-resultCh, <-errCh
-		if err != nil && !isNotFoundResponse(result) {
+		if err != nil {
+			if !isNotFoundResponse(future.Response()) {
+				return errors.Annotatef(err, "deleting security rule %q", ruleName)
+			}
+			continue
+		}
+		err = future.WaitForCompletionRef(sdkCtx, securityRuleClient.Client)
+		if err != nil {
+			return errors.Annotatef(err, "deleting security rule %q", ruleName)
+		}
+		result, err := future.Result(securityRuleClient)
+		if err != nil && !isNotFoundResult(result) {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}
@@ -324,7 +341,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []jujunetwork.IngressRule, err error) {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityGroupName := internalSecurityGroupName
-	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName, "")
+	nsg, err := nsgClient.Get(stdcontext.Background(), inst.env.resourceGroup, securityGroupName, "")
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
@@ -420,7 +437,8 @@ func deleteInstanceNetworkSecurityRules(
 	nsgClient network.SecurityGroupsClient,
 	securityRuleClient network.SecurityRulesClient,
 ) error {
-	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
+	sdkCtx := stdcontext.Background()
+	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
 		if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
 			return nil
@@ -436,14 +454,24 @@ func deleteInstanceNetworkSecurityRules(
 		if !strings.HasPrefix(ruleName, prefix) {
 			continue
 		}
-		resultCh, errCh := securityRuleClient.Delete(
+		future, err := securityRuleClient.Delete(
+			sdkCtx,
 			resourceGroup,
 			internalSecurityGroupName,
 			ruleName,
-			nil,
 		)
-		result, err := <-resultCh, <-errCh
-		if err != nil && !isNotFoundResponse(result) {
+		if err != nil {
+			if !isNotFoundResponse(future.Response()) {
+				return errors.Annotatef(err, "deleting security rule %q", ruleName)
+			}
+			continue
+		}
+		err = future.WaitForCompletionRef(sdkCtx, securityRuleClient.Client)
+		if err != nil {
+			return errors.Annotatef(err, "deleting security rule %q", ruleName)
+		}
+		result, err := future.Result(securityRuleClient)
+		if err != nil && !isNotFoundResult(result) {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}

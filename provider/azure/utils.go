@@ -4,11 +4,12 @@
 package azure
 
 import (
+	stdcontext "context"
 	"math/rand"
 	"net/http"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -52,7 +53,11 @@ func randomAdminPassword() string {
 	return string(password)
 }
 
-func isNotFoundResponse(resp autorest.Response) bool {
+func isNotFoundResponse(resp *http.Response) bool {
+	return isNotFoundResult(autorest.Response{resp})
+}
+
+func isNotFoundResult(resp autorest.Response) bool {
 	if resp.Response != nil && resp.StatusCode == http.StatusNotFound {
 		return true
 	}
@@ -64,32 +69,32 @@ func isNotFoundResponse(resp autorest.Response) bool {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(ctx context.ProviderCallContext, client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, client resources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
-	var res resources.ProviderListResult
-	res, err := client.List(nil, "")
+	var res resources.ProviderListResultIterator
+	res, err := client.ListComplete(sdkCtx, nil, "")
 	if err != nil {
 		return result, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	for res.Value != nil {
-		for _, provider := range *res.Value {
-			if provider.ResourceTypes == nil {
-				continue
-			}
-			for _, resourceType := range *provider.ResourceTypes {
-				key := to.String(provider.Namespace) + "/" + to.String(resourceType.ResourceType)
-				versions := to.StringSlice(resourceType.APIVersions)
-				if len(versions) == 0 {
-					continue
-				}
-				// The versions are newest-first.
-				result[key] = versions[0]
-			}
-		}
-		res, err = client.ListNextResults(res)
+	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
 		if err != nil {
 			return map[string]string{}, errorutils.HandleCredentialError(errors.Trace(err), ctx)
+		}
+
+		provider := res.Value()
+		if provider.ResourceTypes == nil {
+			continue
+		}
+
+		for _, resourceType := range *provider.ResourceTypes {
+			key := to.String(provider.Namespace) + "/" + to.String(resourceType.ResourceType)
+			versions := to.StringSlice(resourceType.APIVersions)
+			if len(versions) == 0 {
+				continue
+			}
+			// The versions are newest-first.
+			result[key] = versions[0]
 		}
 	}
 	return result, nil

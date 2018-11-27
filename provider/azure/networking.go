@@ -4,11 +4,12 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
 
-	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -246,9 +247,10 @@ func networkSecurityRules(
 	nsgClient network.SecurityGroupsClient,
 	resourceGroup string,
 ) ([]network.SecurityRule, error) {
-	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
+	sdkCtx := context.Background()
+	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
-		if isNotFoundResponse(nsg.Response) {
+		if isNotFoundResult(nsg.Response) {
 			return nil, errors.NotFoundf("security group")
 		}
 		return nil, errors.Annotate(err, "querying network security group")
