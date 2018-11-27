@@ -1254,36 +1254,23 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// TODO(axw) delete resources concurrently.
 
-	invalidatedCredential := func(credentialErr error, msg string) error {
-		return errors.Annotate(credentialErr, msg)
-	}
-
 	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
 	vmErrMsg := "deleting virtual machine"
 	vmFuture, err := vmClient.Delete(sdkCtx, env.resourceGroup, vmName)
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, vmErrMsg)
-		}
-		if !isNotFoundResponse(vmFuture.Response()) {
+		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(vmFuture.Response()) {
 			return errors.Annotate(err, vmErrMsg)
 		}
 	} else {
 		err = vmFuture.WaitForCompletionRef(sdkCtx, vmClient.Client)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, vmErrMsg)
-			}
-			return errors.Annotate(err, "deleting virtual machine")
+			return errorutils.HandleCredentialError(errors.Annotate(err, vmErrMsg), ctx)
 		}
 		result, err := vmFuture.Result(vmClient)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, vmErrMsg)
-			}
-			if !isNotFoundResult(result) {
-				return errors.Annotate(err, "deleting virtual machine")
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
+				return errors.Annotate(err, vmErrMsg)
 			}
 		}
 	}
@@ -1293,10 +1280,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 		vhdContainer := blobClient.GetContainerReference(osDiskVHDContainer)
 		vhdBlob := vhdContainer.Blob(vmName)
 		_, err := vhdBlob.DeleteIfExists(nil)
-		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, "deleting OS VHD")
-		}
-		return errors.Annotate(err, "deleting OS VHD")
+		return errorutils.HandleCredentialError(errors.Annotate(err, "deleting OS VHD"), ctx)
 	}
 
 	// Delete the managed OS disk.
@@ -1304,28 +1288,19 @@ func (env *azureEnviron) deleteVirtualMachine(
 	diskErrMsg := "deleting OS disk"
 	diskFuture, err := diskClient.Delete(sdkCtx, env.resourceGroup, vmName)
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, diskErrMsg)
-		}
-		if !isNotFoundResponse(diskFuture.Response()) {
+		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(diskFuture.Response()) {
 			return errors.Annotate(err, diskErrMsg)
 		}
 	}
 	if err == nil {
 		err = diskFuture.WaitForCompletionRef(sdkCtx, diskClient.Client)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, diskErrMsg)
-			}
-			return errors.Annotate(err, "deleting OS disk")
+			return errorutils.HandleCredentialError(errors.Annotate(err, diskErrMsg), ctx)
 		}
 		result, err := diskFuture.Result(diskClient)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, diskErrMsg)
-			}
-			if !isNotFoundResult(result) {
-				return errors.Annotate(err, "deleting OS disk")
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
+				return errors.Annotate(err, diskErrMsg)
 			}
 		}
 	}
@@ -1345,27 +1320,18 @@ func (env *azureEnviron) deleteVirtualMachine(
 		logger.Tracef("deleting NIC %q", nicName)
 		nicFuture, err := nicClient.Delete(sdkCtx, env.resourceGroup, nicName)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, networkErrMsg)
-			}
-			if !isNotFoundResponse(nicFuture.Response()) {
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(nicFuture.Response()) {
 				return errors.Annotate(err, networkErrMsg)
 			}
 		} else {
 			err = nicFuture.WaitForCompletionRef(sdkCtx, nicClient.Client)
 			if err != nil {
-				if errorutils.MaybeInvalidateCredential(err, ctx) {
-					return invalidatedCredential(err, networkErrMsg)
-				}
-				return errors.Annotate(err, "deleting NIC")
+				return errorutils.HandleCredentialError(errors.Annotate(err, networkErrMsg), ctx)
 			}
 			result, err := nicFuture.Result(nicClient)
 			if err != nil {
-				if errorutils.MaybeInvalidateCredential(err, ctx) {
-					return invalidatedCredential(err, networkErrMsg)
-				}
-				if !isNotFoundResult(result) {
-					return errors.Annotate(err, "deleting NIC")
+				if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
+					return errors.Annotate(err, networkErrMsg)
 				}
 			}
 		}
@@ -1378,27 +1344,18 @@ func (env *azureEnviron) deleteVirtualMachine(
 		logger.Tracef("deleting public IP %q", pipName)
 		ipFuture, err := pipClient.Delete(sdkCtx, env.resourceGroup, pipName)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, ipErrMsg)
-			}
-			if !isNotFoundResponse(ipFuture.Response()) {
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(ipFuture.Response()) {
 				return errors.Annotate(err, ipErrMsg)
 			}
 		} else {
 			err = ipFuture.WaitForCompletionRef(sdkCtx, pipClient.Client)
 			if err != nil {
-				if errorutils.MaybeInvalidateCredential(err, ctx) {
-					return invalidatedCredential(err, ipErrMsg)
-				}
-				return errors.Annotate(err, "deleting public IP")
+				return errorutils.HandleCredentialError(errors.Annotate(err, ipErrMsg), ctx)
 			}
 			result, err := ipFuture.Result(pipClient)
 			if err != nil {
-				if errorutils.MaybeInvalidateCredential(err, ctx) {
-					return invalidatedCredential(err, ipErrMsg)
-				}
-				if !isNotFoundResult(result) {
-					return errors.Annotate(err, "deleting public IP")
+				if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
+					return errors.Annotate(err, ipErrMsg)
 				}
 			}
 		}
@@ -1409,27 +1366,18 @@ func (env *azureEnviron) deleteVirtualMachine(
 	deploymentFuture, err := deploymentsClient.Delete(sdkCtx, env.resourceGroup, vmName)
 	deploymentErrMsg := "deleting deployment"
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) {
-			return invalidatedCredential(err, deploymentErrMsg)
-		}
-		if !isNotFoundResponse(deploymentFuture.Response()) {
+		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(deploymentFuture.Response()) {
 			return errors.Annotate(err, deploymentErrMsg)
 		}
 	} else {
 		err = deploymentFuture.WaitForCompletionRef(sdkCtx, deploymentsClient.Client)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, deploymentErrMsg)
-			}
-			return errors.Annotate(err, "deleting deployment")
+			return errorutils.HandleCredentialError(errors.Annotate(err, deploymentErrMsg), ctx)
 		}
 		deploymentResult, err := deploymentFuture.Result(deploymentsClient)
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return invalidatedCredential(err, deploymentErrMsg)
-			}
-			if !isNotFoundResult(deploymentResult) {
-				return errors.Annotate(err, "deleting deployment")
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(deploymentResult) {
+				return errors.Annotate(err, deploymentErrMsg)
 			}
 		}
 	}
