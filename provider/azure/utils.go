@@ -4,11 +4,12 @@
 package azure
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -61,32 +62,32 @@ func isNotFoundResponse(resp autorest.Response) bool {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(client resources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(sdkCtx context.Context, client resources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
-	var res resources.ProviderListResult
-	res, err := client.List(nil, "")
+	var res resources.ProviderListResultIterator
+	res, err := client.ListComplete(sdkCtx, nil, "")
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	for res.Value != nil {
-		for _, provider := range *res.Value {
-			if provider.ResourceTypes == nil {
+	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
+		if err != nil {
+			return nil, errors.Annotate(err, "listing resources")
+		}
+
+		provider := res.Value()
+		if provider.ResourceTypes == nil {
+			continue
+		}
+
+		for _, resourceType := range *provider.ResourceTypes {
+			key := to.String(provider.Namespace) + "/" + to.String(resourceType.ResourceType)
+			versions := to.StringSlice(resourceType.APIVersions)
+			if len(versions) == 0 {
 				continue
 			}
-			for _, resourceType := range *provider.ResourceTypes {
-				key := to.String(provider.Namespace) + "/" + to.String(resourceType.ResourceType)
-				versions := to.StringSlice(resourceType.APIVersions)
-				if len(versions) == 0 {
-					continue
-				}
-				// The versions are newest-first.
-				result[key] = versions[0]
-			}
-		}
-		res, err = client.ListNextResults(res)
-		if err != nil {
-			return map[string]string{}, errors.Trace(err)
+			// The versions are newest-first.
+			result[key] = versions[0]
 		}
 	}
 	return result, nil

@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -34,8 +35,8 @@ const (
 )
 
 type ServicePrincipalCreator interface {
-	InteractiveCreate(stderr io.Writer, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
-	Create(params azureauth.ServicePrincipalParams) (appid, password string, _ error)
+	InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
+	Create(sdkCtx context.Context, params azureauth.ServicePrincipalParams) (appid, password string, _ error)
 }
 
 type AzureCLI interface {
@@ -189,7 +190,8 @@ func (c environProviderCredentials) deviceCodeCredential(
 	args environs.FinalizeCredentialParams,
 	params azureauth.ServicePrincipalParams,
 ) (*cloud.Credential, error) {
-	applicationId, password, err := c.servicePrincipalCreator.InteractiveCreate(ctx.GetStderr(), params)
+	sdkCtx := context.Background()
+	applicationId, password, err := c.servicePrincipalCreator.InteractiveCreate(sdkCtx, ctx.GetStderr(), params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -223,7 +225,8 @@ func (c environProviderCredentials) azureCLICredential(
 	}
 	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(resourceManagerAuthorizer.Token())
 
-	applicationId, password, err := c.servicePrincipalCreator.Create(params)
+	sdkCtx := context.Background()
+	applicationId, password, err := c.servicePrincipalCreator.Create(sdkCtx, params)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get service principal")
 	}
@@ -248,7 +251,8 @@ func (c environProviderCredentials) accountCredential(
 	if err != nil {
 		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
 	}
-	applicationId, password, err := c.servicePrincipalCreator.Create(azureauth.ServicePrincipalParams{
+	sdkCtx := context.Background()
+	applicationId, password, err := c.servicePrincipalCreator.Create(sdkCtx, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphResourceId:           cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
 		GraphAuthorizer:           autorest.NewBearerAuthorizer(graphToken.Token()),

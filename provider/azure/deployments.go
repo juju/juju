@@ -4,7 +4,9 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"context"
+
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -21,18 +23,19 @@ func createDeployment(
 		return errors.Trace(err)
 	}
 	deployment := resources.Deployment{
-		&resources.DeploymentProperties{
+		Properties: &resources.DeploymentProperties{
 			Template: &templateMap,
 			Mode:     resources.Incremental,
 		},
 	}
-	_, errChan := client.CreateOrUpdate(
+	sdkCtx := context.Background()
+	_, err = client.CreateOrUpdate(
+		sdkCtx,
 		resourceGroup,
 		deploymentName,
 		deployment,
-		nil, // abort channel
 	)
-	if err := <-errChan; err != nil {
+	if err != nil {
 		return errors.Annotatef(err, "creating deployment %q", deploymentName)
 	}
 	return nil

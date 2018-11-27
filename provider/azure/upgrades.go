@@ -4,10 +4,11 @@
 package azure
 
 import (
+	stdcontext "context"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
-	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -55,7 +56,7 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 	// network security group template created in the deployment
 	// below.
 	nsgClient := network.SecurityGroupsClient{
-		ManagementClient: env.network,
+		BaseClient: env.network,
 	}
 	allRules, err := networkSecurityRules(nsgClient, env.resourceGroup)
 	if errors.IsNotFound(err) {
@@ -85,20 +86,25 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 func isControllerEnviron(env *azureEnviron) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	result, err := client.List(env.resourceGroup)
+	sdkCtx := stdcontext.Background()
+	result, err := client.ListComplete(sdkCtx, env.resourceGroup)
 	if err != nil {
 		return false, errors.Annotate(err, "listing virtual machines")
 	}
 
-	if result.Value == nil {
+	if result.Response().IsEmpty() {
 		// No machines implies this is not the controller model, as
 		// there must be a controller machine for the upgrades to be
 		// running!
 		return false, nil
 	}
 
-	for _, vm := range *result.Value {
-		if toTags(vm.Tags)[tags.JujuIsController] == "true" {
+	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
+		if err != nil {
+			return false, errors.Annotate(err, "iterating machines")
+		}
+		vm := result.Value()
+		if to.String(vm.Tags[tags.JujuIsController]) == "true" {
 			return true, nil
 		}
 	}
