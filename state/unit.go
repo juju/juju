@@ -2456,23 +2456,26 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	// to err on the side of caution and exclude such machines.
 	var suitableInstanceData []instanceData
 	var suitableTerms bson.D
-	if cons.Arch != nil && *cons.Arch != "" {
+	if cons.HasArch() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"arch", *cons.Arch})
 	}
-	if cons.Mem != nil && *cons.Mem > 0 {
+	if cons.HasMem() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"mem", bson.D{{"$gte", *cons.Mem}}})
 	}
 	if cons.RootDisk != nil && *cons.RootDisk > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"rootdisk", bson.D{{"$gte", *cons.RootDisk}}})
 	}
-	if cons.CpuCores != nil && *cons.CpuCores > 0 {
+	if cons.HasCpuCores() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpucores", bson.D{{"$gte", *cons.CpuCores}}})
 	}
-	if cons.CpuPower != nil && *cons.CpuPower > 0 {
+	if cons.HasCpuPower() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpupower", bson.D{{"$gte", *cons.CpuPower}}})
 	}
 	if cons.Tags != nil && len(*cons.Tags) > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"tags", bson.D{{"$all", *cons.Tags}}})
+	}
+	if cons.HasZones() {
+		suitableTerms = append(suitableTerms, bson.DocElem{"availzone", bson.D{{"$in", *cons.Zones}}})
 	}
 	if len(suitableTerms) > 0 {
 		instanceDataCollection, closer := db.GetCollection(instanceDataC)
@@ -2586,15 +2589,15 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	instanceMachines := make(map[instance.Id]*Machine)
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
-		instance, err := m.InstanceId()
+		inst, err := m.InstanceId()
 		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
 			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		} else {
-			instances = append(instances, instance)
-			instanceMachines[instance] = m
+			instances = append(instances, inst)
+			instanceMachines[inst] = m
 		}
 	}
 
@@ -2605,15 +2608,19 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// Shuffle machines to reduce likelihood of collisions.
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
-	if instances, err = distributeUnit(u, instances); err != nil {
+	var limitZones []string
+	if cons.HasZones() {
+		limitZones = *cons.Zones
+	}
+	if instances, err = distributeUnit(u, instances, limitZones); err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
-	for i, instance := range instances {
-		m, ok := instanceMachines[instance]
+	for i, inst := range instances {
+		m, ok := instanceMachines[inst]
 		if !ok {
-			err := fmt.Errorf("invalid instance returned: %v", instance)
+			err := fmt.Errorf("invalid instance returned: %v", inst)
 			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
@@ -2712,12 +2719,11 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 		return nil, err
 	}
 
-	model, err := u.st.Model()
+	m, err := u.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return model.EnqueueAction(u.Tag(), name, payloadWithDefaults)
+	return m.EnqueueAction(u.Tag(), name, payloadWithDefaults)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.

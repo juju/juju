@@ -28,6 +28,7 @@ type constraintsDoc struct {
 	Tags         *[]string
 	Spaces       *[]string
 	VirtType     *string
+	Zones        *[]string
 }
 
 func (doc constraintsDoc) value() constraints.Value {
@@ -42,6 +43,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		Tags:         doc.Tags,
 		Spaces:       doc.Spaces,
 		VirtType:     doc.VirtType,
+		Zones:        doc.Zones,
 	}
 	return result
 }
@@ -58,6 +60,7 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 		Tags:         cons.Tags,
 		Spaces:       cons.Spaces,
 		VirtType:     cons.VirtType,
+		Zones:        cons.Zones,
 	}
 	return result
 }

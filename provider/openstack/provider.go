@@ -1000,13 +1000,15 @@ func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (e *Environ) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
-	instances, err := common.DistributeInstances(e, ctx, candidates, distributionGroup)
+func (e *Environ) DistributeInstances(
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
+	valid, err := common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return instances, err
+		return valid, err
 	}
-	return instances, nil
+	return valid, nil
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations

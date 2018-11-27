@@ -14,6 +14,7 @@ import (
 )
 
 // AvailabilityZone describes a provider availability zone.
+//go:generate mockgen -package mocks -destination mocks/availability_zone.go github.com/juju/juju/provider/common AvailabilityZone
 type AvailabilityZone interface {
 	// Name returns the name of the availability zone.
 	Name() string
@@ -22,8 +23,8 @@ type AvailabilityZone interface {
 	Available() bool
 }
 
-// ZonedEnviron is an environs.Environ that has support for
-// availability zones.
+// ZonedEnviron is an environs.Environ that has support for availability zones.
+//go:generate mockgen -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/provider/common ZonedEnviron
 type ZonedEnviron interface {
 	environs.Environ
 
@@ -84,7 +85,9 @@ func (b byPopulationThenName) Swap(i, j int) {
 //
 // If the specified group is empty, then it will behave as if the result of
 // AllInstances were provided.
-func AvailabilityZoneAllocations(env ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]AvailabilityZoneInstances, error) {
+func AvailabilityZoneAllocations(
+	env ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id,
+) ([]AvailabilityZoneInstances, error) {
 	if len(group) == 0 {
 		instances, err := env.AllInstances(ctx)
 		if err != nil {
@@ -148,27 +151,49 @@ func AvailabilityZoneAllocations(env ZonedEnviron, ctx context.ProviderCallConte
 var internalAvailabilityZoneAllocations = AvailabilityZoneAllocations
 
 // DistributeInstances is a common function for implement the
-// state.InstanceDistributor policy based on availability zone
-// spread.
-func DistributeInstances(env ZonedEnviron, ctx context.ProviderCallContext, candidates, group []instance.Id) ([]instance.Id, error) {
-	// Determine the best availability zones for the group.
+// state.InstanceDistributor policy based on availability zone spread.
+// TODO (manadart 2018-11-27) This method signature has grown to the point
+// where the argument list should be replaced with a struct.
+// At that time limitZones could be transformed to a map so that lookups in the
+// filtering below are more efficient.
+func DistributeInstances(
+	env ZonedEnviron, ctx context.ProviderCallContext, candidates, group []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
+	// Determine availability zone distribution for the group.
 	zoneInstances, err := internalAvailabilityZoneAllocations(env, ctx, group)
 	if err != nil || len(zoneInstances) == 0 {
 		return nil, err
 	}
 
+	// If there any zones supplied for limitation,
+	// filter to distribution data so that only those zones are considered.
+	filteredZoneInstances := zoneInstances[:0]
+	if len(limitZones) > 0 {
+		for _, zi := range zoneInstances {
+			for _, zone := range limitZones {
+				if zi.ZoneName == zone {
+					filteredZoneInstances = append(filteredZoneInstances, zi)
+					break
+				}
+			}
+		}
+	} else {
+		filteredZoneInstances = zoneInstances
+	}
+
 	// Determine which of the candidates are eligible based on whether
-	// they are allocated in one of the best availability zones.
+	// they are allocated in one of the least-populated availability zones.
 	var allEligible []string
-	for i := range zoneInstances {
-		if i > 0 && len(zoneInstances[i].Instances) > len(zoneInstances[i-1].Instances) {
+	for i := range filteredZoneInstances {
+		if i > 0 && len(filteredZoneInstances[i].Instances) > len(filteredZoneInstances[i-1].Instances) {
 			break
 		}
-		for _, id := range zoneInstances[i].Instances {
+		for _, id := range filteredZoneInstances[i].Instances {
 			allEligible = append(allEligible, string(id))
 		}
 	}
 	sort.Strings(allEligible)
+
 	eligible := make([]instance.Id, 0, len(candidates))
 	for _, candidate := range candidates {
 		n := sort.SearchStrings(allEligible, string(candidate))

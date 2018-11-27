@@ -313,19 +313,31 @@ var parseConstraintsTests = []struct {
 		err:     `bad "virt-type" constraint: already set`,
 	},
 
+	// Zones
+	{
+		summary: "single zone",
+		args:    []string{"zones=az1"},
+	}, {
+		summary: "multiple zones",
+		args:    []string{"zones=az1,az2"},
+	}, {
+		summary: "no zones",
+		args:    []string{"zones="},
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
 		args: []string{
 			"root-disk=8G mem=2T  arch=i386  cores=4096 cpu-power=9001 container=lxd " +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
-			"virt-type=kvm"},
+			"virt-type=kvm zones=az1,az2"},
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
 			"root-disk=8G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf",
 			"container=lxd", "tags=foo,bar", "spaces=space1,^space2",
-			"instance-type=foo", "virt-type=kvm"},
+			"instance-type=foo", "virt-type=kvm", "zones=az1,az2"},
 	},
 }
 
@@ -407,19 +419,19 @@ func (s *ConstraintsSuite) TestParseNoTagsNoSpaces(c *gc.C) {
 	c.Check(*con.Spaces, gc.HasLen, 0)
 }
 
-func (s *ConstraintsSuite) TestIncludeExcludeAndHaveSpaces(c *gc.C) {
+func (s *ConstraintsSuite) TestIncludeExcludeAndHasSpaces(c *gc.C) {
 	con := constraints.MustParse("spaces=space1,^space2,space3,^space4")
 	c.Assert(con.Spaces, gc.Not(gc.IsNil))
 	c.Check(*con.Spaces, gc.HasLen, 4)
 	c.Check(con.IncludeSpaces(), jc.SameContents, []string{"space1", "space3"})
 	c.Check(con.ExcludeSpaces(), jc.SameContents, []string{"space2", "space4"})
-	c.Check(con.HaveSpaces(), jc.IsTrue)
+	c.Check(con.HasSpaces(), jc.IsTrue)
 	con = constraints.MustParse("mem=4G")
-	c.Check(con.HaveSpaces(), jc.IsFalse)
+	c.Check(con.HasSpaces(), jc.IsFalse)
 	con = constraints.MustParse("mem=4G spaces=space-foo,^space-bar")
 	c.Check(con.IncludeSpaces(), jc.SameContents, []string{"space-foo"})
 	c.Check(con.ExcludeSpaces(), jc.SameContents, []string{"space-bar"})
-	c.Check(con.HaveSpaces(), jc.IsTrue)
+	c.Check(con.HasSpaces(), jc.IsTrue)
 }
 
 func (s *ConstraintsSuite) TestInvalidSpaces(c *gc.C) {
@@ -436,6 +448,19 @@ func (s *ConstraintsSuite) TestInvalidSpaces(c *gc.C) {
 		c.Check(err.Error(), gc.Equals, expectErr)
 		c.Check(con, jc.DeepEquals, constraints.Value{})
 	}
+}
+
+func (s *ConstraintsSuite) TestHasZones(c *gc.C) {
+	con := constraints.MustParse("zones=az1,az2,az3")
+	c.Assert(con.Zones, gc.Not(gc.IsNil))
+	c.Check(*con.Zones, gc.HasLen, 3)
+	c.Check(con.HasZones(), jc.IsTrue)
+
+	con = constraints.MustParse("zones=")
+	c.Check(con.HasZones(), jc.IsFalse)
+
+	con = constraints.MustParse("spaces=space1,^space2")
+	c.Check(con.HasZones(), jc.IsFalse)
 }
 
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
@@ -462,6 +487,8 @@ func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	con = constraints.MustParse("container=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("instance-type=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("zones=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 }
 
@@ -510,6 +537,9 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Spaces3", constraints.Value{Spaces: &[]string{"space1", "^space2"}}},
 	{"InstanceType1", constraints.Value{InstanceType: strp("")}},
 	{"InstanceType2", constraints.Value{InstanceType: strp("foo")}},
+	{"Zones1", constraints.Value{Zones: nil}},
+	{"Zones2", constraints.Value{Zones: &[]string{}}},
+	{"Zones3", constraints.Value{Zones: &[]string{"az1", "az2"}}},
 	{"All", constraints.Value{
 		Arch:         strp("i386"),
 		Container:    ctypep("lxd"),
@@ -520,6 +550,7 @@ var constraintsRoundtripTests = []roundTrip{
 		Tags:         &[]string{"foo", "bar"},
 		Spaces:       &[]string{"space1", "^space2"},
 		InstanceType: strp("foo"),
+		Zones:        &[]string{"az1", "az2"},
 	}},
 }
 
@@ -597,7 +628,8 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }
 
-const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar"
+const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo " +
+	"container=lxd instance-type=bar zones=az1,az2"
 
 var withoutTests = []struct {
 	initial string
@@ -606,43 +638,47 @@ var withoutTests = []struct {
 }{{
 	initial: initialWithoutCons,
 	without: []string{"root-disk"},
-	final:   "mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"mem"},
-	final:   "root-disk=8G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"arch"},
-	final:   "root-disk=8G mem=4G cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cpu-power"},
-	final:   "root-disk=8G mem=4G arch=amd64 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cores"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"tags"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"spaces"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo container=lxd instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"container"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 instance-type=bar zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"instance-type"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd zones=az1,az2",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"root-disk", "mem", "arch"},
-	final:   "cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar zones=az1,az2",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"zones"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar",
 }}
 
 func (s *ConstraintsSuite) TestWithout(c *gc.C) {

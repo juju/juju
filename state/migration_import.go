@@ -1585,6 +1585,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	if virt := cons.VirtType(); virt != "" {
 		result.VirtType = &virt
 	}
+	if zones := cons.Zones(); len(zones) > 0 {
+		result.Zones = &zones
+	}
 	return result
 }
 

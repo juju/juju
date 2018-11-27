@@ -904,8 +904,10 @@ func (env *maasEnviron) startNode2(node maas2Instance, series string, userdata [
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (env *maasEnviron) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
-	return common.DistributeInstances(env, ctx, candidates, distributionGroup)
+func (env *maasEnviron) DistributeInstances(
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
+	return common.DistributeInstances(env, ctx, candidates, distributionGroup, limitZones)
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
