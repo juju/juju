@@ -82,10 +82,6 @@ type LocalState struct {
 	// remotestate.Snapshot for which a hook has been retried.
 	RetryHookVersion int
 
-	// ConfigVersion is the version of config from remotestate.Snapshot
-	// for which a config-changed hook has been committed.
-	ConfigVersion int
-
 	// LeaderSettingsVersion is the version of leader settings from
 	// remotestate.Snapshot for which a leader-settings-changed hook has
 	// been committed.

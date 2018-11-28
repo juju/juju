@@ -57,7 +57,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},
 			unitWatcher:                      newMockNotifyWatcher(),
-			addressesWatcher:                 newMockNotifyWatcher(),
+			addressesWatcher:                 newMockStringsWatcher(),
 			configSettingsWatcher:            newMockStringsWatcher(),
 			applicationConfigSettingsWatcher: newMockStringsWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
@@ -149,7 +149,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	// we've seen all of the top-level notifications.
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	s.st.unit.addressesWatcher.changes <- struct{}{}
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash"}
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
 	if s.st.unit.upgradeSeriesWatcher != nil {
@@ -174,7 +174,7 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
-	s.st.unit.addressesWatcher.changes <- struct{}{}
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash"}
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
@@ -188,8 +188,6 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration version is updated on address changes (for now).
-	expectedVersion := 1
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -199,9 +197,9 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		CharmURL:              s.st.unit.application.curl,
 		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
-		ConfigVersion:         expectedVersion,
 		ConfigHash:            "confighash",
 		TrustHash:             "trusthash",
+		AddressesHash:         "addresseshash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
@@ -212,8 +210,6 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	// Note that the configuration version is updated on address changes (for now).
-	expectedVersion := 1
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -223,9 +219,9 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		CharmURL:              nil,
 		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
-		ConfigVersion:         expectedVersion,
 		ConfigHash:            "confighash",
 		TrustHash:             "trusthash",
+		AddressesHash:         "addresseshash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   "",
@@ -252,17 +248,20 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
-	s.st.unit.addressesWatcher.changes <- struct{}{}
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash2"}
 	assertOneChange()
-	expectVersion := initial.ConfigVersion + 1
-	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)
+	c.Assert(s.watcher.Snapshot().AddressesHash, gc.Equals, "addresseshash2")
 
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.st.unit.configSettingsWatcher.changes <- []string{"confighash"}
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)
+	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
+
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
 
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()

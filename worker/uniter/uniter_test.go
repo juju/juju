@@ -323,7 +323,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 				status:       status.Maintenance,
 				info:         "installing charm software",
 			},
-			waitHooks{"config-changed"},
+			waitHooks{},
 			verifyRunning{},
 		), ut(
 			"start hook fail and retry",
@@ -347,7 +347,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			waitUnitAgent{
 				status: status.Idle,
 			},
-			waitHooks{"start", "config-changed"},
+			waitHooks{"start"},
 			verifyRunning{},
 		),
 	})
@@ -1048,7 +1048,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				ft.Dir{"state/relations/90210", 0755}.Create(c, ctx.path)
 			}},
 			startUniter{},
-			waitHooks{"config-changed"},
+			waitHooks{},
 			custom{func(c *gc.C, ctx *context) {
 				ft.Removed{"state/relations/90210"}.Check(c, ctx.path)
 			}},
@@ -1082,6 +1082,10 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				// they shouldn't been available until after the start hook.
 				ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
 			}},
+			// Now that starting the uniter doesn't always fire
+			// config-changed we need to tweak the config to trigger
+			// it.
+			changeConfig{"blog-title": "Goodness Gracious Me"},
 			startUniter{},
 			waitHooks{"config-changed"},
 			custom{func(c *gc.C, ctx *context) {
@@ -1718,7 +1722,7 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 			runCommands{"juju-reboot"},
 			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
-			waitHooks{"config-changed"},
+			waitHooks{},
 		), ut(
 			"test juju-reboot with bad hook",
 			startupError{"install"},
@@ -1732,7 +1736,7 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 			runCommands{"juju-reboot --now"},
 			waitUniterDead{err: "machine needs to reboot"},
 			startUniter{},
-			waitHooks{"config-changed"},
+			waitHooks{},
 		), ut(
 			"test juju-reboot --now with bad hook",
 			startupError{"install"},
