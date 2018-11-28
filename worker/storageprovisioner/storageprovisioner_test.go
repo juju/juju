@@ -1678,15 +1678,15 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 	})
 
 	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "badness"},
 	})
 }
 

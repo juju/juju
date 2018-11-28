@@ -6,7 +6,6 @@ package model
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -27,6 +26,7 @@ import (
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	corestatus "github.com/juju/juju/core/status"
 )
 
 const (
@@ -360,24 +360,24 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 			}
 			return nil
 		}
-		isErrorMessage := func(s string) bool {
-			return strings.Contains(s, "error")
+		isError := func(s string) bool {
+			return corestatus.Error.Matches(corestatus.Status(s))
 		}
 		for _, s := range status {
 			for _, v := range s.Machines {
-				if isErrorMessage(v.Status) {
+				if isError(v.Status) {
 					ctx.Infof("unable to destroy machine: %q, \ngot error: %q\ntry `juju status` for more details.", v.Id, v.Message)
 					return nil
 				}
 			}
 			for _, v := range s.Filesystems {
-				if isErrorMessage(v.Status) {
+				if isError(v.Status) {
 					ctx.Infof("unable to destroy filesystem: %q, \ngot error: %q\ntry `juju status --storage --format yaml` for more details.", v.Id, v.Message)
 					return nil
 				}
 			}
 			for _, v := range s.Volumes {
-				if isErrorMessage(v.Status) {
+				if isError(v.Status) {
 					ctx.Infof("unable to destroy volume: %q, \ngot error: %q\ntry `juju status --storage --format yaml` for more details.", v.Id, v.Message)
 					return nil
 				}

@@ -352,9 +352,8 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 // DestroyFilesystems is specified on the storage.FilesystemSource interface.
 func (s *lxdFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
-	for i, _ := range filesystemIds {
-		// results[i] = s.destroyFilesystem(filesystemId)
-		results[i] = errors.NewNotValid(nil, "testing invalid errors!!!!!")
+	for i, filesystemId := range filesystemIds {
+		results[i] = s.destroyFilesystem(filesystemId)
 		common.HandleCredentialError(IsAuthorisationFailure, results[i], ctx)
 	}
 	return results, nil
