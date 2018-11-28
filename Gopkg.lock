@@ -130,7 +130,7 @@
   revision = "666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e"
 
 [[projects]]
-  digest = "1:4f66a19975008a3c0b19e3a87737bf140c321f58349ba81d04ec5fd35c8fa773"
+  digest = "1:e06fc49fca4c49d26c2ed3f18fe513b03ff223f759734f0e47f2cf5647215b52"
   name = "github.com/coreos/go-systemd"
   packages = [
     "dbus",
@@ -138,7 +138,15 @@
     "util",
   ]
   pruneopts = ""
-  revision = "7b2428fec40033549c68f54e26e89e7ca9a9ce31"
+  revision = "3a5019e750d573b9710fcabf30b8ba1aacec61fa"
+
+[[projects]]
+  digest = "1:b168b5f54103bbb328987b268867f656c4536b70f7b6fec4726a4619b0ebb5f0"
+  name = "github.com/coreos/pkg"
+  packages = ["dlopen"]
+  pruneopts = ""
+  revision = "97fdf19511ea361ae1c100dd393cc47f8dcfa1e1"
+  version = "v4"
 
 [[projects]]
   digest = "1:56c130d885a4aacae1dd9c7b71cfe39912c7ebc1ff7d2b46083c8812996dc43b"
