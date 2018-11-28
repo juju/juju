@@ -85,6 +85,11 @@ func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UpgradeSeriesSuite) TestTooFewArgs(c *gc.C) {
+	err := s.runUpgradeSeriesCommand(c, machineArg)
+	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
+}
+
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) {
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{machineArg, seriesArg, gomock.Eq(true)}
 	err := s.runUpgradeSeriesCommand(c, machineArg, machine.PrepareCommand, seriesArg, "--force")
