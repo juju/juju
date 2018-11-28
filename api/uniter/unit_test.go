@@ -888,6 +888,43 @@ func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
 }
 
+func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
+	w, err := s.apiUnit.WatchAddressesHash()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
+	// Update config get an event.
+	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
+
+	// Non-change is not reported.
+	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Change is reported for machine addresses.
+	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
+
+	// Set machine addresses to empty is reported.
+	err = s.wordpressMachine.SetMachineAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
+}
+
+func (s *unitSuite) TestWatchAddressesHashErrors(c *gc.C) {
+	err := s.wordpressUnit.UnassignFromMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.apiUnit.WatchAddressesHash()
+	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
+}
+
 func (s *unitSuite) TestAddMetrics(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
 		func(results interface{}) error {

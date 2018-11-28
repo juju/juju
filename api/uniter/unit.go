@@ -651,6 +651,17 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
+// WatchAddresses returns a watcher for observing changes to the
+// hash of the unit's addresses.
+// For IAAS models, the unit must be assigned to a machine before
+// this method is called, and the returned watcher will be valid
+// only while the unit's assigned machine is not changed.
+// For CAAS models, the watcher observes changes to the address
+// of the pod associated with the unit.
+func (u *Unit) WatchAddressesHash() (watcher.StringsWatcher, error) {
+	return getHashWatcher(u, "WatchUnitAddressesHash")
+}
+
 // WatchActionNotifications returns a StringsWatcher for observing the
 // ids of Actions added to the Unit. The initial event will contain the
 // ids of any Actions pending at the time the Watcher is made.
