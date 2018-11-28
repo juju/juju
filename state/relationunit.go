@@ -518,7 +518,7 @@ func NetworksForRelation(
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
 	if boundSpace == environs.DefaultSpaceName || err != nil {
-		crossmodel, err := rel.IsCrossModel()
+		_, crossmodel, err := rel.RemoteApplication()
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}

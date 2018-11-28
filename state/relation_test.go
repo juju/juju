@@ -334,6 +334,80 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *RelationSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+	ok, err := relUnit.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, gc.Equals, inScope)
+}
+
+func (s *RelationSuite) assertDestroyCrossModelRelation(c *gc.C, appStatus *status.Status) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, mysqlru, true)
+
+	wpru, err := rel.RemoteUnit("remote-wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpru, true)
+
+	if appStatus != nil {
+		err = rwordpress.SetStatus(status.StatusInfo{Status: *appStatus})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// If the remote app for the relation is terminated, any remote units are
+	// forcibly removed from scope, but not local ones.
+	s.assertInScope(c, wpru, appStatus == nil || *appStatus != status.Terminated)
+	s.assertInScope(c, mysqlru, true)
+}
+
+func (s *RelationSuite) TestDestroyCrossModelRelationNoAppStatus(c *gc.C) {
+	s.assertDestroyCrossModelRelation(c, nil)
+}
+
+func (s *RelationSuite) TestDestroyCrossModelRelationAppNotTerminated(c *gc.C) {
+	st := status.Active
+	s.assertDestroyCrossModelRelation(c, &st)
+}
+
+func (s *RelationSuite) TestDestroyCrossModelRelationAppTerminated(c *gc.C) {
+	st := status.Terminated
+	s.assertDestroyCrossModelRelation(c, &st)
+}
+
 func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
@@ -357,9 +431,37 @@ func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := relation.IsCrossModel()
+	app, result, err := relation.RemoteApplication()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
+	c.Assert(app.Name(), gc.Equals, "remote-wordpress")
+}
+
+func (s *RelationSuite) TestAddCrossModelNotAllowed(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rwordpress.SetStatus(status.StatusInfo{Status: status.Terminated})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "remote-wordpress:db mysql:server": remote offer remote-wordpress is terminated`)
+
 }
 
 func (s *RelationSuite) TestIsCrossModelNope(c *gc.C) {
@@ -372,13 +474,14 @@ func (s *RelationSuite) TestIsCrossModelNope(c *gc.C) {
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := relation.IsCrossModel()
+	app, result, err := relation.RemoteApplication()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
+	c.Assert(app, gc.IsNil)
 }
 
-func assertNoRelations(c *gc.C, srv *state.Application) {
-	rels, err := srv.Relations()
+func assertNoRelations(c *gc.C, app state.ApplicationEntity) {
+	rels, err := app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 0)
 }

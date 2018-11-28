@@ -290,7 +290,7 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 	}
 	rels, err := s.Relations()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(rels) != s.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
@@ -298,9 +298,32 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 		// asserts on relationcount and on each known relation, below.
 		return nil, errRefresh
 	}
+
+	// We'll need status below when processing relations.
+	statusInfo, statusErr := s.Status()
+	if statusErr != nil && !errors.IsNotFound(statusErr) {
+		return nil, errors.Trace(statusErr)
+	}
+
 	var ops []txn.Op
 	removeCount := 0
 	for _, rel := range rels {
+		// If the remote app has been terminated, we may have been offline
+		// and not noticed so need to clean up any exiting relation units.
+		if statusErr == nil && statusInfo.Status == status.Terminated {
+			logger.Debugf("forcing cleanup of units for %v", s.Name())
+			remoteUnits, err := rel.AllRemoteUnits(s.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			logger.Debugf("got %v relation units to clean", len(remoteUnits))
+			for _, ru := range remoteUnits {
+				if err := ru.LeaveScope(); err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
+		}
+
 		relOps, isRemove, err := rel.destroyOps(s.doc.Name)
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
@@ -309,7 +332,7 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 				Assert: bson.D{{"life", Dying}},
 			}}
 		} else if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		if isRemove {
 			removeCount++
@@ -322,7 +345,7 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
 		removeOps, err := s.removeOps(hasLastRefs)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		return append(ops, removeOps...), nil
 	}

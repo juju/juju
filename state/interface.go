@@ -225,6 +225,8 @@ type Action interface {
 
 // ApplicationEntity represents a local or remote application.
 type ApplicationEntity interface {
+	status.StatusGetter
+
 	// Life returns the life status of the application.
 	Life() Life
 

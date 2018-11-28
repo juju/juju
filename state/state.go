@@ -2054,6 +2054,15 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 			if app.IsRemote() {
+				// If the remote application is known to be terminated, we don't
+				// allow a relation to it.
+				statusInfo, err := app.Status()
+				if err != nil && !errors.IsNotFound(err) {
+					return nil, errors.Trace(err)
+				}
+				if err == nil && statusInfo.Status == status.Terminated {
+					return nil, errors.Errorf("remote offer %s is terminated", ep.ApplicationName)
+				}
 				ops = append(ops, txn.Op{
 					C:      remoteApplicationsC,
 					Id:     st.docID(ep.ApplicationName),

@@ -8,10 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -19,6 +15,9 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 )
 
 type remoteApplicationSuite struct {
@@ -850,6 +849,67 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel0.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+	ok, err := relUnit.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, gc.Equals, inScope)
+}
+
+func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *status.Status) {
+	mysqlEP, err := s.application.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wpUnit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	wpEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(wpEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	wpru, err := rel.Unit(wpUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpru, true)
+
+	mysqlru, err := rel.RemoteUnit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, mysqlru, true)
+
+	if appStatus != nil {
+		err = s.application.SetStatus(status.StatusInfo{Status: *appStatus})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.application.Life(), gc.Equals, state.Dying)
+
+	// If the remote app is terminated, any remote units are
+	// forcibly removed from scope, but not local ones.
+	s.assertInScope(c, mysqlru, appStatus == nil || *appStatus != status.Terminated)
+	s.assertInScope(c, wpru, true)
+}
+
+func (s *remoteApplicationSuite) TestDestroyNoStatus(c *gc.C) {
+	s.assertDestroyAppWithStatus(c, nil)
+}
+
+func (s *remoteApplicationSuite) TestDestroyNotTerminated(c *gc.C) {
+	appStatus := status.Active
+	s.assertDestroyAppWithStatus(c, &appStatus)
+}
+
+func (s *remoteApplicationSuite) TestDestroyTerminated(c *gc.C) {
+	appStatus := status.Terminated
+	s.assertDestroyAppWithStatus(c, &appStatus)
 }
 
 func (s *remoteApplicationSuite) TestAllRemoteApplicationsNone(c *gc.C) {

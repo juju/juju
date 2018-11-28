@@ -510,15 +510,60 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnections(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
+func (s *applicationOffersSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+	ok, err := relUnit.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, gc.Equals, inScope)
+}
+
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	offer := s.createDefaultOffer(c)
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysql, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, mysqlru, true)
+
+	wpru, err := rel.RemoteUnit("remote-wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpru, true)
+
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
-	err := ao.Remove("hosted-mysql", true)
+	err = ao.Remove("hosted-mysql", true)
 	c.Assert(err, jc.ErrorIsNil)
 	conn, err := s.State.OfferConnections(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.HasLen, 0)
+	s.assertInScope(c, wpru, false)
+	s.assertInScope(c, mysqlru, true)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {

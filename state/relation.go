@@ -263,6 +263,33 @@ func (r *Relation) Destroy() (err error) {
 		}
 	}()
 	rel := &Relation{r.st, r.doc}
+
+	remoteApp, isCrossModel, err := r.RemoteApplication()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// If the status of the consumed app is terminated, we will never
+	// get an orderly exit of units from scope so force the issue.
+	if isCrossModel {
+		statusInfo, err := remoteApp.Status()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err == nil && statusInfo.Status == status.Terminated {
+			logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
+			remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("got %v relation units to clean", len(remoteUnits))
+			for _, ru := range remoteUnits {
+				if err := ru.LeaveScope(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+
 	// In this context, aborted transactions indicate that the number of units
 	// in scope have changed between 0 and not-0. The chances of 5 successive
 	// attempts each hitting this change -- which is itself an unlikely one --
@@ -555,18 +582,19 @@ func (r *Relation) AllRemoteUnits(appName string) ([]*RelationUnit, error) {
 	return result, nil
 }
 
-// IsCrossModel returns whether this relation is a cross-model
-// relation.
-func (r *Relation) IsCrossModel() (bool, error) {
+// RemoteApplication returns the remote application if
+// this relation is a cross-model relation, and a bool
+// indicating if it cross-model or not.
+func (r *Relation) RemoteApplication() (*RemoteApplication, bool, error) {
 	for _, ep := range r.Endpoints() {
-		_, err := r.st.RemoteApplication(ep.ApplicationName)
+		app, err := r.st.RemoteApplication(ep.ApplicationName)
 		if err == nil {
-			return true, nil
+			return app, true, nil
 		} else if !errors.IsNotFound(err) {
-			return false, errors.Trace(err)
+			return nil, false, errors.Trace(err)
 		}
 	}
-	return false, nil
+	return nil, false, nil
 }
 
 func (r *Relation) unit(

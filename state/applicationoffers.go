@@ -190,16 +190,16 @@ func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
 			Assert: bson.D{{"relationcount", app.doc.RelationCount}},
 		}}
 		for _, rel := range rels {
-			crossModel, err := rel.IsCrossModel()
+			remoteApp, isCrossModel, err := rel.RemoteApplication()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if crossModel && !force {
+			if isCrossModel && !force {
 				return nil, jujutxn.ErrTransientFailure
 			}
 			if force {
 				// We only force delete cross model relations (connections).
-				if !crossModel {
+				if !isCrossModel {
 					continue
 				}
 				if attempt > 0 {
@@ -209,6 +209,21 @@ func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
 						return nil, err
 					}
 				}
+
+				// Force any remote units to leave scope so the offer
+				// can be cleaned up.
+				logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
+				remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				logger.Debugf("got %v relation units to clean", len(remoteUnits))
+				for _, ru := range remoteUnits {
+					if err := ru.LeaveScope(); err != nil {
+						return nil, errors.Trace(err)
+					}
+				}
+
 				relOps, _, err := rel.destroyOps("")
 				if err == errAlreadyDying {
 					continue

@@ -100,6 +100,14 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken
 	}
 }
 
+func (w *remoteApplicationWorker) remoteOfferRemoved() error {
+	logger.Debugf("remote offer for %s has been removed", w.applicationName)
+	if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Terminated, "offer has been removed"); err != nil {
+		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+	}
+	return nil
+}
+
 func (w *remoteApplicationWorker) loop() (err error) {
 	// Watch for changes to any remote relations to this application.
 	relationsWatcher, err := w.localModelFacade.WatchRemoteApplicationRelations(w.applicationName)
@@ -141,6 +149,9 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		offerStatusWatcher, err := w.remoteModelFacade.WatchOfferStatus(arg)
 		if err != nil {
 			w.checkOfferPermissionDenied(err, "", "")
+			if params.IsCodeNotFound(err) {
+				return w.remoteOfferRemoved()
+			}
 			return errors.Annotate(err, "watching status for offer")
 		}
 		if err := w.catacomb.Add(offerStatusWatcher); err != nil {
@@ -167,6 +178,9 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			for i, result := range results {
 				key := change[i]
 				if err := w.relationChanged(key, result, relations); err != nil {
+					if params.IsCodeNotFound(err) {
+						return w.remoteOfferRemoved()
+					}
 					return errors.Annotatef(err, "handling change for relation %q", key)
 				}
 			}
@@ -174,6 +188,9 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			logger.Debugf("local relation units changed -> publishing: %#v", change)
 			if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 				w.checkOfferPermissionDenied(err, change.ApplicationToken, change.RelationToken)
+				if params.IsCodeNotFound(err) || params.IsCodeCannotEnterScope(err) {
+					return w.remoteOfferRemoved()
+				}
 				return errors.Annotatef(err, "publishing relation change %+v to remote model %v", change, w.remoteModelUUID)
 			}
 		case change := <-w.remoteRelationChanges:
@@ -211,6 +228,10 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 		}
 		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 			w.checkOfferPermissionDenied(err, r.applicationToken, r.relationToken)
+			if params.IsCodeNotFound(err) {
+				logger.Debugf("relation %v dying but offer already removed", key)
+				return nil
+			}
 			return errors.Annotatef(err, "publishing relation dying %+v to remote model %v", change, w.remoteModelUUID)
 		}
 	}
