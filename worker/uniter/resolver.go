@@ -74,7 +74,6 @@ func (s *uniterResolver) NextOp(
 		// of the charm.
 		// TODO (stickupkid): we should potentially work out if Upgrade can
 		// be it's own encapsulated resolver.
-		logger.Criticalf("UPGRADE %s", localState.LXDProfileStatus)
 		if !lxdprofile.UpgradeStatusTerminal(localState.LXDProfileStatus) {
 			return nil, resolver.ErrNoOperation
 		}

@@ -1937,6 +1937,22 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field.
+func (m *Machine) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
+	machineIds := set.NewStrings()
+	machineIds.Add(m.doc.DocID)
+
+	accessor := func(doc instanceCharmProfileData) string {
+		return doc.UpgradeCharmProfileComplete
+	}
+	completed := func(previousField, currentField string) bool {
+		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
+	}
+	return newMachineFieldChangeWatcher(m.st, machineIds, accessor, completed), nil
+}
+
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
+// upgrade completed field.
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
 	machineIds := set.NewStrings()
 	m, err := u.machine()
@@ -1951,7 +1967,6 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
 	completed := func(previousField, currentField string) bool {
 		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
 	}
-
 	return newMachineFieldChangeWatcher(u.st, machineIds, accessor, completed), nil
 }
 

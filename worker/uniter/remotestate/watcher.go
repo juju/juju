@@ -293,7 +293,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	if err := w.catacomb.Add(lxdProfilew); err != nil {
 		return errors.Trace(err)
 	}
-	lxdProfileChanges := lxdProfilew.Changes()
 	requiredEvents++
 
 	var seenStorageChange bool
@@ -442,8 +441,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUpgradeSeriesChange)
 
-		case _, ok := <-lxdProfileChanges:
-			logger.Criticalf("got lxd profile change")
+		case _, ok := <-lxdProfilew.Changes():
+			logger.Debugf("got lxd profile change")
 			if !ok {
 				return errors.New("lxd profile watcher closed")
 			}
