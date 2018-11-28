@@ -34,7 +34,6 @@ var (
 )
 
 // IsRunning returns whether or not systemd is the local init system.
-// It has a signature consistent with similar methods in other service modules.
 func IsRunning() bool {
 	return util.IsRunningSystemd()
 }
