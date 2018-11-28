@@ -291,10 +291,16 @@ upgrade the controller to version 2.3 or greater.
 	// Wait for model to be destroyed.
 	const modelStatusPollWait = 2 * time.Second
 	modelStatus := newTimedModelStatus(ctx, api, names.NewModelTag(modelDetails.ModelUUID), c.sleepFunc)
-	modelData := modelStatus(0)
+	modelData, err := modelStatus(0)
+	if err != nil {
+		return err
+	}
 	for modelData != nil {
 		ctx.Infof(formatDestroyModelInfo(modelData) + "...")
-		modelData = modelStatus(modelStatusPollWait)
+		modelData, err = modelStatus(modelStatusPollWait)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Check if the model has an sla auth.
@@ -343,8 +349,8 @@ type modelData struct {
 
 // newTimedModelStatus returns a function which waits a given period of time
 // before querying the API server for the status of a model.
-func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag, sleepFunc func(time.Duration)) func(time.Duration) *modelData {
-	return func(wait time.Duration) *modelData {
+func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag, sleepFunc func(time.Duration)) func(time.Duration) (*modelData, error) {
+	return func(wait time.Duration) (*modelData, error) {
 		sleepFunc(wait)
 		status, err := api.ModelStatus(tag)
 		if err == nil && len(status) == 1 && status[0].Error != nil {
@@ -358,42 +364,49 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 			} else {
 				ctx.Infof("Unable to get the model status from the API: %v.", err)
 			}
-			return nil
+			return nil, nil
 		}
 		isError := func(s string) bool {
 			return corestatus.Error.Matches(corestatus.Status(s))
 		}
+		getErrMsg := func(s string) string {
+			var errMsg string
+			if s != "" {
+				errMsg = fmt.Sprintf("\ngot error: %q", s)
+			}
+			return errMsg
+		}
 		for _, s := range status {
 			for _, v := range s.Machines {
 				if isError(v.Status) {
-					ctx.Infof("unable to destroy machine: %q, \ngot error: %q\ntry `juju status` for more details.", v.Id, v.Message)
-					return nil
+					ctx.Infof("unable to destroy machine: %q, %s\ntry `juju status` for more details.", v.Id, getErrMsg(v.Message))
+					return nil, cmd.ErrSilent
 				}
 			}
 			for _, v := range s.Filesystems {
 				if isError(v.Status) {
-					ctx.Infof("unable to destroy filesystem: %q, \ngot error: %q\ntry `juju status --storage --format yaml` for more details.", v.Id, v.Message)
-					return nil
+					ctx.Infof("unable to destroy filesystem: %q, %s\ntry `juju status --storage --format yaml` for more details.", v.Id, getErrMsg(v.Message))
+					return nil, cmd.ErrSilent
 				}
 			}
 			for _, v := range s.Volumes {
 				if isError(v.Status) {
-					ctx.Infof("unable to destroy volume: %q, \ngot error: %q\ntry `juju status --storage --format yaml` for more details.", v.Id, v.Message)
-					return nil
+					ctx.Infof("unable to destroy volume: %q, %s\ntry `juju status --storage --format yaml` for more details.", v.Id, getErrMsg(v.Message))
+					return nil, cmd.ErrSilent
 				}
 			}
 		}
 
 		if l := len(status); l != 1 {
 			ctx.Infof("error finding model status: expected one result, got %d", l)
-			return nil
+			return nil, nil
 		}
 		return &modelData{
 			machineCount:     status[0].HostedMachineCount,
 			applicationCount: status[0].ApplicationCount,
 			volumeCount:      len(status[0].Volumes),
 			filesystemCount:  len(status[0].Filesystems),
-		}
+		}, nil
 	}
 }
 

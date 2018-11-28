@@ -83,7 +83,7 @@ func (f *fakeAPI) ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, err
 	}}, err
 }
 
-// faceConfiAPI mocks out the ModelConfigAPI.
+// fakeConfigAPI mocks out the ModelConfigAPI.
 type fakeConfigAPI struct {
 	err      error
 	slaLevel string

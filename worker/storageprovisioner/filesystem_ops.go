@@ -224,17 +224,24 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 		if err != nil {
 			return errors.Trace(err)
 		}
+		errCount := 0
 		for i, err := range errs {
 			tag := tags[i]
 			if err == nil {
 				remove = append(remove, tag)
 				continue
 			}
+			errCount++
+			statusToSet := status.Destroying
+			if errCount > len(errs)/2 {
+				// if more than half of the filesystem removal failed, set status to Error to let juju cli exits.
+				statusToSet = status.Error
+			}
 			// Failed to destroy or release filesystem; reschedule and update status.
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.Error.String(),
+				Status: statusToSet.String(),
 				Info:   err.Error(),
 			})
 		}

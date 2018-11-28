@@ -193,7 +193,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		}
 		err = errors.Annotatef(err, "%s failed to set machine to dead", mr.config.Tag)
 		if e := mr.machine.SetStatus(status.Error, err.Error(), nil); e != nil {
-			err = errors.Annotatef(err, "failed to set status")
+			logger.Errorf("failed to set status for error %v ", err)
 		}
 		return errors.Trace(err)
 	}
