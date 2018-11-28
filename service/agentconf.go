@@ -193,7 +193,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", svcName)
 		}
 
-		dbusMethodNotFound := false
+		dbusMethodFound := true
 		if err = uSvc.WriteService(); err != nil {
 			// Note that this error is already logged by the systemd package.
 
@@ -204,7 +204,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 			// We need to detect this condition and fall through to linking the
 			// service files manually.
 			if strings.Contains(err.Error(), "No such method 'LinkUnitFiles'") {
-				dbusMethodNotFound = true
+				dbusMethodFound = false
 				logger.Infof("attempting to manually link service file for %s", agentName)
 			} else {
 				errAgentNames = append(errAgentNames, agentName)
@@ -219,7 +219,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 		// call to DBusAPI.LinkUnitFiles in WriteService above returned no
 		// error, it will have resulted in updated sym-links for the file.
 		// We are done.
-		if s.isRunning() && !dbusMethodNotFound {
+		if s.isRunning() && dbusMethodFound {
 			startedSysServiceNames = append(startedSysServiceNames, svcName)
 			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 			continue
