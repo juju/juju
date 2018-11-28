@@ -6,6 +6,7 @@ package state_test
 import (
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -2768,4 +2769,140 @@ func unitNames(units []*state.Unit) []string {
 		names[i] = units[i].Name()
 	}
 	return names
+}
+
+func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := machine.WatchAddresses()
+	defer w.Stop()
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Change the machine: not reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set provider addresses eclipsing machine addresses: reported.
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set same machine eclipsed by provider addresses: not reported.
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set different machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set different provider addresses: reported.
+	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Make it Dying: not reported.
+	err = machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Make it Dead: not reported.
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MachineSuite) TestWatchAddressesHash(c *gc.C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := machine.WatchAddressesHash()
+	defer w.Stop()
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	// This is the sha256 hash of no addresses.
+	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
+	// Change the machine: not reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
+	c.Assert(err, jc.ErrorIsNil)
+	// This is the sha256 of "abc".
+	wc.AssertChange("1525afafd93a69bba3fd8002b5c9222348aeb30892e41b31dc7151ecd8e13110")
+
+	// Set provider addresses eclipsing machine addresses: reported.
+	err = machine.SetProviderAddresses(network.NewScopedAddress("abc", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("014cc321ca5ae6fea47f2055d52d32d35f29b6d46847e5d33c63f9affef3d056")
+
+	// Set same machine eclipsed by provider addresses: not reported.
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set different machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("536a6b25395628489c093224810711f207e4c7f11e643cdb1122d9047273e619")
+
+	// Set different provider addresses: reported.
+	err = machine.SetProviderAddresses(network.NewScopedAddress("def", network.ScopePublic))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("469fafe505383d20062a358c21dfd20e5568ebbab5f4e628fba0289a2f31c80d")
+
+	// Ensure that addresses are sorted - the addresses are now def
+	// from the provider and aaa locally.
+	err = machine.SetMachineAddresses(network.NewAddress("aaa"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("755a4b25150ccb8613f870d3d718925d86bda8f717dc07e068376aaf9936179d")
+
+	// Make it Dying: not reported.
+	err = machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Make it Dead: not reported.
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }
