@@ -317,6 +317,25 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 	s.assertServiceSymLinks(c)
 }
 
+func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
+	s.services[0].SetErrors(
+		errors.New("No such method 'LinkUnitFiles'"),
+		errors.New("No such method 'LinkUnitFiles'"),
+		errors.New("No such method 'LinkUnitFiles'"),
+	)
+
+	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This exhibits the same characteristics as for Systemd not running (above).
+	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
+	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
+	c.Assert(errAgents, gc.HasLen, 0)
+	s.assertServicesCalls(c, "WriteService", len(s.services))
+}
+
 func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	s.services[0].SetErrors(
 		nil,

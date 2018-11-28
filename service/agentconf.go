@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -160,9 +161,8 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 	return machineAgent, unitAgents, errAgentNames, nil
 }
 
-// WriteSystemdAgents creates systemd files and create symlinks for the list of
-// machine and units passed in the standard filepath '/var/lib/juju' during the
-// upgrade process.
+// WriteSystemdAgents creates systemd files and symlinks for the input machine
+// and unit agents, in the standard filepath '/var/lib/juju'.
 func (s *systemdServiceManager) WriteSystemdAgents(
 	machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir string,
 ) ([]string, []string, []string, error) {
@@ -193,19 +193,33 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", svcName)
 		}
 
+		dbusMethodNotFound := false
 		if err = uSvc.WriteService(); err != nil {
-			logger.Infof("failed to write service for %s: %s", agentName, err)
-			errAgentNames = append(errAgentNames, agentName)
-			lastError = err
-			continue
+			// Note that this error is already logged by the systemd package.
+
+			// This is not ideal, but it is possible on an Upstart-based OS
+			// (such as Trusty) for run/systemd/system to exist, which is used
+			// for detection of systemd as the running init system.
+			// If this happens, then D-Bus will error with the message below.
+			// We need to detect this condition and fall through to linking the
+			// service files manually.
+			if strings.Contains(err.Error(), "No such method 'LinkUnitFiles'") {
+				dbusMethodNotFound = true
+				logger.Infof("attempting to manually link service file for %s", agentName)
+			} else {
+				errAgentNames = append(errAgentNames, agentName)
+				lastError = err
+				continue
+			}
 		} else {
 			logger.Infof("successfully wrote service for %s:", agentName)
 		}
 
-		if s.isRunning() {
-			// If systemd is the running init system on this host, then the
-			// call to DBusAPI.LinkUnitFiles in WriteService above will have
-			// automatically updated sym-links for the file. We are done.
+		// If systemd is the running init system on this host, *and* if the
+		// call to DBusAPI.LinkUnitFiles in WriteService above returned no
+		// error, it will have resulted in updated sym-links for the file.
+		// We are done.
+		if s.isRunning() && !dbusMethodNotFound {
 			startedSysServiceNames = append(startedSysServiceNames, svcName)
 			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 			continue
