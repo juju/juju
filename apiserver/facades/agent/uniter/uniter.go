@@ -2700,8 +2700,8 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
 func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
-	getWatcher := func(u *state.Unit) (state.StringsWatcher, error) {
-		return u.WatchConfigSettingsHash()
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		return unit.WatchConfigSettingsHash()
 	}
 	result, err := u.watchHashes(args, getWatcher)
 	if err != nil {
@@ -2715,8 +2715,34 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 // uniter can use the hash to determine whether the actual values have
 // changed since it last saw the config.
 func (u *UniterAPI) WatchTrustConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
-	getWatcher := func(u *state.Unit) (state.StringsWatcher, error) {
-		return u.WatchApplicationConfigSettingsHash()
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		return unit.WatchApplicationConfigSettingsHash()
+	}
+	result, err := u.watchHashes(args, getWatcher)
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// WatchUnitAddressesHash returns a StringsWatcher that yields the
+// hashes of the addresses for the unit whenever the addresses
+// change. The uniter can use the hash to determine whether the actual
+// address values have changed since it last saw the config.
+func (u *UniterAPI) WatchUnitAddressesHash(args params.Entities) (params.StringsWatchResults, error) {
+	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
+		if !unit.ShouldBeAssigned() {
+			return unit.WatchContainerAddressesHash(), nil
+		}
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, err
+		}
+		machine, err := u.st.Machine(machineId)
+		if err != nil {
+			return nil, err
+		}
+		return machine.WatchAddressesHash(), nil
 	}
 	result, err := u.watchHashes(args, getWatcher)
 	if err != nil {
@@ -2732,6 +2758,12 @@ func (u *UniterAPI) WatchTrustConfigSettingsHash(args params.Entities) (params.S
 
 // WatchConfigSettingsHash isn't on the v8 API.
 func (u *UniterAPIV8) WatchConfigSettingsHash(_, _ struct{}) {}
+
+// WatchTrustConfigSettingsHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchTrustConfigSettingsHash(_, _ struct{}) {}
+
+// WatchUnitAddressesHash isn't on the v8 API.
+func (u *UniterAPIV8) WatchUnitAddressesHash(_, _ struct{}) {}
 
 func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{

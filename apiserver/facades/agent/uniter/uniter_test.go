@@ -2589,6 +2589,90 @@ func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "application-wordpress"},
+	}}
+	result, err := s.uniter.WatchUnitAddressesHash(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				StringsWatcherId: "1",
+				// This is an empty sha256 hash.
+				Changes: []string{"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
+	_, cm, _, _ := s.setupCAASModel(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-gitlab-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "application-gitlab"},
+	}}
+
+	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             cm.State(),
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.WatchUnitAddressesHash(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				StringsWatcherId: "1",
+				// The container doesn't have an address.
+				Changes: []string{""},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
 func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
 	result, err := s.uniter.GetMeterStatus(args)
