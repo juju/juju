@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v2"
 
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
@@ -25,6 +25,12 @@ import (
 type CmdCredentialSuite struct {
 	jujutesting.JujuConnSuite
 }
+
+const (
+	user       = "fred"
+	pass       = "secret"
+	tenantName = "hrm"
+)
 
 func (s *CmdCredentialSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -48,7 +54,7 @@ func (s *CmdCredentialSuite) TestUpdateCredentialCommand(c *gc.C) {
 		Data: `
 clouds:
   dummy:
-    type: oracle
+    type: rackspace
     description: Dummy Test Cloud Metadata
     auth-types: [ userpass ]
 `,
@@ -57,10 +63,18 @@ clouds:
 	store := jujuclient.NewFileClientStore()
 	store.UpdateCredential("dummy", cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
-			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "fred", "password": "secret", "identity-domain": "domain"}),
+			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+				"username":    user,
+				"password":    pass,
+				"tenant-name": tenantName,
+			}),
 		},
 	})
-	ctx, err := s.run(c, "update-credential", "dummy", "cred")
+
+	ctx, err := s.run(c, "show-credential", "dummy", "cred")
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err = s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Credential valid for:
@@ -78,9 +92,12 @@ For more information, see ‘juju show-credential dummy cred’.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []params.CloudCredentialResult{
 		{Result: &params.CloudCredential{
-			AuthType:   "userpass",
-			Attributes: map[string]string{"username": "fred", "identity-domain": "domain"},
-			Redacted:   []string{"password"},
+			AuthType: "userpass",
+			Attributes: map[string]string{
+				"username":    user,
+				"tenant-name": tenantName,
+			},
+			Redacted: []string{"password"},
 		}},
 	})
 }
@@ -92,7 +109,7 @@ func (s *CmdCredentialSuite) TestSetModelCredentialCommand(c *gc.C) {
 		Data: `
 clouds:
   dummy:
-    type: oracle
+    type: rackspace
     description: Dummy Test Cloud Metadata
     auth-types: [ userpass ]
 `,
@@ -101,7 +118,11 @@ clouds:
 	store := jujuclient.NewFileClientStore()
 	store.UpdateCredential("dummy", cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
-			"newcred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "fred", "password": "secret", "identity-domain": "domain"}),
+			"newcred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+				"username":    user,
+				"password":    pass,
+				"tenant-name": tenantName,
+			}),
 		},
 	})
 	newCredentialTag := names.NewCloudCredentialTag("dummy/admin@local/newcred")
@@ -121,22 +142,25 @@ clouds:
 	c.Assert(originalCredentialTag.String(), jc.DeepEquals, "cloudcred-dummy_admin_cred")
 
 	ctx, err := s.run(c, "set-credential", "dummy", "newcred")
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Did not find credential remotely. Looking locally...
 Uploading local credential to the controller.
 Changed cloud credential on model "controller" to "newcred".
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check crdential was uploaded to the controller.
 	result2, err := client.Credentials(newCredentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result2, jc.DeepEquals, []params.CloudCredentialResult{
 		{Result: &params.CloudCredential{
-			AuthType:   "userpass",
-			Attributes: map[string]string{"username": "fred", "identity-domain": "domain"},
-			Redacted:   []string{"password"},
+			AuthType: "userpass",
+			Attributes: map[string]string{
+				"username":    user,
+				"tenant-name": tenantName,
+			},
+			Redacted: []string{"password"},
 		}},
 	})
 	// Check model reference was updated to a new credential.
