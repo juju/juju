@@ -1935,37 +1935,6 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
-// of a lxd profile upgrade by monitoring changes to its machine's lxd profile
-// upgrade completed field.
-func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
-	units, err := a.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machineIds := set.NewStrings()
-	for _, v := range units {
-		m, err := v.machine()
-		if err != nil {
-			if errors.IsNotAssigned(err) {
-				continue
-			}
-			return nil, errors.Trace(err)
-		}
-		// watch all machines, even if we know that the charm upgrade status
-		// will be empty.
-		machineIds.Add(m.doc.DocID)
-	}
-	accessor := func(doc instanceCharmProfileData) string {
-		return doc.UpgradeCharmProfileComplete
-	}
-	completed := func(previousField, currentField string) bool {
-		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
-	}
-
-	return newMachineFieldChangeWatcher(a.st, machineIds, accessor, completed), nil
-}
-
-// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field.
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {

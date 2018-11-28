@@ -443,7 +443,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenUpgradeSeriesChange)
 
 		case _, ok := <-lxdProfileChanges:
-			logger.Debugf("got lxd profile change")
+			logger.Criticalf("got lxd profile change")
 			if !ok {
 				return errors.New("lxd profile watcher closed")
 			}
