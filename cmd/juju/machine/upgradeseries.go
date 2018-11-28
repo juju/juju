@@ -155,7 +155,7 @@ func (c *upgradeSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements cmd.Command.
 func (c *upgradeSeriesCommand) Init(args []string) error {
-	if len(args) < 1 {
+	if len(args) < 2 {
 		return errors.Errorf("wrong number of arguments")
 	}
 
