@@ -203,7 +203,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 			// If this happens, then D-Bus will error with the message below.
 			// We need to detect this condition and fall through to linking the
 			// service files manually.
-			if strings.Contains(err.Error(), "No such method 'LinkUnitFiles'") {
+			if strings.Contains(strings.ToLower(err.Error()), "no such method") {
 				dbusMethodFound = false
 				logger.Infof("attempting to manually link service file for %s", agentName)
 			} else {
