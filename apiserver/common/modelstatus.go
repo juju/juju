@@ -135,6 +135,7 @@ func ModelFilesystemInfo(in []state.Filesystem) []params.ModelFilesystemInfo {
 			Id:         in.Tag().Id(),
 			ProviderId: providerId,
 			Status:     statusString,
+			Message:    status.Message,
 			Detachable: in.Detachable(),
 		}
 	}
@@ -160,6 +161,7 @@ func ModelVolumeInfo(in []state.Volume) []params.ModelVolumeInfo {
 			Id:         in.Tag().Id(),
 			ProviderId: providerId,
 			Status:     statusString,
+			Message:    status.Message,
 			Detachable: in.Detachable(),
 		}
 	}

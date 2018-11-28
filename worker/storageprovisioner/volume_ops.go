@@ -293,7 +293,7 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.Destroying.String(),
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 		}

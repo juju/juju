@@ -363,23 +363,22 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 		isErrorMessage := func(s string) bool {
 			return strings.Contains(s, "error")
 		}
-		logger.Criticalf("status -> \n%+v", status)
 		for _, s := range status {
 			for _, v := range s.Machines {
 				if isErrorMessage(v.Status) {
-					ctx.Infof("unable to destroy machine: %+v, \nerror: %q\ntry `juju status` for more details.", v, v.Status)
+					ctx.Infof("unable to destroy machine: %q, \ngot error: %q\ntry `juju status` for more details.", v.Id, v.Message)
 					return nil
 				}
 			}
 			for _, v := range s.Filesystems {
 				if isErrorMessage(v.Status) {
-					ctx.Infof("unable to destroy filesystem: %+v, \nerror: %q\ntry `juju status --storage` for more details.", v, v.Status)
+					ctx.Infof("unable to destroy filesystem: %q, \ngot error: %q\ntry `juju status --storage --format yaml` for more details.", v.Id, v.Message)
 					return nil
 				}
 			}
 			for _, v := range s.Volumes {
 				if isErrorMessage(v.Status) {
-					ctx.Infof("unable to destroy volume: %+v, \nerror: %q\ntry `juju status --storage` for more details.", v, v.Status)
+					ctx.Infof("unable to destroy volume: %q, \ngot error: %q\ntry `juju status --storage --format yaml` for more details.", v.Id, v.Message)
 					return nil
 				}
 			}

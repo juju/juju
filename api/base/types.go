@@ -46,6 +46,7 @@ type Machine struct {
 	HasVote    bool
 	WantsVote  bool
 	Status     string
+	Message    string
 	Hardware   *instance.HardwareCharacteristics
 }
 
@@ -89,6 +90,7 @@ type Volume struct {
 	Id         string
 	ProviderId string
 	Status     string
+	Message    string
 	Detachable bool
 }
 
@@ -97,6 +99,7 @@ type Filesystem struct {
 	Id         string
 	ProviderId string
 	Status     string
+	Message    string
 	Detachable bool
 }
 

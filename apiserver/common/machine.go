@@ -120,6 +120,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 			HasVote:   m.HasVote(),
 			WantsVote: m.WantsVote(),
 			Status:    status,
+			Message:   statusInfo.Message,
 		}
 		instId, err := m.InstanceId()
 		switch {
