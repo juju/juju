@@ -168,3 +168,9 @@ func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, erro
 	}
 	return ru, nil
 }
+
+// IsCrossModel implements PreCheckRelation.
+func (s *precheckRelationShim) IsCrossModel() (bool, error) {
+	_, result, err := s.Relation.RemoteApplication()
+	return result, err
+}
