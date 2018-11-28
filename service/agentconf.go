@@ -9,7 +9,7 @@
 // 	- copy all tools and related to agents and setup the links
 // 	- start all the agents
 // These routines can be used by any tools/cmds trying to implement the above
-// functionality as part of the process, eg. juju-updateseries command.
+// functionality as part of the process, eg. upgrade-series.
 
 // TODO (manadart 2018-07-31) This module is specific to systemd and should
 // reside in the service/systemd package.
@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -63,7 +64,7 @@ type SystemdServiceManager interface {
 }
 
 type systemdServiceManager struct {
-	isRunning  func() (bool, error)
+	isRunning  func() bool
 	newService func(string, common.Conf) (Service, error)
 }
 
@@ -81,7 +82,7 @@ func NewServiceManagerWithDefaults() SystemdServiceManager {
 // NewServiceManager allows creation of a new SystemdServiceManager from
 // custom dependencies.
 func NewServiceManager(
-	isRunning func() (bool, error),
+	isRunning func() bool,
 	newService func(string, common.Conf) (Service, error),
 ) SystemdServiceManager {
 	return &systemdServiceManager{
@@ -160,9 +161,8 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 	return machineAgent, unitAgents, errAgentNames, nil
 }
 
-// WriteSystemdAgents creates systemd files and create symlinks for the list of
-// machine and units passed in the standard filepath '/var/lib/juju' during the
-// upgrade process.
+// WriteSystemdAgents creates systemd files and symlinks for the input machine
+// and unit agents, in the standard filepath '/var/lib/juju'.
 func (s *systemdServiceManager) WriteSystemdAgents(
 	machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir string,
 ) ([]string, []string, []string, error) {
@@ -192,23 +192,34 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 		if !ok {
 			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", svcName)
 		}
+
+		dbusMethodFound := true
 		if err = uSvc.WriteService(); err != nil {
-			logger.Infof("failed to write service for %s: %s", agentName, err)
-			errAgentNames = append(errAgentNames, agentName)
-			lastError = err
-			continue
+			// Note that this error is already logged by the systemd package.
+
+			// This is not ideal, but it is possible on an Upstart-based OS
+			// (such as Trusty) for run/systemd/system to exist, which is used
+			// for detection of systemd as the running init system.
+			// If this happens, then D-Bus will error with the message below.
+			// We need to detect this condition and fall through to linking the
+			// service files manually.
+			if strings.Contains(strings.ToLower(err.Error()), "no such method") {
+				dbusMethodFound = false
+				logger.Infof("attempting to manually link service file for %s", agentName)
+			} else {
+				errAgentNames = append(errAgentNames, agentName)
+				lastError = err
+				continue
+			}
 		} else {
 			logger.Infof("successfully wrote service for %s:", agentName)
 		}
 
-		running, err := s.isRunning()
-		switch {
-		case err != nil:
-			return nil, nil, nil, errors.Errorf("failed to determine if systemd is running: %#v\n", err)
-		case running:
-			// If systemd is the running init system on this host, then the
-			// call to DBusAPI.LinkUnitFiles in WriteService above will have
-			// automatically updated sym-links for the file. We are done.
+		// If systemd is the running init system on this host, *and* if the
+		// call to DBusAPI.LinkUnitFiles in WriteService above returned no
+		// error, it will have resulted in updated sym-links for the file.
+		// We are done.
+		if s.isRunning() && dbusMethodFound {
 			startedSysServiceNames = append(startedSysServiceNames, svcName)
 			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 			continue
@@ -339,17 +350,13 @@ func (s *systemdServiceManager) CopyAgentBinary(
 func (s *systemdServiceManager) StartAllAgents(
 	machineAgent string, unitAgents []string, dataDir string,
 ) (string, []string, error) {
-	running, err := s.isRunning()
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	if !running {
+	if !s.isRunning() {
 		return "", nil, errors.Errorf("cannot interact with systemd; reboot to start agents")
 	}
 
 	var startedUnits []string
 	for _, unit := range unitAgents {
-		if err = s.startAgent(unit, AgentKindUnit, dataDir); err != nil {
+		if err := s.startAgent(unit, AgentKindUnit, dataDir); err != nil {
 			return "", startedUnits, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
 		}
 		startedUnits = append(startedUnits, serviceName(unit))
@@ -357,7 +364,7 @@ func (s *systemdServiceManager) StartAllAgents(
 	}
 
 	machineService := serviceName(machineAgent)
-	err = s.startAgent(machineAgent, AgentKindMachine, dataDir)
+	err := s.startAgent(machineAgent, AgentKindMachine, dataDir)
 	if err == nil {
 		logger.Infof("started %s service", machineService)
 		return machineService, startedUnits, nil

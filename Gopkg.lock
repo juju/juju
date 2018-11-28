@@ -135,6 +135,7 @@
   packages = [
     "dbus",
     "unit",
+    "util",
   ]
   pruneopts = ""
   revision = "7b2428fec40033549c68f54e26e89e7ca9a9ce31"
@@ -1775,6 +1776,7 @@
     "github.com/bmizerany/pat",
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
+    "github.com/coreos/go-systemd/util",
     "github.com/docker/distribution/reference",
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",

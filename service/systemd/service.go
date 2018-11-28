@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-systemd/dbus"
+	"github.com/coreos/go-systemd/util"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/shell"
@@ -30,19 +31,11 @@ var (
 
 	renderer = shell.BashRenderer{}
 	cmds     = commands{renderer, executable}
-
-	SystemPath = "/run/systemd/system"
 )
 
 // IsRunning returns whether or not systemd is the local init system.
-func IsRunning() (bool, error) {
-	if _, err := os.Stat(SystemPath); err == nil {
-		return true, nil
-	} else if os.IsNotExist(err) {
-		return false, nil
-	} else {
-		return false, errors.Trace(err)
-	}
+func IsRunning() bool {
+	return util.IsRunningSystemd()
 }
 
 // ListServices returns the list of installed service names.
@@ -584,9 +577,9 @@ func (s *Service) WriteService() error {
 		return errors.Trace(err)
 	}
 
-	if running, err := IsRunning(); err != nil {
-		return errors.Trace(err)
-	} else if !running {
+	// If systemd is not the running init system,
+	// then do not attempt to use it for linking unit files.
+	if !IsRunning() {
 		return nil
 	}
 

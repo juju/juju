@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//The unit testcases in this file do not pertain to an specific command.
+// The test cases in this file do not pertain to a specific command.
 
 package service_test
 
@@ -38,8 +38,8 @@ type agentConfSuite struct {
 	dataDir             string
 	machineName         string
 	unitNames           []string
-	systemdDir          string // updateseries.systemDir
-	systemdMultiUserDir string // updateseries.systemMultiUserDir
+	systemdDir          string
+	systemdMultiUserDir string
 	systemdDataDir      string // service.SystemdDataDir
 	manager             service.SystemdServiceManager
 
@@ -57,14 +57,14 @@ func (s *agentConfSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.systemdDir = path.Join(s.dataDir, "etc", "systemd", "system")
 	s.systemdMultiUserDir = path.Join(s.systemdDir, "multi-user.target.wants")
-	os.MkdirAll(s.systemdMultiUserDir, os.ModeDir|os.ModePerm)
+	c.Assert(os.MkdirAll(s.systemdMultiUserDir, os.ModeDir|os.ModePerm), jc.ErrorIsNil)
 	s.systemdDataDir = path.Join(s.dataDir, "lib", "systemd", "system")
 
 	s.machineName = "machine-0"
 	s.unitNames = []string{"unit-ubuntu-0", "unit-mysql-0"}
 
 	s.manager = service.NewServiceManager(
-		func() (bool, error) { return true, nil },
+		func() bool { return true },
 		s.newService,
 	)
 
@@ -108,15 +108,16 @@ func (s *agentConfSuite) setUpAgentConf(c *gc.C) {
 
 func (s *agentConfSuite) setUpServices(c *gc.C) {
 	for _, fake := range append(s.unitNames, s.machineName) {
-		s.addService("jujud-" + fake)
+		s.addService(c, "jujud-"+fake)
 	}
 	s.PatchValue(&service.ListServices, s.listServices)
 }
 
-func (s *agentConfSuite) addService(name string) {
-	svc, _ := s.newService(name, common.Conf{})
-	svc.Install()
-	svc.Start()
+func (s *agentConfSuite) addService(c *gc.C, name string) {
+	svc, err := s.newService(name, common.Conf{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc.Install(), jc.ErrorIsNil)
+	c.Assert(svc.Start(), jc.ErrorIsNil)
 }
 
 func (s *agentConfSuite) listServices() ([]string, error) {
@@ -258,7 +259,7 @@ func (s *agentConfSuite) TestStartAllAgentsFailMachine(c *gc.C) {
 
 func (s *agentConfSuite) TestStartAllAgentsSystemdNotRunning(c *gc.C) {
 	s.manager = service.NewServiceManager(
-		func() (bool, error) { return false, nil },
+		func() bool { return false },
 		s.newService,
 	)
 
@@ -289,8 +290,6 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
-	s.PatchValue(&systemd.SystemPath, s.dataDir)
-
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
 		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
 
@@ -303,7 +302,7 @@ func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
 
 func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 	s.manager = service.NewServiceManager(
-		func() (bool, error) { return false, nil },
+		func() bool { return false },
 		s.newService,
 	)
 
@@ -318,8 +317,26 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 	s.assertServiceSymLinks(c)
 }
 
+func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
+	s.services[0].SetErrors(
+		errors.New("No such method 'LinkUnitFiles'"),
+		errors.New("No such method 'LinkUnitFiles'"),
+		errors.New("No such method 'LinkUnitFiles'"),
+	)
+
+	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This exhibits the same characteristics as for Systemd not running (above).
+	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
+	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
+	c.Assert(errAgents, gc.HasLen, 0)
+	s.assertServicesCalls(c, "WriteService", len(s.services))
+}
+
 func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
-	s.PatchValue(&systemd.SystemPath, s.dataDir)
 	s.services[0].SetErrors(
 		nil,
 		nil,
