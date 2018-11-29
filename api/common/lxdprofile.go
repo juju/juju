@@ -70,3 +70,18 @@ func (u *LXDProfileAPI) LXDProfileUnitStatus() ([]string, error) {
 	}
 	return statuses, nil
 }
+
+// RemoveUpgradeCharmProfileData removes the lxd profile status instance data
+// for a machine
+func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData() error {
+	var results params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+
+	err := u.facade.FacadeCall("RemoveUpgradeCharmProfileData", args, &results)
+	if err != nil {
+		return err
+	}
+	return results.OneError()
+}

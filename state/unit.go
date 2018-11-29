@@ -2987,3 +2987,13 @@ func (u *Unit) LXDProfileStatus() (string, error) {
 	}
 	return machine.UpgradeCharmProfileComplete()
 }
+
+// RemoveUpgradeCharmProfileData removes the upgrade charm profile instance data
+// for a machine
+func (u *Unit) RemoveUpgradeCharmProfileData() error {
+	machine, err := u.machine()
+	if err != nil {
+		return err
+	}
+	return machine.RemoveUpgradeCharmProfileData()
+}

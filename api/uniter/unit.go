@@ -664,6 +664,11 @@ func (u *Unit) LXDProfileStatus() (string, error) {
 	return res[0], nil
 }
 
+// RemoveUpgradeCharmProfileData removes the upgrade charm profile data
+func (u *Unit) RemoveUpgradeCharmProfileData() error {
+	return u.st.RemoveUpgradeCharmProfileData()
+}
+
 // RequestReboot sets the reboot flag for its machine agent
 func (u *Unit) RequestReboot() error {
 	machineId, err := u.AssignedMachine()

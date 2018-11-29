@@ -176,6 +176,10 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
+	// to ensure that we start from a clean slate.
+	RemoveUpgradeCharmProfileData() error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage
