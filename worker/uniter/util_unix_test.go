@@ -112,6 +112,9 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 	}
 
 	lock := &hookLock{}
+	// TODO(babbageclunk): Without the config changes and (waiting for
+	// the hook) this test sometimes panics. It seems like a race in
+	// the quickStart steps but haven't worked it out properly yet.
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"run commands: model",
@@ -121,6 +124,8 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: jujuc commands",
 			quickStartRelation{},
+			changeConfig{"blog-title": "this is a hack"},
+			waitHooks{"config-changed"},
 			runCommands{
 				fmt.Sprintf("unit-get private-address >> %s", testFile("jujuc.output")),
 				fmt.Sprintf("unit-get public-address >> %s", testFile("jujuc.output")),
@@ -132,6 +137,8 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: jujuc model",
 			quickStartRelation{},
+			changeConfig{"blog-title": "this is a hack"},
+			waitHooks{"config-changed"},
 			relationRunCommands{
 				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
 				fmt.Sprintf("echo $JUJU_REMOTE_UNIT >> %s", testFile("jujuc-env.output")),
@@ -143,6 +150,8 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: proxy settings set",
 			quickStartRelation{},
+			changeConfig{"blog-title": "this is a hack"},
+			waitHooks{"config-changed"},
 			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
 			runCommands{
 				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
