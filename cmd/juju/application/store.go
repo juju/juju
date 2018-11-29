@@ -31,13 +31,11 @@ type SeriesConfig interface {
 // ResolveCharmFunc is the type of a function that resolves a charm URL.
 type ResolveCharmFunc func(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
-	conf SeriesConfig,
 	url *charm.URL,
 ) (*charm.URL, csparams.Channel, []string, error)
 
 func resolveCharm(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
-	conf SeriesConfig,
 	url *charm.URL,
 ) (*charm.URL, csparams.Channel, []string, error) {
 	if url.Schema != "cs" {

@@ -329,7 +329,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, h.modelConfig, ch)
+		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -474,7 +474,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, h.modelConfig, ch)
+	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
