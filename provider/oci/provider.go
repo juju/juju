@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
-	providerCommon "github.com/juju/juju/provider/oci/common"
+	"github.com/juju/juju/provider/oci/common"
 )
 
 var logger = loggo.GetLogger("juju.provider.oci")
@@ -227,7 +227,7 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 
 	creds := params.Cloud.Credential.Attributes()
-	jujuConfig := providerCommon.JujuConfigProvider{
+	jujuConfig := common.JujuConfigProvider{
 		Key:         []byte(creds["key"]),
 		Fingerprint: creds["fingerprint"],
 		Passphrase:  creds["pass-phrase"],
@@ -357,7 +357,7 @@ func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := providerCommon.ValidateKey(pemFileContent, values.PassPhrase); err != nil {
+		if err := common.ValidateKey(pemFileContent, values.PassPhrase); err != nil {
 			logger.Warningf("failed to decrypt PEM %s using the configured pass phrase", values.KeyFile)
 			continue
 		}

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/oci/common"
 
 	ociCore "github.com/oracle/oci-go-sdk/core"
 )
@@ -92,6 +93,7 @@ func (o *ociInstance) Id() instance.Id {
 // Status implements instance.Instance
 func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.InstanceStatus {
 	if err := o.refresh(); err != nil {
+		common.HandleCredentialError(err, ctx)
 		return instance.InstanceStatus{}
 	}
 	state, ok := statusMap[o.raw.LifecycleState]
@@ -159,6 +161,7 @@ func (o *ociInstance) getAddresses() ([]network.Address, error) {
 // Addresses implements instance.Instance
 func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]network.Address, error) {
 	addresses, err := o.getAddresses()
+	common.HandleCredentialError(err, ctx)
 	return addresses, err
 }
 
@@ -177,7 +180,8 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 	for {
 		addresses, err := o.Addresses(ctx)
 		if err != nil {
-			return err
+			common.HandleCredentialError(err, ctx)
+			return errors.Trace(err)
 		}
 		if iteration >= maxPollIterations {
 			logger.Debugf("could not find a public IP after %s. breaking loop", time.Since(startTime))
@@ -197,7 +201,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 	return errors.NotFoundf("failed to find public IP for instance: %s", *o.raw.Id)
 }
 
-func (o *ociInstance) deleteInstance() error {
+func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	err := o.refresh()
 	if errors.IsNotFound(err) {
 		return nil
@@ -213,6 +217,7 @@ func (o *ociInstance) deleteInstance() error {
 	}
 	response, err := o.env.Compute.TerminateInstance(context.Background(), request)
 	if err != nil && !o.env.isNotFound(response.RawResponse) {
+		common.HandleCredentialError(err, ctx)
 		return err
 	}
 	iteration := 0
@@ -221,6 +226,7 @@ func (o *ociInstance) deleteInstance() error {
 			if errors.IsNotFound(err) {
 				break
 			}
+			common.HandleCredentialError(err, ctx)
 			return err
 		}
 		logger.Infof("Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)

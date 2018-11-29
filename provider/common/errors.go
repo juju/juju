@@ -84,8 +84,7 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 )
 
 // MaybeHandleCredentialError determines if a given error relates to an invalid credential.
-//  If it is, the credential is invalidated and the return bool is true.
-// Original error is returned untouched.
+// If it is, the credential is invalidated and the return bool is true.
 func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) bool {
 	denied := isAuthError(errors.Cause(err))
 	if ctx != nil && denied {
@@ -98,7 +97,6 @@ func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx con
 }
 
 // HandleCredentialError determines if a given error relates to an invalid credential.
-// If it is, the credential is invalidated. Original error is returned untouched.
 func HandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) {
 	MaybeHandleCredentialError(isAuthError, err, ctx)
 }
