@@ -130,7 +130,7 @@
   revision = "666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e"
 
 [[projects]]
-  digest = "1:e06fc49fca4c49d26c2ed3f18fe513b03ff223f759734f0e47f2cf5647215b52"
+  digest = "1:8783f4f99cf4e5812a0030569b6a23f53e985d10322079a37c39b837f5396a4b"
   name = "github.com/coreos/go-systemd"
   packages = [
     "dbus",
@@ -138,7 +138,7 @@
     "util",
   ]
   pruneopts = ""
-  revision = "3a5019e750d573b9710fcabf30b8ba1aacec61fa"
+  revision = "ec90daa870dd15120bd957a3f0ca9f01fede2b27"
 
 [[projects]]
   digest = "1:b168b5f54103bbb328987b268867f656c4536b70f7b6fec4726a4619b0ebb5f0"
