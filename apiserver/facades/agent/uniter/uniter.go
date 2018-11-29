@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package uniter implements the API interface used by the uniter worker.
-
 package uniter
 
 import (
@@ -952,7 +951,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 // WatchConfigSettings returns a NotifyWatcher for observing changes
 // to each unit's application configuration settings. See also
 // state/watcher.go:Unit.WatchConfigSettings().
-func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
 	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
 		return u.WatchConfigSettings()
 	}
@@ -964,7 +963,7 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 	return result, nil
 }
 
-func (u *UniterAPI) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
 	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
 		return u.WatchApplicationConfigSettings()
 	}
@@ -976,7 +975,7 @@ func (u *UniterAPI) WatchTrustConfigSettings(args params.Entities) (params.Notif
 	return result, nil
 }
 
-func (u *UniterAPI) WatchSettings(args params.Entities, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchSettings(args params.Entities, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -1625,7 +1624,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 
 // WatchUnitAddresses returns a NotifyWatcher for observing changes
 // to each unit's addresses.
-func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -1774,7 +1773,7 @@ func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	return nil
 }
 
-func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (string, error) {
+func (u *UniterAPIV8) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
@@ -1793,7 +1792,7 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherF
 	return "", watcher.EnsureErr(configWatcher)
 }
 
-func (u *UniterAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
+func (u *UniterAPIV8) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
