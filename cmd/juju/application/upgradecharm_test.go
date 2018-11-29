@@ -693,6 +693,12 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
+
+		// Ensure we clean up the unit after the test
+		unit, err = s.State.Unit("wordpress/0")
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.RemoveUpgradeCharmProfileData()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -726,6 +732,11 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:~other/trusty/anotherriak-7"`)
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
+	unit, err = s.State.Unit("riak/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
+
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-42", "riak")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-42")
 	c.Assert(err, jc.ErrorIsNil)
