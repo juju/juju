@@ -113,9 +113,6 @@ func (c *CommandBase) SetModelRefresh(refresh func(jujuclient.ClientStore, strin
 
 func (c *CommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
 	c.assertRunStarted()
-	if c.modelAPI_ != nil {
-		return c.modelAPI_, nil
-	}
 	conn, err := c.NewAPIRoot(store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
