@@ -2482,7 +2482,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddressesHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("0b94e9ad737e2ff4d50dc9d8cd443d336e6a6d638b038e31b973959be89d5dec")
 
-	// Set different machine addresses: reported.
+	// Set different container addresses: reported.
 	addr = "10.0.0.2"
 	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
 		Address: &addr,

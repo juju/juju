@@ -3754,28 +3754,32 @@ func (m *Machine) WatchAddressesHash() StringsWatcher {
 		collection:    machinesC,
 		id:            m.doc.DocID,
 		hash: func() (string, error) {
-			if err := m.Refresh(); err != nil {
-				return "", errors.Trace(err)
-			}
-			addresses := m.Addresses()
-			sort.Slice(addresses, func(i, j int) bool {
-				// Addresses guarantees that each value will only be
-				// returned once - addresses from provider take
-				// precedence over those from the machine.
-				return addresses[i].Value < addresses[j].Value
-			})
-			hash := sha256.New()
-			for _, address := range addresses {
-				hash.Write([]byte(address.Value))
-				hash.Write([]byte(address.Type))
-				hash.Write([]byte(address.Scope))
-				hash.Write([]byte(address.SpaceName))
-			}
-			return fmt.Sprintf("%x", hash.Sum(nil)), nil
+			return hashMachineAddresses(m)
 		},
 	}
 	w.start()
 	return w
+}
+
+func hashMachineAddresses(m *Machine) (string, error) {
+	if err := m.Refresh(); err != nil {
+		return "", errors.Trace(err)
+	}
+	addresses := m.Addresses()
+	sort.Slice(addresses, func(i, j int) bool {
+		// Addresses guarantees that each value will only be
+		// returned once - addresses from provider take
+		// precedence over those from the machine.
+		return addresses[i].Value < addresses[j].Value
+	})
+	hash := sha256.New()
+	for _, address := range addresses {
+		hash.Write([]byte(address.Value))
+		hash.Write([]byte(address.Type))
+		hash.Write([]byte(address.Scope))
+		hash.Write([]byte(address.SpaceName))
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 // WatchContainerAddressesHash returns a StringsWatcher that emits a
@@ -3788,33 +3792,38 @@ func (u *Unit) WatchContainerAddressesHash() StringsWatcher {
 		collection:    cloudContainersC,
 		id:            u.st.docID(u.globalKey()),
 		hash: func() (string, error) {
-			container, err := u.cloudContainer()
-			if errors.IsNotFound(err) && firstCall {
-				// To keep behaviour the same as
-				// WatchContainerAddresses, we need to ignore NotFound
-				// errors on the first call but propagate them after
-				// that.
-				return "", nil
-			}
-			if err != nil {
-				return "", errors.Trace(err)
-			}
+			result, err := hashContainerAddresses(u, firstCall)
 			firstCall = false
-			address := container.Address
-			if address == nil {
-				return "", nil
-			}
-			hash := sha256.New()
-			hash.Write([]byte(address.Value))
-			hash.Write([]byte(address.AddressType))
-			hash.Write([]byte(address.Scope))
-			hash.Write([]byte(address.Origin))
-			hash.Write([]byte(address.SpaceName))
-			return fmt.Sprintf("%x", hash.Sum(nil)), nil
+			return result, err
 		},
 	}
 	w.start()
 	return w
+}
+
+func hashContainerAddresses(u *Unit, firstCall bool) (string, error) {
+	container, err := u.cloudContainer()
+	if errors.IsNotFound(err) && firstCall {
+		// To keep behaviour the same as
+		// WatchContainerAddresses, we need to ignore NotFound
+		// errors on the first call but propagate them after
+		// that.
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	address := container.Address
+	if address == nil {
+		return "", nil
+	}
+	hash := sha256.New()
+	hash.Write([]byte(address.Value))
+	hash.Write([]byte(address.AddressType))
+	hash.Write([]byte(address.Scope))
+	hash.Write([]byte(address.Origin))
+	hash.Write([]byte(address.SpaceName))
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 type hashWatcher struct {
