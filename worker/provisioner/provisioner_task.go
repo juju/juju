@@ -332,6 +332,12 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 func (task *provisionerTask) processProfileChanges(ids []string) error {
 	logger.Tracef("processProfileChanges(%v)", ids)
+	if len(ids) == 0 {
+		// TODO: (hml) 2018-11-29
+		// This shouldn't be triggered, until that's fixed
+		// short circuit here when there's nothing to process.
+		return nil
+	}
 
 	machineTags := make([]names.MachineTag, len(ids))
 	for i, id := range ids {

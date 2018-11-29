@@ -836,7 +836,10 @@ func (st *State) watchCharmProfiles(regExp string) (StringsWatcher, error) {
 	accessor := func(doc instanceCharmProfileData) string {
 		return doc.UpgradeCharmProfileCharmURL
 	}
-	return newModelFieldChangeWatcher(st, members, filter, accessor), nil
+	completed := func(doc instanceCharmProfileData) bool {
+		return lxdprofile.UpgradeStatusTerminal(doc.UpgradeCharmProfileComplete)
+	}
+	return newModelFieldChangeWatcher(st, members, filter, accessor, completed), nil
 }
 
 // modelFieldChangeWatcher notifies about charm changes where a
@@ -853,18 +856,28 @@ type modelFieldChangeWatcher struct {
 	// accessor is used to extract the field from the instance charm profile
 	// data doc in a generic way.
 	accessor func(instanceCharmProfileData) string
-	known    map[string]string
-	out      chan []string
+	// completed is used to determine if the state watched for has
+	// occurred
+	completed func(instanceCharmProfileData) bool
+	known     map[string]string
+	out       chan []string
 }
 
 var _ Watcher = (*modelFieldChangeWatcher)(nil)
 
-func newModelFieldChangeWatcher(backend modelBackend, members bson.D, filter func(key interface{}) bool, accessor func(instanceCharmProfileData) string) StringsWatcher {
+func newModelFieldChangeWatcher(
+	backend modelBackend,
+	members bson.D,
+	filter func(key interface{}) bool,
+	accessor func(instanceCharmProfileData) string,
+	completed func(instanceCharmProfileData) bool,
+) StringsWatcher {
 	w := &modelFieldChangeWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		members:       members,
 		filter:        filter,
 		accessor:      accessor,
+		completed:     completed,
 		known:         make(map[string]string),
 		out:           make(chan []string),
 	}
@@ -889,9 +902,17 @@ func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
 			continue
 		}
 
+		if w.completed(doc) {
+			logger.Tracef("field change NOT watching machine %s", doc.MachineId)
+			continue
+		}
+
 		docField := w.accessor(doc)
 		w.known[doc.MachineId] = docField
 		machineIds.Add(doc.MachineId)
+	}
+	if machineIds.Size() > 0 {
+		logger.Debugf("started field change watching of machines %s", machineIds.Values())
 	}
 	return machineIds, iter.Close()
 }
@@ -899,6 +920,9 @@ func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
 func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
 	machineId := w.backend.localID(change.Id.(string))
 	if change.Revno == -1 {
+		if _, ok := w.known[machineId]; ok {
+			logger.Tracef("stopped field change watching for machine %q", machineId)
+		}
 		delete(w.known, machineId)
 		machineIds.Remove(machineId)
 		return nil
@@ -914,10 +938,12 @@ func (w *modelFieldChangeWatcher) merge(machineIds set.Strings, change watcher.C
 
 	// get the document field from the accessor
 	docField := w.accessor(doc)
+
 	// check the field before adding to the machineId
 	field, isKnown := w.known[machineId]
 	w.known[machineId] = docField
-	if !isKnown || docField != field {
+	if !w.completed(doc) && (!isKnown || docField != field) {
+		logger.Debugf("added field change watching for machine %q", machineId)
 		machineIds.Add(machineId)
 	}
 	return nil
@@ -1951,7 +1977,9 @@ type machineFieldChangeWatcher struct {
 	known   map[string]string
 	// accessor is used to extract the field from the machine doc in a generic
 	// way.
-	accessor  func(instanceCharmProfileData) string
+	accessor func(instanceCharmProfileData) string
+	// completed is used to determine if the state watched for has
+	// occurred
 	completed func(string, string) bool
 	out       chan struct{}
 }
@@ -1990,6 +2018,9 @@ func (w *machineFieldChangeWatcher) initial() (set.Strings, error) {
 		}
 
 		docField := w.accessor(instanceData)
+		if w.completed("", docField) {
+			continue
+		}
 		w.known[doc.DocID] = docField
 		machineIds.Add(doc.DocID)
 	}
