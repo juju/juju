@@ -645,6 +645,25 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason s
 	return u.st.SetUpgradeSeriesUnitStatus(status, reason)
 }
 
+// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the
+// state of a lxd profile upgrade
+func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error) {
+	return u.st.WatchLXDProfileUpgradeNotifications()
+}
+
+// LXDProfileStatus returns the lxd profile status of a unit from a remote
+// state
+func (u *Unit) LXDProfileStatus() (string, error) {
+	res, err := u.st.LXDProfileUnitStatus()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(res) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(res))
+	}
+	return res[0], nil
+}
+
 // RequestReboot sets the reboot flag for its machine agent
 func (u *Unit) RequestReboot() error {
 	machineId, err := u.AssignedMachine()

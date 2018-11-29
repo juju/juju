@@ -511,6 +511,19 @@ type LXDProfileUpgradeMessagesResults struct {
 	Results []LXDProfileUpgradeMessagesResult `json:"args"`
 }
 
+// LXDProfileStatusResult contains the lxd profile status result for an upgrading
+// machine or unit
+type LXDProfileStatusResult struct {
+	Error  *Error `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+// LXDProfileStatusResults contains the lxd profile status results for
+// upgrading machines or units.
+type LXDProfileStatusResults struct {
+	Results []LXDProfileStatusResult `json:"results,omitempty"`
+}
+
 // ConfigResults holds configuration values for an entity.
 type ConfigResult struct {
 	Config map[string]interface{} `json:"config"`

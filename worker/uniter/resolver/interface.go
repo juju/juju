@@ -95,4 +95,8 @@ type LocalState struct {
 	// UpgradeSeriesStatus is the current state of any currently running
 	// upgrade series.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// LXDProfileStatus is the current state of any currently running
+	// lxd profile
+	LXDProfileStatus string
 }

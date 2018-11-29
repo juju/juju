@@ -81,6 +81,9 @@ type Snapshot struct {
 	// UpgradeSeriesStatus is the preparation status of any currently running
 	// series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// LXDProfileStatus for the currently running unit
+	LXDProfileStatus string
 }
 
 type RelationSnapshot struct {

@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/lxdprofile"
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
@@ -68,6 +69,13 @@ func (s *uniterResolver) NextOp(
 	if localState.Kind == operation.Upgrade {
 		if localState.Conflicted {
 			return s.nextOpConflicted(localState, remoteState, opFactory)
+		}
+		// Ensure the lxd profile is installed, before we move to upgrading
+		// of the charm.
+		// TODO (stickupkid): we should potentially work out if Upgrade can
+		// be it's own encapsulated resolver.
+		if !lxdprofile.UpgradeStatusTerminal(localState.LXDProfileStatus) {
+			return nil, resolver.ErrNoOperation
 		}
 		logger.Infof("resuming charm upgrade")
 		return opFactory.NewUpgrade(localState.CharmURL)

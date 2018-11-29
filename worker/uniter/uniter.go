@@ -345,6 +345,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
 			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
+			LXDProfileStatus:     "",
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{

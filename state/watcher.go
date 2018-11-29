@@ -1965,6 +1965,27 @@ func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, erro
 	return newMachineFieldChangeWatcher(a.st, machineIds, accessor, completed), nil
 }
 
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
+// upgrade completed field.
+func (u *Unit) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
+	machineIds := set.NewStrings()
+	m, err := u.machine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machineIds.Add(m.doc.DocID)
+
+	accessor := func(doc instanceCharmProfileData) string {
+		return doc.UpgradeCharmProfileComplete
+	}
+	completed := func(previousField, currentField string) bool {
+		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
+	}
+
+	return newMachineFieldChangeWatcher(u.st, machineIds, accessor, completed), nil
+}
+
 // machineFieldChangeWatcher notifies about machine changes where a
 // machine or container's field may need to be changed. At startup, the
 // watcher gathers current values for a machine's field, no events are returned.
