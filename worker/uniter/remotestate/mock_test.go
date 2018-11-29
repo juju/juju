@@ -200,7 +200,7 @@ type mockUnit struct {
 	resolved                         params.ResolvedMode
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
-	addressesWatcher                 *mockNotifyWatcher
+	addressesWatcher                 *mockStringsWatcher
 	configSettingsWatcher            *mockStringsWatcher
 	applicationConfigSettingsWatcher *mockStringsWatcher
 	upgradeSeriesWatcher             *mockNotifyWatcher
@@ -233,7 +233,7 @@ func (u *mockUnit) Watch() (watcher.NotifyWatcher, error) {
 	return u.unitWatcher, nil
 }
 
-func (u *mockUnit) WatchAddresses() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) WatchAddressesHash() (watcher.StringsWatcher, error) {
 	return u.addressesWatcher, nil
 }
 

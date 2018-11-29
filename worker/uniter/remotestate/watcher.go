@@ -240,7 +240,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenAddressesChange bool
-	addressesw, err := w.unit.WatchAddresses()
+	addressesw, err := w.unit.WatchAddressesHash()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -429,12 +429,15 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUpgradeSeriesChange)
 
-		case _, ok := <-addressesChanges:
-			logger.Debugf("got address change: ok=%t", ok)
+		case hashes, ok := <-addressesChanges:
+			logger.Debugf("got address change: ok=%t, hashes=%v", ok, hashes)
 			if !ok {
 				return errors.New("addresses watcher closed")
 			}
-			w.addressesChanged()
+			if len(hashes) != 1 {
+				return errors.New("expected one hash in addresses change")
+			}
+			w.addressesHashChanged(hashes[0])
 			observedEvent(&seenAddressesChange)
 
 		case _, ok := <-leaderSettingsw.Changes():
@@ -641,9 +644,9 @@ func (w *RemoteStateWatcher) trustHashChanged(value string) {
 	w.mu.Unlock()
 }
 
-func (w *RemoteStateWatcher) addressesChanged() {
+func (w *RemoteStateWatcher) addressesHashChanged(value string) {
 	w.mu.Lock()
-	w.current.ConfigVersion++
+	w.current.AddressesHash = value
 	w.mu.Unlock()
 }
 

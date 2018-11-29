@@ -527,40 +527,8 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 		"blog-title": "superhero paparazzi",
 	})
 }
-
-func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
-	// Make sure WatchConfigSettings returns an error when
-	// no charm URL is set, as its state counterpart does.
-	w, err := s.apiUnit.WatchConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
-
-	// Now set the charm and try again.
-	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err = s.apiUnit.WatchConfigSettings()
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
-		"blog-title": "sauceror central",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Non-change is not reported.
-	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
-		"blog-title": "sauceror central",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-}
-
 func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
-	// Make sure WatchConfigSettings returns an error when
+	// Make sure WatchConfigSettingsHash returns an error when
 	// no charm URL is set, as its state counterpart does.
 	w, err := s.apiUnit.WatchConfigSettingsHash()
 	c.Assert(err, gc.ErrorMatches, "unit charm not set")
@@ -588,34 +556,6 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-}
-
-func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
-	watcher, err := s.apiUnit.WatchTrustConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-
-	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
-	defer notifyWatcher.AssertStops()
-
-	// Initial event.
-	notifyWatcher.AssertOneChange()
-
-	// Update application config and see if it is reported
-	trustFieldKey := "trust"
-	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
-		trustFieldKey: true,
-	},
-		[]string{},
-		environschema.Fields{trustFieldKey: {
-			Description: "Does this application have access to trusted credentials",
-			Type:        environschema.Tbool,
-			Group:       environschema.JujuGroup,
-		}},
-		schema.Defaults{
-			trustFieldKey: false,
-		},
-	)
-	notifyWatcher.AssertOneChange()
 }
 
 func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
@@ -851,19 +791,19 @@ func (s *unitSuite) TestRelationSuspended(c *gc.C) {
 	}})
 }
 
-func (s *unitSuite) TestWatchAddresses(c *gc.C) {
-	w, err := s.apiUnit.WatchAddresses()
+func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
+	w, err := s.apiUnit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertOneChange()
+	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 	// Update config get an event.
 	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 
 	// Non-change is not reported.
 	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
@@ -873,18 +813,18 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	// Change is reported for machine addresses.
 	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
 
 	// Set machine addresses to empty is reported.
 	err = s.wordpressMachine.SetMachineAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 }
 
-func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
+func (s *unitSuite) TestWatchAddressesHashErrors(c *gc.C) {
 	err := s.wordpressUnit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.apiUnit.WatchAddresses()
+	_, err = s.apiUnit.WatchAddressesHash()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
 }
 

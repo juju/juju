@@ -39,7 +39,7 @@ type Unit interface {
 	Application() (Application, error)
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
-	WatchAddresses() (watcher.NotifyWatcher, error)
+	WatchAddressesHash() (watcher.StringsWatcher, error)
 	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)

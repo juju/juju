@@ -585,7 +585,8 @@ func (s verifyRunning) step(c *gc.C, ctx *context) {
 	if s.minion {
 		hooks = append(hooks, "leader-settings-changed")
 	}
-	hooks = append(hooks, "config-changed")
+	// We don't expect config-changed to always run on agent restart
+	// anymore.
 	step(c, ctx, waitHooks(hooks))
 }
 

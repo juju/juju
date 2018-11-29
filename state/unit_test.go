@@ -2453,3 +2453,73 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	}
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *CAASUnitSuite) TestWatchContainerAddressesHash(c *gc.C) {
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := unit.WatchContainerAddressesHash()
+	defer w.Stop()
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("")
+
+	// Change the container port: not reported.
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Ports: &[]string{"443"},
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set container addresses: reported.
+	addr := "10.0.0.1"
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("0b94e9ad737e2ff4d50dc9d8cd443d336e6a6d638b038e31b973959be89d5dec")
+
+	// Set different container addresses: reported.
+	addr = "10.0.0.2"
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("30762101196c8bbafa8e495a941c74fe17a1fe9fdb17c2ed091343dc0f2f2633")
+
+	// Ensure the following operation to set the unit as Dying
+	// is not short circuited to remove the unit.
+	err = unit.SetAgentStatus(status.StatusInfo{Status: status.Idle})
+	c.Assert(err, jc.ErrorIsNil)
+	// Make it Dying: not reported.
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+	// Double check the unit is dying and not removed.
+	err = unit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+
+	// Make it Dead: not reported.
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}

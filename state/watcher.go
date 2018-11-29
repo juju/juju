@@ -3709,40 +3709,152 @@ func (w *containerAddressesWatcher) loop() error {
 }
 
 func newSettingsHashWatcher(st *State, localID string) StringsWatcher {
-	w := &settingsHashWatcher{
+	docID := st.docID(localID)
+	w := &hashWatcher{
 		commonWatcher: newCommonWatcher(st),
 		out:           make(chan []string),
-		id:            st.docID(localID),
-		name:          localID,
+		collection:    settingsC,
+		id:            docID,
+		hash: func() (string, error) {
+			return hashSettings(st.db(), docID, localID)
+		},
 	}
+	w.start()
+	return w
+}
+
+func hashSettings(db Database, id string, name string) (string, error) {
+	settings, closer := db.GetCollection(settingsC)
+	defer closer()
+	var doc settingsDoc
+	if err := settings.FindId(id).One(&doc); err == mgo.ErrNotFound {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Ensure elements are in a consistent order. If any are maps,
+	// replace them with the equivalent sorted bson.Ds.
+	items := toSortedBsonD(doc.Settings)
+	data, err := bson.Marshal(items)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	hash := sha256.New()
+	hash.Write([]byte(name))
+	hash.Write(data)
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+// WatchAddressesHash returns a StringsWatcher that emits the hash of
+// the machine's (sorted) addresses whenever they change.
+func (m *Machine) WatchAddressesHash() StringsWatcher {
+	w := &hashWatcher{
+		commonWatcher: newCommonWatcher(m.st),
+		out:           make(chan []string),
+		collection:    machinesC,
+		id:            m.doc.DocID,
+		hash: func() (string, error) {
+			return hashMachineAddresses(m)
+		},
+	}
+	w.start()
+	return w
+}
+
+func hashMachineAddresses(m *Machine) (string, error) {
+	if err := m.Refresh(); err != nil {
+		return "", errors.Trace(err)
+	}
+	addresses := m.Addresses()
+	sort.Slice(addresses, func(i, j int) bool {
+		// Addresses guarantees that each value will only be
+		// returned once - addresses from provider take
+		// precedence over those from the machine.
+		return addresses[i].Value < addresses[j].Value
+	})
+	hash := sha256.New()
+	for _, address := range addresses {
+		hash.Write([]byte(address.Value))
+		hash.Write([]byte(address.Type))
+		hash.Write([]byte(address.Scope))
+		hash.Write([]byte(address.SpaceName))
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+// WatchContainerAddressesHash returns a StringsWatcher that emits a
+// hash of the unit's container address whenever it changes.
+func (u *Unit) WatchContainerAddressesHash() StringsWatcher {
+	firstCall := true
+	w := &hashWatcher{
+		commonWatcher: newCommonWatcher(u.st),
+		out:           make(chan []string),
+		collection:    cloudContainersC,
+		id:            u.st.docID(u.globalKey()),
+		hash: func() (string, error) {
+			result, err := hashContainerAddresses(u, firstCall)
+			firstCall = false
+			return result, err
+		},
+	}
+	w.start()
+	return w
+}
+
+func hashContainerAddresses(u *Unit, firstCall bool) (string, error) {
+	container, err := u.cloudContainer()
+	if errors.IsNotFound(err) && firstCall {
+		// To keep behaviour the same as
+		// WatchContainerAddresses, we need to ignore NotFound
+		// errors on the first call but propagate them after
+		// that.
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	address := container.Address
+	if address == nil {
+		return "", nil
+	}
+	hash := sha256.New()
+	hash.Write([]byte(address.Value))
+	hash.Write([]byte(address.AddressType))
+	hash.Write([]byte(address.Scope))
+	hash.Write([]byte(address.Origin))
+	hash.Write([]byte(address.SpaceName))
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+type hashWatcher struct {
+	commonWatcher
+	collection string
+	id         string
+	hash       func() (string, error)
+	out        chan []string
+}
+
+func (w *hashWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *hashWatcher) start() {
 	w.tomb.Go(func() error {
 		defer close(w.out)
 		return w.loop()
 	})
-	return w
 }
 
-type settingsHashWatcher struct {
-	commonWatcher
-	id   string
-	name string
-	out  chan []string
-}
-
-func (w *settingsHashWatcher) Changes() <-chan []string {
-	return w.out
-}
-
-func (w *settingsHashWatcher) loop() error {
-	settings, closer := w.db.GetCollection(settingsC)
-	revno, err := getTxnRevno(settings, w.id)
+func (w *hashWatcher) loop() error {
+	coll, closer := w.db.GetCollection(w.collection)
+	revno, err := getTxnRevno(coll, w.id)
 	closer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	settingsCh := make(chan watcher.Change)
-	w.watcher.Watch(settingsC, w.id, revno, settingsCh)
-	defer w.watcher.Unwatch(settingsC, w.id, settingsCh)
+	changesCh := make(chan watcher.Change)
+	w.watcher.Watch(w.collection, w.id, revno, changesCh)
+	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
 
 	lastHash, err := w.hash()
 	if err != nil {
@@ -3755,8 +3867,8 @@ func (w *settingsHashWatcher) loop() error {
 			return stateWatcherDeadError(w.watcher.Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case change := <-settingsCh:
-			if _, ok := collect(change, settingsCh, w.tomb.Dying()); !ok {
+		case change := <-changesCh:
+			if _, ok := collect(change, changesCh, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
 			newHash, err := w.hash()
@@ -3771,28 +3883,6 @@ func (w *settingsHashWatcher) loop() error {
 			out = nil
 		}
 	}
-}
-
-func (w *settingsHashWatcher) hash() (string, error) {
-	settings, closer := w.db.GetCollection(settingsC)
-	defer closer()
-	var doc settingsDoc
-	if err := settings.FindId(w.id).One(&doc); err == mgo.ErrNotFound {
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-	// Ensure elements are in a consistent order. If any are maps,
-	// replace them with the equivalent sorted bson.Ds.
-	items := toSortedBsonD(doc.Settings)
-	data, err := bson.Marshal(items)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	hash := sha256.New()
-	hash.Write([]byte(w.name))
-	hash.Write(data)
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func toSortedBsonD(values map[string]interface{}) bson.D {

@@ -174,19 +174,19 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 		CharmModifiedVersion:  s.charmModifiedVersion,
 		CharmURL:              s.charmURL,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
-		ConfigVersion:         1,
 		LeaderSettingsVersion: 1,
 		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
+			Kind:       operation.Continue,
+			Installed:  true,
+			Started:    true,
+			ConfigHash: "version1",
 		},
 	}
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesCompleteStarted
 
 	// Bumping the remote state versions verifies that the upgrade-series
 	// completion hook takes precedence.
-	s.remoteState.ConfigVersion = 2
+	s.remoteState.ConfigHash = "version2"
 	s.remoteState.LeaderSettingsVersion = 2
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)

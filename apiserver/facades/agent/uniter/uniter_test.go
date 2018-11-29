@@ -145,6 +145,43 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 	c.Assert(ok, gc.Equals, inScope)
 }
 
+func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	cm, err := m.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		SetCharmURL: true,
+	})
+
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiInfo, err := environs.APIInfo(context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { apiState.Close() })
+
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: unit.Tag(),
+	}
+	u, err := apiState.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	return u, cm, app, unit
+}
+
 type uniterSuite struct {
 	uniterSuiteBase
 }
@@ -989,38 +1026,6 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openedPorts, gc.HasLen, 0)
-}
-
-func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
-	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	result, err := s.uniter.WatchConfigSettings(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{NotifyWatcherId: "1"},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
 }
 
 func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
@@ -2513,7 +2518,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
+func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -2523,12 +2528,16 @@ func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "application-wordpress"},
 	}}
-	result, err := s.uniter.WatchUnitAddresses(args)
+	result, err := s.uniter.WatchUnitAddressesHash(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{NotifyWatcherId: "1"},
+			{
+				StringsWatcherId: "1",
+				// This is an empty sha256 hash.
+				Changes: []string{"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -2542,11 +2551,11 @@ func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
-func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
+func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 	_, cm, _, _ := s.setupCAASModel(c)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -2566,12 +2575,16 @@ func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := uniterAPI.WatchUnitAddresses(args)
+	result, err := uniterAPI.WatchUnitAddressesHash(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{NotifyWatcherId: "1"},
+			{
+				StringsWatcherId: "1",
+				// The container doesn't have an address.
+				Changes: []string{""},
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -2585,7 +2598,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -3173,43 +3186,6 @@ containers:
       attr: foo=bar; fred=blogs
       foo: bar
 `[1:]
-
-func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
-	st := s.Factory.MakeCAASModel(c, nil)
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-	cm, err := m.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
-	unit := f.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-		SetCharmURL: true,
-	})
-
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiInfo, err := environs.APIInfo(context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
-	c.Assert(err, jc.ErrorIsNil)
-	apiInfo.Tag = unit.Tag()
-	apiInfo.Password = password
-	apiState, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.CleanupSuite.AddCleanup(func(*gc.C) { apiState.Close() })
-
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: unit.Tag(),
-	}
-	u, err := apiState.Uniter()
-	c.Assert(err, jc.ErrorIsNil)
-	return u, cm, app, unit
-}
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
@@ -4316,4 +4292,132 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 		"password": "secret",
 	}
 	c.Assert(result.Result.Credential.Attributes, gc.DeepEquals, exp)
+}
+
+type uniterV8Suite struct {
+	uniterSuiteBase
+	uniterV8 *uniter.UniterAPIV8
+}
+
+var _ = gc.Suite(&uniterV8Suite{})
+
+func (s *uniterV8Suite) SetUpTest(c *gc.C) {
+	s.uniterSuiteBase.SetUpTest(c)
+
+	uniterV8, err := uniter.NewUniterAPIV8(facadetest.Context{
+		State_:             s.State,
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.uniterV8 = uniterV8
+}
+
+func (s *uniterV8Suite) TestWatchConfigSettings(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniterV8.WatchConfigSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *uniterV8Suite) TestWatchUnitAddresses(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "application-wordpress"},
+	}}
+	result, err := s.uniterV8.WatchUnitAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *uniterV8Suite) TestWatchCAASUnitAddresses(c *gc.C) {
+	_, cm, _, _ := s.setupCAASModel(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-gitlab-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "application-gitlab"},
+	}}
+
+	uniterAPI, err := uniter.NewUniterAPIV8(facadetest.Context{
+		State_:             cm.State(),
+		Resources_:         s.resources,
+		Auth_:              s.authorizer,
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.WatchUnitAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }

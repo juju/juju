@@ -280,16 +280,14 @@ func (s *uniterResolver) nextOp(
 	if charmModified(localState, remoteState) {
 		if s.config.ModelType == model.IAAS {
 			return opFactory.NewUpgrade(remoteState.CharmURL)
-		} else {
-			return opFactory.NewNoOpUpgrade(remoteState.CharmURL)
 		}
+		return opFactory.NewNoOpUpgrade(remoteState.CharmURL)
 	}
 
-	versionChanged := localState.ConfigVersion != remoteState.ConfigVersion
 	configHashChanged := localState.ConfigHash != remoteState.ConfigHash
 	trustHashChanged := localState.TrustHash != remoteState.TrustHash
 	addressesHashChanged := localState.AddressesHash != remoteState.AddressesHash
-	if versionChanged || configHashChanged || trustHashChanged || addressesHashChanged {
+	if configHashChanged || trustHashChanged || addressesHashChanged {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 

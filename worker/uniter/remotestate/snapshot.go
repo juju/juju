@@ -46,10 +46,6 @@ type Snapshot struct {
 	// set to ResolvedNone.
 	RetryHookVersion int
 
-	// ConfigVersion is the last published version of
-	// the unit's config settings.
-	ConfigVersion int
-
 	// ConfigHash is a hash of the last published version of the
 	// unit's config settings.
 	ConfigHash string

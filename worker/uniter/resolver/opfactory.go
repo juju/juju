@@ -151,12 +151,10 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 			s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesCompleted
 		}}
 	case hooks.ConfigChanged:
-		version := s.RemoteState.ConfigVersion
 		configHash := s.RemoteState.ConfigHash
 		trustHash := s.RemoteState.TrustHash
 		addressesHash := s.RemoteState.AddressesHash
 		op = onCommitWrapper{op, func(state *operation.State) {
-			s.LocalState.ConfigVersion = version
 			if state != nil {
 				// Assign these on the operation.State so it gets
 				// written into the state file on disk.

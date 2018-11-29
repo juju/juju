@@ -550,14 +550,6 @@ func (u *Unit) ClearResolved() error {
 	return result.OneError()
 }
 
-// WatchConfigSettings returns a watcher for observing changes to the
-// unit's charm configuration settings. The unit must have a charm URL
-// set before this method is called, and the returned watcher will be
-// valid only while the unit's charm URL is not changed.
-func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
-	return getSettingsWatcher(u, "WatchConfigSettings")
-}
-
 // WatchConfigSettingsHash returns a watcher for observing changes to
 // the unit's charm configuration settings (with a hash of the
 // settings content so we can determine whether it has changed since
@@ -568,40 +560,12 @@ func (u *Unit) WatchConfigSettingsHash() (watcher.StringsWatcher, error) {
 	return getHashWatcher(u, "WatchConfigSettingsHash")
 }
 
-// WatchTrustConfigSettings will return a watcher to monitor at least the trust
-// application configuration settings. This is in contrast to Charm
-// configuration settings watchers which are created with WatchConfigSettings
-// and do not monitor for application configuration settings such as "trust".
-func (u *Unit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
-	return getSettingsWatcher(u, "WatchTrustConfigSettings")
-}
-
-// WatchConfigSettingsHash returns a watcher for observing changes to
+// WatchTrustConfigSettingsHash returns a watcher for observing changes to
 // the unit's application configuration settings (with a hash of the
 // settings content so we can determine whether it has changed since
 // it was last seen by the uniter).
 func (u *Unit) WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error) {
 	return getHashWatcher(u, "WatchTrustConfigSettingsHash")
-}
-
-func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall(facadeName, args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
-	return w, nil
 }
 
 func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) {
@@ -624,31 +588,15 @@ func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) 
 	return w, nil
 }
 
-// WatchAddresses returns a watcher for observing changes to the
-// unit's addresses.
+// WatchAddressesHash returns a watcher for observing changes to the
+// hash of the unit's addresses.
 // For IAAS models, the unit must be assigned to a machine before
 // this method is called, and the returned watcher will be valid
 // only while the unit's assigned machine is not changed.
 // For CAAS models, the watcher observes changes to the address
 // of the pod associated with the unit.
-func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("WatchUnitAddresses", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
-	return w, nil
+func (u *Unit) WatchAddressesHash() (watcher.StringsWatcher, error) {
+	return getHashWatcher(u, "WatchUnitAddressesHash")
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing the

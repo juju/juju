@@ -104,7 +104,6 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	c *gc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	f.RemoteState.ConfigVersion = 1
 	f.RemoteState.ConfigHash = "confighash"
 	f.RemoteState.TrustHash = "trusthash"
 	f.RemoteState.AddressesHash = "addresseshash"
@@ -112,7 +111,6 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
-	f.RemoteState.ConfigVersion = 2
 	f.RemoteState.ConfigHash = "newhash"
 	f.RemoteState.TrustHash = "badhash"
 	f.RemoteState.AddressesHash = "differenthash"
@@ -122,10 +120,9 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultState, gc.NotNil)
 
-	// Local state's ConfigVersion should be set to what
-	// RemoteState's ConfigVersion was when the operation
+	// Local state's UpdateStatusVersion should be set to what
+	// RemoteState's UpdateStatusVersion was when the operation
 	// was constructed.
-	c.Assert(f.LocalState.ConfigVersion, gc.Equals, 1)
 	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
 	// The hashes need to be set on the result state, because that is
 	// written to disk by the executor before the next step is picked.
