@@ -43,7 +43,7 @@
 
 [[constraint]]
   name = "github.com/coreos/go-systemd"
-  revision = "3a5019e750d573b9710fcabf30b8ba1aacec61fa"
+  revision = "ec90daa870dd15120bd957a3f0ca9f01fede2b27"
 
 [[constraint]]
   revision = "36ee7e946282a3fb1cfecd476ddc9b35d8847e42"
