@@ -64,20 +64,23 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) { return nil, nil },
 	}
 
-	s.pooledModel = &mockPooledModel{
-		model: &mockModelBackend{
-			model: &mockModel{
-				cloud:       "dummy",
-				cloudRegion: "nether",
-				cfg:         coretesting.ModelConfig(c),
+	newModel := func(uuid string) *mockPooledModel {
+		return &mockPooledModel{
+			model: &mockModelBackend{
+				uuid: uuid,
+				model: &mockModel{
+					cloud:       "dummy",
+					cloudRegion: "nether",
+					cfg:         coretesting.ModelConfig(c),
+				},
+				cloud: aCloud,
 			},
-			cloud: aCloud,
-		},
-		release: true,
+			release: true,
+		}
 	}
 	s.statePool = &mockStatePool{
 		getF: func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-			return s.pooledModel, nil
+			return newModel(modelUUID), nil
 		},
 	}
 	s.setTestAPIForUser(c, names.NewUserTag("admin"))
@@ -596,10 +599,8 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 		}, nil
 	}
 
-	calls := 0
 	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
-		calls++
-		if calls == 1 {
+		if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 			return params.ErrorResults{[]params.ErrorResult{{&params.Error{Message: "not valid for model"}}}}, nil
 		}
 		return params.ErrorResults{[]params.ErrorResult{}}, nil
@@ -610,27 +611,25 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
 			Credential: params.CloudCredential{},
-		}}})
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels")
 	c.Assert(results, jc.DeepEquals, params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{
-			{
-				CredentialTag: "cloudcred-meep_julia_three",
-				Error:         &params.Error{Message: "some models are no longer visible"},
-				Models: []params.UpdateCredentialModelResult{
-					{
-						ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-						ModelName: "testModel1",
-						Errors:    []params.ErrorResult{{Error: &params.Error{Message: "not valid for model", Code: ""}}},
-					},
-					{
-						ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
-						ModelName: "testModel2",
-					},
-				},
-			},
-		},
+		Results: []params.UpdateCredentialResult{{
+			CredentialTag: "cloudcred-meep_julia_three",
+			Error:         &params.Error{Message: "some models are no longer visible"},
+			Models: []params.UpdateCredentialModelResult{{
+				ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				ModelName: "testModel1",
+				Errors: []params.ErrorResult{{
+					Error: &params.Error{Message: "not valid for model", Code: ""},
+				}},
+			}, {
+				ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
+				ModelName: "testModel2",
+			}},
+		}},
 	})
 }
 
@@ -642,10 +641,8 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.
 		}, nil
 	}
 
-	calls := 0
 	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
-		calls++
-		if calls == 1 {
+		if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 			return params.ErrorResults{[]params.ErrorResult{{&params.Error{Message: "not valid for model"}}}}, nil
 		}
 		return params.ErrorResults{[]params.ErrorResult{}}, nil
@@ -1248,6 +1245,7 @@ func (m *mockPooledModel) Release() bool {
 }
 
 type mockModelBackend struct {
+	uuid  string
 	model *mockModel
 	cloud cloud.Cloud
 }
