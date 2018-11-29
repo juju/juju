@@ -1804,7 +1804,7 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ec2inst := ec2.InstanceEC2(inst[0])
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
-	c.Assert(ec2inst.InstanceType, gc.Equals, "c4.large")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t3.medium")
 }
 
 func makeFilter(key string, values ...string) *amzec2.Filter {
