@@ -1155,15 +1155,25 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			} else if serverDetail.Status == nova.StatusActive {
 				break
 			} else if serverDetail.Status == nova.StatusError {
+				if server == nil {
+					break
+				}
 				// Perhaps there is an error case where a retry in the same AZ
 				// is a good idea.
-				logger.Infof("Instance %q in ERROR state with fault %q", server.Id, serverDetail.Fault.Message)
-				logger.Infof("Deleting instance %q in ERROR state", server.Id)
+				faultDetails := ""
+				faultMsg := ""
+				if serverDetail != nil && serverDetail.Fault != nil {
+					faultDetails = serverDetail.Fault.Message
+					faultMsg = fmt.Sprintf(" with fault %q", faultMsg)
+				}
+				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
 				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
 					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
 				}
 				server = nil
-				err = errors.New(serverDetail.Fault.Message)
+				if faultDetails != "" {
+					err = errors.New(faultDetails)
+				}
 				break
 			}
 		}
