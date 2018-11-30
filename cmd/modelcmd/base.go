@@ -170,7 +170,7 @@ func (c *CommandBase) NewAPIRoot(
 // model details on the controller.
 func (c *CommandBase) RemoveModelFromClientStore(store jujuclient.ClientStore, controllerName, modelName string) {
 	err := store.RemoveModel(controllerName, modelName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		logger.Warningf("cannot remove unknown model from cache: %v", err)
 	}
 	if c.CanClearCurrentModel {

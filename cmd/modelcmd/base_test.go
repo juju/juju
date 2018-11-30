@@ -75,6 +75,14 @@ func (s *BaseCommandSuite) TestUnknownModel(c *gc.C) {
 	s.assertUnknownModel(c, new(modelcmd.ModelCommandBase), "admin/badmodel", "admin/badmodel")
 }
 
+func (s *BaseCommandSuite) TestUnknownUncachedModel(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.CanClearCurrentModel = false
+	baseCmd.RemoveModelFromClientStore(s.store, "foo", "admin/nonexistent")
+	// expecting silence in the logs since this model has never been cached.
+	c.Assert(c.GetTestLog(), gc.DeepEquals, "")
+}
+
 func (s *BaseCommandSuite) TestUnknownModelCanRemoveCachedCurrent(c *gc.C) {
 	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.CanClearCurrentModel = true
