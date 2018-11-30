@@ -1302,27 +1302,3 @@ func (s *applicationSuite) TestSetCharmProfileError(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
-
-func (s *applicationSuite) TestWatchLXDProfileUpgradeNotificationsError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, response interface{}) error {
-			c.Assert(request, gc.Equals, "WatchLXDProfileUpgradeNotifications")
-			return errors.New("boom")
-		},
-	)
-	client := newClient(apiCaller)
-	_, _, err := client.WatchLXDProfileUpgradeNotifications("foo")
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *applicationSuite) TestGetLXDProfileUpgradeMessagesError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, response interface{}) error {
-			c.Assert(request, gc.Equals, "GetLXDProfileUpgradeMessages")
-			return errors.New("boom")
-		},
-	)
-	client := newClient(apiCaller)
-	_, err := client.GetLXDProfileUpgradeMessages("foo", "xxx-aaa-yyy-ccc")
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
