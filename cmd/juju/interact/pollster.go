@@ -119,6 +119,13 @@ func (p *Pollster) MultiSelect(l MultiList) ([]string, error) {
 		return nil, err
 	}
 
+	// If there is only ever one option and that option also equals the default
+	// option, then just echo out what that option is (above), then return that
+	// option back.
+	if len(l.Default) == 1 && len(l.Options) == 1 && l.Options[0] == l.Default[0] {
+		return l.Default, nil
+	}
+
 	question, err := sprint(multiSelectTmpl, l)
 	if err != nil {
 		return nil, errors.Trace(err)
