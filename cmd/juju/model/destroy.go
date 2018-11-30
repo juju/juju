@@ -131,8 +131,8 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
-	f.DurationVar(&c.timeout, "t", 30*time.Minute, "Timeout to exit")
-	f.DurationVar(&c.timeout, "timeout", 30*time.Minute, "Timeout to exit")
+	f.DurationVar(&c.timeout, "t", 30*time.Minute, "Timeout before model destruction is aborted")
+	f.DurationVar(&c.timeout, "timeout", 30*time.Minute, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
 }
@@ -376,7 +376,7 @@ func waitForModelDestroyed(
 	for {
 		select {
 		case <-interrupted:
-			ctx.Infof("ctrl+c detected, abort...")
+			ctx.Infof("ctrl+c detected, aborting...")
 			printErrors()
 			return cmd.ErrSilent
 		case <-timeoutAfter:
@@ -409,19 +409,28 @@ func (s modelResourceErrorStatusSummary) Count() int {
 }
 
 func (s modelResourceErrorStatusSummary) PrettyPrint(writer io.Writer) error {
+	if s.Count() == 0 {
+		return nil
+	}
+
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println()
+	w.Println(`
+The following errors were encountered during destroying the model.
+You can fix the problem causing the errors and run destroy-model again.
+`)
 	w.Println("Resource", "Id", "Message")
-	for k, resources := range map[string][]modelResourceErrorStatus{
-		"Machine":    s.Machines,
-		"Filesystem": s.Filesystems,
-		"Volume":     s.Volumes,
+	for _, resources := range []map[string][]modelResourceErrorStatus{
+		{"Machine": s.Machines},
+		{"Filesystem": s.Filesystems},
+		{"Volume": s.Volumes},
 	} {
-		resourceType := k
-		for _, r := range resources {
-			w.Println(resourceType, r.ID, r.Message)
-			resourceType = ""
+		for k, v := range resources {
+			resourceType := k
+			for _, r := range v {
+				w.Println(resourceType, r.ID, r.Message)
+				resourceType = ""
+			}
 		}
 	}
 	tw.Flush()

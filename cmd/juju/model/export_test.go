@@ -4,9 +4,7 @@
 package model
 
 import (
-	"time"
-
-	testclock "github.com/juju/clock/testclock"
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api"
@@ -82,12 +80,12 @@ func NewDestroyCommandForTest(
 	api DestroyModelAPI,
 	configAPI ModelConfigAPI,
 	storageAPI StorageAPI,
+	clk jujuclock.Clock,
 	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
-	sleepFunc func(time.Duration),
 ) cmd.Command {
 	cmd := &destroyCommand{
 		api:        api,
-		clock:      testclock.NewClock(time.Time{}),
+		clock:      clk,
 		configAPI:  configAPI,
 		storageAPI: storageAPI,
 	}
