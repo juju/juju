@@ -4,6 +4,8 @@
 package charmrevisionupdater
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -139,6 +141,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		"controller_uuid": st.ControllerUUID(),
 		"cloud":           model.Cloud(),
 		"cloud_region":    model.CloudRegion(),
+		"is_controller":   strconv.FormatBool(model.IsControllerModel()),
 	}
 	cloud, err := st.Cloud(model.Cloud())
 	if err != nil {

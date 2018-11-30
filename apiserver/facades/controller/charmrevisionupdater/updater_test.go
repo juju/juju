@@ -185,7 +185,7 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, err := s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
-	expected_header := []string{
+	expectedHeader := []string{
 		"environment_uuid=" + model.UUID(),
 		"model_uuid=" + model.UUID(),
 		"controller_uuid=" + s.State.ControllerUUID(),
@@ -193,8 +193,9 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 		"cloud_region=" + model.CloudRegion(),
 		"provider=" + cloud.Type,
 		"controller_version=" + version.Current.String(),
+		"is_controller=true",
 	}
-	for i, expected := range expected_header {
+	for i, expected := range expectedHeader {
 		c.Assert(header[charmrepo.JujuMetadataHTTPHeader][i], gc.Equals, expected)
 	}
 }

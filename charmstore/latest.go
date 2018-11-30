@@ -34,6 +34,7 @@ func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string
 			"cloud_region=" + metadata["cloud_region"],
 			"provider=" + metadata["provider"],
 			"controller_version=" + version.Current.String(),
+			"is_controller=" + metadata["is_controller"],
 		},
 	})
 	if err != nil {

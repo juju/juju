@@ -76,6 +76,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 		"cloud":            "foocloud",
 		"cloud_region":     "fooregion",
 		"provider":         "fooprovider",
+		"is_controller":    "false",
 	}
 	results, err := LatestCharmInfo(client, charms, metadata)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,6 +89,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 		"cloud_region=fooregion",
 		"provider=fooprovider",
 		"controller_version=" + version.Current.String(),
+		"is_controller=false",
 	}
 	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{spam}, map[string][]string{"Juju-Metadata": header})
 	s.lowLevel.stableStub.CheckCall(c, 1, "Latest", params.StableChannel, []*charm.URL{eggs}, map[string][]string{"Juju-Metadata": header})
