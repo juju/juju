@@ -33,8 +33,7 @@ type CloudMetadataStore interface {
 }
 
 var usageAddCloudSummary = `
-Adds a cloud definition to Juju.
-`[1:]
+Adds a cloud definition to Juju.`[1:]
 
 var usageAddCloudDetails = `
 Juju needs to know how to connect to clouds. A cloud definition 
