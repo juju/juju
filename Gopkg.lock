@@ -450,17 +450,6 @@
   revision = "2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65"
 
 [[projects]]
-  digest = "1:88472cd128b0e341f80d682a5ac7059a67992b53dea26c59185d26445a36284a"
-  name = "github.com/juju/go-oracle-cloud"
-  packages = [
-    "api",
-    "common",
-    "response",
-  ]
-  pruneopts = ""
-  revision = "932a8cea00a1cd5cba3829a672c823955db674ae"
-
-[[projects]]
   branch = "master"
   digest = "1:499860665660bef418a86e824c23d98c56cc05c2e2f50d5c77164f58a934def7"
   name = "github.com/juju/go4"
@@ -1813,9 +1802,6 @@
     "github.com/juju/description",
     "github.com/juju/errors",
     "github.com/juju/gnuflag",
-    "github.com/juju/go-oracle-cloud/api",
-    "github.com/juju/go-oracle-cloud/common",
-    "github.com/juju/go-oracle-cloud/response",
     "github.com/juju/gojsonschema",
     "github.com/juju/gomaasapi",
     "github.com/juju/httprequest",
