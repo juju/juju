@@ -62,35 +62,35 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxdProfileSuite) TestLXDProfileStatusWithSuccess(c *gc.C) {
+func (s *lxdProfileSuite) TestUpgradeCharmProfileUnitStatusWithSuccess(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "LXDProfileUnitStatus")
+		c.Assert(name, gc.Equals, "UpgradeCharmProfileUnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
-		*(response.(*params.LXDProfileStatusResults)) = params.LXDProfileStatusResults{
-			Results: []params.LXDProfileStatusResult{{Status: lxdprofile.SuccessStatus}},
+		*(response.(*params.UpgradeCharmProfileStatusResults)) = params.UpgradeCharmProfileStatusResults{
+			Results: []params.UpgradeCharmProfileStatusResult{{Status: lxdprofile.SuccessStatus}},
 		}
 		return nil
 	}
 	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
-	watchResult, err := api.LXDProfileUnitStatus()
+	watchResult, err := api.UpgradeCharmProfileUnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []string{lxdprofile.SuccessStatus}
 	c.Check(watchResult, jc.SameContents, exp)
 }
 
-func (s *lxdProfileSuite) TestLXDProfileStatusNotFound(c *gc.C) {
+func (s *lxdProfileSuite) TestUpgradeCharmProfileUnitStatusNotFound(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "LXDProfileUnitStatus")
+		c.Assert(name, gc.Equals, "UpgradeCharmProfileUnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
-		*(response.(*params.LXDProfileStatusResults)) = params.LXDProfileStatusResults{
-			Results: []params.LXDProfileStatusResult{{
+		*(response.(*params.UpgradeCharmProfileStatusResults)) = params.UpgradeCharmProfileStatusResults{
+			Results: []params.UpgradeCharmProfileStatusResult{{
 				Error: &params.Error{
 					Code:    params.CodeNotFound,
 					Message: `testing`,
@@ -100,21 +100,21 @@ func (s *lxdProfileSuite) TestLXDProfileStatusNotFound(c *gc.C) {
 		return nil
 	}
 	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
-	watchResult, err := api.LXDProfileUnitStatus()
+	watchResult, err := api.UpgradeCharmProfileUnitStatus()
 	c.Assert(err, gc.ErrorMatches, "testing")
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
 	c.Check(watchResult, gc.HasLen, 0)
 }
 
-func (s *lxdProfileSuite) TestLXDProfileStatusMultiple(c *gc.C) {
+func (s *lxdProfileSuite) TestUpgradeCharmProfileUnitStatusMultiple(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "LXDProfileUnitStatus")
+		c.Assert(name, gc.Equals, "UpgradeCharmProfileUnitStatus")
 		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: s.tag.String()},
 		}})
-		*(response.(*params.LXDProfileStatusResults)) = params.LXDProfileStatusResults{
-			Results: []params.LXDProfileStatusResult{
+		*(response.(*params.UpgradeCharmProfileStatusResults)) = params.UpgradeCharmProfileStatusResults{
+			Results: []params.UpgradeCharmProfileStatusResult{
 				{Status: lxdprofile.SuccessStatus},
 				{Status: lxdprofile.NotRequiredStatus},
 			},
@@ -122,7 +122,7 @@ func (s *lxdProfileSuite) TestLXDProfileStatusMultiple(c *gc.C) {
 		return nil
 	}
 	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
-	watchResult, err := api.LXDProfileUnitStatus()
+	watchResult, err := api.UpgradeCharmProfileUnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []string{lxdprofile.SuccessStatus, lxdprofile.NotRequiredStatus}
