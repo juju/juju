@@ -4,9 +4,11 @@
 package charmstore
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -105,7 +107,7 @@ type Client struct {
 }
 
 // CharmRevision holds the data returned from the charmstore about the latest
-// revision of a charm.  Notet hat this may be different per channel.
+// revision of a charm.  Note that this may be different per channel.
 type CharmRevision struct {
 	// Revision is newest revision for the charm.
 	Revision int
@@ -115,7 +117,7 @@ type CharmRevision struct {
 }
 
 // LatestRevisions returns the latest revisions of the given charms, using the given metadata.
-func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) ([]CharmRevision, error) {
+func (c Client) LatestRevisions(charms []CharmID, modelMetadata map[string]string) ([]CharmRevision, error) {
 	// Due to the fact that we cannot use multiple macaroons per API call,
 	// we need to perform one call at a time, rather than making bulk calls.
 	// We could bulk the calls that use non-private charms, but we'd still need
@@ -123,7 +125,8 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) 
 	// underlying csclient.
 	results := make([]CharmRevision, len(charms))
 	for i, cid := range charms {
-		revisions, err := c.csWrapper.Latest(cid.Channel, []*charm.URL{cid.URL}, metadata)
+		revisions, err := c.csWrapper.Latest(
+			cid.Channel, []*charm.URL{cid.URL}, makeMetadataHeader(modelMetadata, cid.Metadata))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -131,6 +134,25 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) 
 		results[i] = CharmRevision{Revision: rev.Revision, Err: rev.Err}
 	}
 	return results, nil
+}
+
+// makeMetadataHeader takes the input model and charm metadata and transforms
+// it into a header suitable for supply with a "Latest" request via the client.
+func makeMetadataHeader(modelMetadata, charmMetadata map[string]string) map[string][]string {
+	if len(modelMetadata) == 0 && len(charmMetadata) == 0 {
+		return nil
+	}
+
+	headers := make([]string, 0, len(modelMetadata)+len(charmMetadata))
+	addHeaders := func(metadata map[string]string) {
+		for k, v := range metadata {
+			headers = append(headers, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	addHeaders(modelMetadata)
+	addHeaders(charmMetadata)
+	sort.Strings(headers)
+	return map[string][]string{jujuMetadataHTTPHeader: headers}
 }
 
 // ResourceRequest is the data needed to request a resource from the charmstore.

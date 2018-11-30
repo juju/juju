@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
@@ -131,17 +132,22 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		cid := charmstore.CharmID{
 			URL:     curl,
 			Channel: application.Channel(),
+			Metadata: map[string]string{
+				"series": application.Series(),
+			},
 		}
 		charms = append(charms, cid)
 		resultsIndexedApps = append(resultsIndexedApps, application)
 	}
 
 	metadata := map[string]string{
-		"model_uuid":      model.UUID(),
-		"controller_uuid": st.ControllerUUID(),
-		"cloud":           model.Cloud(),
-		"cloud_region":    model.CloudRegion(),
-		"is_controller":   strconv.FormatBool(model.IsControllerModel()),
+		"environment_uuid":   model.UUID(),
+		"model_uuid":         model.UUID(),
+		"controller_uuid":    st.ControllerUUID(),
+		"controller_version": version.Current.String(),
+		"cloud":              model.Cloud(),
+		"cloud_region":       model.CloudRegion(),
+		"is_controller":      strconv.FormatBool(model.IsControllerModel()),
 	}
 	cloud, err := st.Cloud(model.Cloud())
 	if err != nil {
