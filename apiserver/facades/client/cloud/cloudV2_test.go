@@ -92,25 +92,28 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 	}
 
 	s.setTestAPIForUser(c, owner)
-	pooledModel := &mockPooledModel{
-		model: &mockModelBackend{
-			model: &mockModel{
-				cloud:       "dummy",
-				cloudRegion: "nether",
-				cfg:         coretesting.ModelConfig(c),
+	newModel := func(uuid string) *mockPooledModel {
+		return &mockPooledModel{
+			model: &mockModelBackend{
+				uuid: uuid,
+				model: &mockModel{
+					cloud:       "dummy",
+					cloudRegion: "nether",
+					cfg:         coretesting.ModelConfig(c),
+				},
+				cloud: cloud.Cloud{
+					Name:      "dummy",
+					Type:      "dummy",
+					AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+					Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+				},
 			},
-			cloud: cloud.Cloud{
-				Name:      "dummy",
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-				Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-			},
-		},
-		release: true,
+			release: true,
+		}
 	}
 	s.statePool = &mockStatePool{
 		getF: func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-			return pooledModel, nil
+			return newModel(modelUUID), nil
 		},
 	}
 }
@@ -336,14 +339,14 @@ func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
 			"deadbeef-2f18-4fd2-967d-db9663db7bea": "testModel2",
 		}, nil
 	}
-	calls := 0
 	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
-		calls++
-		if calls == 1 {
+		if uuid := backend.(*mockModelBackend).uuid; uuid == coretesting.ModelTag.Id() {
 			return params.ErrorResults{[]params.ErrorResult{
 				{&params.Error{Message: "not valid for model"}},
 				{&params.Error{Message: "cannot find machine failure"}},
 			}}, nil
+		} else if uuid != "deadbeef-2f18-4fd2-967d-db9663db7bea" {
+			panic("bad uuid: " + uuid)
 		}
 		return params.ErrorResults{[]params.ErrorResult{}}, nil
 	})

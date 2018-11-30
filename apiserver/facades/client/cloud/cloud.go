@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/naturalsort"
 	"github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 
@@ -31,44 +30,44 @@ var logger = loggo.GetLogger("juju.apiserver.cloud")
 
 // CloudV3 defines the methods on the cloud API facade, version 3.
 type CloudV3 interface {
-	Clouds() (params.CloudsResult, error)
-	Cloud(args params.Entities) (params.CloudResults, error)
-	DefaultCloud() (params.StringResult, error)
-	UserCredentials(args params.UserClouds) (params.StringsResults, error)
-	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
-	Credential(args params.Entities) (params.CloudCredentialResults, error)
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
-	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
-	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
 	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	DefaultCloud() (params.StringResult, error)
 	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
 }
 
 // CloudV2 defines the methods on the cloud API facade, version 2.
 type CloudV2 interface {
-	Clouds() (params.CloudsResult, error)
-	Cloud(args params.Entities) (params.CloudResults, error)
-	DefaultCloud() (params.StringResult, error)
-	UserCredentials(args params.UserClouds) (params.StringsResults, error)
-	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
-	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
-	Credential(args params.Entities) (params.CloudCredentialResults, error)
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
 	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	DefaultCloud() (params.StringResult, error)
 	RemoveClouds(args params.Entities) (params.ErrorResults, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
 }
 
 // CloudV1 defines the methods on the cloud API facade, version 1.
 type CloudV1 interface {
-	Clouds() (params.CloudsResult, error)
 	Cloud(args params.Entities) (params.CloudResults, error)
-	DefaultCloud() (params.StringResult, error)
-	UserCredentials(args params.UserClouds) (params.StringsResults, error)
-	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
-	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	Clouds() (params.CloudsResult, error)
 	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	DefaultCloud() (params.StringResult, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
 }
 
 // CloudAPI implements the cloud interface and is the concrete implementation
@@ -539,22 +538,23 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args param
 
 		var modelsErred bool
 		if len(models) > 0 {
-			// since we get a map here, for consistency ensure that models are added
-			// sorted by model uuid.
-			var uuids []string
-			for uuid := range models {
-				uuids = append(uuids, uuid)
-			}
-			naturalsort.Sort(uuids)
 			var modelsResult []params.UpdateCredentialModelResult
-			for _, uuid := range uuids {
-				model := params.UpdateCredentialModelResult{ModelUUID: uuid, ModelName: models[uuid]}
+			for uuid, name := range models {
+				model := params.UpdateCredentialModelResult{
+					ModelUUID: uuid,
+					ModelName: name,
+				}
 				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
 				modelsResult = append(modelsResult, model)
 				if len(model.Errors) > 0 {
 					modelsErred = true
 				}
 			}
+			// since we get a map above, for consistency ensure that models are added
+			// sorted by model uuid.
+			sort.Slice(modelsResult, func(i, j int) bool {
+				return modelsResult[i].ModelUUID < modelsResult[j].ModelUUID
+			})
 			results[i].Models = modelsResult
 		}
 
