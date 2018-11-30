@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -89,6 +90,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(),
+		UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
