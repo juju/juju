@@ -10,11 +10,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 )
+
+var logger = loggo.GetLogger("juju.worker.raft.lease")
 
 // NotifyTarget defines methods needed to keep an external database
 // updated with who holds leases. (In non-test code the notify target
@@ -204,8 +207,13 @@ func (s *Store) runOnLeader(command *Command) error {
 	}
 	defer unsubscribe()
 
+	start := time.Now()
+	defer func() {
+		elapsed := time.Now().Sub(start)
+		logger.Tracef("runOnLeader elapsed from publish: %v", elapsed.Round(time.Millisecond))
+	}()
 	_, err = s.hub.Publish(s.config.RequestTopic, ForwardRequest{
-		Command:       bytes,
+		Command:       string(bytes),
 		ResponseTopic: responseTopic,
 	})
 	if err != nil {
@@ -214,18 +222,22 @@ func (s *Store) runOnLeader(command *Command) error {
 
 	select {
 	case <-s.config.Clock.After(s.config.ForwardTimeout):
+		logger.Infof("timeout")
 		return lease.ErrTimeout
 	case err := <-errChan:
+		logger.Errorf("%v", err)
 		return errors.Trace(err)
 	case response := <-responseChan:
-		return RecoverError(response.Error)
+		err := RecoverError(response.Error)
+		logger.Tracef("got response, err %v", err)
+		return err
 	}
 }
 
 // ForwardRequest is a message sent over the hub to the raft forwarder
 // (only running on the raft leader node).
 type ForwardRequest struct {
-	Command       []byte `yaml:"command"`
+	Command       string `yaml:"command"`
 	ResponseTopic string `yaml:"response-topic"`
 }
 
