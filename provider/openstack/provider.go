@@ -1147,33 +1147,31 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			if err != nil {
 				break
 			}
+			if server == nil {
+				continue
+			}
 			var serverDetail *nova.ServerDetail
 			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
-			if err != nil {
+			if err != nil || serverDetail == nil {
 				server = nil
 				break
 			} else if serverDetail.Status == nova.StatusActive {
 				break
 			} else if serverDetail.Status == nova.StatusError {
-				if server == nil {
-					break
-				}
 				// Perhaps there is an error case where a retry in the same AZ
 				// is a good idea.
-				faultDetails := ""
-				faultMsg := ""
-				if serverDetail != nil && serverDetail.Fault != nil {
-					faultDetails = serverDetail.Fault.Message
-					faultMsg = fmt.Sprintf(" with fault %q", faultMsg)
+				faultMsg := " unable to determine fault details"
+				if serverDetail.Fault != nil {
+					faultMsg = fmt.Sprintf(" with fault %q", serverDetail.Fault.Message)
+				} else {
+					logger.Debugf("getting activer server details from nova failed without fault details")
 				}
 				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
 				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
 					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
 				}
 				server = nil
-				if faultDetails != "" {
-					err = errors.New(faultDetails)
-				}
+				err = errors.New(faultMsg)
 				break
 			}
 		}
@@ -1193,7 +1191,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	e.configurator.ModifyRunServerOptions(&opts)
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
-	if err != nil {
+	if err != nil || server == nil {
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
 		// AZ if available.
