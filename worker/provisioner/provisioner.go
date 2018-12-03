@@ -405,10 +405,6 @@ func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) 
 }
 
 func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
-	if p.containerType != instance.LXD {
-		// TODO (hml) lxd-profile 17-oct-2018
-		// what is the correct way to handle this, only start for LXD containers
-	}
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err
