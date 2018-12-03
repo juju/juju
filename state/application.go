@@ -874,27 +874,47 @@ func (a *Application) changeCharmOps(
 // If the application is a subordinate, the charm profile is applied
 // to the machine of the principal's unit.
 func (a *Application) SetCharmProfile(charmURL string) error {
-	units, err := a.AllUnits()
+	machines, err := a.DeployedMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, u := range units {
-		// AssignedMachineId returns the correct machine whether
-		// principal or subordinate
-		id, err := u.AssignedMachineId()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		m, err := a.st.Machine(id)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = m.SetUpgradeCharmProfile(a.Name(), charmURL)
-		if err != nil {
+	for _, m := range machines {
+		if err := m.SetUpgradeCharmProfile(a.Name(), charmURL); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
+}
+
+// Deployed machines returns the collection of machines
+// that this application has units deployed to.
+func (a *Application) DeployedMachines() ([]*Machine, error) {
+	units, err := a.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machineIds := set.NewStrings()
+	var machines []*Machine
+	for _, u := range units {
+		// AssignedMachineId returns the correct machine
+		// whether principal or subordinate.
+		id, err := u.AssignedMachineId()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if machineIds.Contains(id) {
+			continue
+		}
+
+		m, err := a.st.Machine(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		machineIds.Add(id)
+		machines = append(machines, m)
+	}
+	return machines, nil
 }
 
 func (a *Application) newCharmStorageOps(
