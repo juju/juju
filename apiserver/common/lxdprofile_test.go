@@ -135,7 +135,7 @@ func (s *lxdProfileSuite) TestLXDProfileStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockLXDProfileUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().LXDProfileStatus().Return(lxdprofile.SuccessStatus, nil)
+	mockUnit.EXPECT().UpgradeCharmProfileStatus().Return(lxdprofile.SuccessStatus, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -144,10 +144,10 @@ func (s *lxdProfileSuite) TestLXDProfileStatusUnitTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.LXDProfileUnitStatus(args)
+	results, err := api.UpgradeCharmProfileUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.LXDProfileStatusResults{
-		Results: []params.LXDProfileStatusResult{
+	c.Assert(results, gc.DeepEquals, params.UpgradeCharmProfileStatusResults{
+		Results: []params.UpgradeCharmProfileStatusResult{
 			{Status: lxdprofile.SuccessStatus},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},

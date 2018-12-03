@@ -50,7 +50,7 @@ type Unit interface {
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	LXDProfileStatus() (string, error)
+	UpgradeCharmProfileStatus() (string, error)
 }
 
 type Application interface {

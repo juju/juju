@@ -511,17 +511,17 @@ type LXDProfileUpgradeMessagesResults struct {
 	Results []LXDProfileUpgradeMessagesResult `json:"args"`
 }
 
-// LXDProfileStatusResult contains the lxd profile status result for an upgrading
+// UpgradeCharmProfileStatusResult contains the lxd profile status result for an upgrading
 // machine or unit
-type LXDProfileStatusResult struct {
+type UpgradeCharmProfileStatusResult struct {
 	Error  *Error `json:"error,omitempty"`
 	Status string `json:"status,omitempty"`
 }
 
-// LXDProfileStatusResults contains the lxd profile status results for
+// UpgradeCharmProfileStatusResults contains the lxd profile status results for
 // upgrading machines or units.
-type LXDProfileStatusResults struct {
-	Results []LXDProfileStatusResult `json:"results,omitempty"`
+type UpgradeCharmProfileStatusResults struct {
+	Results []UpgradeCharmProfileStatusResult `json:"results,omitempty"`
 }
 
 // ConfigResults holds configuration values for an entity.

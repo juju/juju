@@ -2979,8 +2979,8 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message 
 	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
 }
 
-// LXDProfileStatus returns the lxd profile status of the units assigned machine
-func (u *Unit) LXDProfileStatus() (string, error) {
+// UpgradeCharmProfileStatus returns the lxd profile status of the units assigned machine
+func (u *Unit) UpgradeCharmProfileStatus() (string, error) {
 	machine, err := u.machine()
 	if err != nil {
 		return "", err

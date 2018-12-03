@@ -46,15 +46,15 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWat
 	return w, nil
 }
 
-// LXDProfileUnitStatus returns the lxd profile status of a
+// UpgradeCharmProfileUnitStatus returns the lxd profile status of a
 // unit from remote state.
-func (u *LXDProfileAPI) LXDProfileUnitStatus() ([]string, error) {
-	var results params.LXDProfileStatusResults
+func (u *LXDProfileAPI) UpgradeCharmProfileUnitStatus() ([]string, error) {
+	var results params.UpgradeCharmProfileStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 
-	err := u.facade.FacadeCall("LXDProfileUnitStatus", args, &results)
+	err := u.facade.FacadeCall("UpgradeCharmProfileUnitStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}

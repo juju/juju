@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -323,6 +325,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions:             actions.NewResolver(),
 			UpgradeSeries:       upgradeseries.NewResolver(),
+			UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
 			Relations:           relation.NewRelationsResolver(u.relations),
 			Storage:             storage.NewResolver(u.storage, u.modelType),
@@ -345,7 +348,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
 			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
-			LXDProfileStatus:     "",
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{

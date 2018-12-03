@@ -614,18 +614,18 @@ func (w *RemoteStateWatcher) lxdProfileStatusChanged() error {
 	status, err := w.lxdProfileStatus()
 	if errors.IsNotFound(err) {
 		logger.Debugf("no lxd profile in progress, assuming no action required")
-		w.current.LXDProfileStatus = lxdprofile.NotRequiredStatus
+		w.current.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	w.current.LXDProfileStatus = status
+	w.current.UpgradeCharmProfileStatus = status
 	return nil
 }
 
 func (w *RemoteStateWatcher) lxdProfileStatus() (string, error) {
-	status, err := w.unit.LXDProfileStatus()
+	status, err := w.unit.UpgradeCharmProfileStatus()
 	if err != nil {
 		return "", err
 	}

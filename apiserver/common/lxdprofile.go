@@ -32,7 +32,7 @@ type LXDProfileMachine interface {
 type LXDProfileUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	LXDProfileStatus() (string, error)
+	UpgradeCharmProfileStatus() (string, error)
 }
 
 type LXDProfileAPI struct {
@@ -156,11 +156,11 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.Entities
 	return result, nil
 }
 
-// LXDProfileUnitStatus returns the current preparation status of an
+// UpgradeCharmProfileUnitStatus returns the current preparation status of an
 // upgrading unit.
 // If no series upgrade is in progress an error is returned instead.
-func (u *LXDProfileAPI) LXDProfileUnitStatus(args params.Entities) (params.LXDProfileStatusResults, error) {
-	u.logger.Tracef("Starting LXDProfileUnitStatus with %+v", args)
+func (u *LXDProfileAPI) UpgradeCharmProfileUnitStatus(args params.Entities) (params.UpgradeCharmProfileStatusResults, error) {
+	u.logger.Tracef("Starting UpgradeCharmProfileUnitStatus with %+v", args)
 	return u.unitStatus(args)
 }
 
@@ -223,13 +223,13 @@ func (u *LXDProfileAPI) getUnit(tag names.Tag) (LXDProfileUnit, error) {
 	return u.backend.Unit(tag.Id())
 }
 
-func (u *LXDProfileAPI) unitStatus(args params.Entities) (params.LXDProfileStatusResults, error) {
+func (u *LXDProfileAPI) unitStatus(args params.Entities) (params.UpgradeCharmProfileStatusResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.LXDProfileStatusResults{}, err
+		return params.UpgradeCharmProfileStatusResults{}, err
 	}
 
-	results := make([]params.LXDProfileStatusResult, len(args.Entities))
+	results := make([]params.UpgradeCharmProfileStatusResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -245,12 +245,12 @@ func (u *LXDProfileAPI) unitStatus(args params.Entities) (params.LXDProfileStatu
 			results[i].Error = ServerError(err)
 			continue
 		}
-		status, err := unit.LXDProfileStatus()
+		status, err := unit.UpgradeCharmProfileStatus()
 		if err != nil {
 			results[i].Error = ServerError(err)
 			continue
 		}
 		results[i].Status = status
 	}
-	return params.LXDProfileStatusResults{Results: results}, nil
+	return params.UpgradeCharmProfileStatusResults{Results: results}, nil
 }

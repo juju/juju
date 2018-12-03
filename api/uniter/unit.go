@@ -651,10 +651,10 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, err
 	return u.st.WatchLXDProfileUpgradeNotifications()
 }
 
-// LXDProfileStatus returns the lxd profile status of a unit from a remote
+// UpgradeCharmProfileStatus returns the lxd profile status of a unit from a remote
 // state
-func (u *Unit) LXDProfileStatus() (string, error) {
-	res, err := u.st.LXDProfileUnitStatus()
+func (u *Unit) UpgradeCharmProfileStatus() (string, error) {
+	res, err := u.st.UpgradeCharmProfileUnitStatus()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/core/lxdprofile"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -22,7 +24,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -1940,14 +1941,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 func (m *Machine) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
 	machineIds := set.NewStrings()
 	machineIds.Add(m.doc.DocID)
-
-	accessor := func(doc instanceCharmProfileData) string {
-		return doc.UpgradeCharmProfileComplete
-	}
-	completed := func(previousField, currentField string) bool {
-		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
-	}
-	return newMachineFieldChangeWatcher(m.st, machineIds, accessor, completed), nil
+	return newMachineFieldChangeWatcher(m.st, machineIds), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
@@ -1960,14 +1954,7 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	machineIds.Add(m.doc.DocID)
-
-	accessor := func(doc instanceCharmProfileData) string {
-		return doc.UpgradeCharmProfileComplete
-	}
-	completed := func(previousField, currentField string) bool {
-		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
-	}
-	return newMachineFieldChangeWatcher(u.st, machineIds, accessor, completed), nil
+	return newMachineFieldChangeWatcher(u.st, machineIds), nil
 }
 
 // machineFieldChangeWatcher notifies about machine changes where a
@@ -1980,24 +1967,16 @@ type machineFieldChangeWatcher struct {
 	// members is used to select the initial set of interesting entities.
 	members set.Strings
 	known   map[string]string
-	// accessor is used to extract the field from the machine doc in a generic
-	// way.
-	accessor func(instanceCharmProfileData) string
-	// completed is used to determine if the state watched for has
-	// occurred
-	completed func(string, string) bool
-	out       chan struct{}
+	out     chan struct{}
 }
 
 var _ Watcher = (*machineFieldChangeWatcher)(nil)
 
-func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, accessor func(instanceCharmProfileData) string, completed func(string, string) bool) NotifyWatcher {
+func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings) NotifyWatcher {
 	w := &machineFieldChangeWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		members:       members,
 		known:         make(map[string]string),
-		accessor:      accessor,
-		completed:     completed,
 		out:           make(chan struct{}),
 	}
 	w.tomb.Go(func() error {
@@ -2010,22 +1989,22 @@ func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, acc
 func (w *machineFieldChangeWatcher) initial() (set.Strings, error) {
 	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
 	defer machinesCloser()
-	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceCloser()
+
+	instanceDataCol, instanceDataCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceDataCloser()
 
 	var doc machineDoc
 	machineIds := make(set.Strings)
 	iter := machinesCol.Find(bson.D{{"_id", bson.D{{"$in", w.members.Values()}}}}).Iter()
 	for iter.Next(&doc) {
+		// Is this the right initial state?
+		docField := lxdprofile.NotRequiredStatus
+
 		var instanceData instanceCharmProfileData
-		if err := instanceDataCol.FindId(doc.DocID).One(&instanceData); err != nil {
-			continue
+		if err := instanceDataCol.FindId(doc.DocID).One(&instanceData); err == nil {
+			docField = instanceData.UpgradeCharmProfileComplete
 		}
 
-		docField := w.accessor(instanceData)
-		if w.completed("", docField) {
-			continue
-		}
 		w.known[doc.DocID] = docField
 		machineIds.Add(doc.DocID)
 	}
@@ -2033,36 +2012,31 @@ func (w *machineFieldChangeWatcher) initial() (set.Strings, error) {
 }
 
 func (w *machineFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
+	machineId := change.Id.(string)
 	if change.Revno == -1 {
+		delete(w.known, machineId)
+		machineIds.Remove(machineId)
 		return nil
 	}
-	var doc machineDoc
-	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
-	defer machinesCloser()
-
-	if err := machinesCol.FindId(change.Id).One(&doc); err != nil {
-		return err
-	}
-
 	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
 	defer instanceCloser()
 
 	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.FindId(change.Id).One(&instanceData); err != nil {
-		return err
+	if err := instanceDataCol.FindId(machineId).One(&instanceData); err != nil {
+		if err != mgo.ErrNotFound {
+			return err
+		}
+		delete(w.known, machineId)
+		machineIds.Remove(machineId)
+		return nil
 	}
 
 	// check the field before adding to the machineId
-	currentField := w.accessor(instanceData)
-	previousField, ok := w.known[doc.DocID]
-	if !ok || w.completed(previousField, currentField) {
-		machineIds.Remove(doc.DocID)
-		return nil
+	currentField := instanceData.UpgradeCharmProfileComplete
+	previousField, ok := w.known[machineId]
+	if !ok || previousField != currentField {
+		machineIds.Add(machineId)
 	}
-	if !machineIds.Contains(doc.DocID) && currentField != previousField {
-		machineIds.Add(doc.DocID)
-	}
-	w.known[doc.DocID] = currentField
 	return nil
 }
 
@@ -2091,11 +2065,7 @@ func (w *machineFieldChangeWatcher) loop() error {
 			}
 			if !machineIds.IsEmpty() {
 				out = w.out
-				continue
 			}
-			// force a final request from the client
-			w.out <- struct{}{}
-			return nil
 		case out <- struct{}{}:
 			out = nil
 		}

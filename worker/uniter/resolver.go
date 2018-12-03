@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
@@ -26,6 +26,7 @@ type ResolverConfig struct {
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
 	UpgradeSeries       resolver.Resolver
+	UpgradeCharmProfile resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
 	Relations           resolver.Resolver
@@ -70,13 +71,14 @@ func (s *uniterResolver) NextOp(
 		if localState.Conflicted {
 			return s.nextOpConflicted(localState, remoteState, opFactory)
 		}
-		// Ensure the lxd profile is installed, before we move to upgrading
-		// of the charm.
-		// TODO (stickupkid): we should potentially work out if Upgrade can
-		// be it's own encapsulated resolver.
-		if !lxdprofile.UpgradeStatusTerminal(localState.LXDProfileStatus) {
-			return nil, resolver.ErrNoOperation
+		op, err = s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
+		if errors.Cause(err) != resolver.ErrNoOperation {
+			if errors.Cause(err) == upgradecharmprofile.ErrDoNotProceed {
+				return nil, resolver.ErrNoOperation
+			}
+			return op, err
 		}
+		// continue upgrading the charm
 		logger.Infof("resuming charm upgrade")
 		return opFactory.NewUpgrade(localState.CharmURL)
 	}
@@ -287,6 +289,13 @@ func (s *uniterResolver) nextOp(
 	// inform the uniter workers to run the upgrade hook.
 	if charmModified(localState, remoteState) {
 		if s.config.ModelType == model.IAAS {
+			op, err := s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
+			if errors.Cause(err) != resolver.ErrNoOperation {
+				if errors.Cause(err) == upgradecharmprofile.ErrDoNotProceed {
+					return nil, resolver.ErrNoOperation
+				}
+				return op, err
+			}
 			return opFactory.NewUpgrade(remoteState.CharmURL)
 		}
 		return opFactory.NewNoOpUpgrade(remoteState.CharmURL)

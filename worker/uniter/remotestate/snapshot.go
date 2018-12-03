@@ -82,8 +82,9 @@ type Snapshot struct {
 	// series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
 
-	// LXDProfileStatus for the currently running unit
-	LXDProfileStatus string
+	// UpgradeCharmProfileStatus represents the current upgrade charm profile
+	// status for the currently running unit
+	UpgradeCharmProfileStatus string
 }
 
 type RelationSnapshot struct {
