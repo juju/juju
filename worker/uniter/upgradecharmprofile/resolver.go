@@ -4,8 +4,6 @@
 package upgradecharmprofile
 
 import (
-	"errors"
-
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -14,11 +12,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.upgradecharmprofile")
-
-// ErrDoNotProceed is used to distinguish behaviour from
-// resolver.ErrNoOperation. i.e do not run any operations versus
-// this resolver has no operations to run.
-var ErrDoNotProceed = errors.New("do not proceed")
 
 type upgradeCharmProfileResolver struct{}
 
@@ -34,7 +27,7 @@ func (l *upgradeCharmProfileResolver) NextOp(
 	// Ensure the lxd profile is installed, before we move to upgrading
 	// of the charm.
 	if !lxdprofile.UpgradeStatusTerminal(remoteState.UpgradeCharmProfileStatus) {
-		return nil, ErrDoNotProceed
+		return nil, resolver.ErrDoNotProceed
 	}
 	// If the upgrade status is in an error state, we should log it out
 	// to the operator.

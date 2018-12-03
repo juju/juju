@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
 // ResolverConfig defines configuration for the uniter resolver.
@@ -61,7 +59,7 @@ func (s *uniterResolver) NextOp(
 	// has completed preparation and is waiting for upgrade completion.
 	op, err := s.config.UpgradeSeries.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
-		if errors.Cause(err) == upgradeseries.ErrDoNotProceed {
+		if errors.Cause(err) == resolver.ErrDoNotProceed {
 			return nil, resolver.ErrNoOperation
 		}
 		return op, err
@@ -73,7 +71,7 @@ func (s *uniterResolver) NextOp(
 		}
 		op, err = s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
-			if errors.Cause(err) == upgradecharmprofile.ErrDoNotProceed {
+			if errors.Cause(err) == resolver.ErrDoNotProceed {
 				return nil, resolver.ErrNoOperation
 			}
 			return op, err
@@ -291,7 +289,7 @@ func (s *uniterResolver) nextOp(
 		if s.config.ModelType == model.IAAS {
 			op, err := s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
 			if errors.Cause(err) != resolver.ErrNoOperation {
-				if errors.Cause(err) == upgradecharmprofile.ErrDoNotProceed {
+				if errors.Cause(err) == resolver.ErrDoNotProceed {
 					return nil, resolver.ErrNoOperation
 				}
 				return op, err
