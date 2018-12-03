@@ -946,7 +946,9 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 	return modelUsers, nil
 }
 
-func (m *Model) isControllerModel() bool {
+// IsControllerModel indicates whether this model is
+// the controller model.
+func (m *Model) IsControllerModel() bool {
 	return m.st.controllerModelTag.Id() == m.doc.UUID
 }
 
@@ -1160,7 +1162,7 @@ func (m *Model) destroyOps(
 		}
 	}
 
-	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
+	if m.IsControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
 		// This is the controller model, and we've not been instructed
 		// to destroy hosted models, or we've not been instructed to
 		// destroy storage.
@@ -1274,7 +1276,7 @@ func (m *Model) destroyOps(
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
-	if m.isControllerModel() {
+	if m.IsControllerModel() {
 		ops = append(ops, newCleanupOp(
 			cleanupModelsForDyingController, modelUUID,
 			// pass through the DestroyModelArgs to the cleanup,
