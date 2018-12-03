@@ -534,6 +534,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		Name:          conf.Name(),
 		Type:          string(model.Type()),
 		UUID:          model.UUID(),
+		IsController:  model.IsControllerModel(),
 		OwnerTag:      model.Owner().String(),
 		Life:          params.Life(model.Life().String()),
 	}
