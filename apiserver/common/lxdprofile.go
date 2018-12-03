@@ -86,7 +86,7 @@ type lxdProfileMachine struct {
 	*state.Machine
 }
 
-// Units maintains the UpgradeSeriesMachine indirection by wrapping the call to
+// Units maintains the LXDProfileMachine indirection by wrapping the call to
 // state.Machine.Units().
 func (m *lxdProfileMachine) Units() ([]LXDProfileUnit, error) {
 	units, err := m.Machine.Units()
@@ -119,7 +119,8 @@ func NewExternalLXDProfileAPI(
 	)
 }
 
-// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing changes to upgrade series locks.
+// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing
+// changes to the lxd profile changes.
 func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	u.logger.Tracef("Starting WatchLXDProfileUpgradeNotifications with %+v", args)
 	result := params.NotifyWatchResults{

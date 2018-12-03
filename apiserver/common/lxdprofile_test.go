@@ -34,7 +34,7 @@ func (s *lxdProfileSuite) SetUpTest(c *gc.C) {
 	s.unitTag2 = names.NewUnitTag("redis/1")
 }
 
-func (s *lxdProfileSuite) assertBackendApi(c *gc.C, tag names.Tag) (*common.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
+func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*common.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: tag,
@@ -67,7 +67,7 @@ func (s *lxdProfileSuite) assertBackendApi(c *gc.C, tag names.Tag) (*common.LXDP
 }
 
 func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
+	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
 	defer ctrl.Finish()
 
 	lxdProfileWatcher := &mockNotifyWatcher{
@@ -98,7 +98,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 }
 
 func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendApi(c, s.machineTag1)
+	api, ctrl, mockBackend := s.assertBackendAPI(c, s.machineTag1)
 	defer ctrl.Finish()
 
 	mockMachine := mocks.NewMockLXDProfileMachine(ctrl)
@@ -129,7 +129,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 }
 
 func (s *lxdProfileSuite) TestLXDProfileStatusUnitTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
+	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
 	defer ctrl.Finish()
 
 	mockUnit := mocks.NewMockLXDProfileUnit(ctrl)
