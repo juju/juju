@@ -1817,6 +1817,7 @@ cloudsigma
 google                                        
 joyent                                        
 oracle                                        
+oracle-classic                                
 rackspace                                     
 localhost                                     
 dummy-cloud                      joe          home
