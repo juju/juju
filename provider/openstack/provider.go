@@ -1148,7 +1148,8 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 				break
 			}
 			if server == nil {
-				continue
+				logger.Warningf("may have lost contact with nova api while creating instances, some stray instances may be around and need to be deleted")
+				break
 			}
 			var serverDetail *nova.ServerDetail
 			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
@@ -1164,7 +1165,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 				if serverDetail.Fault != nil {
 					faultMsg = fmt.Sprintf(" with fault %q", serverDetail.Fault.Message)
 				} else {
-					logger.Debugf("getting activer server details from nova failed without fault details")
+					logger.Debugf("getting active server details from nova failed without fault details")
 				}
 				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
 				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
