@@ -5,9 +5,11 @@ package charmrevisionupdater
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -129,11 +131,18 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		if curl.Schema == "local" {
 			continue
 		}
+
+		archs, err := deployedArchs(application)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		cid := charmstore.CharmID{
 			URL:     curl,
 			Channel: application.Channel(),
 			Metadata: map[string]string{
 				"series": application.Series(),
+				"arch":   strings.Join(archs, ","),
 			},
 		}
 		charms = append(charms, cid)
@@ -173,4 +182,27 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		})
 	}
 	return latest, nil
+}
+
+func deployedArchs(app *state.Application) ([]string, error) {
+	machines, err := app.DeployedMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	archs := set.NewStrings()
+	for _, m := range machines {
+		hw, err := m.HardwareCharacteristics()
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return nil, errors.Trace(err)
+		}
+		arch := hw.Arch
+		if arch != nil && *arch != "" {
+			archs.Add(*arch)
+		}
+	}
+	return archs.SortedValues(), nil
 }

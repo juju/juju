@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/utils/arch"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -130,7 +132,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
+func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsNotVisible(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
@@ -186,6 +188,7 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	cloud, err := s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedHeader := []string{
+		"arch=" + arch.HostArch(),
 		"cloud=" + model.Cloud(),
 		"cloud_region=" + model.CloudRegion(),
 		"controller_uuid=" + s.State.ControllerUUID(),

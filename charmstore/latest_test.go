@@ -45,9 +45,9 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	eggs := charm.MustParseURL("cs:quantal/eggs-2")
 	ham := charm.MustParseURL("cs:quantal/ham-1")
 	charms := []CharmID{
-		{URL: spam, Channel: "stable", Metadata: map[string]string{"series": "quantal"}},
-		{URL: eggs, Channel: "stable", Metadata: map[string]string{"series": "quantal"}},
-		{URL: ham, Channel: "stable", Metadata: map[string]string{"series": "quantal"}},
+		{URL: spam, Channel: "stable", Metadata: map[string]string{"series": "quantal", "arch": "amd64,arm64"}},
+		{URL: eggs, Channel: "stable", Metadata: map[string]string{"series": "quantal", "arch": "amd64,arm64"}},
+		{URL: ham, Channel: "stable", Metadata: map[string]string{"series": "quantal", "arch": "amd64,arm64"}},
 	}
 	notFound := errors.New("not found")
 	s.lowLevel.ReturnLatestStable = [][]params.CharmRevision{{{
@@ -83,6 +83,8 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	header := []string{
+		"arch=amd64",
+		"arch=arm64",
 		"cloud=foocloud",
 		"cloud_region=fooregion",
 		"controller_uuid=controlleruuid",

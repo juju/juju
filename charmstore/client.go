@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,7 +28,7 @@ var logger = loggo.GetLogger("juju.charmstore")
 // more available to tools outside juju-core).
 
 // MacaroonCache represents a value that can store and retrieve macaroons for
-// charms.  It is used when we are requesting data from the charmstore for
+// charms. It is used when we are requesting data from the charmstore for
 // private charms.
 type MacaroonCache interface {
 	Set(*charm.URL, macaroon.Slice) error
@@ -107,7 +108,7 @@ type Client struct {
 }
 
 // CharmRevision holds the data returned from the charmstore about the latest
-// revision of a charm.  Note that this may be different per channel.
+// revision of a charm. Note that this may be different per channel.
 type CharmRevision struct {
 	// Revision is newest revision for the charm.
 	Revision int
@@ -144,6 +145,17 @@ func makeMetadataHeader(modelMetadata, charmMetadata map[string]string) map[stri
 	}
 
 	headers := make([]string, 0, len(modelMetadata)+len(charmMetadata))
+
+	// We expect the deployed architecture for a charm to be singular,
+	// but it is possible for deployment across multiple architectures.
+	// We need to handle this, which violates the general case following.
+	if arch, ok := charmMetadata["arch"]; ok {
+		for _, a := range strings.Split(arch, ",") {
+			headers = append(headers, fmt.Sprintf("arch=%s", a))
+		}
+		delete(charmMetadata, "arch")
+	}
+
 	addHeaders := func(metadata map[string]string) {
 		for k, v := range metadata {
 			headers = append(headers, fmt.Sprintf("%s=%s", k, v))
@@ -292,7 +304,7 @@ func (c csclientImpl) ListResources(channel csparams.Channel, id *charm.URL) ([]
 	return client.ListResources(id)
 }
 
-// Getresource downloads the bytes and some metadata about the bytes for the revisioned resource.
+// GetResource downloads the bytes and some metadata about the bytes for the revisioned resource.
 func (c csclientImpl) GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
 	client := c.WithChannel(channel)
 	return client.GetResource(id, name, revision)
