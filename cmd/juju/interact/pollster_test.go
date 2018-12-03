@@ -66,6 +66,21 @@ func (PollsterSuite) TestSelectDefault(c *gc.C) {
 	c.Assert(w.String(), jc.Contains, `Select apple [macintosh]: `)
 }
 
+func (PollsterSuite) TestSelectDefaultIfOnlyOption(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	s, err := p.Select(List{
+		Singular: "apple",
+		Plural:   "apples",
+		Options:  []string{"macintosh"},
+		Default:  "macintosh",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s, gc.Equals, "macintosh")
+	c.Assert(w.String(), jc.Contains, `Select apple [macintosh]: `)
+}
+
 func (PollsterSuite) TestSelectIncorrect(c *gc.C) {
 	r := strings.NewReader("mac\nmacintosh")
 	w := &bytes.Buffer{}
@@ -140,6 +155,36 @@ func (PollsterSuite) TestMultiSelectDefault(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vals, jc.SameContents, []string{"gala", "granny smith"})
+}
+
+func (PollsterSuite) TestMultiSelectDefaultIfOnlyOne(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	vals, err := p.MultiSelect(MultiList{
+		Singular: "apple",
+		Plural:   "apples",
+		Options:  []string{"macintosh"},
+		Default:  []string{"macintosh"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vals, jc.SameContents, []string{"macintosh"})
+	c.Assert(w.String(), gc.Equals, "Apples\n  macintosh\n\n")
+}
+
+func (PollsterSuite) TestMultiSelectWithMultipleDefaults(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	vals, err := p.MultiSelect(MultiList{
+		Singular: "apple",
+		Plural:   "apples",
+		Options:  []string{"macintosh", "gala"},
+		Default:  []string{"macintosh", "gala"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vals, jc.SameContents, []string{"macintosh", "gala"})
+	c.Assert(w.String(), jc.Contains, "Select one or more apples separated by commas [macintosh, gala]: \n")
 }
 
 func (PollsterSuite) TestMultiSelectOneError(c *gc.C) {
