@@ -38,6 +38,7 @@ def assess_juju_upgrade_series(client, args):
     reboot_machine(client, target_machine)
     upgrade_series_complete(client, target_machine)
     assert_correct_series(client, target_machine, args.to_series)
+    set_application_series(client, "dummy-subordinate", args.to_series)
 
 
 def upgrade_series_prepare(client, machine, series, **flags):
@@ -77,6 +78,10 @@ def reboot_machine(client, machine):
 
     log.info("wait_for_started()")
     client.wait_for_started()
+
+def set_application_series(client, application, series)
+    args = (application, series)
+    client.juju('set-series', args)
 
 
 def build_ssh_cmd(client, machine, command):
