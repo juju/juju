@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"time"
 
+	testclock "github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -37,7 +38,8 @@ type DestroySuite struct {
 	stub            *jutesting.Stub
 	budgetAPIClient *mockBudgetAPIClient
 	store           *jujuclient.MemStore
-	sleep           func(time.Duration)
+
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&DestroySuite{})
@@ -45,11 +47,12 @@ var _ = gc.Suite(&DestroySuite{})
 // fakeDestroyAPI mocks out the client API
 type fakeAPI struct {
 	*jutesting.Stub
-	err             error
-	env             map[string]interface{}
-	statusCallCount int
-	bestAPIVersion  int
-	modelInfoErr    []*params.Error
+	err                error
+	env                map[string]interface{}
+	statusCallCount    int
+	bestAPIVersion     int
+	modelInfoErr       []*params.Error
+	modelStatusPayload []base.ModelStatus
 }
 
 func (f *fakeAPI) Close() error { return nil }
@@ -74,16 +77,20 @@ func (f *fakeAPI) ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, err
 		err = &params.Error{Code: params.CodeNotFound}
 	}
 	f.statusCallCount++
-	return []base.ModelStatus{{
-		Volumes: []base.Volume{
-			{Detachable: true},
-			{Detachable: true},
-		},
-		Filesystems: []base.Filesystem{{Detachable: true}},
-	}}, err
+
+	if f.modelStatusPayload == nil {
+		f.modelStatusPayload = []base.ModelStatus{{
+			Volumes: []base.Volume{
+				{Detachable: true},
+				{Detachable: true},
+			},
+			Filesystems: []base.Filesystem{{Detachable: true}},
+		}}
+	}
+	return f.modelStatusPayload, err
 }
 
-// faceConfiAPI mocks out the ModelConfigAPI.
+// fakeConfigAPI mocks out the ModelConfigAPI.
 type fakeConfigAPI struct {
 	err      error
 	slaLevel string
@@ -104,6 +111,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.configAPI = &fakeConfigAPI{}
 	s.storageAPI = &mockStorageAPI{Stub: s.stub}
+	s.clock = testclock.NewClock(time.Now())
 
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "test1"
@@ -117,7 +125,6 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
 		User: "admin",
 	}
-	s.sleep = func(time.Duration) {}
 
 	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.PatchValue(model.GetBudgetAPIClient,
@@ -127,12 +134,12 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, noOpRefresh, s.store, s.sleep)
+	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, noOpRefresh, s.store)
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
-	return model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, noOpRefresh, s.store, s.sleep)
+	return model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, noOpRefresh, s.store)
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
@@ -169,7 +176,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 		return nil
 	}
 
-	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, refresh, s.store, s.sleep)
+	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, refresh, s.store)
 	_, err := cmdtesting.RunCommand(c, cmd, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `model test1:admin/foo not found`)
@@ -370,6 +377,67 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 		// Add the test2 model back into the store for the next test
 		s.resetModel(c)
+	}
+}
+
+func (s *DestroySuite) TestDestroyCommandWait(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+
+	s.api.modelInfoErr = []*params.Error{nil, nil}
+	s.api.modelStatusPayload = []base.ModelStatus{{
+		ApplicationCount:   2,
+		HostedMachineCount: 1,
+		Volumes: []base.Volume{
+			{Detachable: true, Status: "error", Message: "failed to destroy volume 0", Id: "0"},
+			{Detachable: true, Status: "error", Message: "failed to destroy volume 1", Id: "1"},
+			{Detachable: true, Status: "error", Message: "failed to destroy volume 2", Id: "2"},
+		},
+		Filesystems: []base.Filesystem{
+			{Detachable: true, Status: "error", Message: "failed to destroy filesystem 0", Id: "0"},
+			{Detachable: true, Status: "error", Message: "failed to destroy filesystem 1", Id: "1"},
+		},
+	}}
+
+	done := make(chan struct{}, 1)
+	outErr := make(chan error, 1)
+	outStdOut := make(chan string, 1)
+	outStdErr := make(chan string, 1)
+
+	go func() {
+		// run destroy model cmd, and timeout in 3s.
+		ctx, err := s.runDestroyCommand(c, "test2", "-y", "-t", "3s")
+		outStdOut <- cmdtesting.Stdout(ctx)
+		outStdErr <- cmdtesting.Stderr(ctx)
+		outErr <- err
+		done <- struct{}{}
+	}()
+
+	c.Assert(s.clock.WaitAdvance(5*time.Second, testing.LongWait, 2), jc.ErrorIsNil)
+
+	select {
+	case <-done:
+		c.Assert(<-outStdErr, gc.Equals, `
+Destroying model
+Waiting on model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)...
+Waiting on model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)...
+`[1:])
+		c.Assert(<-outStdOut, gc.Equals, `
+
+The following errors were encountered during destroying the model.
+You can fix the problem causing the errors and run destroy-model again.
+
+Resource    Id  Message
+Filesystem  0   failed to destroy filesystem 0
+            1   failed to destroy filesystem 1
+Volume      0   failed to destroy volume 0
+            1   failed to destroy volume 1
+            2   failed to destroy volume 2
+`[1:])
+		// timeout after 3s.
+		c.Assert(<-outErr, jc.Satisfies, errors.IsTimeout)
+		checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for destroy cmd.")
 	}
 }
 

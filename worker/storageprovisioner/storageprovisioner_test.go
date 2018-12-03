@@ -1678,15 +1678,15 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 	})
 
 	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
-		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
+		{Tag: "volume-1", Status: "error", Info: "destroying volume: badness"},
 	})
 }
 
@@ -1765,6 +1765,86 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 		provisionedReleaseFilesystem,
 	})
 	assertNoEvent(c, removedChan, "filesystems removed")
+}
+
+func (s *storageProvisionerSuite) TestDestroyFilesystemsRetry(c *gc.C) {
+	provisionedDestroyFilesystem := names.NewFilesystemTag("0")
+
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionFilesystem(provisionedDestroyFilesystem)
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		return []params.LifeResult{{Life: params.Dead}}, nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var destroyFilesystemTimes []time.Time
+	s.provider.destroyFilesystemsFunc = func(filesystemIds []string) ([]error, error) {
+		destroyFilesystemTimes = append(destroyFilesystemTimes, clock.Now())
+		if len(destroyFilesystemTimes) < 10 {
+			return []error{errors.New("destroyFilesystems failed, please retry later")}, nil
+		}
+		return []error{nil}, nil
+	}
+
+	removedChan := make(chan interface{}, 1)
+	remove := func(tags []names.Tag) ([]params.ErrorResult, error) {
+		removedChan <- tags
+		return make([]params.ErrorResult, len(tags)), nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		clock:       clock,
+		life: &mockLifecycleManager{
+			life:   life,
+			remove: remove,
+		},
+		registry: s.registry,
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.filesystemsWatcher.changes <- []string{
+		provisionedDestroyFilesystem.Id(),
+	}
+
+	waitChannel(c, removedChan, "waiting for filesystem to be removed")
+	c.Assert(destroyFilesystemTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(destroyFilesystemTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(destroyFilesystemTimes)-1)
+	for i := range destroyFilesystemTimes[1:] {
+		delays[i] = destroyFilesystemTimes[i+1].Sub(destroyFilesystemTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+		{Tag: "filesystem-0", Status: "error", Info: "removing filesystem: destroyFilesystems failed, please retry later"},
+	})
 }
 
 type caasStorageProvisionerSuite struct {

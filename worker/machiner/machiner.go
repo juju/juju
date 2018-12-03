@@ -191,7 +191,11 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			logger.Tracef("machine still has storage attached")
 			return nil
 		}
-		return errors.Annotatef(err, "%s failed to set machine to dead", mr.config.Tag)
+		err = errors.Annotatef(err, "%s failed to set machine to dead", mr.config.Tag)
+		if e := mr.machine.SetStatus(status.Error, errors.Annotate(err, "destroying machine").Error(), nil); e != nil {
+			logger.Errorf("failed to set status for error %v ", err)
+		}
+		return errors.Trace(err)
 	}
 	// Report on the machine's death. It is important that we do this after
 	// the machine is Dead, because this is the mechanism we use to clean up

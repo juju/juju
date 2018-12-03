@@ -234,8 +234,8 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.Destroying.String(),
-				Info:   err.Error(),
+				Status: status.Error.String(),
+				Info:   errors.Annotate(err, "removing filesystem").Error(),
 			})
 		}
 		return nil

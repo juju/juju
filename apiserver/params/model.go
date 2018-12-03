@@ -285,6 +285,7 @@ type ModelMachineInfo struct {
 	Hardware   *MachineHardware `json:"hardware,omitempty"`
 	InstanceId string           `json:"instance-id,omitempty"`
 	Status     string           `json:"status,omitempty"`
+	Message    string           `json:"message,omitempty"`
 	HasVote    bool             `json:"has-vote,omitempty"`
 	WantsVote  bool             `json:"wants-vote,omitempty"`
 }
@@ -305,6 +306,7 @@ type ModelVolumeInfo struct {
 	Id         string `json:"id"`
 	ProviderId string `json:"provider-id,omitempty"`
 	Status     string `json:"status,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Detachable bool   `json:"detachable,omitempty"`
 }
 
@@ -313,6 +315,7 @@ type ModelFilesystemInfo struct {
 	Id         string `json:"id"`
 	ProviderId string `json:"provider-id,omitempty"`
 	Status     string `json:"status,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Detachable bool   `json:"detachable,omitempty"`
 }
 

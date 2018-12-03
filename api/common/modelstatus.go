@@ -70,6 +70,7 @@ func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.Mo
 			Id:         in.Id,
 			ProviderId: in.ProviderId,
 			Status:     in.Status,
+			Message:    in.Message,
 			Detachable: in.Detachable,
 		}
 	}
@@ -80,6 +81,7 @@ func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.Mo
 			Id:         in.Id,
 			ProviderId: in.ProviderId,
 			Status:     in.Status,
+			Message:    in.Message,
 			Detachable: in.Detachable,
 		}
 	}
@@ -105,6 +107,7 @@ func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.Mo
 			HasVote:    mm.HasVote,
 			WantsVote:  mm.WantsVote,
 			Status:     mm.Status,
+			Message:    mm.Message,
 		}
 	}
 	return result

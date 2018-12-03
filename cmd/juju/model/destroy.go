@@ -6,8 +6,11 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -25,7 +28,9 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
+	corestatus "github.com/juju/juju/core/status"
 )
 
 const (
@@ -36,8 +41,9 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 
 // NewDestroyCommand returns a command used to destroy a model.
 func NewDestroyCommand() cmd.Command {
-	destroyCmd := &destroyCommand{}
-	destroyCmd.sleepFunc = time.Sleep
+	destroyCmd := &destroyCommand{
+		clock: jujuclock.WallClock,
+	}
 	destroyCmd.CanClearCurrentModel = true
 	return modelcmd.Wrap(
 		destroyCmd,
@@ -50,10 +56,10 @@ func NewDestroyCommand() cmd.Command {
 type destroyCommand struct {
 	modelcmd.ModelCommandBase
 
-	// sleepFunc is used when calling the timed function to get model status updates.
-	sleepFunc func(time.Duration)
+	clock jujuclock.Clock
 
 	assumeYes      bool
+	timeout        time.Duration
 	destroyStorage bool
 	releaseStorage bool
 	api            DestroyModelAPI
@@ -125,6 +131,8 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
+	f.DurationVar(&c.timeout, "t", 30*time.Minute, "Timeout before model destruction is aborted")
+	f.DurationVar(&c.timeout, "timeout", 30*time.Minute, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
 }
@@ -288,12 +296,13 @@ upgrade the controller to version 2.3 or greater.
 	}
 
 	// Wait for model to be destroyed.
-	const modelStatusPollWait = 2 * time.Second
-	modelStatus := newTimedModelStatus(ctx, api, names.NewModelTag(modelDetails.ModelUUID), c.sleepFunc)
-	modelData := modelStatus(0)
-	for modelData != nil {
-		ctx.Infof(formatDestroyModelInfo(modelData) + "...")
-		modelData = modelStatus(modelStatusPollWait)
+	if err := waitForModelDestroyed(
+		ctx, api,
+		names.NewModelTag(modelDetails.ModelUUID),
+		c.timeout,
+		c.clock,
+	); err != nil {
+		return err
 	}
 
 	// Check if the model has an sla auth.
@@ -338,42 +347,162 @@ type modelData struct {
 	applicationCount int
 	volumeCount      int
 	filesystemCount  int
+	errorCount       int
 }
 
-// newTimedModelStatus returns a function which waits a given period of time
-// before querying the API server for the status of a model.
-func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag, sleepFunc func(time.Duration)) func(time.Duration) *modelData {
-	return func(wait time.Duration) *modelData {
-		sleepFunc(wait)
-		status, err := api.ModelStatus(tag)
-		if err == nil && len(status) == 1 && status[0].Error != nil {
-			// In 2.2 an error of one model generate an error for the entire request,
-			// in 2.3 this was corrected to just be an error for the requested model.
-			err = status[0].Error
-		}
-		if err != nil {
-			if params.IsCodeNotFound(err) {
-				ctx.Infof("Model destroyed.")
-			} else {
-				ctx.Infof("Unable to get the model status from the API: %v.", err)
+func waitForModelDestroyed(
+	ctx *cmd.Context,
+	api DestroyModelAPI,
+	tag names.ModelTag,
+	timeout time.Duration,
+	clock jujuclock.Clock,
+) error {
+
+	interrupted := make(chan os.Signal, 1)
+	defer close(interrupted)
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+
+	var data *modelData
+	var erroredStatuses modelResourceErrorStatusSummary
+
+	printErrors := func() {
+		erroredStatuses.PrettyPrint(ctx.Stdout)
+	}
+
+	// no wait for 1st time.
+	intervalSeconds := 0 * time.Second
+	timeoutAfter := clock.After(timeout)
+	for {
+		select {
+		case <-interrupted:
+			ctx.Infof("ctrl+c detected, aborting...")
+			printErrors()
+			return cmd.ErrSilent
+		case <-timeoutAfter:
+			printErrors()
+			return errors.Timeoutf("timeout after %v", timeout)
+		case <-clock.After(intervalSeconds):
+			data, erroredStatuses = getModelStatus(ctx, api, tag)
+			if data == nil {
+				// model has been destroyed successfully.
+				return nil
 			}
-			return nil
-		}
-		if l := len(status); l != 1 {
-			ctx.Infof("error finding model status: expected one result, got %d", l)
-			return nil
-		}
-		return &modelData{
-			machineCount:     status[0].HostedMachineCount,
-			applicationCount: status[0].ApplicationCount,
-			volumeCount:      len(status[0].Volumes),
-			filesystemCount:  len(status[0].Filesystems),
+			ctx.Infof(formatDestroyModelInfo(data) + "...")
+			intervalSeconds = 2 * time.Second
 		}
 	}
 }
 
+type modelResourceErrorStatus struct {
+	ID, Message string
+}
+
+type modelResourceErrorStatusSummary struct {
+	Machines    []modelResourceErrorStatus
+	Filesystems []modelResourceErrorStatus
+	Volumes     []modelResourceErrorStatus
+}
+
+func (s modelResourceErrorStatusSummary) Count() int {
+	return len(s.Machines) + len(s.Filesystems) + len(s.Volumes)
+}
+
+func (s modelResourceErrorStatusSummary) PrettyPrint(writer io.Writer) error {
+	if s.Count() == 0 {
+		return nil
+	}
+
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+	w.Println(`
+The following errors were encountered during destroying the model.
+You can fix the problem causing the errors and run destroy-model again.
+`)
+	w.Println("Resource", "Id", "Message")
+	for _, resources := range []map[string][]modelResourceErrorStatus{
+		{"Machine": s.Machines},
+		{"Filesystem": s.Filesystems},
+		{"Volume": s.Volumes},
+	} {
+		for k, v := range resources {
+			resourceType := k
+			for _, r := range v {
+				w.Println(resourceType, r.ID, r.Message)
+				resourceType = ""
+			}
+		}
+	}
+	tw.Flush()
+	return nil
+}
+
+func getModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag) (*modelData, modelResourceErrorStatusSummary) {
+	var erroredStatuses modelResourceErrorStatusSummary
+
+	status, err := api.ModelStatus(tag)
+	if err == nil && len(status) == 1 && status[0].Error != nil {
+		// In 2.2 an error of one model generate an error for the entire request,
+		// in 2.3 this was corrected to just be an error for the requested model.
+		err = status[0].Error
+	}
+	if err != nil {
+		if params.IsCodeNotFound(err) {
+			ctx.Infof("Model destroyed.")
+		} else {
+			ctx.Infof("Unable to get the model status from the API: %v.", err)
+		}
+		return nil, erroredStatuses
+	}
+	isError := func(s string) bool {
+		return corestatus.Error.Matches(corestatus.Status(s))
+	}
+	for _, s := range status {
+		for _, v := range s.Machines {
+			if isError(v.Status) {
+				erroredStatuses.Machines = append(erroredStatuses.Machines, modelResourceErrorStatus{
+					ID:      v.Id,
+					Message: v.Message,
+				})
+			}
+		}
+		for _, v := range s.Filesystems {
+			if isError(v.Status) {
+				erroredStatuses.Filesystems = append(erroredStatuses.Filesystems, modelResourceErrorStatus{
+					ID:      v.Id,
+					Message: v.Message,
+				})
+			}
+		}
+		for _, v := range s.Volumes {
+			if isError(v.Status) {
+				erroredStatuses.Volumes = append(erroredStatuses.Volumes, modelResourceErrorStatus{
+					ID:      v.Id,
+					Message: v.Message,
+				})
+			}
+		}
+	}
+
+	if l := len(status); l != 1 {
+		ctx.Infof("error finding model status: expected one result, got %d", l)
+		return nil, erroredStatuses
+	}
+	return &modelData{
+		machineCount:     status[0].HostedMachineCount,
+		applicationCount: status[0].ApplicationCount,
+		volumeCount:      len(status[0].Volumes),
+		filesystemCount:  len(status[0].Filesystems),
+		errorCount:       erroredStatuses.Count(),
+	}, erroredStatuses
+}
+
 func formatDestroyModelInfo(data *modelData) string {
 	out := "Waiting on model to be removed"
+	if data.errorCount > 0 {
+		// always shows errorCount even if no machines and applications left.
+		out += fmt.Sprintf(", %d error(s)", data.errorCount)
+	}
 	if data.machineCount == 0 && data.applicationCount == 0 {
 		return out
 	}

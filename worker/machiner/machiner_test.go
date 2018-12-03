@@ -183,6 +183,12 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		err, gc.ErrorMatches,
 		"machine-123 failed to set machine to dead: cannot ensure machine is dead",
 	)
+	s.accessor.machine.CheckCall(
+		c, 7, "SetStatus",
+		status.Error,
+		"destroying machine: machine-123 failed to set machine to dead: cannot ensure machine is dead",
+		map[string]interface{}(nil),
+	)
 }
 
 func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
