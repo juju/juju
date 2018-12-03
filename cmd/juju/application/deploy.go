@@ -198,7 +198,7 @@ func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL) (
 	[]string,
 	error,
 ) {
-	return resolveCharm(a.charmRepoClient.ResolveWithChannel, cfg, url)
+	return resolveCharm(a.charmRepoClient.ResolveWithChannel, url)
 }
 
 func (a *deployAPIAdapter) Get(url *charm.URL) (charm.Charm, error) {
@@ -1464,20 +1464,15 @@ type URLResolver interface {
 // bundle. If it turns out to be a bundle, the resolved URL and
 // channel are returned. If it isn't but there wasn't a problem
 // checking it, it returns a nil charm URL.
-func resolveBundleURL(getter ModelConfigGetter, store URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
+func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
 	userRequestedURL, err := charm.ParseURL(maybeBundle)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-
-	modelCfg, err := getModelConfig(getter)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithChannel, modelCfg, userRequestedURL)
+	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithChannel, userRequestedURL)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -1493,7 +1488,7 @@ func resolveBundleURL(getter ModelConfigGetter, store URLResolver, maybeBundle s
 
 func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(apiRoot, apiRoot, c.CharmOrBundle)
+		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -1557,7 +1552,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
 		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
-			apiRoot.ResolveWithChannel, modelCfg, userRequestedURL,
+			apiRoot.ResolveWithChannel, userRequestedURL,
 		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)

@@ -682,7 +682,7 @@ func (c *upgradeCharmCommand) addCharm(
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithChannel, config, refURL)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithChannel, refURL)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

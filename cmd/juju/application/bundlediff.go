@@ -115,7 +115,7 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 	defer apiRoot.Close()
 
 	// Load up the bundle data, with includes and overlays.
-	bundle, bundleDir, err := c.readBundle(ctx, apiRoot)
+	bundle, bundleDir, err := c.readBundle(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -159,7 +159,7 @@ func (c *bundleDiffCommand) newAPIRoot() (base.APICallCloser, error) {
 	return c.NewAPIRoot()
 }
 
-func (c *bundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot base.APICallCloser) (*charm.BundleData, string, error) {
+func (c *bundleDiffCommand) readBundle(ctx *cmd.Context) (*charm.BundleData, string, error) {
 	bundleData, bundleDir, err := readLocalBundle(ctx, c.bundle)
 	// NotValid means we should try interpreting it as a charm store
 	// bundle URL.
@@ -176,7 +176,7 @@ func (c *bundleDiffCommand) readBundle(ctx *cmd.Context, apiRoot base.APICallClo
 		return nil, "", errors.Trace(err)
 	}
 	bundleURL, _, err := resolveBundleURL(
-		modelconfig.NewClient(apiRoot), charmStore, c.bundle,
+		charmStore, c.bundle,
 	)
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, "", errors.Trace(err)
