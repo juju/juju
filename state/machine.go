@@ -2217,20 +2217,6 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 // SetUpgradeCharmProfile sets a application name and a charm url for
 // machine's needing a charm profile change.  For a container only.
 func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
-	charmURL, err := charm.ParseURL(chURL)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ch, err := m.st.Charm(charmURL)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	}
-	var emptyProfile bool
-	if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
-		emptyProfile = true
-	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2240,6 +2226,20 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		life := m.Life()
 		if life == Dead || life == Dying {
 			return nil, ErrDead
+		}
+		charmURL, err := charm.ParseURL(chURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ch, err := m.st.Charm(charmURL)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+		}
+		var emptyProfile bool
+		if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
+			emptyProfile = true
 		}
 
 		provisioned := true
@@ -2272,7 +2272,7 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 			m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus),
 		}, nil
 	}
-	err = m.st.db().Run(buildTxn)
+	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		return err
 	}
@@ -2351,7 +2351,7 @@ func (m *Machine) RemoveUpgradeCharmProfileData() error {
 			return nil, jujutxn.ErrNoOperations
 		}
 		if err == nil {
-			logger.Debugf("Removing instance charm profile data %v", data)
+			logger.Debugf("Removing instance charm profile data %#v", data)
 		}
 
 		// Note: we don't care if the machine is alive or not, we do want to
