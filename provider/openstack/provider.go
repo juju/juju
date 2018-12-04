@@ -1216,9 +1216,13 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 				break
 			}
+			if server == nil {
+				logger.Warningf("may have lost contact with nova api while creating instances, some stray instances may be around and need to be deleted")
+				break
+			}
 			var serverDetail *nova.ServerDetail
 			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
-			if err != nil {
+			if err != nil || serverDetail == nil {
 				server = nil
 				break
 			} else if serverDetail.Status == nova.StatusActive {
@@ -1226,13 +1230,18 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			} else if serverDetail.Status == nova.StatusError {
 				// Perhaps there is an error case where a retry in the same AZ
 				// is a good idea.
-				logger.Infof("Instance %q in ERROR state with fault %q", server.Id, serverDetail.Fault.Message)
-				logger.Infof("Deleting instance %q in ERROR state", server.Id)
+				faultMsg := " unable to determine fault details"
+				if serverDetail.Fault != nil {
+					faultMsg = fmt.Sprintf(" with fault %q", serverDetail.Fault.Message)
+				} else {
+					logger.Debugf("getting active server details from nova failed without fault details")
+				}
+				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
 				if err = e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); err != nil {
 					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
 				}
 				server = nil
-				err = errors.New(serverDetail.Fault.Message)
+				err = errors.New(faultMsg)
 				break
 			}
 		}
@@ -1252,7 +1261,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	e.configurator.ModifyRunServerOptions(&opts)
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
-	if err != nil {
+	if err != nil || server == nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
