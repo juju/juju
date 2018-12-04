@@ -5,11 +5,12 @@ package common
 
 import (
 	"github.com/juju/errors"
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
-	names "gopkg.in/juju/names.v2"
 )
 
 // LXDProfileAPI provides common agent-side API functions

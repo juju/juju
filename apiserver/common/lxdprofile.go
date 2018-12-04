@@ -5,11 +5,12 @@ package common
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/loggo"
-	names "gopkg.in/juju/names.v2"
 )
 
 //go:generate mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/common LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
@@ -20,7 +21,7 @@ type LXDProfileBackend interface {
 }
 
 // LXDProfileMachine describes machine-receiver state methods
-// for executing a series upgrade.
+// for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
 	WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error)
 	Units() ([]LXDProfileUnit, error)
@@ -28,7 +29,7 @@ type LXDProfileMachine interface {
 }
 
 // LXDProfileUnit describes unit-receiver state methods
-// for executing a series upgrade.
+// for executing a lxd profile upgrade.
 type LXDProfileUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
@@ -159,7 +160,7 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.Entities
 
 // UpgradeCharmProfileUnitStatus returns the current preparation status of an
 // upgrading unit.
-// If no series upgrade is in progress an error is returned instead.
+// If no lxd profile upgrade is in progress an error is returned instead.
 func (u *LXDProfileAPI) UpgradeCharmProfileUnitStatus(args params.Entities) (params.UpgradeCharmProfileStatusResults, error) {
 	u.logger.Tracef("Starting UpgradeCharmProfileUnitStatus with %+v", args)
 	return u.unitStatus(args)
