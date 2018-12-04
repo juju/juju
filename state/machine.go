@@ -2215,7 +2215,8 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 }
 
 // SetUpgradeCharmProfile sets a application name and a charm url for
-// machine's needing a charm profile change.  For a container only.
+// machine's needing a charm profile change.  For an LXD container or
+// machine only.
 func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2227,6 +2228,7 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
+
 		charmURL, err := charm.ParseURL(chURL)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2237,40 +2239,56 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 				return nil, errors.Trace(err)
 			}
 		}
+
 		var emptyProfile bool
 		if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
 			emptyProfile = true
 		}
 
-		provisioned := true
-		profiles, err := m.CharmProfiles()
-		if err != nil {
-			if !errors.IsNotProvisioned(err) {
-				return nil, errors.Trace(err)
-			}
-			provisioned = false
-		}
-		// we need to ensure that the machine is provisioned before we attempt
-		// to set that the upgrade charm profile complete to not required.
-		// If the profiles are empty and there is nothing to apply, we can
-		// assume that nothing is required.
-		if len(profiles) == 0 && emptyProfile {
-			var ops []txn.Op
-			if provisioned {
-				ops = append(ops, m.checkCharmProfilesIsEmptyOp())
-			}
-			return append(ops,
-				m.SetUpgradeCharmProfileOp("", "", lxdprofile.NotRequiredStatus),
-			), nil
-		}
-		return []txn.Op{
+		ops := []txn.Op{
 			{
 				C:      machinesC,
 				Id:     m.doc.DocID,
 				Assert: isAliveDoc,
 			},
+			// TODO: lxd profile - enhance checks for this set of transactions
+			//}, {
+			//	C:      charmsC,
+			//	Id:     ch.doc.DocID,
+			//	Assert: bson.D{{"url", ch.URL()}},
+			//},
+		}
+
+		profiles, err := m.CharmProfiles()
+		if err != nil {
+			if !errors.IsNotProvisioned(err) {
+				return nil, errors.Trace(err)
+			}
+		} else {
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     m.doc.DocID,
+				Assert: bson.D{{"charm-profiles", profiles}},
+			})
+		}
+
+		// If the new charm has no profile, check to see if the application
+		// already has a profile applied to the machine, if not, we can
+		// set NotRequiredStatus.
+		if emptyProfile {
+			appliedProfileName, err := lxdprofile.MatchProfileNameByAppName(profiles, appName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if appliedProfileName == "" {
+				return append(ops,
+					m.SetUpgradeCharmProfileOp("", "", lxdprofile.NotRequiredStatus),
+				), nil
+			}
+		}
+		return append(ops,
 			m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus),
-		}, nil
+		), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {

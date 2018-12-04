@@ -146,37 +146,29 @@ func (s *MachineSuite) TestSetCharmProfile(c *gc.C) {
 	c.Assert(expectedProfiles, jc.SameContents, obtainedProfiles)
 }
 
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfileHasExisting(c *gc.C) {
+	s.testSetUpgradeCharmProfileWithoutLXDProfile(c, []string{"juju-default-appname-0"})
+	assertUpgradeCharmProfileNotRequired(c, s.machine)
+}
+
 func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C) {
+	s.testSetUpgradeCharmProfileWithoutLXDProfile(c, []string{""})
+	assertUpgradeCharmProfileNotRequired(c, s.machine)
+}
+
+func (s *MachineSuite) TestSetUpgradeCharmProfileWithoutLXDProfileForRemoval(c *gc.C) {
+	s.testSetUpgradeCharmProfileWithoutLXDProfile(c, []string{"juju-default-lxd-profile-0"})
+	assertUpgradeCharmProfileRequired(c, s.machine, "lxd-profile", "local:quantal/riak-7")
+}
+
+func (s *MachineSuite) testSetUpgradeCharmProfileWithoutLXDProfile(c *gc.C, profiles []string) {
 	m := s.machine
+	err := m.SetProvisioned("1", "fake-nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetCharmProfiles(profiles)
 
-	app := s.AddTestingApplication(c, "lxd-profile", s.AddTestingCharm(c, "lxd-profile"))
-	unit, err := app.AddUnit(state.AddUnitParams{})
+	err = m.SetUpgradeCharmProfile("lxd-profile", "local:quantal/riak-7")
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// SetUpgradeCharmProfile should clear UpgradeCharmProfileComplete value
-	err = m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
-	c.Assert(err, jc.ErrorIsNil)
-	status, err := m.UpgradeCharmProfileComplete()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "")
-
-	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/riak-7")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	appName, err := m.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appName, gc.Equals, "")
-	charmURL, err := m.UpgradeCharmProfileCharmURL()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmURL, gc.Equals, "")
-	status, err = m.UpgradeCharmProfileComplete()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "Not Required")
 }
 
 func (s *MachineSuite) TestSetUpgradeCharmProfileWithLXDProfile(c *gc.C) {
@@ -188,21 +180,10 @@ func (s *MachineSuite) TestSetUpgradeCharmProfileWithLXDProfile(c *gc.C) {
 	err = unit.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m.SetUpgradeCharmProfile("app-name", "local:quantal/quantal-lxd-profile-0")
+	err = m.SetUpgradeCharmProfile("lxd-profile", "local:quantal/quantal-lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	appName, err := m.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appName, gc.Equals, "app-name")
-	charmURL, err := m.UpgradeCharmProfileCharmURL()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmURL, gc.Equals, "local:quantal/quantal-lxd-profile-0")
-	status, err := m.UpgradeCharmProfileComplete()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "")
+	assertUpgradeCharmProfileRequired(c, m, "lxd-profile", "local:quantal/quantal-lxd-profile-0")
 }
 
 func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
@@ -226,6 +207,36 @@ func (s *MachineSuite) TestSetUpgradeCharmProfileComplete(c *gc.C) {
 	status, err := m.UpgradeCharmProfileComplete()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, lxdprofile.SuccessStatus)
+}
+
+func assertUpgradeCharmProfileNotRequired(c *gc.C, m *state.Machine) {
+	err := m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appName, err := m.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appName, gc.Equals, "")
+	charmURL, err := m.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmURL, gc.Equals, "")
+	status, err := m.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, lxdprofile.NotRequiredStatus)
+}
+
+func assertUpgradeCharmProfileRequired(c *gc.C, m *state.Machine, expectedAppName, expectedCharmURL string) {
+	err := m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedAppName, err := m.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedAppName, gc.Equals, expectedAppName)
+	obtainedCharmURL, err := m.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedCharmURL, gc.Equals, expectedCharmURL)
+	status, err := m.UpgradeCharmProfileComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, lxdprofile.EmptyStatus)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
