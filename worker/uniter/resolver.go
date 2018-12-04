@@ -72,6 +72,7 @@ func (s *uniterResolver) NextOp(
 		op, err = s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			if errors.Cause(err) == resolver.ErrDoNotProceed {
+				logger.Tracef("waiting for profile to be applied")
 				return nil, resolver.ErrNoOperation
 			}
 			return op, err
@@ -290,6 +291,7 @@ func (s *uniterResolver) nextOp(
 			op, err := s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
 			if errors.Cause(err) != resolver.ErrNoOperation {
 				if errors.Cause(err) == resolver.ErrDoNotProceed {
+					logger.Tracef("waiting for profile to be applied")
 					return nil, resolver.ErrNoOperation
 				}
 				return op, err
