@@ -28,7 +28,7 @@ type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
 	*common.UpgradeSeriesAPI
-	*common.LXDProfileAPI
+	*LXDProfileAPI
 	*StorageAccessor
 
 	LeadershipSettings *LeadershipSettingsAccessor
@@ -53,7 +53,7 @@ func newStateForVersion(
 		ModelWatcher:     common.NewModelWatcher(facadeCaller),
 		APIAddresser:     common.NewAPIAddresser(facadeCaller),
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
-		LXDProfileAPI:    common.NewLXDProfileAPI(facadeCaller, authTag),
+		LXDProfileAPI:    NewLXDProfileAPI(facadeCaller, authTag),
 		StorageAccessor:  NewStorageAccessor(facadeCaller),
 		facade:           facadeCaller,
 		unitTag:          authTag,

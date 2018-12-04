@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package uniter_test
 
 import (
 	"github.com/juju/errors"
@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lxdprofile"
 )
@@ -57,7 +57,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	)
 	facadeCaller.ReturnRawAPICaller = apitesting.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 
-	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
+	api := uniter.NewLXDProfileAPI(&facadeCaller, s.tag)
 	_, err := api.WatchLXDProfileUpgradeNotifications()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -74,7 +74,7 @@ func (s *lxdProfileSuite) TestUpgradeCharmProfileUnitStatusWithSuccess(c *gc.C) 
 		}
 		return nil
 	}
-	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
+	api := uniter.NewLXDProfileAPI(&facadeCaller, s.tag)
 	watchResult, err := api.UpgradeCharmProfileUnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -99,7 +99,7 @@ func (s *lxdProfileSuite) TestUpgradeCharmProfileUnitStatusNotFound(c *gc.C) {
 		}
 		return nil
 	}
-	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
+	api := uniter.NewLXDProfileAPI(&facadeCaller, s.tag)
 	watchResult, err := api.UpgradeCharmProfileUnitStatus()
 	c.Assert(err, gc.ErrorMatches, "testing")
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
@@ -121,7 +121,7 @@ func (s *lxdProfileSuite) TestUpgradeCharmProfileUnitStatusMultiple(c *gc.C) {
 		}
 		return nil
 	}
-	api := common.NewLXDProfileAPI(&facadeCaller, s.tag)
+	api := uniter.NewLXDProfileAPI(&facadeCaller, s.tag)
 	watchResult, err := api.UpgradeCharmProfileUnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
