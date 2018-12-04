@@ -66,6 +66,7 @@ type ModelInfo struct {
 	Users           []UserInfo
 	Machines        []Machine
 	AgentVersion    *version.Number
+	IsController    bool
 }
 
 // Status represents the status of a machine, application, or unit.

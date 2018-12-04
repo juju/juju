@@ -11,11 +11,13 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/environs/config"
 )
 
 const showModelCommandDoc = `Show information about the current or specified model.`
@@ -84,6 +86,16 @@ func (c *showModelCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *showModelCommand) Run(ctx *cmd.Context) error {
+	ctrlRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctrlAPI := controller.NewClient(ctrlRoot)
+	defer ctrlAPI.Close()
+	ctrlConfig, err := ctrlAPI.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
@@ -92,6 +104,9 @@ func (c *showModelCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	ctrlModelUUID := ctrlConfig[config.UUIDKey]
+	isControllerModel := ctrlModelUUID == modelDetails.ModelUUID
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
 
 	api, err := c.getAPI()
@@ -107,14 +122,15 @@ func (c *showModelCommand) Run(ctx *cmd.Context) error {
 	if results[0].Error != nil {
 		return results[0].Error
 	}
-	infoMap, err := c.apiModelInfoToModelInfoMap([]params.ModelInfo{*results[0].Result}, controllerName)
+
+	infoMap, err := c.apiModelInfoToModelInfoMap([]params.ModelInfo{*results[0].Result}, controllerName, isControllerModel)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return c.out.Write(ctx, infoMap)
 }
 
-func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelInfo, controllerName string) (map[string]common.ModelInfo, error) {
+func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelInfo, controllerName string, isControllerModel bool) (map[string]common.ModelInfo, error) {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	output := make(map[string]common.ModelInfo)
@@ -124,6 +140,7 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 			return nil, errors.Trace(err)
 		}
 		out.ControllerName = controllerName
+		out.IsController = isControllerModel
 		output[out.ShortName] = out
 	}
 	return output, nil
