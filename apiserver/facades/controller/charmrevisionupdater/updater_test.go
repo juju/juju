@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/utils/arch"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -130,7 +132,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
+func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsNotVisible(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
@@ -185,16 +187,19 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, err := s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
-	expected_header := []string{
-		"environment_uuid=" + model.UUID(),
-		"model_uuid=" + model.UUID(),
-		"controller_uuid=" + s.State.ControllerUUID(),
+	expectedHeader := []string{
+		"arch=" + arch.HostArch(),
 		"cloud=" + model.Cloud(),
 		"cloud_region=" + model.CloudRegion(),
-		"provider=" + cloud.Type,
+		"controller_uuid=" + s.State.ControllerUUID(),
 		"controller_version=" + version.Current.String(),
+		"environment_uuid=" + model.UUID(),
+		"is_controller=true",
+		"model_uuid=" + model.UUID(),
+		"provider=" + cloud.Type,
+		"series=quantal",
 	}
-	for i, expected := range expected_header {
+	for i, expected := range expectedHeader {
 		c.Assert(header[charmrepo.JujuMetadataHTTPHeader][i], gc.Equals, expected)
 	}
 }

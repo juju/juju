@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/version"
 )
 
 const jujuMetadataHTTPHeader = "Juju-Metadata"
@@ -24,18 +22,7 @@ func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string
 	now := time.Now().UTC()
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(charms))
-	revResults, err := client.LatestRevisions(charms, map[string][]string{
-		jujuMetadataHTTPHeader: {
-			// environment_uuid is deprecated.
-			"environment_uuid=" + metadata["model_uuid"],
-			"model_uuid=" + metadata["model_uuid"],
-			"controller_uuid=" + metadata["controller_uuid"],
-			"cloud=" + metadata["cloud"],
-			"cloud_region=" + metadata["cloud_region"],
-			"provider=" + metadata["provider"],
-			"controller_version=" + version.Current.String(),
-		},
-	})
+	revResults, err := client.LatestRevisions(charms, metadata)
 	if err != nil {
 		err = errors.Annotate(err, "while getting latest charm revision info")
 		logger.Infof(err.Error())

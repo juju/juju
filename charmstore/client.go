@@ -4,9 +4,12 @@
 package charmstore
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -25,7 +28,7 @@ var logger = loggo.GetLogger("juju.charmstore")
 // more available to tools outside juju-core).
 
 // MacaroonCache represents a value that can store and retrieve macaroons for
-// charms.  It is used when we are requesting data from the charmstore for
+// charms. It is used when we are requesting data from the charmstore for
 // private charms.
 type MacaroonCache interface {
 	Set(*charm.URL, macaroon.Slice) error
@@ -105,7 +108,7 @@ type Client struct {
 }
 
 // CharmRevision holds the data returned from the charmstore about the latest
-// revision of a charm.  Notet hat this may be different per channel.
+// revision of a charm. Note that this may be different per channel.
 type CharmRevision struct {
 	// Revision is newest revision for the charm.
 	Revision int
@@ -115,7 +118,7 @@ type CharmRevision struct {
 }
 
 // LatestRevisions returns the latest revisions of the given charms, using the given metadata.
-func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) ([]CharmRevision, error) {
+func (c Client) LatestRevisions(charms []CharmID, modelMetadata map[string]string) ([]CharmRevision, error) {
 	// Due to the fact that we cannot use multiple macaroons per API call,
 	// we need to perform one call at a time, rather than making bulk calls.
 	// We could bulk the calls that use non-private charms, but we'd still need
@@ -123,7 +126,8 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) 
 	// underlying csclient.
 	results := make([]CharmRevision, len(charms))
 	for i, cid := range charms {
-		revisions, err := c.csWrapper.Latest(cid.Channel, []*charm.URL{cid.URL}, metadata)
+		revisions, err := c.csWrapper.Latest(
+			cid.Channel, []*charm.URL{cid.URL}, makeMetadataHeader(modelMetadata, cid.Metadata))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -131,6 +135,36 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) 
 		results[i] = CharmRevision{Revision: rev.Revision, Err: rev.Err}
 	}
 	return results, nil
+}
+
+// makeMetadataHeader takes the input model and charm metadata and transforms
+// it into a header suitable for supply with a "Latest" request via the client.
+func makeMetadataHeader(modelMetadata, charmMetadata map[string]string) map[string][]string {
+	if len(modelMetadata) == 0 && len(charmMetadata) == 0 {
+		return nil
+	}
+
+	headers := make([]string, 0, len(modelMetadata)+len(charmMetadata))
+
+	// We expect the deployed architecture for a charm to be singular,
+	// but it is possible for deployment across multiple architectures.
+	// We need to handle this, which violates the general case following.
+	if arch, ok := charmMetadata["arch"]; ok {
+		for _, a := range strings.Split(arch, ",") {
+			headers = append(headers, fmt.Sprintf("arch=%s", a))
+		}
+		delete(charmMetadata, "arch")
+	}
+
+	addHeaders := func(metadata map[string]string) {
+		for k, v := range metadata {
+			headers = append(headers, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	addHeaders(modelMetadata)
+	addHeaders(charmMetadata)
+	sort.Strings(headers)
+	return map[string][]string{jujuMetadataHTTPHeader: headers}
 }
 
 // ResourceRequest is the data needed to request a resource from the charmstore.
@@ -270,7 +304,7 @@ func (c csclientImpl) ListResources(channel csparams.Channel, id *charm.URL) ([]
 	return client.ListResources(id)
 }
 
-// Getresource downloads the bytes and some metadata about the bytes for the revisioned resource.
+// GetResource downloads the bytes and some metadata about the bytes for the revisioned resource.
 func (c csclientImpl) GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
 	client := c.WithChannel(channel)
 	return client.GetResource(id, name, revision)

@@ -35,6 +35,7 @@ var _ = gc.Suite(&ModelSuite{})
 func (s *ModelSuite) TestModel(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(model.IsControllerModel(), jc.IsTrue)
 
 	expectedTag := names.NewModelTag(model.UUID())
 	c.Assert(model.Tag(), gc.Equals, expectedTag)
@@ -227,6 +228,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(model.IsControllerModel(), jc.IsFalse)
 	defer st.Close()
 
 	modelTag := names.NewModelTag(uuid)

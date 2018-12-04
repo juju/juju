@@ -45,9 +45,9 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	eggs := charm.MustParseURL("cs:quantal/eggs-2")
 	ham := charm.MustParseURL("cs:quantal/ham-1")
 	charms := []CharmID{
-		{URL: spam, Channel: "stable"},
-		{URL: eggs, Channel: "stable"},
-		{URL: ham, Channel: "stable"},
+		{URL: spam, Channel: "stable", Metadata: map[string]string{"series": "quantal", "arch": "amd64,arm64"}},
+		{URL: eggs, Channel: "stable", Metadata: map[string]string{"series": "quantal", "arch": "amd64,arm64"}},
+		{URL: ham, Channel: "stable", Metadata: map[string]string{"series": "quantal", "arch": "amd64,arm64"}},
 	}
 	notFound := errors.New("not found")
 	s.lowLevel.ReturnLatestStable = [][]params.CharmRevision{{{
@@ -70,24 +70,30 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	metadata := map[string]string{
-		"environment_uuid": "foouuid",
-		"model_uuid":       "foouuid",
-		"controller_uuid":  "controlleruuid",
-		"cloud":            "foocloud",
-		"cloud_region":     "fooregion",
-		"provider":         "fooprovider",
+		"environment_uuid":   "foouuid",
+		"model_uuid":         "foouuid",
+		"controller_uuid":    "controlleruuid",
+		"cloud":              "foocloud",
+		"cloud_region":       "fooregion",
+		"provider":           "fooprovider",
+		"controller_version": version.Current.String(),
+		"is_controller":      "false",
 	}
 	results, err := LatestCharmInfo(client, charms, metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
 	header := []string{
-		"environment_uuid=foouuid",
-		"model_uuid=foouuid",
-		"controller_uuid=controlleruuid",
+		"arch=amd64",
+		"arch=arm64",
 		"cloud=foocloud",
 		"cloud_region=fooregion",
-		"provider=fooprovider",
+		"controller_uuid=controlleruuid",
 		"controller_version=" + version.Current.String(),
+		"environment_uuid=foouuid",
+		"is_controller=false",
+		"model_uuid=foouuid",
+		"provider=fooprovider",
+		"series=quantal",
 	}
 	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{spam}, map[string][]string{"Juju-Metadata": header})
 	s.lowLevel.stableStub.CheckCall(c, 1, "Latest", params.StableChannel, []*charm.URL{eggs}, map[string][]string{"Juju-Metadata": header})
