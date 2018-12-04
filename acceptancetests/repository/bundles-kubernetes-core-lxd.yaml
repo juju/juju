@@ -1,62 +1,62 @@
 series: bionic
-description: A minimal two-machine Kubernetes cluster, appropriate for development.
-machines:
-  '0':
-    constraints: cores=2 mem=4G root-disk=16G
-    series: bionic
-  '2':
-    series: bionic
-  '1':
-    constraints: cores=4 mem=4G root-disk=16G
-    series: bionic
-services:
+applications:
   easyrsa:
-    annotations:
-      gui-x: '450'
-      gui-y: '550'
-    charm: cs:~containers/easyrsa-48
+    charm: cs:~containers/easyrsa-185
     num_units: 1
     to:
-    - 2
+    - lxd:0
+    annotations:
+      bundleURL: cs:bundle/kubernetes-core-493
+      gui-x: "450"
+      gui-y: "550"
   etcd:
-    annotations:
-      gui-x: '800'
-      gui-y: '550'
-    charm: cs:~containers/etcd-93
+    charm: cs:~containers/etcd-319
     num_units: 1
     to:
-    - '0'
+    - "0"
+    options:
+      channel: 3.2/stable
+    annotations:
+      bundleURL: cs:bundle/kubernetes-core-493
+      gui-x: "800"
+      gui-y: "550"
   flannel:
+    charm: cs:~containers/flannel-339
     annotations:
-      gui-x: '450'
-      gui-y: '750'
-    charm: cs:~containers/flannel-64
+      bundleURL: cs:bundle/kubernetes-core-493
+      gui-x: "450"
+      gui-y: "750"
   kubernetes-master:
-    annotations:
-      gui-x: '800'
-      gui-y: '850'
-    charm: cs:~containers/kubernetes-master-120
-    constraints: cores=2 mem=4G root-disk=16G
-    expose: true
+    charm: cs:~containers/kubernetes-master-522
     num_units: 1
-    options:
-      channel: 1.9/stable
     to:
-    - '0'
+    - "0"
+    expose: true
+    options:
+      channel: 1.12/stable
+    annotations:
+      bundleURL: cs:bundle/kubernetes-core-493
+      gui-x: "800"
+      gui-y: "850"
+    constraints: cpu-cores=2 mem=4096 root-disk=16384
   kubernetes-worker:
-    annotations:
-      gui-x: '100'
-      gui-y: '850'
-    charm: cs:~containers/kubernetes-worker-135
-    constraints: cores=4 mem=4G root-disk=16G
-    expose: true
+    charm: cs:~containers/kubernetes-worker-378
     num_units: 1
-    options:
-      channel: 1.9/stable
-      docker_runtime: apt
-      proxy-extra-args: proxy-mode=userspace
     to:
-    - '1'
+    - "1"
+    expose: true
+    options:
+      channel: 1.12/stable
+    annotations:
+      bundleURL: cs:bundle/kubernetes-core-493
+      gui-x: "100"
+      gui-y: "850"
+    constraints: cpu-cores=4 mem=4096 root-disk=16384
+machines:
+  "0":
+    constraints: cpu-cores=2 mem=4096 root-disk=16384
+  "1":
+    constraints: cpu-cores=4 mem=4096 root-disk=16384
 relations:
 - - kubernetes-master:kube-api-endpoint
   - kubernetes-worker:kube-api-endpoint
