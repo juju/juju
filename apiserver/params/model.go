@@ -139,9 +139,6 @@ type ModelInfo struct {
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
-	// IsController indicates whether this model is the controller model.
-	IsController bool `json:"is-controller"`
-
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"owner-tag"`
 

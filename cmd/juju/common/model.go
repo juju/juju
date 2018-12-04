@@ -99,7 +99,6 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Type:           model.ModelType(info.Type),
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
-		IsController:   info.IsController,
 		Owner:          ownerTag.Id(),
 		Life:           string(info.Life),
 		Cloud:          cloudTag.Id(),
