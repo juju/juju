@@ -4,11 +4,12 @@
 package upgradecharmprofile
 
 import (
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.upgradecharmprofile")

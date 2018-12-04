@@ -7,14 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
