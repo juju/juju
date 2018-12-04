@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
+//go:generate mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
+
 var logger = loggo.GetLogger("juju.worker.uniter.operation")
 
 // Operation encapsulates the stages of the various things the uniter can do,

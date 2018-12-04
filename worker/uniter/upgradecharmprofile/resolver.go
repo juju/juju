@@ -4,6 +4,7 @@
 package upgradecharmprofile
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -33,7 +34,12 @@ func (l *upgradeCharmProfileResolver) NextOp(
 	// If the upgrade status is in an error state, we should log it out
 	// to the operator.
 	if lxdprofile.UpgradeStatusErrorred(remoteState.UpgradeCharmProfileStatus) {
-		logger.Errorf("error upgrading lxd profile %v", remoteState.UpgradeCharmProfileStatus)
+		// This is a terminal error for the machine, as we can no longer promise
+		// to deliver the correct lxd profile on the machine; one which the
+		// operator asked for. Instead we need to error out and allow the
+		// operator to update the lxd profile before attempting to re-apply the
+		// charm.
+		return nil, errors.Errorf(remoteState.UpgradeCharmProfileStatus)
 	}
 
 	return nil, resolver.ErrNoOperation
