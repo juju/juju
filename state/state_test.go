@@ -295,9 +295,11 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 				switch e := delta.Entity.(type) {
 				case *multiwatcher.ModelInfo:
 					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
+					c.Assert(e.IsController, gc.Equals, s.State.IsController())
 					modelSeen = true
 				case *multiwatcher.MachineInfo:
 					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
+					c.Assert(e.IsController, gc.Equals, s.State.IsController())
 					c.Assert(e.Id, gc.Equals, m.Id())
 					machineSeen = true
 				}
