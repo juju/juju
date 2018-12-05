@@ -173,6 +173,19 @@ func (mr *MockFactoryMockRecorder) NewFailAction(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewFailAction", reflect.TypeOf((*MockFactory)(nil).NewFailAction), arg0)
 }
 
+// NewFinishUpgradeCharmProfile mocks base method
+func (m *MockFactory) NewFinishUpgradeCharmProfile(arg0 *charm_v6.URL) (operation.Operation, error) {
+	ret := m.ctrl.Call(m, "NewFinishUpgradeCharmProfile", arg0)
+	ret0, _ := ret[0].(operation.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewFinishUpgradeCharmProfile indicates an expected call of NewFinishUpgradeCharmProfile
+func (mr *MockFactoryMockRecorder) NewFinishUpgradeCharmProfile(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewFinishUpgradeCharmProfile", reflect.TypeOf((*MockFactory)(nil).NewFinishUpgradeCharmProfile), arg0)
+}
+
 // NewInstall mocks base method
 func (m *MockFactory) NewInstall(arg0 *charm_v6.URL) (operation.Operation, error) {
 	ret := m.ctrl.Call(m, "NewInstall", arg0)

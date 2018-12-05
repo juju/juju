@@ -85,6 +85,10 @@ type Factory interface {
 	// status of a units upgrade series.
 	NewNoOpFinishUpgradeSeries() (Operation, error)
 
+	// NewFinishUpgradeCharmProfile simply cleans up the state of the unit
+	// of a upgrade charm profile.
+	NewFinishUpgradeCharmProfile(charmURL *corecharm.URL) (Operation, error)
+
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.
