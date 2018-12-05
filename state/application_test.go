@@ -4057,3 +4057,12 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
 	c.Assert(appStatus.Message, gc.DeepEquals, "broken")
 }
+
+func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
+	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
+	app := s.AddTestingApplication(c, "legacy-charm", ch)
+	err := app.VerifySupportedSeries("precise", false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.VerifySupportedSeries("xenial", false)
+	c.Assert(err, gc.ErrorMatches, "series \"xenial\" not supported by charm \"local:precise/precise-mysql-1\", supported series are: precise")
+}
