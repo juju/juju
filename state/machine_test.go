@@ -2562,12 +2562,12 @@ func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch2 := state.AddTestingCharmMultiSeries(c, s.State, "wordpress")
-	app2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "wordpress", ch2)
-	unit2, err := app2.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit2.AssignToMachine(mach)
-	c.Assert(err, jc.ErrorIsNil)
+	// ch2 := state.AddTestingCharmMultiSeries(c, s.State, "mysql")
+	// app2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "mysql", ch2)
+	// unit2, err := app2.AddUnit(state.AddUnitParams{})
+	// c.Assert(err, jc.ErrorIsNil)
+	// err = unit2.AssignToMachine(mach)
+	// c.Assert(err, jc.ErrorIsNil)
 
 	return mach
 }
@@ -2674,12 +2674,12 @@ func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	err := mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(mach.Principals()), gc.Equals, 2)
+	c.Assert(len(mach.Principals()), gc.Equals, 1)
 
 	defer state.SetTestHooks(c, s.State,
 		jujutxn.TestHook{
 			Before: func() {
-				app, err := s.State.Application("wordpress")
+				app, err := s.State.Application("multi-series")
 				c.Assert(err, jc.ErrorIsNil)
 				unit, err := app.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
@@ -2692,7 +2692,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 	err = mach.UpdateMachineSeries("trusty", false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
-	c.Assert(len(mach.Principals()), gc.Equals, 3)
+	c.Assert(len(mach.Principals()), gc.Equals, 2)
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleSeries(c *gc.C) {
@@ -2758,7 +2758,7 @@ func (s *MachineSuite) TestVerifyUnitsSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedUnits, err := mach.Units()
 	c.Assert(err, jc.ErrorIsNil)
-	obtainedUnits, err := mach.VerifyUnitsSeries([]string{"wordpress/0", "multi-series/0"}, "trusty", false)
+	obtainedUnits, err := mach.VerifyUnitsSeries([]string{"multi-series/0"}, "trusty", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitNames(obtainedUnits), jc.SameContents, unitNames(expectedUnits))
 }

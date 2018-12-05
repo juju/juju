@@ -18,7 +18,7 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
 
-	unitIds := []string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}
+	unitIds := []string{"multi-series/0", "multi-series-subordinate/0"}
 	err = mach.CreateUpgradeSeriesLock(unitIds, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +63,7 @@ func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
 
 func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}, "xenial")
+	err := mach.CreateUpgradeSeriesLock([]string{"multi-series/0", "multi-series-subordinate/0"}, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
 	c.Assert(err, gc.ErrorMatches, "upgrade series lock for machine \".*\" already exists")
@@ -98,7 +98,7 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockUnitsChanged(c *gc.C) {
 func (s *MachineSuite) TestUpgradeSeriesTarget(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 
-	units := []string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}
+	units := []string{"multi-series/0", "multi-series-subordinate/0"}
 	err := mach.CreateUpgradeSeriesLock(units, "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -229,7 +229,7 @@ func (s *MachineSuite) TestUnitsHaveChangedFalse(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	err := mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	changed, err := state.UnitsHaveChanged(mach, []string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"})
+	changed, err := state.UnitsHaveChanged(mach, []string{"multi-series/0", "multi-series-subordinate/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changed, jc.IsFalse)
 }
