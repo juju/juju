@@ -84,7 +84,7 @@ targets.
 Since juju run creates actions, you can query for the status of commands
 started with juju run by calling "juju show-action-status --name juju-run".
 
-If you need to pass flags to the command being run, you must precede the
+If you need to pass options to the command being run, you must precede the
 command and its arguments with "--", to tell "juju run" to stop processing
 those arguments. For example:
 

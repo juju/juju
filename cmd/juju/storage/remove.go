@@ -115,7 +115,7 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 	}
 	if anyAttached {
 		ctx.Infof(`
-Use the --force flag to remove attached storage, or use
+Use the --force option to remove attached storage, or use
 "juju detach-storage" to explicitly detach the storage
 before removing.`)
 	}

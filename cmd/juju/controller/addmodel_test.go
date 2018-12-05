@@ -250,7 +250,7 @@ func (s *AddModelSuite) TestCredentialsNoDefaultCloud(c *gc.C) {
 	_, err := s.run(c, "test", "--credential", "secrets")
 	c.Assert(err, gc.ErrorMatches, `there is no default cloud defined, please specify one using:
 
-    juju add-model \[flags\] \<model-name\> cloud\[/region\]`)
+    juju add-model \[options\] \<model-name\> cloud\[/region\]`)
 }
 
 func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
@@ -322,7 +322,7 @@ to the client with:
 
     juju autoload-credentials
 
-and then run the add-model command again with the --credential flag.`[1:])
+and then run the add-model command again with the --credential option.`[1:])
 }
 
 func (s *AddModelSuite) TestCloudRegionPassedThrough(c *gc.C) {

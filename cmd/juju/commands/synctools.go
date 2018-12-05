@@ -97,7 +97,7 @@ func (c *syncToolsCommand) Init(args []string) error {
 	if c.destination != "" {
 		// Override localDir with destination as localDir now replaces destination
 		c.localDir = c.destination
-		logger.Infof("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
+		logger.Infof("Use of the --destination option is deprecated in 1.18. Please use --local-dir instead.")
 	}
 	if c.versionStr != "" {
 		var err error

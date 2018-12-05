@@ -593,11 +593,11 @@ The model has persistent storage remaining:
 	%s
 
 To destroy the storage, run the destroy-model
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `, modelName, buf.String())

@@ -32,7 +32,7 @@ type showOutputCommand struct {
 const showOutputDoc = `
 Show the results returned by an action with the given ID.  A partial ID may
 also be used.  To block until the result is known completed or failed, use
-the --wait flag with a duration, as in --wait 5s or --wait 1h.  Use --wait 0
+the --wait option with a duration, as in --wait 5s or --wait 1h.  Use --wait 0
 to wait indefinitely.  If units are left off, seconds are assumed.
 
 The default behavior without --wait is to immediately check and return; if

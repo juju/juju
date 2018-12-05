@@ -69,7 +69,7 @@ func (c *listCommand) Init(args []string) (err error) {
 		return errors.New("--filesystem and --volume can not be used together")
 	}
 	if len(args) > 0 && !c.filesystem && !c.volume {
-		return errors.New("specifying IDs only supported with --filesystem and --volume flags")
+		return errors.New("specifying IDs only supported with --filesystem and --volume options")
 	}
 	c.ids = args
 	return nil

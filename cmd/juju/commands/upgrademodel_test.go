@@ -860,7 +860,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 		"\n"+
 		"Please wait for the upgrade to complete or if there was a problem with\n"+
 		"the last upgrade that has been resolved, consider running the\n"+
-		"upgrade-model command with the --reset-previous-upgrade flag.",
+		"upgrade-model command with the --reset-previous-upgrade option.",
 	)
 }
 

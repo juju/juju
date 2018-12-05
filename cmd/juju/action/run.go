@@ -63,11 +63,11 @@ resolved before the action is enqueued.
 
 Params are validated according to the charm for the unit's application.  The
 valid params can be seen using "juju actions <application> --schema".
-Params may be in a yaml file which is passed with the --params flag, or they
+Params may be in a yaml file which is passed with the --params option, or they
 may be specified by a key.key.key...=value format (see examples below.)
 
 Params given in the CLI invocation will be parsed as YAML unless the
---string-args flag is set.  This can be helpful for values such as 'y', which
+--string-args option is set.  This can be helpful for values such as 'y', which
 is a boolean true in YAML.
 
 If --params is passed, along with key.key...=value explicit arguments, the

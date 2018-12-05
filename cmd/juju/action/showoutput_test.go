@@ -270,7 +270,7 @@ timing:
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d (model flag %v): should %s", i, modelFlag, t.should)
+			c.Logf("test %d (model option %v): should %s", i, modelFlag, t.should)
 			testRunHelper(
 				c, s,
 				makeFakeClient(

@@ -403,7 +403,7 @@ func defaultCloud(cloudClient CloudAPI) (names.CloudTag, jujucloud.Cloud, error)
 			return names.CloudTag{}, jujucloud.Cloud{}, errors.NewNotFound(nil, `
 there is no default cloud defined, please specify one using:
 
-    juju add-model [flags] <model-name> cloud[/region]`[1:])
+    juju add-model [options] <model-name> cloud[/region]`[1:])
 		}
 		return names.CloudTag{}, jujucloud.Cloud{}, errors.Trace(err)
 	}
@@ -420,7 +420,7 @@ to the client with:
 
     juju autoload-credentials
 
-and then run the add-model command again with the --credential flag.`[1:],
+and then run the add-model command again with the --credential option.`[1:],
 )
 
 var ambiguousCredentialError = errors.New(`
@@ -428,7 +428,7 @@ more than one credential is available. List credentials with:
 
     juju credentials
 
-and then run the add-model command again with the --credential flag.`[1:],
+and then run the add-model command again with the --credential option.`[1:],
 )
 
 type findCredentialParams struct {

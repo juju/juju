@@ -130,7 +130,7 @@ afterwards. To change your password, run the command
 
 If you are sure you want to log out, and it is safe to
 clear the credentials from the client, then you can run
-this command again with the "--force" flag.
+this command again with the "--force" option.
 `)
 	}
 

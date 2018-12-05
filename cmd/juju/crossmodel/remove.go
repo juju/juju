@@ -41,7 +41,7 @@ type removeCommand struct {
 const destroyOfferDoc = `
 Remove one or more application offers.
 
-If the --force flag is specified, any existing relations to the
+If the --force option is specified, any existing relations to the
 offer will also be removed.
 
 Offers to remove are normally specified by their URL.

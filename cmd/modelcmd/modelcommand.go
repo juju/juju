@@ -32,7 +32,7 @@ var ErrNoModelSpecified = errors.New(`No model in focus.
 
 Please use "juju models" to see models available to you.
 You can set current model by running "juju switch"
-or specify any other model on the command line using the "-m" flag.
+or specify any other model on the command line using the "-m" option.
 `)
 
 // ModelCommand extends cmd.Command with a SetModelName method.

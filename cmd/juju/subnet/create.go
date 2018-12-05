@@ -36,10 +36,10 @@ type CreateCommand struct {
 const createCommandDoc = `
 Creates a new subnet with a given CIDR, associated with an existing Juju
 network space, and attached to one or more availablility zones. Desired
-access for the subnet can be specified using the mutually exclusive flags
+access for the subnet can be specified using the mutually exclusive options
 --private and --public.
 
-When --private is specified (or no flags are given, as this is the default),
+When --private is specified (or no options are given, as this is the default),
 the created subnet will not allow access from outside the model and
 the available address range is only cloud-local.
 

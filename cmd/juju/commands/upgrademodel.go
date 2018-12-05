@@ -399,7 +399,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return errors.Errorf("%s\n\n"+
 					"Please wait for the upgrade to complete or if there was a problem with\n"+
 					"the last upgrade that has been resolved, consider running the\n"+
-					"upgrade-model command with the --reset-previous-upgrade flag.", err,
+					"upgrade-model command with the --reset-previous-upgrade option.", err,
 				)
 			} else {
 				return block.ProcessBlockedError(err, block.BlockChange)

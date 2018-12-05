@@ -1197,14 +1197,14 @@ type deployFn func(*cmd.Context, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
 	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
-		return errors.Errorf("flags provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
+		return errors.Errorf("options provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
 
 func (c *DeployCommand) validateCharmFlags() error {
 	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("flags provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
+		return errors.Errorf("options provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }

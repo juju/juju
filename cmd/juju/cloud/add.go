@@ -58,7 +58,7 @@ Juju stores that definition its internal cache directly after
 validating the contents.
 
 If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
-flag is required.
+option is required.
 
 A cloud definition file has the following YAML format:
 
@@ -158,7 +158,7 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	}
 	if len(args) > 1 {
 		if c.CloudFile != args[1] && c.CloudFile != "" {
-			return errors.BadRequestf("cannot specify cloud file with flag and argument")
+			return errors.BadRequestf("cannot specify cloud file with option and argument")
 		}
 		c.CloudFile = args[1]
 	}

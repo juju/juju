@@ -53,7 +53,7 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *removeCommand) Init(args []string) error {
 	switch {
 	case len(args) == 0 && !c.KeepLatest:
-		return errors.New("missing ID or --keep-latest flag")
+		return errors.New("missing ID or --keep-latest option")
 	case len(args) != 0:
 		id, args := args[0], args[1:]
 		if err := cmd.CheckEmpty(args); err != nil {
