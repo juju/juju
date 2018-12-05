@@ -54,7 +54,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	// We process common flags supported by Juju commands.
 	// To do this, we extract only those supported flags from the
 	// argument list to avoid confusing flags.Parse().
-	flags := gnuflag.NewFlagSet(cmdName, gnuflag.ContinueOnError)
+	flags := gnuflag.NewFlagSetWithFlagKnownAs(cmdName, gnuflag.ContinueOnError, "option")
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
 	jujuArgs := extractJujuArgs(args)

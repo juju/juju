@@ -797,7 +797,7 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	command := DeployCommand{}
-	flagSet := gnuflag.NewFlagSet(command.Info().Name, gnuflag.ContinueOnError)
+	flagSet := gnuflag.NewFlagSetWithFlagKnownAs(command.Info().Name, gnuflag.ContinueOnError, "option")
 	command.SetFlags(flagSet)
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
 	// Add to the slice below if a new flag is introduced which is valid for

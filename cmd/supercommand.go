@@ -49,6 +49,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 	// tests to assert that this string value is correct.
 	p.Version = current.String()
 	p.NotifyRun = runNotifier
+	p.FlagKnownAs = "option"
 	return cmd.NewSuperCommand(p)
 }
 
