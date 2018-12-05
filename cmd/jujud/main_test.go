@@ -106,12 +106,12 @@ type RemoteCommand struct {
 	msg string
 }
 
-var expectUsage = `Usage: remote [flags]
+var expectUsage = `Usage: remote [options]
 
 Summary:
 test jujuc
 
-Flags:
+Options:
 --error (= "")
     if set, fail
 
@@ -223,7 +223,7 @@ var argsTests = []struct {
 	{[]string{"remote", "--help"}, 0, expectUsage},
 	{[]string{"unknown"}, 1, "bad request: bad command: unknown\n"},
 	{[]string{"remote", "--error", "borken"}, 1, "borken\n"},
-	{[]string{"remote", "--unknown"}, 2, "flag provided but not defined: --unknown\n"},
+	{[]string{"remote", "--unknown"}, 2, "option provided but not defined: --unknown\n"},
 	{[]string{"remote", "unwanted"}, 2, `unrecognized args: ["unwanted"]` + "\n"},
 }
 
