@@ -698,8 +698,28 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
-		// Remove the charm profile.
-		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		// Do the verification and get the txns to remove the charm profile
+		// from the machine. jujutxn.ErrNoOperations means there are no actions
+		// required to remove the profile.
+		logger.Debugf("Remove charm profile from machine %s for %s", m.Id(), a.Name())
+		//profileOps, err := m.SetUpgradeCharmProfileTxns(a.Name(), "")
+		//if err == nil {
+		//	ops = append(ops, profileOps...)
+		//} else if err != jujutxn.ErrNoOperations {
+		//	return nil, err
+		//}
+		instanceData := instanceCharmProfileData{
+			DocID:                          m.doc.DocID,
+			MachineId:                      m.doc.Id,
+			UpgradeCharmProfileApplication: a.Name(),
+			UpgradeCharmProfileComplete:    lxdprofile.EmptyStatus,
+		}
+		ops = append(ops, txn.Op{
+			C:      instanceCharmProfileDataC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: instanceData,
+		})
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
