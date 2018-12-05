@@ -17,6 +17,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -54,11 +55,12 @@ type ManifoldConfig struct {
 	ClockName      string
 	CentralHubName string
 
-	FSM          *raftlease.FSM
-	RequestTopic string
-	Logger       lease.Logger
-	NewWorker    func(lease.ManagerConfig) (worker.Worker, error)
-	NewStore     func(raftlease.StoreConfig) *raftlease.Store
+	FSM               *raftlease.FSM
+	RequestTopic      string
+	Logger            lease.Logger
+	MetricsRegisterer prometheus.Registerer
+	NewWorker         func(lease.ManagerConfig) (worker.Worker, error)
+	NewStore          func(raftlease.StoreConfig) (*raftlease.Store, error)
 }
 
 // Validate checks that the config has all the required values.
@@ -80,6 +82,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.MetricsRegisterer == nil {
+		return errors.NotValidf("nil MetricsRegisterer")
 	}
 	if c.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -118,7 +123,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	source := rand.NewSource(clock.Now().UnixNano())
 	runID := rand.New(source).Int31()
 
-	s.store = s.config.NewStore(raftlease.StoreConfig{
+	store, err := s.config.NewStore(raftlease.StoreConfig{
 		FSM:          s.config.FSM,
 		Hub:          hub,
 		Trapdoor:     state.LeaseTrapdoorFunc(),
@@ -126,9 +131,14 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		ResponseTopic: func(requestID uint64) string {
 			return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)
 		},
-		Clock:          clock,
-		ForwardTimeout: ForwardTimeout,
+		Clock:             clock,
+		ForwardTimeout:    ForwardTimeout,
+		MetricsRegisterer: s.config.MetricsRegisterer,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	s.store = store
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
 	return s.config.NewWorker(lease.ManagerConfig{
@@ -181,6 +191,6 @@ func NewWorker(config lease.ManagerConfig) (worker.Worker, error) {
 }
 
 // NewStore is a shim to make a raftlease.Store for testability.
-func NewStore(config raftlease.StoreConfig) *raftlease.Store {
+func NewStore(config raftlease.StoreConfig) (*raftlease.Store, error) {
 	return raftlease.NewStore(config)
 }
