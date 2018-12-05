@@ -132,6 +132,7 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, error) {
 	var empty raftlease.ForwardResponse
 	future := w.config.Raft.Apply([]byte(command), applyTimeout)
+	w.config.Logger.Tracef("%d: after apply", w.id)
 	if err := future.Error(); err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -140,7 +141,9 @@ func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, e
 	if !ok {
 		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
 	}
+	w.config.Logger.Tracef("%d: after fsm response", w.id)
 	response.Notify(w.config.Target)
+	w.config.Logger.Tracef("%d: after notify", w.id)
 	return responseFromError(response.Error()), nil
 }
 
