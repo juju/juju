@@ -38,6 +38,7 @@ type modelStatus struct {
 	Name             string             `json:"name" yaml:"name"`
 	Type             string             `json:"type" yaml:"type"`
 	Controller       string             `json:"controller" yaml:"controller"`
+	IsController     bool               `json:"is-controller" yaml:"is-controller"`
 	Cloud            string             `json:"cloud" yaml:"cloud"`
 	CloudRegion      string             `json:"region,omitempty" yaml:"region,omitempty"`
 	Version          string             `json:"version" yaml:"version"`

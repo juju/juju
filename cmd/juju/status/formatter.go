@@ -24,6 +24,7 @@ type statusFormatter struct {
 	controllerName         string
 	relations              map[int]params.RelationStatus
 	storage                *storage.CombinedStorage
+	isControllerModel      bool
 	isoTime, showRelations bool
 }
 
@@ -42,6 +43,7 @@ type newStatusFormatterParams struct {
 	storage                *storage.CombinedStorage
 	status                 *params.FullStatus
 	controllerName         string
+	isControllerModel      bool
 	isoTime, showRelations bool
 }
 
