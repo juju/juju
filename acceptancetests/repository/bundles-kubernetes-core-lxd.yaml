@@ -4,8 +4,6 @@ machines:
   '0':
     constraints: cores=2 mem=4G root-disk=16G
     series: bionic
-  '2':
-    series: bionic
   '1':
     constraints: cores=4 mem=4G root-disk=16G
     series: bionic
@@ -14,46 +12,51 @@ services:
     annotations:
       gui-x: '450'
       gui-y: '550'
-    charm: cs:~containers/easyrsa-48
+    charm: cs:~containers/easyrsa-185
     num_units: 1
     to:
-    - 2
+    - lxd:0
   etcd:
     annotations:
       gui-x: '800'
       gui-y: '550'
-    charm: cs:~containers/etcd-93
+    charm: cs:~containers/etcd-319
     num_units: 1
+    options:
+      channel: 3.2/stable
     to:
     - '0'
   flannel:
     annotations:
       gui-x: '450'
       gui-y: '750'
-    charm: cs:~containers/flannel-64
+    charm: cs:~containers/flannel-339
+    resources:
+      flannel-amd64: 3
+      flannel-arm64: 1
+      flannel-s390x: 3
   kubernetes-master:
     annotations:
       gui-x: '800'
       gui-y: '850'
-    charm: cs:~containers/kubernetes-master-120
+    charm: cs:~containers/kubernetes-master-522
     constraints: cores=2 mem=4G root-disk=16G
     expose: true
     num_units: 1
     options:
-      channel: 1.9/stable
+      channel: 1.12/stable
     to:
     - '0'
   kubernetes-worker:
     annotations:
       gui-x: '100'
       gui-y: '850'
-    charm: cs:~containers/kubernetes-worker-135
+    charm: cs:~containers/kubernetes-worker-378
     constraints: cores=4 mem=4G root-disk=16G
     expose: true
     num_units: 1
     options:
-      channel: 1.9/stable
-      docker_runtime: apt
+      channel: 1.12/stable
       proxy-extra-args: proxy-mode=userspace
     to:
     - '1'
