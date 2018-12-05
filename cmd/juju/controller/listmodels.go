@@ -16,11 +16,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -81,6 +83,18 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
+	ctrlRoot, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctrlAPI := controller.NewClient(ctrlRoot)
+	defer ctrlAPI.Close()
+	ctrlConfig, err := ctrlAPI.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctrlModelUUID := ctrlConfig[config.UUIDKey].(string)
+
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		ctx.Infof(err.Error())
@@ -103,8 +117,9 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	c.runVars = modelsRunValues{
-		currentUser:    names.NewUserTag(c.user),
-		controllerName: controllerName,
+		currentUser:         names.NewUserTag(c.user),
+		controllerName:      controllerName,
+		controllerModelUUID: ctrlModelUUID,
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
@@ -185,6 +200,7 @@ func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerA
 			continue
 		}
 		model.ControllerName = c.runVars.controllerName
+		model.IsController = model.UUID == c.runVars.controllerModelUUID
 		summaries = append(summaries, model)
 		modelsToStore[model.Name] = jujuclient.ModelDetails{ModelUUID: model.UUID, ModelType: model.Type}
 	}
@@ -231,6 +247,7 @@ type ModelSummary struct {
 
 	ControllerUUID     string                  `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName     string                  `json:"controller-name" yaml:"controller-name"`
+	IsController       bool                    `json:"is-controller" yaml:"is-controller"`
 	Owner              string                  `json:"owner" yaml:"owner"`
 	Cloud              string                  `json:"cloud" yaml:"cloud"`
 	CloudRegion        string                  `json:"region,omitempty" yaml:"region,omitempty"`
@@ -325,10 +342,11 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 
 // These values are specific to an individual Run() of the model command.
 type modelsRunValues struct {
-	currentUser      names.UserTag
-	controllerName   string
-	hasMachinesCount bool
-	hasCoresCount    bool
+	currentUser         names.UserTag
+	controllerName      string
+	controllerModelUUID string
+	hasMachinesCount    bool
+	hasCoresCount       bool
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
