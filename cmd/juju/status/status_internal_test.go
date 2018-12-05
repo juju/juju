@@ -4445,12 +4445,13 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 	expected := M{
 		"model": M{
-			"name":       "hosted",
-			"type":       "iaas",
-			"controller": "kontroll",
-			"cloud":      "dummy",
-			"region":     "dummy-region",
-			"version":    "1.2.3",
+			"name":          "hosted",
+			"type":          "iaas",
+			"controller":    "kontroll",
+			"is-controller": false,
+			"cloud":         "dummy",
+			"region":        "dummy-region",
+			"version":       "1.2.3",
 			"model-status": M{
 				"current": "busy",
 				"since":   "01 Apr 15 01:23+10:00",
