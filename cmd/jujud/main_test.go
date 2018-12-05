@@ -63,7 +63,7 @@ func checkMessage(c *gc.C, msg string, cmd ...string) {
 func (s *MainSuite) TestParseErrors(c *gc.C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
-	msgf := "flag provided but not defined: --cheese"
+	msgf := "option provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
 	cmds := []string{"bootstrap-state", "unit", "machine"}
@@ -106,12 +106,12 @@ type RemoteCommand struct {
 	msg string
 }
 
-var expectUsage = `Usage: remote [options]
+var expectUsage = `Usage: remote [flags]
 
 Summary:
 test jujuc
 
-Options:
+Flags:
 --error (= "")
     if set, fail
 
@@ -235,7 +235,6 @@ func (s *HookToolMainSuite) TestArgs(c *gc.C) {
 		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, nil, t.args...)
 		c.Assert(output, jc.Contains, t.output)
-
 	}
 }
 

@@ -41,7 +41,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 
@@ -66,7 +66,7 @@ func (s *storageGetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-get [options] [<key>]
 
@@ -92,7 +92,7 @@ func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")

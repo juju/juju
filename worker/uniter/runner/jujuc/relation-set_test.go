@@ -37,7 +37,7 @@ func (s *RelationSetSuite) TestHelp(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, []string{"--help"})
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, fmt.Sprintf(`
 Usage: relation-set [options] key=value [key=value ...]
@@ -376,7 +376,7 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	hctx, _ := s.newHookContext(0, "")
 	com, _ := jujuc.NewCommand(hctx, cmdString("relation-set"))
-
+	com = jujuc.NewJujucCommandWrappedForTest(com)
 	// The rel= is needed to make this a valid command.
 	ctx, err := cmdtesting.RunCommand(c, com, "--format", "foo", "rel=")
 

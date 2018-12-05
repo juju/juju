@@ -284,3 +284,15 @@ func (c *cmdWrapper) Run(ctx *cmd.Context) error {
 	c.err = c.Command.Run(ctx)
 	return c.err
 }
+
+func (c *cmdWrapper) Info() *cmd.Info {
+	i := c.Command.Info()
+	return &cmd.Info{
+		Name:        i.Name,
+		Purpose:     i.Purpose,
+		Args:        i.Args,
+		Doc:         i.Doc,
+		Aliases:     i.Aliases,
+		FlagKnownAs: "option",
+	}
+}

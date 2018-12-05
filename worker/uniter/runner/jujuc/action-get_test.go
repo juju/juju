@@ -44,7 +44,7 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "ActionParams queried from non-Action hook context")
@@ -256,7 +256,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, t.out)
@@ -274,7 +274,7 @@ func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-get [options] [<key>[.<key>.<key>...]]
 

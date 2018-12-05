@@ -75,7 +75,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 
@@ -100,7 +100,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
 		"Usage: status-get [options] [--include-data] [--application]\n" +
@@ -132,7 +132,7 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -163,7 +163,7 @@ func (s *statusGetSuite) TestApplicationStatus(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--application"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--include-data", "--application"})
 	c.Assert(code, gc.Equals, 0)
 
 	var out map[string]interface{}

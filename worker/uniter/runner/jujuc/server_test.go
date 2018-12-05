@@ -232,7 +232,7 @@ func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.Ex
 func (s *ServerSuite) TestParseError(c *gc.C) {
 	resp := s.AssertBadCommand(c, []string{"remote", "--cheese"}, 2)
 	c.Assert(string(resp.Stdout), gc.Equals, "")
-	c.Assert(string(resp.Stderr), gc.Equals, "ERROR flag provided but not defined: --cheese\n")
+	c.Assert(string(resp.Stderr), gc.Equals, "ERROR option provided but not defined: --cheese\n")
 }
 
 func (s *ServerSuite) TestBrokenCommand(c *gc.C) {

@@ -46,7 +46,7 @@ func (s *ConfigGetSuite) TestOutputFormatKey(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, gc.Equals, 0)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Check(bufferString(ctx.Stdout), gc.Matches, t.out)
@@ -103,7 +103,7 @@ func (s *ConfigGetSuite) TestOutputFormatAll(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 
@@ -123,7 +123,7 @@ func (s *ConfigGetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: config-get [options] [<key>]
 
@@ -151,7 +151,7 @@ func (s *ConfigGetSuite) TestOutputPath(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--output", "some-file", "monsters"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -164,7 +164,7 @@ func (s *ConfigGetSuite) TestUnknownArg(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	cmdtesting.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
+	cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }
 
 func (s *ConfigGetSuite) TestAllPlusKey(c *gc.C) {
@@ -172,7 +172,7 @@ func (s *ConfigGetSuite) TestAllPlusKey(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("config-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--all", "--format", "json", "monsters"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--all", "--format", "json", "monsters"})
 	c.Assert(code, gc.Equals, 2)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "ERROR cannot use argument --all together with key \"monsters\"\n")
 }

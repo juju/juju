@@ -26,6 +26,7 @@ func (s *leaderGetSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.command, err = jujuc.NewLeaderGetCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.command = jujuc.NewJujucCommandWrappedForTest(s.command)
 }
 
 func (s *leaderGetSuite) TestInitError(c *gc.C) {
@@ -53,7 +54,7 @@ func (s *leaderGetSuite) TestFormatError(c *gc.C) {
 	code := cmd.Main(s.command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, `ERROR invalid value "bad" for flag --format: unknown format "bad"`+"\n")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, `ERROR invalid value "bad" for option --format: unknown format "bad"`+"\n")
 }
 
 func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
@@ -61,7 +62,7 @@ func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
-	code := cmd.Main(command, runContext, nil)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
@@ -141,7 +142,7 @@ func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Chec
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
-	code := cmd.Main(command, runContext, args)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, args)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), checker, expect)
