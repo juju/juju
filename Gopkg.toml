@@ -203,7 +203,7 @@
 
 [[override]]
   name = "github.com/armon/go-metrics"
-  revision = "93f237eba9b0602f3e73710416558854a81d9337"
+  revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
 
 [[override]]
   name = "github.com/beorn7/perks"

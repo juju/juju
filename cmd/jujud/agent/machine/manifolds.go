@@ -290,6 +290,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 
 	leaseFSM := raftlease.NewFSM()
+	raft.RegisterMetrics(config.PrometheusRegisterer)
 
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
