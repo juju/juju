@@ -231,7 +231,7 @@ var setCommandInitErrorTests = []struct {
 }, {
 	about:       "--reset and no config name provided",
 	args:        []string{"application", "--reset"},
-	expectError: "flag needs an argument: --reset",
+	expectError: "option needs an argument: --reset",
 }, {
 	about:       "cannot set and retrieve simultaneously",
 	args:        []string{"application", "get", "set=value"},

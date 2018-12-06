@@ -173,7 +173,7 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	args := []string{"-m", "testmodel"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
-	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])
+	msg := fmt.Sprintf("option provided but not defined: %v", args[0])
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
