@@ -2214,7 +2214,7 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 	return results, nil
 }
 
-// SetUpgradeCharmProfile sets a application name and a charm url for
+// SetUpgradeCharmProfile sets an application name and a charm url for
 // machine's needing a charm profile change.  For an LXD container or
 // machine only.
 func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
@@ -2259,17 +2259,32 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 			//},
 		}
 
+		provisioned := true
 		profiles, err := m.CharmProfiles()
 		if err != nil {
-			if !errors.IsNotProvisioned(err) {
+			if errors.IsNotProvisioned(err) {
+				provisioned = false
+			} else {
 				return nil, errors.Trace(err)
 			}
-		} else {
-			ops = append(ops, txn.Op{
-				C:      instanceDataC,
-				Id:     m.doc.DocID,
-				Assert: bson.D{{"charm-profiles", profiles}},
-			})
+		}
+
+		// The doc containing charm-profiles only exists after a machine
+		// is provisioned.  Even then, there is no guarantee the machine
+		// has a charm profile applied.
+		if provisioned {
+			if len(profiles) > 0 {
+				ops = append(ops, txn.Op{
+					C:      instanceDataC,
+					Id:     m.doc.DocID,
+					Assert: bson.D{{"charm-profiles", profiles}},
+				})
+			} else {
+				// "charm-profiles" is configured as omitempty,
+				// so an assert with an empty slice will fail.
+				// Do this instead.
+				ops = append(ops, m.checkCharmProfilesIsEmptyOp())
+			}
 		}
 
 		// If the new charm has no profile, check to see if the application
