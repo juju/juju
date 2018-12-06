@@ -18,10 +18,14 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -38,7 +42,7 @@ type CloudMetadataStore interface {
 // AddCloudAPI - Implemented by cloudapi.Client
 type AddCloudAPI interface {
 	AddCloud(cloud.Cloud) error
-	AddCredential(tag string, credential cloud.Credential) error
+	AddCredential(tag string, credential jujucloud.Credential) error
 	Close() error
 }
 
@@ -73,6 +77,9 @@ type AddCAASCommand struct {
 
 	// clusterName is the name of the cluster (k8s) or credential to import
 	clusterName string
+
+	// Regions are the cloud regions that the nodes of cluster (k8s) are running in.
+	Regions []string
 
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
@@ -113,6 +120,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
+	f.Var(regionsFlag{&c.Regions}, "regions", "cluster regions")
 }
 
 // Init populates the command with the args from the command line.
@@ -126,8 +134,8 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 }
 
 // getStdinPipe returns nil if the context's stdin is not a pipe.
-func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
-	if stdIn, ok := ctxt.Stdin.(*os.File); ok && !terminal.IsTerminal(int(stdIn.Fd())) {
+func getStdinPipe(ctx *cmd.Context) (io.Reader, error) {
+	if stdIn, ok := ctx.Stdin.(*os.File); ok && !terminal.IsTerminal(int(stdIn.Fd())) {
 		// stdIn from pipe but not terminal
 		stat, err := stdIn.Stat()
 		if err != nil {
@@ -146,7 +154,7 @@ func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
 }
 
 // Run is defined on the Command interface.
-func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
+func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if err := c.verifyName(c.caasName); err != nil {
 		return errors.Trace(err)
 	}
@@ -155,7 +163,7 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stdIn, err := getStdinPipe(ctxt)
+	stdIn, err := getStdinPipe(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -194,13 +202,24 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("CAData attribute should be a string")
 	}
 
-	newCloud := cloud.Cloud{
+	newCloud := jujucloud.Cloud{
 		Name:           c.caasName,
 		Type:           c.caasType,
 		Endpoint:       currentCloud.Endpoint,
-		AuthTypes:      []cloud.AuthType{credential.AuthType()},
+		AuthTypes:      []jujucloud.AuthType{credential.AuthType()},
 		CACertificates: []string{cloudCAData},
 	}
+
+	regions := c.Regions
+	if regions == nil || len(regions) == 0 {
+		var err error
+		regions, err = c.getClusterRegions(newCloud, credential)
+		if err != nil {
+			ctx.Infof("It's not possible to list regions in this case, please use --regions options to parse in.")
+			return errors.Annotate(err, "listing cluster regions")
+		}
+	}
+	newCloud.Regions = buildRegions(regions)
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
@@ -225,6 +244,56 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	return nil
+}
+
+type modelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
+	Close() error
+}
+
+func (c *AddCAASCommand) getModelConfigAPI() (modelConfigAPI, error) {
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(api), nil
+}
+
+func buildRegions(regions []string) []jujucloud.Region {
+	var jujuRegions []jujucloud.Region
+	for _, v := range regions {
+		jujuRegions = append(jujuRegions, jujucloud.Region{Name: v})
+	}
+	return jujuRegions
+}
+
+func (c *AddCAASCommand) getClusterRegions(cloud jujucloud.Cloud, credential jujucloud.Credential) ([]string, error) {
+	modelConfigClient, err := c.getModelConfigAPI()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer modelConfigClient.Close()
+
+	// this current model is not really we want, but it's just for generating the config.
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	broker, err := caas.New(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return broker.ListRegions()
 }
 
 func (c *AddCAASCommand) verifyName(name string) error {
@@ -258,7 +327,7 @@ func nameExists(name string, public map[string]cloud.Cloud) (string, error) {
 	return "", nil
 }
 
-func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud) error {
+func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.Cloud) error {
 	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
@@ -270,7 +339,7 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
-func addCloudToController(apiClient AddCloudAPI, newCloud cloud.Cloud) error {
+func addCloudToController(apiClient AddCloudAPI, newCloud jujucloud.Cloud) error {
 	err := apiClient.AddCloud(newCloud)
 	if err != nil {
 		return errors.Trace(err)
@@ -278,7 +347,7 @@ func addCloudToController(apiClient AddCloudAPI, newCloud cloud.Cloud) error {
 	return nil
 }
 
-func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential cloud.Credential, credentialName string) error {
+func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential jujucloud.Credential, credentialName string) error {
 	newCredentials := &cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
@@ -290,7 +359,7 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential cl
 	return nil
 }
 
-func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential cloud.Credential, credentialName string) error {
+func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, credentialName string) error {
 	currentAccountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)

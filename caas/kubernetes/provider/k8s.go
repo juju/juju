@@ -179,6 +179,11 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 	return nil
 }
 
+// ListRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
+func (k *kubernetesClient) ListRegions() ([]string, error) {
+	return nil, nil
+}
+
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	const (

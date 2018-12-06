@@ -157,6 +157,9 @@ type Broker interface {
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
+	// ListRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
+	ListRegions() ([]string, error)
+
 	// NamespaceWatcher provides the API to watch caas namespace.
 	NamespaceWatcher
 
