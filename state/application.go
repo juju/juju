@@ -1313,10 +1313,14 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if err != nil {
 		return err
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(series, ch.Meta().Series)
+	supportedSeries := ch.Meta().Series
+	if len(supportedSeries) == 0 {
+		supportedSeries = append(supportedSeries, ch.URL().Series)
+	}
+	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
 		return &ErrIncompatibleSeries{
-			SeriesList: ch.Meta().Series,
+			SeriesList: supportedSeries,
 			Series:     series,
 			CharmName:  ch.String(),
 		}
