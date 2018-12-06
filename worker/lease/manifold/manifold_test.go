@@ -13,6 +13,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -39,8 +40,9 @@ type manifoldSuite struct {
 	clock *testclock.Clock
 	hub   *pubsub.StructuredHub
 
-	fsm    *raftlease.FSM
-	logger loggo.Logger
+	fsm     *raftlease.FSM
+	logger  loggo.Logger
+	metrics prometheus.Registerer
 
 	worker worker.Worker
 	store  *raftlease.Store
@@ -62,20 +64,23 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.fsm = raftlease.NewFSM()
 	s.logger = loggo.GetLogger("lease.manifold_test")
+	registerer := struct{ prometheus.Registerer }{}
+	s.metrics = &registerer
 
 	s.worker = &mockWorker{}
 	s.store = &raftlease.Store{}
 
 	s.context = s.newContext(nil)
 	s.manifold = leasemanager.Manifold(leasemanager.ManifoldConfig{
-		AgentName:      "agent",
-		ClockName:      "clock",
-		CentralHubName: "hub",
-		FSM:            s.fsm,
-		RequestTopic:   "lease.manifold_test",
-		Logger:         &s.logger,
-		NewWorker:      s.newWorker,
-		NewStore:       s.newStore,
+		AgentName:         "agent",
+		ClockName:         "clock",
+		CentralHubName:    "hub",
+		FSM:               s.fsm,
+		RequestTopic:      "lease.manifold_test",
+		Logger:            &s.logger,
+		MetricsRegisterer: s.metrics,
+		NewWorker:         s.newWorker,
+		NewStore:          s.newStore,
 	})
 }
 
@@ -99,9 +104,9 @@ func (s *manifoldSuite) newWorker(config lease.ManagerConfig) (worker.Worker, er
 	return s.worker, nil
 }
 
-func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store {
+func (s *manifoldSuite) newStore(config raftlease.StoreConfig) (*raftlease.Store, error) {
 	s.stub.MethodCall(s, "NewStore", config)
-	return s.store
+	return s.store, s.stub.NextErr()
 }
 
 var expectedInputs = []string{
@@ -138,11 +143,12 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, state.LeaseTrapdoorFunc())
 	storeConfig.Trapdoor = nil
 	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
-		FSM:            s.fsm,
-		Hub:            s.hub,
-		RequestTopic:   "lease.manifold_test",
-		Clock:          s.clock,
-		ForwardTimeout: 5 * time.Second,
+		FSM:               s.fsm,
+		Hub:               s.hub,
+		RequestTopic:      "lease.manifold_test",
+		Clock:             s.clock,
+		ForwardTimeout:    5 * time.Second,
+		MetricsRegisterer: s.metrics,
 	})
 
 	args = s.stub.Calls()[1].Args

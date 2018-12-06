@@ -21,7 +21,7 @@ func newMetricsCollector() *metricsCollector {
 	return &metricsCollector{
 		requests: prometheus.NewSummaryVec(prometheus.SummaryOpts{
 			Namespace: "juju_raftlease",
-			Name:      "request_time",
+			Name:      "request",
 			Help:      "Request times for lease store operations in ms",
 			Objectives: map[float64]float64{
 				0.5:  0.05,
@@ -35,10 +35,12 @@ func newMetricsCollector() *metricsCollector {
 	}
 }
 
+// Describe is part of prometheus.Collector.
 func (c *metricsCollector) Describe(ch chan<- *prometheus.Desc) {
 	c.requests.Describe(ch)
 }
 
+// Collect is part of prometheus.Collector.
 func (c *metricsCollector) Collect(ch chan<- prometheus.Metric) {
 	c.requests.Collect(ch)
 }

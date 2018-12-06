@@ -4,6 +4,7 @@
 package raftforwarder_test
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -138,7 +139,7 @@ func (s *workerSuite) TestCleanKill(c *gc.C) {
 
 func (s *workerSuite) TestSuccess(c *gc.C) {
 	_, err := s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
-		Command:       []byte("myanmar"),
+		Command:       "myanmar",
 		ResponseTopic: "response",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +158,7 @@ func (s *workerSuite) TestSuccess(c *gc.C) {
 func (s *workerSuite) TestApplyError(c *gc.C) {
 	s.raft.af.SetErrors(errors.Errorf("boom"))
 	_, err := s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
-		Command:       []byte("france"),
+		Command:       "france",
 		ResponseTopic: "response",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -174,7 +175,7 @@ func (s *workerSuite) TestApplyError(c *gc.C) {
 func (s *workerSuite) TestBadResponseType(c *gc.C) {
 	s.raft.af.response = "23 skidoo!"
 	_, err := s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
-		Command:       []byte("france"),
+		Command:       "france",
 		ResponseTopic: "response",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +192,7 @@ func (s *workerSuite) TestBadResponseType(c *gc.C) {
 func (s *workerSuite) TestResponseGenericError(c *gc.C) {
 	s.response.SetErrors(errors.Errorf("help!"))
 	_, err := s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
-		Command:       []byte("france"),
+		Command:       "france",
 		ResponseTopic: "response",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +210,7 @@ func (s *workerSuite) TestResponseGenericError(c *gc.C) {
 func (s *workerSuite) TestResponseSingletonError(c *gc.C) {
 	s.response.SetErrors(errors.Annotate(lease.ErrInvalid, "some context"))
 	_, err := s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
-		Command:       []byte("france"),
+		Command:       "france",
 		ResponseTopic: "response",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -221,6 +222,71 @@ func (s *workerSuite) TestResponseSingletonError(c *gc.C) {
 		})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for response")
+	}
+}
+
+func (s *workerSuite) TestHandlesRequestsConcurrently(c *gc.C) {
+	resps2 := make(chan raftlease.ForwardResponse)
+	unsubscribe, err := s.hub.Subscribe(
+		"response2",
+		func(_ string, resp raftlease.ForwardResponse, err error) {
+			c.Check(err, jc.ErrorIsNil)
+			resps2 <- resp
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	defer unsubscribe()
+
+	var calls int32
+	started := make(chan struct{})
+	finish := make(chan struct{})
+	s.raft.af.callback = func() {
+		call := atomic.AddInt32(&calls, 1)
+		// The first call blocks until we signal it.
+		if call == 1 {
+			close(started)
+			<-finish
+		}
+	}
+
+	// Send a request (response to come on s.resps) that blocks.
+	_, err = s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
+		Command:       "myanmar",
+		ResponseTopic: "response",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for first request to start")
+	}
+
+	// Send a request (response to come on s.resps) that blocks.
+	_, err = s.hub.Publish("raftforwarder_test", raftlease.ForwardRequest{
+		Command:       "myanmar",
+		ResponseTopic: "response2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-resps2:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for response from second request")
+	}
+
+	select {
+	case <-s.resps:
+		c.Fatalf("got response from first request too early")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	close(finish)
+
+	select {
+	case <-s.resps:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for response from first request")
 	}
 }
 
@@ -238,9 +304,13 @@ type mockApplyFuture struct {
 	raft.IndexFuture
 	testing.Stub
 	response interface{}
+	callback func()
 }
 
 func (f *mockApplyFuture) Error() error {
+	if f.callback != nil {
+		f.callback()
+	}
 	f.AddCall("Error")
 	return f.NextErr()
 }
