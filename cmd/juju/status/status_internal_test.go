@@ -181,12 +181,28 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 // shortcuts for expected output.
 var (
 	model = M{
-		"name":       "controller",
-		"type":       "iaas",
-		"controller": "kontroll",
-		"cloud":      "dummy",
-		"region":     "dummy-region",
-		"version":    "1.2.3",
+		"name":          "controller",
+		"type":          "iaas",
+		"controller":    "kontroll",
+		"is-controller": true,
+		"cloud":         "dummy",
+		"region":        "dummy-region",
+		"version":       "1.2.3",
+		"model-status": M{
+			"current": "available",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"sla": "unsupported",
+	}
+
+	modelNotController = M{
+		"name":          "controller",
+		"type":          "iaas",
+		"controller":    "kontroll",
+		"is-controller": false,
+		"cloud":         "dummy",
+		"region":        "dummy-region",
+		"version":       "1.2.3",
 		"model-status": M{
 			"current": "available",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -502,7 +518,7 @@ var statusTests = []testCase{
 		expect{
 			what: "simulate juju bootstrap by adding machine/0 to the state",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -534,7 +550,7 @@ var statusTests = []testCase{
 		expect{
 			what: "simulate the PA starting an instance in response to the state change",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -577,7 +593,7 @@ var statusTests = []testCase{
 		expect{
 			what: "simulate the MA started and set the machine status",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -620,7 +636,7 @@ var statusTests = []testCase{
 		expect{
 			what: "simulate the MA setting the version",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"dns-name":     "10.0.0.1",
@@ -672,7 +688,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machine 0 has specific hardware characteristics",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -720,7 +736,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machine 0 has no dns-name",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -752,7 +768,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machine 0 reports pending",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -780,7 +796,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machine 0 reports missing",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"instance-id": "i-missing",
@@ -819,7 +835,7 @@ var statusTests = []testCase{
 		expect{
 			what: "no applications exposed yet",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 				},
@@ -839,7 +855,7 @@ var statusTests = []testCase{
 		expect{
 			what: "one exposed application",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 				},
@@ -866,7 +882,7 @@ var statusTests = []testCase{
 		expect{
 			what: "two more machines added",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -902,7 +918,7 @@ var statusTests = []testCase{
 		expect{
 			what: "add two units, one alive (in error state), one started",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -979,7 +995,7 @@ var statusTests = []testCase{
 		expect{
 			what: "add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1104,7 +1120,7 @@ var statusTests = []testCase{
 			what:  "scope status on dummy-application/0 unit",
 			scope: []string{"dummy-application/0"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"1": machine1,
 				},
@@ -1140,7 +1156,7 @@ var statusTests = []testCase{
 			what:  "scope status on exposed-application application",
 			scope: []string{"exposed-application"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"2": machine2,
 				},
@@ -1182,7 +1198,7 @@ var statusTests = []testCase{
 			what:  "scope status on application pattern",
 			scope: []string{"d*-application"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"1": machine1,
 				},
@@ -1218,7 +1234,7 @@ var statusTests = []testCase{
 			what:  "scope status on unit pattern",
 			scope: []string{"e*posed-application/*"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"2": machine2,
 				},
@@ -1260,7 +1276,7 @@ var statusTests = []testCase{
 			what:  "scope status on combination of application and unit patterns",
 			scope: []string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1349,7 +1365,7 @@ var statusTests = []testCase{
 		expect{
 			what: "a unit with a hook relation error",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1457,7 +1473,7 @@ var statusTests = []testCase{
 		expect{
 			what: "a unit with a hook relation error when the agent is down",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1546,7 +1562,7 @@ var statusTests = []testCase{
 		expect{
 			what: "application shows life==dying",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1606,7 +1622,7 @@ var statusTests = []testCase{
 		expect{
 			what: "unit shows that agent is lost",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1709,7 +1725,7 @@ var statusTests = []testCase{
 		expect{
 			what: "multiples applications with relations between some of them",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1899,7 +1915,7 @@ var statusTests = []testCase{
 		expect{
 			what: "multiples related peer units",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2029,7 +2045,7 @@ var statusTests = []testCase{
 		expect{
 			what: "multiples related peer units",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2145,7 +2161,7 @@ var statusTests = []testCase{
 			what:  "subordinates scoped on logging",
 			scope: []string{"logging"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -2260,7 +2276,7 @@ var statusTests = []testCase{
 			what:  "subordinates scoped on wordpress",
 			scope: []string{"wordpress/0"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"1": machine1,
 				},
@@ -2362,7 +2378,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machines with nested containers",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -2419,7 +2435,7 @@ var statusTests = []testCase{
 			what:  "machines with nested containers 2",
 			scope: []string{"mysql/1"},
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"1": M{
 						"juju-status": M{
@@ -2523,7 +2539,7 @@ var statusTests = []testCase{
 		expect{
 			what: "applications and units with correct charm status",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2587,7 +2603,7 @@ var statusTests = []testCase{
 		expect{
 			what: "applications and units with correct charm status",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2652,7 +2668,7 @@ var statusTests = []testCase{
 		expect{
 			what: "applications and units with correct charm status",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2718,7 +2734,7 @@ var statusTests = []testCase{
 		expect{
 			what: "applications and units with correct charm status",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2818,7 +2834,7 @@ var statusTests = []testCase{
 		expect{
 			what: "simulate just the two applications and a bootstrap node",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2924,6 +2940,7 @@ var statusTests = []testCase{
 					"name":              "controller",
 					"type":              "iaas",
 					"controller":        "kontroll",
+					"is-controller":     false,
 					"cloud":             "dummy",
 					"region":            "dummy-region",
 					"version":           "1.2.3",
@@ -2964,7 +2981,7 @@ var statusTests = []testCase{
 		expect{
 			what: "application and unit with correct workload version",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -3033,7 +3050,7 @@ var statusTests = []testCase{
 		expect{
 			what: "application and unit with correct workload version",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -3105,7 +3122,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machine 0 has localhost addresses that should not display",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 				},
@@ -3132,7 +3149,7 @@ var statusTests = []testCase{
 		expect{
 			what: "machine 0 has an IPv6 address",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -3189,7 +3206,7 @@ var statusTests = []testCase{
 		expect{
 			what: "a remote application",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -3264,12 +3281,13 @@ var statusTests = []testCase{
 			what: "simulate just the two applications and a bootstrap node",
 			output: M{
 				"model": M{
-					"name":       "controller",
-					"type":       "iaas",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"region":     "dummy-region",
-					"version":    "1.2.3",
+					"name":          "controller",
+					"type":          "iaas",
+					"controller":    "kontroll",
+					"is-controller": false,
+					"cloud":         "dummy",
+					"region":        "dummy-region",
+					"version":       "1.2.3",
 					"model-status": M{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
@@ -3297,12 +3315,13 @@ var statusTests = []testCase{
 			what: "set sla on the model",
 			output: M{
 				"model": M{
-					"name":       "controller",
-					"type":       "iaas",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"region":     "dummy-region",
-					"version":    "1.2.3",
+					"name":          "controller",
+					"type":          "iaas",
+					"controller":    "kontroll",
+					"is-controller": false,
+					"cloud":         "dummy",
+					"region":        "dummy-region",
+					"version":       "1.2.3",
 					"model-status": M{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
@@ -3345,11 +3364,12 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
-					"type":       "iaas",
-					"sla":        "unsupported",
-					"name":       "controller",
-					"controller": "kontroll",
-					"cloud":      "dummy",
+					"type":          "iaas",
+					"sla":           "unsupported",
+					"name":          "controller",
+					"controller":    "kontroll",
+					"is-controller": false,
+					"cloud":         "dummy",
 				},
 				"machines": M{
 					"1": M{
@@ -3468,7 +3488,7 @@ var statusTests = []testCase{
 		expect{
 			what: "applications and units with correct lxd profile charm status",
 			output: M{
-				"model": model,
+				"model": modelNotController,
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithLXDProfile,
@@ -4428,6 +4448,9 @@ func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
+		for j, step := range t.steps {
+			c.Logf("step %d: %v", j, step)
+		}
 		func(t testCase) {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext(c)
@@ -5222,6 +5245,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  name: controller\n" +
 		"  type: iaas\n" +
 		"  controller: kontroll\n" +
+		"  is-controller: false\n" +
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
 		"  version: 1.2.3\n" +
@@ -5530,12 +5554,13 @@ var statusTimeTest = test(
 		what: "add two units, one alive (in error state), one started",
 		output: M{
 			"model": M{
-				"name":       "controller",
-				"type":       "iaas",
-				"controller": "kontroll",
-				"cloud":      "dummy",
-				"region":     "dummy-region",
-				"version":    "1.2.3",
+				"name":          "controller",
+				"type":          "iaas",
+				"controller":    "kontroll",
+				"is-controller": false,
+				"cloud":         "dummy",
+				"region":        "dummy-region",
+				"version":       "1.2.3",
 				"model-status": M{
 					"current": "available",
 					"since":   "01 Apr 15 01:23+10:00",
