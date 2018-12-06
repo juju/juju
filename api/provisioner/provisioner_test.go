@@ -1000,8 +1000,8 @@ func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// Update the upgrade-charm charm profile to trigger watcher.
-	s.machine.SetUpgradeCharmProfile("app-name", "local:quantal/lxd-profile-0")
+	// Trigger the watcher.
+	err = s.machine.SetUpgradeCharmProfile("lxd-profile", "local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.machine.Id())
 }
