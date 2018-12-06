@@ -8,6 +8,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -71,12 +72,12 @@ func (c *poolListCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *poolListCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-pools",
 		Purpose: "List storage pools.",
 		Doc:     poolListCommandDoc,
 		Aliases: []string{"list-storage-pools"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

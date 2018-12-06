@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -48,11 +49,11 @@ type logoutCommand struct {
 
 // Info implements Command.Info.
 func (c *logoutCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "logout",
 		Purpose: "Logs a Juju user out of a controller.",
 		Doc:     logoutDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 	"gopkg.in/juju/charm.v6"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // Metric represents a single metric set by the charm.
@@ -38,11 +40,11 @@ func NewAddMetricCommand(ctx Context) (cmd.Command, error) {
 
 // Info returns the command info structure for the add-metric command.
 func (c *AddMetricCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-metric",
 		Args:    "key1=value1 [key2=value2 ...]",
 		Purpose: "add metrics",
-	}
+	})
 }
 
 // SetFlags implements Command.

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
@@ -168,7 +169,7 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *testCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name: "test",
-	}
+	})
 }

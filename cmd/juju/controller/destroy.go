@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -125,12 +126,12 @@ type destroyClientAPI interface {
 
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "destroy-controller",
 		Args:    "<controller name>",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

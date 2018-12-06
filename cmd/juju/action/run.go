@@ -16,6 +16,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -149,12 +150,12 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *runCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "run-action",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
 		Purpose: "Queue an action for execution.",
 		Doc:     runDoc,
-	}
+	})
 }
 
 // Init gets the unit tag(s), action name and action arguments.

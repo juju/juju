@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -75,10 +76,10 @@ type testControllerCommand struct {
 }
 
 func (c *testControllerCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:        "testControllerCommand",
 		FlagKnownAs: "option",
-	}
+	})
 }
 
 func (c *testControllerCommand) Run(ctx *cmd.Context) error {

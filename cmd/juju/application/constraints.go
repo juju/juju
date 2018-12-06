@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -101,12 +102,12 @@ type applicationGetConstraintsCommand struct {
 }
 
 func (c *applicationGetConstraintsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "get-constraints",
 		Args:    "<application>",
 		Purpose: usageGetConstraintsSummary,
 		Doc:     usageGetConstraintsDetails,
-	}
+	})
 }
 
 func formatConstraints(writer io.Writer, value interface{}) error {
@@ -160,12 +161,12 @@ func NewApplicationSetConstraintsCommand() modelcmd.ModelCommand {
 }
 
 func (c *applicationSetConstraintsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-constraints",
 		Args:    "<application> <constraint>=<value> ...",
 		Purpose: usageSetConstraintsSummary,
 		Doc:     usageSetConstraintsDetails,
-	}
+	})
 }
 
 func (c *applicationSetConstraintsCommand) Init(args []string) (err error) {

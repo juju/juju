@@ -20,6 +20,7 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
@@ -109,12 +110,12 @@ type loginCommand struct {
 
 // Info implements Command.Info.
 func (c *loginCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "login",
 		Args:    "[controller host name or alias]",
 		Purpose: "Logs a user in to a controller.",
 		Doc:     loginDoc,
-	}
+	})
 }
 
 func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {

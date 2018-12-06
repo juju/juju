@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/apiserver/common"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -76,12 +77,12 @@ func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements Command.Info.
 func (c *killCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "kill-controller",
 		Args:    "<controller name>",
 		Purpose: "Forcibly terminate all machines and other associated resources for a Juju controller.",
 		Doc:     killDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

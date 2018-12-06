@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -228,12 +229,12 @@ behavior.
 `
 
 func (c *upgradeCharmCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-charm",
 		Args:    "<application>",
 		Purpose: "Upgrade an application's charm.",
 		Doc:     upgradeCharmDoc,
-	}
+	})
 }
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {

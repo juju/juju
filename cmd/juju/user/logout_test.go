@@ -46,7 +46,7 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 			errorString: `unrecognized args: \["foobar"\]`,
 		}, {
 			args:        []string{"--foobar"},
-			errorString: "flag provided but not defined: --foobar",
+			errorString: "option provided but not defined: --foobar",
 		},
 	} {
 		c.Logf("test %d", i)

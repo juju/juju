@@ -57,3 +57,14 @@ func runNotifier(name string) {
 	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())
 	logger.Debugf("  args: %#v", os.Args)
 }
+
+func Info(i *cmd.Info) *cmd.Info {
+	return &cmd.Info{
+		Name:        i.Name,
+		Purpose:     i.Purpose,
+		Args:        i.Args,
+		Doc:         i.Doc,
+		Aliases:     i.Aliases,
+		FlagKnownAs: "option",
+	}
+}

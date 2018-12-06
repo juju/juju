@@ -118,12 +118,12 @@ type ModelConfigAPI interface {
 
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "destroy-model",
 		Args:    "[<controller name>:]<model name>",
 		Purpose: "Terminate all machines/containers and resources for a non-controller model.",
 		Doc:     destroyDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

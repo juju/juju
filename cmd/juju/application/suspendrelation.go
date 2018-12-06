@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -56,12 +57,12 @@ type suspendRelationCommand struct {
 }
 
 func (c *suspendRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "suspend-relation",
 		Args:    "<relation-id>[ <relation-id>...]",
 		Purpose: suspendHelpSummary,
 		Doc:     suspendHelpDetails,
-	}
+	})
 }
 
 func (c *suspendRelationCommand) Init(args []string) (err error) {

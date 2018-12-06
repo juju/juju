@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -46,12 +47,12 @@ func (c *disableCommand) Init(args []string) error {
 
 // Info implements Command.
 func (c *disableCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "disable-command",
 		Args:    "<command set> [message...]",
 		Purpose: "Disable commands for the model.",
 		Doc:     disableCommandDoc,
-	}
+	})
 }
 
 type blockClientAPI interface {

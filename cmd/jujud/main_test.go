@@ -22,6 +22,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
@@ -120,11 +121,11 @@ here is some documentation
 `
 
 func (c *RemoteCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remote",
 		Purpose: "test jujuc",
 		Doc:     "here is some documentation",
-	}
+	})
 }
 
 func (c *RemoteCommand) SetFlags(f *gnuflag.FlagSet) {

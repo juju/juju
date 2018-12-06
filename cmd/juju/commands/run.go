@@ -18,6 +18,7 @@ import (
 
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -92,12 +93,12 @@ those arguments. For example:
 `
 
 func (c *runCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "run",
 		Args:    "<commands>",
 		Purpose: "Run the commands on the remote targets specified.",
 		Doc:     runDoc,
-	}
+	})
 }
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -61,12 +62,12 @@ See also:
 `
 
 func (c *setSeriesCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-series",
 		Args:    "<application> <series>",
 		Purpose: "Set an application's series.",
 		Doc:     setSeriesDoc,
-	}
+	})
 }
 
 func (c *setSeriesCommand) SetFlags(f *gnuflag.FlagSet) {

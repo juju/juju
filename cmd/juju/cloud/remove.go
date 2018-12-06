@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 var usageRemoveCloudSummary = `
@@ -36,12 +37,12 @@ func NewRemoveCloudCommand() cmd.Command {
 }
 
 func (c *removeCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-cloud",
 		Args:    "<cloud name>",
 		Purpose: usageRemoveCloudSummary,
 		Doc:     usageRemoveCloudDetails,
-	}
+	})
 }
 
 func (c *removeCloudCommand) Init(args []string) (err error) {

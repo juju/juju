@@ -12,6 +12,7 @@ import (
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -69,12 +70,12 @@ func (c *updateCredentialCommand) Init(args []string) error {
 
 // Info implements Command.Info
 func (c *updateCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "update-credential",
 		Args:    "<cloud-name> <credential-name>",
 		Purpose: usageUpdateCredentialSummary,
 		Doc:     usageUpdateCredentialDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

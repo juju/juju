@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -43,12 +44,12 @@ func (c *enableCommand) Init(args []string) error {
 
 // Info implementsCommand.
 func (c *enableCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "enable-command",
 		Args:    "<command set>",
 		Purpose: "Enable commands that had been previously disabled.",
 		Doc:     enableDoc,
-	}
+	})
 }
 
 // unblockClientAPI defines the client API methods that unblock command uses.

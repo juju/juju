@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
@@ -99,12 +100,12 @@ type upgradeJujuCommand struct {
 }
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-model",
 		Purpose: usageUpgradeJujuSummary,
 		Doc:     usageUpgradeJujuDetails,
 		Aliases: []string{"upgrade-juju"},
-	}
+	})
 }
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {

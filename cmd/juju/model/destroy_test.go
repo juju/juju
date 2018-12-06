@@ -161,7 +161,7 @@ func (s *DestroySuite) TestDestroyNoModelNameError(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "-n")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -n")
 }
 
 func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {

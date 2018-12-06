@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network/ssh"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
@@ -44,12 +45,12 @@ accepted by the debug-hooks command.
 `
 
 func (c *debugHooksCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "debug-hooks",
 		Args:    "<unit name> [hook or action names]",
 		Purpose: "Launch a tmux session to debug hooks and/or actions.",
 		Doc:     debugHooksDoc,
-	}
+	})
 }
 
 func (c *debugHooksCommand) Init(args []string) error {

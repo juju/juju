@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/applicationoffers"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
@@ -178,12 +179,12 @@ type grantCommand struct {
 
 // Info implements Command.Info.
 func (c *grantCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "grant",
 		Args:    "<user name> <permission> [<model name> ... | <offer url> ...]",
 		Purpose: usageGrantSummary,
 		Doc:     usageGrantDetails,
-	}
+	})
 }
 
 func (c *grantCommand) getModelAPI() (GrantModelAPI, error) {
@@ -293,12 +294,12 @@ type revokeCommand struct {
 
 // Info implements cmd.Command.
 func (c *revokeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "revoke",
 		Args:    "<user name> <permission> [<model name> ... | <offer url> ...]",
 		Purpose: usageRevokeSummary,
 		Doc:     usageRevokeDetails,
-	}
+	})
 }
 
 func (c *revokeCommand) getModelAPI() (RevokeModelAPI, error) {

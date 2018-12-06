@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // NetworkGetCommand implements the network-get command.
@@ -64,12 +65,12 @@ If more than one flag is specified, a map of values is returned.
     --ingress-address: the address the local unit should advertise as being used for incoming connections.
     --egress_subnets: subnets (in CIDR notation) from which traffic on this relation will originate.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "network-get",
 		Args:    args,
 		Purpose: "get network config",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags is part of the cmd.Command interface.

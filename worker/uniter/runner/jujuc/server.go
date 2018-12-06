@@ -22,6 +22,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -286,13 +287,5 @@ func (c *cmdWrapper) Run(ctx *cmd.Context) error {
 }
 
 func (c *cmdWrapper) Info() *cmd.Info {
-	i := c.Command.Info()
-	return &cmd.Info{
-		Name:        i.Name,
-		Purpose:     i.Purpose,
-		Args:        i.Args,
-		Doc:         i.Doc,
-		Aliases:     i.Aliases,
-		FlagKnownAs: "option",
-	}
+	return jujucmd.Info(c.Command.Info())
 }

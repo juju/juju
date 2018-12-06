@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -48,12 +49,12 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *showOutputCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-action-output",
 		Args:    "<action ID>",
 		Purpose: "Show results of an action by ID.",
 		Doc:     showOutputDoc,
-	}
+	})
 }
 
 // Init validates the action ID and any other options.

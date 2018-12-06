@@ -61,12 +61,12 @@ See also:
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-offer",
 		Args:    "<offer-url> ...",
 		Purpose: "Removes one or more offers specified by their URL.",
 		Doc:     destroyOfferDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
@@ -80,11 +81,11 @@ RETVAL=$?
 `
 
 func (c *validateImageMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "validate-images",
 		Purpose: "validate image metadata and ensure image(s) exist for a model",
 		Doc:     validateImagesMetadataDoc,
-	}
+	})
 }
 
 func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {

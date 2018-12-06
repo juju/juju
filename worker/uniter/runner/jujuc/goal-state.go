@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/application"
 )
@@ -26,11 +27,11 @@ func (c *GoalStateCommand) Info() *cmd.Info {
 	doc := `
 'goal-state' command will list the charm units and relations, specifying their status and their relations to other units in different charms.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "goal-state",
 		Purpose: "print the status of the charm's peers and related units",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *GoalStateCommand) SetFlags(f *gnuflag.FlagSet) {

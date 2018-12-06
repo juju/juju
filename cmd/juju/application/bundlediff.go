@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 )
@@ -73,12 +74,12 @@ func (c *bundleDiffCommand) AllowInterspersedFlags() bool { return true }
 
 // Info is part of cmd.Command.
 func (c *bundleDiffCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "diff-bundle",
 		Args:    "<bundle file or name>",
 		Purpose: "Compare a bundle with a model and report any differences.",
 		Doc:     bundleDiffDoc,
-	}
+	})
 }
 
 // SetFlags is part of cmd.Command.

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/output"
 )
@@ -41,13 +42,13 @@ func NewListRegionsCommand() cmd.Command {
 
 // Info implements Command.Info.
 func (c *listRegionsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "regions",
 		Args:    "<cloud>",
 		Purpose: "Lists regions for a given cloud.",
 		Doc:     listRegionsDoc,
 		Aliases: []string{"list-regions"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

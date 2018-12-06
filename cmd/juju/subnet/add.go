@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
@@ -52,12 +53,12 @@ zone(s) is required.
 
 // Info is defined on the cmd.Command interface.
 func (c *AddCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-subnet",
 		Args:    "<CIDR>|<provider-id> <space> [<zone1> <zone2> ...]",
 		Purpose: "Add an existing subnet to Juju.",
 		Doc:     strings.TrimSpace(addCommandDoc),
-	}
+	})
 }
 
 // Init is defined on the cmd.Command interface. It checks the

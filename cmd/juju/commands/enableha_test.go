@@ -274,6 +274,6 @@ func (s *EnableHASuite) TestEnableHADisallowsSeries(c *gc.C) {
 	// We do not allow --series as an argument. This test ensures it is not
 	// inadvertently added back.
 	ctx, err := s.runEnableHA(c, "-n", "0", "--series", "xenian")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --series")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: --series")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

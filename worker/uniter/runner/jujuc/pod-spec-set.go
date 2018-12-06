@@ -7,6 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // PodSpecSetCommand implements the pod-spec-set command.
@@ -27,12 +29,12 @@ func (c *PodSpecSetCommand) Info() *cmd.Info {
 Sets configuration data to use for a pod.
 The spec applies to all units for the application.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "pod-spec-set",
 		Args:    "--file <pod spec file>",
 		Purpose: "set pod spec information",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *PodSpecSetCommand) SetFlags(f *gnuflag.FlagSet) {

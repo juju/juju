@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelconfig"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -101,7 +102,7 @@ func (c *slaCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements cmd.Command.
 func (c *slaCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "sla",
 		Args:    "<level>",
 		Purpose: "Set the SLA level for a model.",
@@ -117,7 +118,7 @@ Examples:
     # display the current support level for the model.
     juju sla
 `,
-	}
+	})
 }
 
 // Init implements cmd.Command.

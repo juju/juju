@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -104,12 +105,12 @@ type applicationAPI interface {
 
 // Info is part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "config",
 		Args:    "<application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose: configSummary,
 		Doc:     configDetails,
-	}
+	})
 }
 
 // SetFlags is part of the cmd.Command interface.

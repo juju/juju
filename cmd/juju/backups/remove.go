@@ -9,10 +9,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/utils/set"
 )
 
 const removeDoc = `
@@ -34,12 +35,12 @@ type removeCommand struct {
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-backup",
 		Args:    "[--keep-latest|<ID>]",
 		Purpose: "Remove the specified backup from remote storage.",
 		Doc:     removeDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

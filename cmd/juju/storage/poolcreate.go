@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -98,12 +99,12 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *poolCreateCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "create-storage-pool",
 		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
 		Purpose: "Create or define a storage pool.",
 		Doc:     poolCreateCommandDoc,
-	}
+	})
 }
 
 // Run implements Command.Run.

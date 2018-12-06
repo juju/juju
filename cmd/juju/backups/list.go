@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -29,13 +30,13 @@ type listCommand struct {
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "backups",
 		Args:    "",
 		Purpose: "Displays information about all backups.",
 		Doc:     listDoc,
 		Aliases: []string{"list-backups"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

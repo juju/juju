@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -105,12 +106,12 @@ Examples:
 `
 
 func (c *addModelCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-model",
 		Args:    "<model name> [cloud|region|(cloud/region)]",
 		Purpose: "Adds a hosted model.",
 		Doc:     strings.TrimSpace(addModelHelpDoc),
-	}
+	})
 }
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -91,7 +91,7 @@ var upgradeJujuTests = []struct {
 	about:          "removed arg --dev specified",
 	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"--dev"},
-	expectInitErr:  "flag provided but not defined: --dev",
+	expectInitErr:  "option provided but not defined: --dev",
 }, {
 	about:          "invalid --agent-version value",
 	currentVersion: "1.0.0-quantal-amd64",

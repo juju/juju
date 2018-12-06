@@ -151,27 +151,27 @@ var relationSetInitTests = []relationSetInitTest{
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "one"},
-		err:      `invalid value "one" for flag -r: invalid relation id`,
+		err:      `invalid value "one" for option -r: invalid relation id`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "one"},
-		err:      `invalid value "one" for flag -r: invalid relation id`,
+		err:      `invalid value "one" for option -r: invalid relation id`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "ignored:one"},
-		err:      `invalid value "ignored:one" for flag -r: invalid relation id`,
+		err:      `invalid value "ignored:one" for option -r: invalid relation id`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:one"},
-		err:      `invalid value "ignored:one" for flag -r: invalid relation id`,
+		err:      `invalid value "ignored:one" for option -r: invalid relation id`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "2"},
-		err:      `invalid value "2" for flag -r: relation not found`,
+		err:      `invalid value "2" for option -r: relation not found`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:2"},
-		err:      `invalid value "ignored:2" for flag -r: relation not found`,
+		err:      `invalid value "ignored:2" for option -r: relation not found`,
 	}, {
 		ctxrelid: -1,
 		err:      `no relation id specified`,

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
@@ -72,12 +73,12 @@ See also:
 `
 
 func (c *syncToolsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "sync-agent-binaries",
 		Purpose: "Copy agent binaries from the official agent store into a local model.",
 		Doc:     synctoolsDoc,
 		Aliases: []string{"sync-tools"},
-	}
+	})
 }
 
 func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {

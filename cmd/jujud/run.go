@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/sockets"
@@ -52,12 +53,12 @@ The commands are executed with '/bin/bash -s', and the output returned.
 
 // Info returns usage information for the command.
 func (c *RunCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-run",
 		Args:    "<unit-name> <commands>",
 		Purpose: "run commands in a unit's hook context",
 		Doc:     runCommandDoc,
-	}
+	})
 }
 
 func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {

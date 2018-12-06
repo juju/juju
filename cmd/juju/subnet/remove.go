@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -42,12 +43,12 @@ until all related entites are cleaned up (e.g. allocated addresses).
 
 // Info is defined on the cmd.Command interface.
 func (c *RemoveCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-subnet",
 		Args:    "<CIDR>",
 		Purpose: "remove an existing subnet from Juju",
 		Doc:     strings.TrimSpace(removeCommandDoc),
-	}
+	})
 }
 
 // Init is defined on the cmd.Command interface. It checks the

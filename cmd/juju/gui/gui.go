@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -64,11 +65,11 @@ An error is returned if the Juju GUI is not available in the controller.
 
 // Info implements the cmd.Command interface.
 func (c *guiCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "gui",
 		Purpose: "Print the Juju GUI URL, or open the Juju GUI in the default browser.",
 		Doc:     guiDoc,
-	}
+	})
 }
 
 // SetFlags implements the cmd.Command interface.

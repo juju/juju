@@ -252,13 +252,13 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedArg(c *gc.C) {
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedFlag(c *gc.C) {
 	s.createTestClientStore(c)
-	s.expectedErr = `flag provided but not defined: -m`
+	s.expectedErr = `option provided but not defined: -m`
 	s.assertListControllersFailed(c, "-m", "my.world")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C) {
 	s.createTestClientStore(c)
-	s.expectedErr = `flag provided but not defined: --model`
+	s.expectedErr = `option provided but not defined: --model`
 	s.assertListControllersFailed(c, "--model", "still.my.world")
 }
 

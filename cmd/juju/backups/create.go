@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
@@ -72,12 +73,12 @@ type createCommand struct {
 
 // Info implements Command.Info.
 func (c *createCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "create-backup",
 		Args:    "[<notes>]",
 		Purpose: "Create a backup.",
 		Doc:     createDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

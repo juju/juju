@@ -14,6 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
@@ -39,11 +40,11 @@ type signMetadataCommand struct {
 }
 
 func (c *signMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "sign",
 		Purpose: "sign simplestreams metadata",
 		Doc:     signMetadataDoc,
-	}
+	})
 }
 
 func (c *signMetadataCommand) SetFlags(f *gnuflag.FlagSet) {

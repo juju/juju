@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
@@ -46,12 +47,12 @@ func NewListControllersCommand() cmd.Command {
 
 // Info implements Command.Info
 func (c *listControllersCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "controllers",
 		Purpose: helpControllersSummary,
 		Doc:     helpControllersDetails,
 		Aliases: []string{"list-controllers"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

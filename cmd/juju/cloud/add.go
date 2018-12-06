@@ -12,16 +12,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/utils"
-	"github.com/juju/utils/cert"
 )
 
 type CloudMetadataStore interface {
@@ -133,12 +134,12 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand 
 
 // Info returns help information about the command.
 func (c *AddCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-cloud",
 		Args:    "<cloud name> <cloud definition file>",
 		Purpose: usageAddCloudSummary,
 		Doc:     usageAddCloudDetails,
-	}
+	})
 }
 
 // SetFlags initializes the flags supported by the command.
