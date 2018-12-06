@@ -82,7 +82,6 @@ func (st *State) getNextGenerationDoc(modelUUID string) (*generationDoc, error) 
 
 	var err error
 	doc := &generationDoc{}
-
 	err = col.Find(bson.D{
 		{"model-uuid", modelUUID},
 		{"completed", 0},
@@ -122,7 +121,7 @@ func (st *State) AddGeneration(modelUUID string) error {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if _, err := st.NextGeneration(modelUUID); err != nil {
-			if err != mgo.ErrNotFound {
+			if errors.IsNotFound(err) {
 				return nil, errors.Annotatef(err, "checking model %q for next generation", modelUUID)
 			}
 		} else {
