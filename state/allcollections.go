@@ -436,7 +436,7 @@ func allCollections() collectionSchema {
 		// active and completed "next" model generations.
 		generationsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"model-uuid", "completed"},
 			}},
 		},
 
