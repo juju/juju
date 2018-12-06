@@ -87,6 +87,7 @@ func (api *APIBase) getConfig(
 		ApplicationConfig: appConfigInfo,
 		Constraints:       constraints,
 		Series:            app.Series(),
+		Channel:           string(app.Channel()),
 	}, nil
 }
 

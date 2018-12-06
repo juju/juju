@@ -337,13 +337,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
-	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
-
 	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if c.Channel == "" {
+		c.Channel = csclientparams.Channel(applicationInfo.Channel)
+	}
+	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
+	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
+
 	deployedSeries := applicationInfo.Series
 
 	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
