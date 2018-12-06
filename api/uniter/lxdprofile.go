@@ -27,10 +27,11 @@ func NewLXDProfileAPI(facade base.FacadeCaller, tag names.Tag) *LXDProfileAPI {
 
 // WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the state of
 // a LXD profile upgrade
-func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error) {
+func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
+	args := params.LXDProfileUpgrade{
+		Entities:        []params.Entity{{Tag: u.tag.String()}},
+		ApplicationName: applicationName,
 	}
 	err := u.facade.FacadeCall("WatchLXDProfileUpgradeNotifications", args, &results)
 	if err != nil {

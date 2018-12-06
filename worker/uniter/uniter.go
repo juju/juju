@@ -8,8 +8,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -44,6 +42,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 

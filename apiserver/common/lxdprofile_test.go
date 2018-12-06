@@ -80,13 +80,16 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
-	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications().Return(lxdProfileWatcher, nil)
+	mockMachine1.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
 	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
 
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: names.NewUnitTag("mysql/2").String()},
-		{Tag: s.unitTag1.String()},
-	}}
+	args := params.LXDProfileUpgrade{
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/2").String()},
+			{Tag: s.unitTag1.String()},
+		},
+		ApplicationName: "foo-bar",
+	}
 	watches, err := api.WatchLXDProfileUpgradeNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
@@ -109,14 +112,15 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 	lxdProfileWatcher.changes <- struct{}{}
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine, nil)
-	mockMachine.EXPECT().WatchLXDProfileUpgradeNotifications().Return(lxdProfileWatcher, nil)
+	mockMachine.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
 
 	watches, err := api.WatchLXDProfileUpgradeNotifications(
-		params.Entities{
+		params.LXDProfileUpgrade{
 			Entities: []params.Entity{
 				{Tag: s.machineTag1.String()},
 				{Tag: names.NewMachineTag("7").String()},
 			},
+			ApplicationName: "foo-bar",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

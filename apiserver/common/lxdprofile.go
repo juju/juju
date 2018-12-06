@@ -23,7 +23,7 @@ type LXDProfileBackend interface {
 // LXDProfileMachine describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
-	WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error)
+	WatchLXDProfileUpgradeNotifications(string) (state.NotifyWatcher, error)
 	Units() ([]LXDProfileUnit, error)
 	RemoveUpgradeCharmProfileData() error
 }
@@ -122,7 +122,7 @@ func NewExternalLXDProfileAPI(
 
 // WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing
 // changes to the lxd profile changes.
-func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfileUpgrade) (params.NotifyWatchResults, error) {
 	u.logger.Tracef("Starting WatchLXDProfileUpgradeNotifications with %+v", args)
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -147,7 +147,7 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.Entities
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		w, err := machine.WatchLXDProfileUpgradeNotifications()
+		w, err := machine.WatchLXDProfileUpgradeNotifications(args.ApplicationName)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue

@@ -648,7 +648,7 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason s
 // WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the
 // state of a lxd profile upgrade
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error) {
-	return u.st.WatchLXDProfileUpgradeNotifications()
+	return u.st.WatchLXDProfileUpgradeNotifications(u.ApplicationName())
 }
 
 // UpgradeCharmProfileStatus returns the lxd profile status of a unit from a remote

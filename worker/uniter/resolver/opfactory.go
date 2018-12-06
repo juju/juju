@@ -139,6 +139,7 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *char
 		s.LocalState.Restart = true
 		s.LocalState.Conflicted = false
 		s.LocalState.CharmModifiedVersion = charmModifiedVersion
+		s.LocalState.UpgradeCharmProfileStatus = lxdprofile.EmptyStatus
 	}}
 }
 

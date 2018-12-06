@@ -110,16 +110,16 @@ func (mr *MockLXDProfileMachineMockRecorder) Units() *gomock.Call {
 }
 
 // WatchLXDProfileUpgradeNotifications mocks base method
-func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error) {
-	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications")
+func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.NotifyWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications", arg0)
 	ret0, _ := ret[0].(state.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications
-func (mr *MockLXDProfileMachineMockRecorder) WatchLXDProfileUpgradeNotifications() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileMachine)(nil).WatchLXDProfileUpgradeNotifications))
+func (mr *MockLXDProfileMachineMockRecorder) WatchLXDProfileUpgradeNotifications(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileMachine)(nil).WatchLXDProfileUpgradeNotifications), arg0)
 }
 
 // MockLXDProfileUnit is a mock of LXDProfileUnit interface

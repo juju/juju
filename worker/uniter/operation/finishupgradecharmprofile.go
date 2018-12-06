@@ -31,7 +31,6 @@ func (d *finishUpgradeCharmProfile) Prepare(state State) (*State, error) {
 // Execute is part of the Operation interface.
 func (d *finishUpgradeCharmProfile) Execute(state State) (*State, error) {
 	// Ensure that we always clean up the LXD profile status.
-	logger.Criticalf("Remove Upgrade Charm Profile DATA")
 	if err := d.callbacks.RemoveUpgradeCharmProfileData(); err != nil {
 		return nil, errors.Trace(err)
 	}
