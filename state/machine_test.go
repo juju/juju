@@ -2562,13 +2562,6 @@ func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// ch2 := state.AddTestingCharmMultiSeries(c, s.State, "mysql")
-	// app2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "mysql", ch2)
-	// unit2, err := app2.AddUnit(state.AddUnitParams{})
-	// c.Assert(err, jc.ErrorIsNil)
-	// err = unit2.AssignToMachine(mach)
-	// c.Assert(err, jc.ErrorIsNil)
-
 	return mach
 }
 
