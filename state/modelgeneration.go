@@ -59,51 +59,6 @@ func (g *Generation) AssignedUnits() map[string]string {
 	return g.doc.AssignedUnits
 }
 
-// NextGeneration returns the model's "next" generation
-// if one exists that is not yet completed.
-func (m *Model) NextGeneration() (*Generation, error) {
-	gen, err := m.st.NextGeneration(m.UUID())
-	return gen, errors.Trace(err)
-}
-
-// NextGeneration returns the "next" generation
-// if one exists for the input model, that is not yet completed.
-func (st *State) NextGeneration(modelUUID string) (*Generation, error) {
-	doc, err := st.getNextGenerationDoc(modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newGeneration(st, doc), nil
-}
-
-func (st *State) getNextGenerationDoc(modelUUID string) (*generationDoc, error) {
-	col, closer := st.db().GetCollection(generationsC)
-	defer closer()
-
-	var err error
-	doc := &generationDoc{}
-	err = col.Find(bson.D{
-		{"model-uuid", modelUUID},
-		{"completed", 0},
-	}).One(doc)
-
-	switch err {
-	case nil:
-		return doc, nil
-	case mgo.ErrNotFound:
-		return nil, errors.NotFoundf("active model generation for %s", modelUUID)
-	default:
-		return nil, errors.Annotatef(err, "retrieving active model generation for %s", modelUUID)
-	}
-}
-
-func newGeneration(st *State, doc *generationDoc) *Generation {
-	return &Generation{
-		st:  st,
-		doc: *doc,
-	}
-}
-
 // AddGeneration creates a new "next" generation for the model.
 func (m *Model) AddGeneration() error {
 	return errors.Trace(m.st.AddGeneration(m.UUID()))
@@ -155,5 +110,50 @@ func insertGenerationOps(modelUUID string) []txn.Op {
 			C:      machineUpgradeSeriesLocksC,
 			Insert: doc,
 		},
+	}
+}
+
+// NextGeneration returns the model's "next" generation
+// if one exists that is not yet completed.
+func (m *Model) NextGeneration() (*Generation, error) {
+	gen, err := m.st.NextGeneration(m.UUID())
+	return gen, errors.Trace(err)
+}
+
+// NextGeneration returns the "next" generation
+// if one exists for the input model, that is not yet completed.
+func (st *State) NextGeneration(modelUUID string) (*Generation, error) {
+	doc, err := st.getNextGenerationDoc(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newGeneration(st, doc), nil
+}
+
+func (st *State) getNextGenerationDoc(modelUUID string) (*generationDoc, error) {
+	col, closer := st.db().GetCollection(generationsC)
+	defer closer()
+
+	var err error
+	doc := &generationDoc{}
+	err = col.Find(bson.D{
+		{"model-uuid", modelUUID},
+		{"completed", 0},
+	}).One(doc)
+
+	switch err {
+	case nil:
+		return doc, nil
+	case mgo.ErrNotFound:
+		return nil, errors.NotFoundf("active model generation for %s", modelUUID)
+	default:
+		return nil, errors.Annotatef(err, "retrieving active model generation for %s", modelUUID)
+	}
+}
+
+func newGeneration(st *State, doc *generationDoc) *Generation {
+	return &Generation{
+		st:  st,
+		doc: *doc,
 	}
 }
