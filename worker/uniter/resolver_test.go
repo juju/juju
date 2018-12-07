@@ -5,8 +5,6 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 

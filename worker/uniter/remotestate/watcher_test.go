@@ -6,8 +6,6 @@ package remotestate_test
 import (
 	"time"
 
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
