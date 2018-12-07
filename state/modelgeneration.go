@@ -107,7 +107,10 @@ func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
 	}
 
 	for app, units := range g.doc.AssignedUnits {
-		if allowEmpty && len(units) == 0 {
+		if len(units) == 0 {
+			if !allowEmpty {
+				return false, nil
+			}
 			continue
 		}
 
