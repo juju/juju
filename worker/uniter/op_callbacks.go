@@ -128,3 +128,8 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error {
 	return setUpgradeSeriesStatus(opc.u, upgradeSeriesStatus, reason)
 }
+
+// RemoveUpgradeCharmProfileData is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) RemoveUpgradeCharmProfileData() error {
+	return opc.u.unit.RemoveUpgradeCharmProfileData()
+}

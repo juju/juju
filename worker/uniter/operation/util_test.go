@@ -41,10 +41,19 @@ func (mock *MockSetCurrentCharm) Call(charmURL *corecharm.URL) error {
 	return mock.err
 }
 
+type MockRemoveUpgradeCharmProfileData struct {
+	err error
+}
+
+func (mock *MockRemoveUpgradeCharmProfileData) Call() error {
+	return mock.err
+}
+
 type DeployCallbacks struct {
 	operation.Callbacks
 	*MockGetArchiveInfo
 	*MockSetCurrentCharm
+	*MockRemoveUpgradeCharmProfileData
 	MockInitializeMetricsTimers *MockNoArgs
 }
 
@@ -54,6 +63,10 @@ func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bundle
 
 func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
+}
+
+func (cb *DeployCallbacks) RemoveUpgradeCharmProfileData() error {
+	return cb.MockRemoveUpgradeCharmProfileData.Call()
 }
 
 func (cb *DeployCallbacks) InitializeMetricsTimers() error {
@@ -388,8 +401,9 @@ func (r *MockRunner) RunHook(hookName string) error {
 
 func NewDeployCallbacks() *DeployCallbacks {
 	return &DeployCallbacks{
-		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
-		MockSetCurrentCharm: &MockSetCurrentCharm{},
+		MockGetArchiveInfo:                &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockSetCurrentCharm:               &MockSetCurrentCharm{},
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{},
 	}
 }
 

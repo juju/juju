@@ -71,6 +71,14 @@ func (f *factory) NewNoOpFinishUpgradeSeries() (Operation, error) {
 	return &noOpFinishUpgradeSeries{&skipOperation{}}, nil
 }
 
+func (f *factory) NewFinishUpgradeCharmProfile(charmURL *corecharm.URL) (Operation, error) {
+	return &finishUpgradeCharmProfile{
+		kind:      Upgrade,
+		charmURL:  charmURL,
+		callbacks: f.config.Callbacks,
+	}, nil
+}
+
 // NewRevertUpgrade is part of the Factory interface.
 func (f *factory) NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, true, false)

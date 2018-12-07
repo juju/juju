@@ -81,6 +81,10 @@ type Snapshot struct {
 	// UpgradeSeriesStatus is the preparation status of any currently running
 	// series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// UpgradeCharmProfileStatus represents the current upgrade charm profile
+	// status for the currently running unit
+	UpgradeCharmProfileStatus string
 }
 
 type RelationSnapshot struct {

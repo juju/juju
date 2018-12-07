@@ -490,25 +490,24 @@ type ApplicationGetConfigResults struct {
 	Results []ConfigResult
 }
 
-// LXDProfileUpgradeMessages holds the parameters for an application
+// LXDProfileUpgrade holds the parameters for an application
 // lxd profile machines
-type LXDProfileUpgradeMessages struct {
-	ApplicationTag Entity `json:"application"`
-	WatcherId      string `json:"watcher-id"`
+type LXDProfileUpgrade struct {
+	Entities        []Entity `json:"entities"`
+	ApplicationName string   `json:"application-name"`
 }
 
-// LXDProfileUpgradeMessagesResult holds the result for an application
-// lxd profile upgrade message
-type LXDProfileUpgradeMessagesResult struct {
-	UnitName string `json:"unit-name"`
-	Message  string `json:"message"`
-	Error    *Error `json:"error,omitempty"`
+// UpgradeCharmProfileStatusResult contains the lxd profile status result for an upgrading
+// machine or container.
+type UpgradeCharmProfileStatusResult struct {
+	Error  *Error `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
-// LXDProfileUpgradeMessagesResults holds the parameters for retrieving
-// the associated lxd profile messages from a machine for a application
-type LXDProfileUpgradeMessagesResults struct {
-	Results []LXDProfileUpgradeMessagesResult `json:"args"`
+// UpgradeCharmProfileStatusResults contains the lxd profile status results for
+// upgrading machines or container.
+type UpgradeCharmProfileStatusResults struct {
+	Results []UpgradeCharmProfileStatusResult `json:"results,omitempty"`
 }
 
 // ConfigResults holds configuration values for an entity.

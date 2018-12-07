@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
@@ -89,6 +91,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(),
+		UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
@@ -145,6 +148,7 @@ func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges
 		},
 	}
 	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
 	// Change relation state (to simulate simultaneous change remote state update)
 	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)

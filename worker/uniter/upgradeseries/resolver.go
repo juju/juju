@@ -4,7 +4,6 @@
 package upgradeseries
 
 import (
-	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/model"
@@ -13,11 +12,6 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 )
-
-// ErrDoNotProceed is used to distinguish behaviour from
-// resolver.ErrNoOperation. I.e do not run any operations versus
-// this resolver has no operations to run.
-var ErrDoNotProceed = errors.New("do not proceed")
 
 type upgradeSeriesResolver struct{}
 
@@ -34,7 +28,7 @@ func (l *upgradeSeriesResolver) NextOp(
 	// (as noted by its state) then the uniter should idle in the face of all
 	// remote state changes.
 	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
-		return nil, ErrDoNotProceed
+		return nil, resolver.ErrDoNotProceed
 	}
 
 	if localState.Kind == operation.Continue {

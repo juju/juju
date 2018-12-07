@@ -335,7 +335,7 @@ func (m *Machine) UpgradeCharmProfileComplete() (string, error) {
 	instData, err := getInstanceCharmProfileData(m.st, m.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return "", nil
+			return lxdprofile.NotKnownStatus, nil
 		}
 		return "", err
 	}

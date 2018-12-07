@@ -30,19 +30,11 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
-
-//go:generate mockgen -package mocks -destination mocks/lxdprofileupgradeapi_mock.go github.com/juju/juju/cmd/juju/application LXDProfileUpgradeAPI
-
-type LXDProfileUpgradeAPI interface {
-	WatchLXDProfileUpgradeNotifications(string) (watcher.NotifyWatcher, string, error)
-	GetLXDProfileUpgradeMessages(string, string) ([]application.LXDProfileUpgradeMessage, error)
-}
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
 func NewUpgradeCharmCommand() cmd.Command {
@@ -75,7 +67,6 @@ func NewUpgradeCharmCommand() cmd.Command {
 // charm related upgrades.
 type CharmAPIClient interface {
 	CharmUpgradeClient
-	LXDProfileUpgradeAPI
 }
 
 // CharmUpgradeClient defines a subset of the application facade, as required
@@ -375,10 +366,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.handleNotifications(ctx, charmUpgradeClient); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Finally, upgrade the application.
 	var configYAML []byte
 	if c.Config.Path != "" {
@@ -398,93 +385,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		StorageConstraints: c.Storage,
 	}
 	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
-}
-
-func (c *upgradeCharmCommand) handleNotifications(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI) error {
-	if c.plan.Work == nil {
-		c.plan = catacomb.Plan{
-			Site: &c.catacomb,
-			Work: c.displayNotifications(ctx, lxdProfileUpgradeClient),
-		}
-	}
-	err := catacomb.Invoke(c.plan)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = c.catacomb.Wait()
-	if err != nil {
-		if params.IsCodeStopped(err) {
-			logger.Debugf("the lxd profile upgrade watcher has been stopped")
-		} else {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-// displayNotifications handles the writing of lxd profile upgrade notifications
-// to standard out.
-func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDProfileUpgradeAPI) func() error {
-	// We return an anonymous function here to satisfy the catacomb plan's
-	// need for a work function and to close over the commands context.
-	messages := make(map[string]application.LXDProfileUpgradeMessage)
-	return func() error {
-		uw, wid, err := client.WatchLXDProfileUpgradeNotifications(c.ApplicationName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = c.catacomb.Add(uw)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for {
-			select {
-			case <-c.catacomb.Dying():
-				return c.catacomb.ErrDying()
-			case <-uw.Changes():
-				err = c.handleLXDProfileUpgradeChange(ctx, client, wid, messages)
-				if err != nil {
-					if errors.IsNotFound(err) {
-						c.catacomb.Kill(nil)
-						continue
-					}
-					return errors.Trace(err)
-				}
-			}
-		}
-	}
-}
-
-func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string, previous map[string]application.LXDProfileUpgradeMessage) error {
-	messages, err := client.GetLXDProfileUpgradeMessages(c.ApplicationName, wid)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(messages) == 0 {
-		return errors.NotFoundf("messages")
-	}
-	var msgErrors []string
-	for _, message := range messages {
-		if message.Error != "" {
-			msgErrors = append(msgErrors, message.Error)
-			continue
-		}
-		if message.Message == "" {
-			continue
-		}
-		if p, ok := previous[message.UnitName]; ok && p.Message == message.Message {
-			continue
-		}
-		ctx.Infof(fmt.Sprintf("LXD Profile upgrade %s for %q\n", message.Message, message.UnitName))
-		previous[message.UnitName] = message
-	}
-	if len(msgErrors) > 0 {
-		for _, v := range msgErrors {
-			cmd.WriteError(ctx.Stderr, errors.New(v))
-		}
-		return errors.New("lxd profile upgrade error")
-	}
-	return nil
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined

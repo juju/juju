@@ -1935,65 +1935,55 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
-// of a lxd profile upgrade by monitoring changes to its machine's lxd profile
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
+// upgrade completed field that is specific to an application name.
+func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (NotifyWatcher, error) {
+	machineIds := set.NewStrings()
+	machineIds.Add(m.doc.DocID)
+	return newInstanceCharmProfileDataWatcher(m.st, applicationName, machineIds), nil
+}
+
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field.
-func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
-	units, err := a.AllUnits()
+func (u *Unit) WatchLXDProfileUpgradeNotifications(applicationName string) (NotifyWatcher, error) {
+	machineIds := set.NewStrings()
+	m, err := u.machine()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machineIds := set.NewStrings()
-	for _, v := range units {
-		m, err := v.machine()
-		if err != nil {
-			if errors.IsNotAssigned(err) {
-				continue
-			}
-			return nil, errors.Trace(err)
-		}
-		// watch all machines, even if we know that the charm upgrade status
-		// will be empty.
-		machineIds.Add(m.doc.DocID)
-	}
-	accessor := func(doc instanceCharmProfileData) string {
-		return doc.UpgradeCharmProfileComplete
-	}
-	completed := func(previousField, currentField string) bool {
-		return (previousField != "" && currentField == previousField) || lxdprofile.UpgradeStatusTerminal(currentField)
-	}
-
-	return newMachineFieldChangeWatcher(a.st, machineIds, accessor, completed), nil
+	machineIds.Add(m.doc.DocID)
+	return newInstanceCharmProfileDataWatcher(u.st, applicationName, machineIds), nil
 }
 
-// machineFieldChangeWatcher notifies about machine changes where a
-// machine or container's field may need to be changed. At startup, the
-// watcher gathers current values for a machine's field, no events are returned.
-// Events are generated when there are changes to a machine or container's
-// field.
-type machineFieldChangeWatcher struct {
+// instanceCharmProfileDataWatcher notifies about any changes to the
+// instanceCharmProfileData document. The watcher looks for changes to the
+// upgrading of a charm lxd profile, that belongs to an application, which the
+// provisioner updates the document field. At start up the watcher gathers the
+// current values of the instance charm profile data, if the document doesn't
+// exist, then the status is set to not known. The document are transient and
+// not expected to there all the time, so the code deals with that with the
+// usage of the not know status.
+// Events are generated when there are changes to a instance charm profile
+// data document.
+type instanceCharmProfileDataWatcher struct {
 	commonWatcher
 	// members is used to select the initial set of interesting entities.
-	members set.Strings
-	known   map[string]string
-	// accessor is used to extract the field from the machine doc in a generic
-	// way.
-	accessor func(instanceCharmProfileData) string
-	// completed is used to determine if the state watched for has
-	// occurred
-	completed func(string, string) bool
-	out       chan struct{}
+	members         set.Strings
+	applicationName string
+	known           map[string]string
+	out             chan struct{}
 }
 
-var _ Watcher = (*machineFieldChangeWatcher)(nil)
+var _ Watcher = (*instanceCharmProfileDataWatcher)(nil)
 
-func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, accessor func(instanceCharmProfileData) string, completed func(string, string) bool) NotifyWatcher {
-	w := &machineFieldChangeWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		members:       members,
-		known:         make(map[string]string),
-		accessor:      accessor,
-		completed:     completed,
-		out:           make(chan struct{}),
+func newInstanceCharmProfileDataWatcher(backend modelBackend, applicationName string, members set.Strings) NotifyWatcher {
+	w := &instanceCharmProfileDataWatcher{
+		commonWatcher:   newCommonWatcher(backend),
+		members:         members,
+		applicationName: applicationName,
+		known:           make(map[string]string),
+		out:             make(chan struct{}),
 	}
 	w.tomb.Go(func() error {
 		defer close(w.out)
@@ -2002,66 +1992,66 @@ func newMachineFieldChangeWatcher(backend modelBackend, members set.Strings, acc
 	return w
 }
 
-func (w *machineFieldChangeWatcher) initial() (set.Strings, error) {
+func (w *instanceCharmProfileDataWatcher) initial() (set.Strings, error) {
 	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
 	defer machinesCloser()
-	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
-	defer instanceCloser()
+
+	instanceDataCol, instanceDataCloser := w.db.GetCollection(instanceCharmProfileDataC)
+	defer instanceDataCloser()
 
 	var doc machineDoc
 	machineIds := make(set.Strings)
 	iter := machinesCol.Find(bson.D{{"_id", bson.D{{"$in", w.members.Values()}}}}).Iter()
 	for iter.Next(&doc) {
+		statusField := lxdprofile.NotKnownStatus
+
 		var instanceData instanceCharmProfileData
-		if err := instanceDataCol.FindId(doc.DocID).One(&instanceData); err != nil {
-			continue
+		if err := instanceDataCol.Find(bson.D{
+			{"_id", doc.DocID},
+			{"upgradecharmprofileapplication", w.applicationName},
+		}).One(&instanceData); err == nil {
+			statusField = instanceData.UpgradeCharmProfileComplete
 		}
 
-		docField := w.accessor(instanceData)
-		if w.completed("", docField) {
-			continue
-		}
-		w.known[doc.DocID] = docField
+		w.known[doc.DocID] = statusField
 		machineIds.Add(doc.DocID)
 	}
 	return machineIds, iter.Close()
 }
 
-func (w *machineFieldChangeWatcher) merge(machineIds set.Strings, change watcher.Change) error {
+func (w *instanceCharmProfileDataWatcher) merge(machineIds set.Strings, change watcher.Change) error {
+	machineId := change.Id.(string)
 	if change.Revno == -1 {
+		delete(w.known, machineId)
+		machineIds.Remove(machineId)
 		return nil
 	}
-	var doc machineDoc
-	machinesCol, machinesCloser := w.db.GetCollection(machinesC)
-	defer machinesCloser()
-
-	if err := machinesCol.FindId(change.Id).One(&doc); err != nil {
-		return err
-	}
-
 	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
 	defer instanceCloser()
 
 	var instanceData instanceCharmProfileData
-	if err := instanceDataCol.FindId(change.Id).One(&instanceData); err != nil {
-		return err
+	if err := instanceDataCol.Find(bson.D{
+		{"_id", machineId},
+		{"upgradecharmprofileapplication", w.applicationName},
+	}).One(&instanceData); err != nil {
+		if err != mgo.ErrNotFound {
+			return err
+		}
+		delete(w.known, machineId)
+		machineIds.Remove(machineId)
+		return nil
 	}
 
 	// check the field before adding to the machineId
-	currentField := w.accessor(instanceData)
-	previousField, ok := w.known[doc.DocID]
-	if !ok || w.completed(previousField, currentField) {
-		machineIds.Remove(doc.DocID)
-		return nil
+	currentField := instanceData.UpgradeCharmProfileComplete
+	previousField, ok := w.known[machineId]
+	if !ok || previousField != currentField {
+		machineIds.Add(machineId)
 	}
-	if !machineIds.Contains(doc.DocID) && currentField != previousField {
-		machineIds.Add(doc.DocID)
-	}
-	w.known[doc.DocID] = currentField
 	return nil
 }
 
-func (w *machineFieldChangeWatcher) loop() error {
+func (w *instanceCharmProfileDataWatcher) loop() error {
 	machineIds, err := w.initial()
 	if err != nil {
 		return err
@@ -2086,18 +2076,14 @@ func (w *machineFieldChangeWatcher) loop() error {
 			}
 			if !machineIds.IsEmpty() {
 				out = w.out
-				continue
 			}
-			// force a final request from the client
-			w.out <- struct{}{}
-			return nil
 		case out <- struct{}{}:
 			out = nil
 		}
 	}
 }
 
-func (w *machineFieldChangeWatcher) Changes() <-chan struct{} {
+func (w *instanceCharmProfileDataWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 

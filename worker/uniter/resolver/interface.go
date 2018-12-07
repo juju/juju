@@ -95,4 +95,8 @@ type LocalState struct {
 	// UpgradeSeriesStatus is the current state of any currently running
 	// upgrade series.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// UpgradeCharmProfileStatus is the current state of the upgrade charm
+	// profile.
+	UpgradeCharmProfileStatus string
 }
