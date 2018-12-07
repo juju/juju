@@ -1,19 +1,20 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package uniter
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	names "gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/common LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
+//go:generate mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
 
 type LXDProfileBackend interface {
 	Machine(string) (LXDProfileMachine, error)
@@ -42,9 +43,9 @@ type LXDProfileAPI struct {
 
 	logger loggo.Logger
 
-	accessUnitOrMachine GetAuthFunc
-	AccessMachine       GetAuthFunc
-	accessUnit          GetAuthFunc
+	accessUnitOrMachine common.GetAuthFunc
+	AccessMachine       common.GetAuthFunc
+	accessUnit          common.GetAuthFunc
 }
 
 // NewLXDProfileAPI returns a new LXDProfileAPI. Currently both
@@ -53,15 +54,15 @@ func NewLXDProfileAPI(
 	backend LXDProfileBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	accessMachine GetAuthFunc,
-	accessUnit GetAuthFunc,
+	accessMachine common.GetAuthFunc,
+	accessUnit common.GetAuthFunc,
 	logger loggo.Logger,
 ) *LXDProfileAPI {
 	logger.Tracef("NewLXDProfileAPI called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPI{
 		backend:             backend,
 		resources:           resources,
-		accessUnitOrMachine: AuthAny(accessUnit, accessMachine),
+		accessUnitOrMachine: common.AuthAny(accessUnit, accessMachine),
 		AccessMachine:       accessMachine,
 		accessUnit:          accessUnit,
 		logger:              logger,
@@ -107,8 +108,8 @@ func NewExternalLXDProfileAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	accessMachine GetAuthFunc,
-	accessUnit GetAuthFunc,
+	accessMachine common.GetAuthFunc,
+	accessUnit common.GetAuthFunc,
 	logger loggo.Logger,
 ) *LXDProfileAPI {
 	return NewLXDProfileAPI(
@@ -134,22 +135,22 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		machine, err := u.getMachine(tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		w, err := machine.WatchLXDProfileUpgradeNotifications(args.ApplicationName)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		watcherId := u.resources.Register(w)
@@ -180,22 +181,22 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		machine, err := u.getMachine(tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		err = machine.RemoveUpgradeCharmProfileData()
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 	}
@@ -235,21 +236,21 @@ func (u *LXDProfileAPI) unitStatus(args params.Entities) (params.UpgradeCharmPro
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			results[i].Error = ServerError(ErrPerm)
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			results[i].Error = ServerError(ErrPerm)
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			results[i].Error = ServerError(err)
+			results[i].Error = common.ServerError(err)
 			continue
 		}
 		status, err := unit.UpgradeCharmProfileStatus()
 		if err != nil {
-			results[i].Error = ServerError(err)
+			results[i].Error = common.ServerError(err)
 			continue
 		}
 		results[i].Status = status

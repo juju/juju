@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package uniter_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -11,7 +11,8 @@ import (
 	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/mocks"
+	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/lxdprofile"
@@ -34,7 +35,7 @@ func (s *lxdProfileSuite) SetUpTest(c *gc.C) {
 	s.unitTag2 = names.NewUnitTag("redis/1")
 }
 
-func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*common.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
+func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: tag,
@@ -61,8 +62,8 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*common.LXDP
 		}, nil
 	}
 
-	api := common.NewLXDProfileAPI(
-		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
+	api := uniter.NewLXDProfileAPI(
+		mockBackend, resources, authorizer, machineAuthFunc, unitAuthFunc, loggo.GetLogger("juju.apiserver.facades.agent.uniter"))
 	return api, ctrl, mockBackend
 }
 
