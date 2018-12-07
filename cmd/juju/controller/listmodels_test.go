@@ -257,7 +257,7 @@ func (s *BaseModelsSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseModelsSuite) TestModelsOwner(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -266,7 +266,7 @@ func (s *BaseModelsSuite) TestModelsOwner(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
@@ -281,9 +281,9 @@ func (s *BaseModelsSuite) TestModelsWithCredentials(c *gc.C) {
 	}
 
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), jc.Contains, "credential")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "credential")
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
@@ -300,7 +300,7 @@ func (s *BaseModelsSuite) TestModelsNonOwner(c *gc.C) {
 		}
 	}
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "bob")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -309,14 +309,14 @@ func (s *BaseModelsSuite) TestModelsNonOwner(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *BaseModelsSuite) TestModelsNoneCurrent(c *gc.C) {
 	delete(s.store.Models, "fake")
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -325,7 +325,7 @@ func (s *BaseModelsSuite) TestModelsNoneCurrent(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
@@ -336,7 +336,7 @@ func (s *BaseModelsSuite) TestModelsUUID(c *gc.C) {
 	}
 
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--uuid")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -345,7 +345,7 @@ func (s *BaseModelsSuite) TestModelsUUID(c *gc.C) {
 		"carlotta/test-model2         test-model2-UUID  dummy         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  test-model3-UUID  dummy         destroying         0      -  -       never connected\n"+
 		"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
@@ -356,7 +356,7 @@ func (s *BaseModelsSuite) TestModelsMachineInfo(c *gc.C) {
 	}
 
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -365,7 +365,7 @@ func (s *BaseModelsSuite) TestModelsMachineInfo(c *gc.C) {
 		"carlotta/test-model2         dummy         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying         0      -  -       never connected\n"+
 		"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
@@ -460,15 +460,16 @@ Model  Cloud/Region  Status  Access  Last connection
 
 	s.api.infos = nil
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, jc.ErrorIsNil)
 	assertExpectedOutput(context)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.api.ResetCalls()
 
 	s.api.infos = []params.ModelInfoResult{}
 	context, err = cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, jc.ErrorIsNil)
+
 	assertExpectedOutput(context)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BaseModelsSuite) newCommand() cmd.Command {
@@ -480,9 +481,9 @@ func (s *BaseModelsSuite) assertAgentVersionPresent(c *gc.C, testInfo *params.Mo
 		{Result: testInfo},
 	}
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), checker, "agent-version")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), checker, "agent-version")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BaseModelsSuite) checkAPICalls(c *gc.C, expectedCalls ...string) {

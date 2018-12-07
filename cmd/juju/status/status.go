@@ -18,10 +18,12 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	//	"github.com/juju/juju/api/controller"
 	storageapi "github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
+	//	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -283,6 +285,18 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	} else if status == nil {
 		return errors.Errorf("unable to obtain the current status")
 	}
+
+	// ctrlRoot, err := c.NewControllerAPIRoot()
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
+	// ctrlAPI := controller.NewClient(ctrlRoot)
+	// defer ctrlAPI.Close()
+	// ctrlConfig, err := ctrlAPI.ModelConfig()
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
+	// ctrlModelUUID := ctrlConfig[config.UUIDKey]
 
 	controllerName, err := c.ControllerName()
 	if err != nil {
