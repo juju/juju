@@ -797,6 +797,7 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 			Type:           string(mi.Type),
 			OwnerTag:       names.NewUserTag(mi.Owner).String(),
 			ControllerUUID: mi.ControllerUUID,
+			IsController:   mi.IsController,
 			Life:           params.Life(mi.Life.String()),
 
 			CloudTag:    mi.CloudTag,
@@ -1006,6 +1007,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		Type:           string(model.Type()),
 		UUID:           model.UUID(),
 		ControllerUUID: model.ControllerUUID(),
+		IsController:   st.IsController(),
 		OwnerTag:       model.Owner().String(),
 		Life:           params.Life(model.Life().String()),
 		CloudTag:       names.NewCloudTag(model.Cloud()).String(),

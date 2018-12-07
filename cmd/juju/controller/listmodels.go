@@ -232,6 +232,7 @@ type ModelSummary struct {
 
 	ControllerUUID     string                  `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName     string                  `json:"controller-name" yaml:"controller-name"`
+	IsController       bool                    `json:"is-controller" yaml:"is-controller"`
 	Owner              string                  `json:"owner" yaml:"owner"`
 	Cloud              string                  `json:"cloud" yaml:"cloud"`
 	CloudRegion        string                  `json:"region,omitempty" yaml:"region,omitempty"`
@@ -257,6 +258,7 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 		UUID:           apiSummary.UUID,
 		Type:           apiSummary.Type,
 		ControllerUUID: apiSummary.ControllerUUID,
+		IsController:   apiSummary.IsController,
 		Owner:          apiSummary.Owner,
 		Life:           apiSummary.Life,
 		Cloud:          apiSummary.Cloud,
