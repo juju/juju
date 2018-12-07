@@ -290,9 +290,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 
 	leaseFSM := raftlease.NewFSM()
-	if config.PrometheusRegisterer != nil {
-		raft.RegisterMetrics(config.PrometheusRegisterer)
-	}
 
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
@@ -814,12 +811,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
-			ClockName:     clockName,
-			AgentName:     agentName,
-			TransportName: raftTransportName,
-			FSM:           leaseFSM,
-			Logger:        loggo.GetLogger("juju.worker.raft"),
-			NewWorker:     raft.NewWorker,
+			ClockName:            clockName,
+			AgentName:            agentName,
+			TransportName:        raftTransportName,
+			FSM:                  leaseFSM,
+			Logger:               loggo.GetLogger("juju.worker.raft"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            raft.NewWorker,
 		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{

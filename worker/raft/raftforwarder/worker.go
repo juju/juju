@@ -119,7 +119,7 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 	}
 	go func() {
 		defer w.config.Logger.Tracef("%d: done", reqID)
-		response, err := w.processRequest(reqID, req.Command)
+		response, err := w.processRequest(req.Command)
 		if err != nil {
 			w.catacomb.Kill(errors.Annotate(err, "applying command"))
 			return
@@ -132,10 +132,9 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 	}()
 }
 
-func (w *forwarder) processRequest(reqID int, command string) (raftlease.ForwardResponse, error) {
+func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, error) {
 	var empty raftlease.ForwardResponse
 	future := w.config.Raft.Apply([]byte(command), applyTimeout)
-	w.config.Logger.Tracef("%d: after apply", reqID)
 	if err := future.Error(); err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -144,9 +143,7 @@ func (w *forwarder) processRequest(reqID int, command string) (raftlease.Forward
 	if !ok {
 		return empty, errors.Errorf("expected an FSMResponse, got %T: %#v", respValue, respValue)
 	}
-	w.config.Logger.Tracef("%d: after fsm response", reqID)
 	response.Notify(w.config.Target)
-	w.config.Logger.Tracef("%d: after notify", reqID)
 	return responseFromError(response.Error()), nil
 }
 

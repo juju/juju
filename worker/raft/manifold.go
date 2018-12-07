@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -22,9 +23,10 @@ type ManifoldConfig struct {
 	AgentName     string
 	TransportName string
 
-	FSM       raft.FSM
-	Logger    Logger
-	NewWorker func(Config) (worker.Worker, error)
+	FSM                  raft.FSM
+	Logger               Logger
+	PrometheusRegisterer prometheus.Registerer
+	NewWorker            func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -91,12 +93,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
 
 	return config.NewWorker(Config{
-		FSM:        config.FSM,
-		Logger:     config.Logger,
-		StorageDir: raftDir,
-		LocalID:    raft.ServerID(agentConfig.Tag().Id()),
-		Transport:  transport,
-		Clock:      clk,
+		FSM:                  config.FSM,
+		Logger:               config.Logger,
+		StorageDir:           raftDir,
+		LocalID:              raft.ServerID(agentConfig.Tag().Id()),
+		Transport:            transport,
+		Clock:                clk,
+		PrometheusRegisterer: config.PrometheusRegisterer,
 	})
 }
 

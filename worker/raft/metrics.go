@@ -10,17 +10,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// RegisterMetrics connects the metrics gathered in the
+// registerMetrics connects the metrics gathered in the
 // hashicorp/raft library code with our prometheus collector.
-func RegisterMetrics(registerer prometheus.Registerer) error {
+func registerMetrics(registerer prometheus.Registerer) (prometheus.Collector, error) {
 	sink, err := pmetrics.NewPrometheusSink()
 	if err != nil {
-		return errors.Trace(err)
-	}
-	registerer.Unregister(sink)
-	if err := registerer.Register(sink); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	_, err = metrics.NewGlobal(metrics.DefaultConfig("jujumetrics"), sink)
-	return errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := registerer.Register(sink); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return sink, nil
 }
