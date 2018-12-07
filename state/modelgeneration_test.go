@@ -65,3 +65,24 @@ func (s *generationSuite) TestActiveGenerationSwitchSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(v, gc.Equals, model.GenerationCurrent)
 }
+
+func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	comp, err := gen.CanCancel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(comp, jc.IsTrue)
+
+	auto, err := gen.CanAutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(auto, jc.IsFalse)
+
+	// TODO (manadart 2018-12-07) Implement AddApplication and AddUnit.
+	// Check CanCancel and CanAutoComplete with:
+	// - 2 apps, all units from one and none from the other.
+	// - 2 apps, all units from one and some from the other.
+	// - 2 apps, all units from both.
+}

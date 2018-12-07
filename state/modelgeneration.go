@@ -4,14 +4,15 @@
 package state
 
 import (
+	"sort"
 	"strconv"
-
-	"github.com/juju/juju/core/model"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/model"
 )
 
 // generationDoc represents the state of a model generation in MongoDB.
@@ -31,12 +32,12 @@ type generationDoc struct {
 	// and apply as usual to units not yet in the generation.
 	Active bool `bson:"active"`
 
-	// AssignedUnits is a map of unit IDs that are in the generation,
-	// keyed by application ID.
+	// AssignedUnits is a map of unit names that are in the generation,
+	// keyed by application name.
 	// An application ID can be present without any unit IDs,
 	// which indicates that it has configuration changes applied in the
 	// generation, but no units currently set to be in it.
-	AssignedUnits map[string]string `bson:"assigned-units"`
+	AssignedUnits map[string][]string `bson:"assigned-units"`
 
 	// Completed, if set, indicates when this generation was completed and
 	// effectively became the current model generation.
@@ -64,24 +65,88 @@ func (g *Generation) Active() bool {
 	return g.doc.Active
 }
 
-// AssignedUnits returns the unit IDs, keyed by application ID
+// AssignedUnits returns the unit names, keyed by application name
 // that have been assigned to this generation.
-func (g *Generation) AssignedUnits() map[string]string {
+func (g *Generation) AssignedUnits() map[string][]string {
 	return g.doc.AssignedUnits
+}
+
+// AssignApplication indicates that the application with the input name has had
+// changes in this generation.
+func (g *Generation) AssignApplication(appName string) error {
+	return errors.NotImplementedf("AssignApplication")
+}
+
+// AssignUnit indicates that the unit with the input name has had been added
+// to this generation and should realise config changes applied to it.
+func (g *Generation) AssignUnit(unitName string) error {
+	return errors.NotImplementedf("AssignApplication")
 }
 
 // CanAutoComplete returns true if every application that has had configuration
 // changes in this generation also has *all* of its units assigned to the
 // generation.
 func (g *Generation) CanAutoComplete() (bool, error) {
-	return false, errors.NotImplementedf("CanAutoComplete")
+	can, err := g.canComplete(false)
+	return can, errors.Trace(err)
 }
 
-// CanComplete returns true if every application that has had configuration
+// CanCancel returns true if every application that has had configuration
 // changes in this generation has *all or none* of its units assigned to the
 // generation.
-func (g *Generation) CanComplete() (bool, error) {
-	return false, errors.NotImplementedf("CanComplete")
+func (g *Generation) CanCancel() (bool, error) {
+	can, err := g.canComplete(true)
+	return can, errors.Trace(err)
+}
+
+func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
+	// This will prevent CanAutoComplete from returning true when no config
+	// changes have been made to the generation.
+	if !allowEmpty && len(g.doc.AssignedUnits) == 0 {
+		return false, nil
+	}
+
+	for app, units := range g.doc.AssignedUnits {
+		if allowEmpty && len(units) == 0 {
+			continue
+		}
+
+		allAppUnits, err := appUnitNames(g.st, app)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		if len(units) != len(allAppUnits) {
+			return false, nil
+		}
+
+		sort.Strings(units)
+		sort.Strings(allAppUnits)
+		for i, u := range units {
+			if allAppUnits[i] != u {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func appUnitNames(st *State, appId string) ([]string, error) {
+	unitsCollection, closer := st.db().GetCollection(unitsC)
+	defer closer()
+
+	var docs []unitDoc
+	err := unitsCollection.Find(bson.D{{"application", appId}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	names := make([]string, len(docs))
+	for i, doc := range docs {
+		names[i] = doc.Name
+	}
+	return names, nil
 }
 
 // AddGeneration creates a new "next" generation for the model.
@@ -123,7 +188,7 @@ func insertGenerationTxnOps(id string) []txn.Op {
 	doc := &generationDoc{
 		Id:            id,
 		Active:        true,
-		AssignedUnits: map[string]string{},
+		AssignedUnits: map[string][]string{},
 	}
 
 	return []txn.Op{
