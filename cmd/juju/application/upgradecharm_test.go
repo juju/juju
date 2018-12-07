@@ -764,6 +764,52 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 	})
 }
 
+func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployedChannelByDefault(c *gc.C) {
+	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+
+	// publish charm to beta channel
+	id.Revision = 1
+	err := s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.BetaChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	// deploy from beta channel
+	err = runDeploy(c, "cs:~client-username/trusty/wordpress-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := s.State.Unit("wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+
+	// publish revision 2 to stable channel
+	id.Revision = 2
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.BetaChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	// publish revision 3 to beta channel
+	id.Revision = 3
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.StableChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	// running upgrade charm without specifying a channel should use the
+	// beta channel by default, not the stable channel, since we originally deployed
+	// from beta
+	err = runUpgradeCharm(c, "wordpress")
+	c.Assert(err, gc.IsNil)
+
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-2", config: ch.Config().DefaultSettings()},
+	})
+}
+
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
 	id, ch := testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
 	err := runDeploy(c, "quantal/terms1")

@@ -437,6 +437,7 @@ type ApplicationGetResults struct {
 	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
 	Constraints       constraints.Value      `json:"constraints"`
 	Series            string                 `json:"series"`
+	Channel           string                 `json:"channel"`
 }
 
 // ApplicationConfigSetArgs holds the parameters for
