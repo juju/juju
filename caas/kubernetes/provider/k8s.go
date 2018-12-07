@@ -186,12 +186,15 @@ func (k *kubernetesClient) ListRegions() ([]string, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "listing nodes")
 	}
-	result := make([]string, len(nodes.Items))
+	logger.Criticalf("ListRegions.nodes -> %d, %v", len(nodes.Items), nodes)
+	var result []string
 	for i, n := range nodes.Items {
-		if v, ok := n.Labels[regionLabelName]; ok {
+		if v, ok := n.Labels[regionLabelName]; ok && v != "" {
 			result[i] = v
 		}
 	}
+	logger.Criticalf("ListRegions.result -> %v", result)
+	time.Sleep(10 * time.Second)
 	return result, nil
 	// return []string{"australia-southeast1", "asia-southeast1"}, nil
 }

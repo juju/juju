@@ -44,7 +44,7 @@ func (f regionsFlag) Set(str string) error {
 // String implements gnuflag.Value.String.
 func (f regionsFlag) String() string {
 	var items []string
-	for v := range *f.regions {
+	for v := range (*f.regions).SortedValues() {
 		items = append(items, fmt.Sprintf("%s/%s", f.cloudName, v))
 	}
 	return strings.Join(items, " ")

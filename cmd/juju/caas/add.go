@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -230,19 +231,19 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 
 	regions := c.regions
-	if regions != nil && len(regions) > 0 {
+	if regions != nil && regions.Size() > 0 {
 		if err = c.validateCloudRegion(); err != nil {
 			return errors.Annotate(err, "validating cloud regions")
 		}
 	} else {
-		var err error
-		regions, err = c.getClusterRegions(newCloud, credential)
+		regions, err = c.getClusterRegions(ctx, newCloud, credential)
 		if err != nil {
 			ctx.Infof("It's not possible to list regions in this case, please use --regions options to parse in.")
 			return errors.Annotate(err, "listing cluster regions")
 		}
 		// TODO(ycliuhw): do validation if we can get cloudName/provider/manufacturer information from k8s api.
 	}
+	// Question: is region really required or nice to have? Should we fail if regions is empty or not here???
 	newCloud.Regions = buildRegions(regions)
 	logger.Criticalf("newCloud.Regions -> %+v", newCloud.Regions)
 
@@ -281,13 +282,21 @@ func (c *AddCAASCommand) validateCloudRegion() error {
 
 func buildRegions(regions set.Strings) []jujucloud.Region {
 	var jujuRegions []jujucloud.Region
+
+	if regions == nil {
+		return jujuRegions
+	}
 	for _, v := range regions.SortedValues() {
 		jujuRegions = append(jujuRegions, jujucloud.Region{Name: v})
 	}
 	return jujuRegions
 }
 
-func (c *AddCAASCommand) getClusterRegions(cloud jujucloud.Cloud, credential jujucloud.Credential) (set.Strings, error) {
+func (c *AddCAASCommand) getClusterRegions(
+	ctx *cmd.Context,
+	cloud jujucloud.Cloud,
+	credential jujucloud.Credential,
+) (set.Strings, error) {
 	modelConfigClient, err := c.modelConfigAPIFunc()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -313,11 +322,39 @@ func (c *AddCAASCommand) getClusterRegions(cloud jujucloud.Cloud, credential juj
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	regions, err := broker.ListRegions()
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	interrupted := make(chan os.Signal, 1)
+	defer close(interrupted)
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+
+	result := make(chan []string, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		regions, err := broker.ListRegions()
+		if err != nil {
+			errChan <- err
+		}
+		result <- regions
+	}()
+
+	timeout := 30 * time.Second
+	defer fmt.Println("")
+	for {
+		select {
+		case <-time.After(2 * time.Second):
+			fmt.Printf(".")
+		case <-interrupted:
+			ctx.Infof("ctrl+c detected, aborting...")
+			return nil, nil
+		case <-time.After(timeout):
+			return nil, errors.Timeoutf("timeout after %v", timeout)
+		case err := <-errChan:
+			return nil, err
+		case regions := <-result:
+			return set.NewStrings(regions...), nil
+		}
 	}
-	return set.NewStrings(regions...), nil
 }
 
 func (c *AddCAASCommand) verifyName(name string) error {
