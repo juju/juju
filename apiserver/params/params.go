@@ -512,14 +512,14 @@ type LXDProfileUpgradeMessagesResults struct {
 }
 
 // UpgradeCharmProfileStatusResult contains the lxd profile status result for an upgrading
-// machine or unit
+// machine or container.
 type UpgradeCharmProfileStatusResult struct {
 	Error  *Error `json:"error,omitempty"`
 	Status string `json:"status,omitempty"`
 }
 
 // UpgradeCharmProfileStatusResults contains the lxd profile status results for
-// upgrading machines or units.
+// upgrading machines or container.
 type UpgradeCharmProfileStatusResults struct {
 	Results []UpgradeCharmProfileStatusResult `json:"results,omitempty"`
 }

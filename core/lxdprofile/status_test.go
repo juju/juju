@@ -34,7 +34,7 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *gc.C) {
 			output: true,
 		},
 		{
-			input:  lxdprofile.NoLongerKnownStatus,
+			input:  lxdprofile.NotKnownStatus,
 			output: false,
 		},
 		{
@@ -66,7 +66,7 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *gc.C) {
 			output: true,
 		},
 		{
-			input:  lxdprofile.NoLongerKnownStatus,
+			input:  lxdprofile.NotKnownStatus,
 			output: true,
 		},
 		{
