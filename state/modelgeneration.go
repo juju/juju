@@ -67,6 +67,20 @@ func (g *Generation) AssignedUnits() map[string]string {
 	return g.doc.AssignedUnits
 }
 
+// CanAutoComplete returns true if every application that has had configuration
+// changes in this generation also has *all* of its units assigned to the
+// generation.
+func (g *Generation) CanAutoComplete() (bool, error) {
+	return false, errors.NotImplementedf("CanAutoComplete")
+}
+
+// CanComplete returns true if every application that has had configuration
+// changes in this generation has *all or none* of its units assigned to the
+// generation.
+func (g *Generation) CanComplete() (bool, error) {
+	return false, errors.NotImplementedf("CanComplete")
+}
+
 // AddGeneration creates a new "next" generation for the model.
 func (m *Model) AddGeneration() error {
 	return errors.Trace(m.st.AddGeneration())
@@ -143,50 +157,6 @@ func (st *State) ActiveGeneration() (model.GenerationVersion, error) {
 	return model.GenerationCurrent, nil
 }
 
-// NextGeneration returns the model's "next" generation
-// if one exists that is not yet completed.
-func (m *Model) NextGeneration() (*Generation, error) {
-	gen, err := m.st.NextGeneration()
-	return gen, errors.Trace(err)
-}
-
-// NextGeneration returns the "next" generation
-// if one exists for the current model, that is not yet completed.
-func (st *State) NextGeneration() (*Generation, error) {
-	doc, err := st.getNextGenerationDoc()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newGeneration(st, doc), nil
-}
-
-func (st *State) getNextGenerationDoc() (*generationDoc, error) {
-	col, closer := st.db().GetCollection(generationsC)
-	defer closer()
-
-	var err error
-	doc := &generationDoc{}
-	err = col.Find(bson.D{{"completed", 0}}).One(doc)
-
-	switch err {
-	case nil:
-		return doc, nil
-	case mgo.ErrNotFound:
-		mod, _ := st.modelName()
-		return nil, errors.NotFoundf("next generation for %q", mod)
-	default:
-		mod, _ := st.modelName()
-		return nil, errors.Annotatef(err, "retrieving next generation for %q", mod)
-	}
-}
-
-func newGeneration(st *State, doc *generationDoc) *Generation {
-	return &Generation{
-		st:  st,
-		doc: *doc,
-	}
-}
-
 // SwitchGeneration ensures that the active generation of the model matches the
 // input version. This operation is idempotent
 func (m *Model) SwitchGeneration(version model.GenerationVersion) error {
@@ -229,5 +199,49 @@ func switchGenerationTxnOps(gen *Generation) []txn.Op {
 			Id:     gen.Id(),
 			Update: bson.D{{"$set", bson.D{{"active", gen.Active()}}}},
 		},
+	}
+}
+
+// NextGeneration returns the model's "next" generation
+// if one exists that is not yet completed.
+func (m *Model) NextGeneration() (*Generation, error) {
+	gen, err := m.st.NextGeneration()
+	return gen, errors.Trace(err)
+}
+
+// NextGeneration returns the "next" generation
+// if one exists for the current model, that is not yet completed.
+func (st *State) NextGeneration() (*Generation, error) {
+	doc, err := st.getNextGenerationDoc()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newGeneration(st, doc), nil
+}
+
+func (st *State) getNextGenerationDoc() (*generationDoc, error) {
+	col, closer := st.db().GetCollection(generationsC)
+	defer closer()
+
+	var err error
+	doc := &generationDoc{}
+	err = col.Find(bson.D{{"completed", 0}}).One(doc)
+
+	switch err {
+	case nil:
+		return doc, nil
+	case mgo.ErrNotFound:
+		mod, _ := st.modelName()
+		return nil, errors.NotFoundf("next generation for %q", mod)
+	default:
+		mod, _ := st.modelName()
+		return nil, errors.Annotatef(err, "retrieving next generation for %q", mod)
+	}
+}
+
+func newGeneration(st *State, doc *generationDoc) *Generation {
+	return &Generation{
+		st:  st,
+		doc: *doc,
 	}
 }
