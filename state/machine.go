@@ -2238,6 +2238,14 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 	return nil
 }
 
+// SetUpgradeCharmProfileTxns does the checks and creates the txns to
+// write an instanceCharmProfileDoc to trigger a profile change on a
+// machine.  AppName and Charm with an LXDProfile, adds or updates
+// the charm lxd profile on the machine. AppName and Charm without
+// an LXDProfile, removes the charm lxd profile from the machine if
+// was previously applied.  AppName without a Charm URL causes a
+// previously applied lxd profile for the charm to be removed from
+// the machine.
 func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, error) {
 	// Check to see if the doc created in these txn already exists
 	// and has expected data.
@@ -2298,7 +2306,7 @@ func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, e
 		} else {
 			// "charm-profiles" is configured as omitempty,
 			// so an assert with an empty slice will fail.
-			// Do this instead.
+			// Do this instead:
 			ops = append(ops, m.checkCharmProfilesIsEmptyOp())
 		}
 	}
@@ -2325,7 +2333,7 @@ func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, e
 		}
 	}
 
-	logger.Debugf("Inserting charm profile data %#v", instanceData)
+	logger.Debugf("Attempting to insert charm profile data %#v", instanceData)
 
 	// We can always insert, because the doc was removed after the
 	// change triggered by this transaction was make.  Or should have
