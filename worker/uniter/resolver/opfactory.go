@@ -62,6 +62,8 @@ func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, e
 	return op, nil
 }
 
+// NewFinishUpgradeCharmProfile completes the process of a charm profile, by
+// setting the local state to a not know state.
 func (s *resolverOpFactory) NewFinishUpgradeCharmProfile(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewFinishUpgradeCharmProfile(charmURL)
 	if err != nil {

@@ -288,6 +288,8 @@ func (s *uniterResolver) nextOp(
 	// inform the uniter workers to run the upgrade hook.
 	if charmModified(localState, remoteState) {
 		if s.config.ModelType == model.IAAS {
+			// Ensure that we have upgraded the charm profile before we action
+			// the upgrading of the charm.
 			op, err := s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
 			if errors.Cause(err) != resolver.ErrNoOperation {
 				if errors.Cause(err) == resolver.ErrDoNotProceed {

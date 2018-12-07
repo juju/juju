@@ -158,8 +158,8 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 	return result, nil
 }
 
-// UpgradeCharmProfileUnitStatus returns the current preparation status of an
-// upgrading unit.
+// UpgradeCharmProfileUnitStatus returns the final status applying an lxd
+// profile to a unit in upgrade's machine.
 // If no lxd profile upgrade is in progress an error is returned instead.
 func (u *LXDProfileAPI) UpgradeCharmProfileUnitStatus(args params.Entities) (params.UpgradeCharmProfileStatusResults, error) {
 	u.logger.Tracef("Starting UpgradeCharmProfileUnitStatus with %+v", args)

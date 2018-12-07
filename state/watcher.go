@@ -1936,7 +1936,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
-// upgrade completed field.
+// upgrade completed field that is specific to an application name.
 func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (NotifyWatcher, error) {
 	machineIds := set.NewStrings()
 	machineIds.Add(m.doc.DocID)
@@ -1956,11 +1956,16 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications(applicationName string) (Noti
 	return newInstanceCharmProfileDataWatcher(u.st, applicationName, machineIds), nil
 }
 
-// instanceCharmProfileDataWatcher notifies about machine changes where a
-// machine or container's field may need to be changed. At startup, the
-// watcher gathers current values for a machine's field, no events are returned.
-// Events are generated when there are changes to a machine or container's
-// field.
+// instanceCharmProfileDataWatcher notifies about any changes to the
+// instanceCharmProfileData document. The watcher looks for changes to the
+// upgrading of a charm lxd profile, that belongs to an application, which the
+// provisioner updates the document field. At start up the watcher gathers the
+// current values of the instance charm profile data, if the document doesn't
+// exist, then the status is set to not known. The document are transient and
+// not expected to there all the time, so the code deals with that with the
+// usage of the not know status.
+// Events are generated when there are changes to a instance charm profile
+// data document.
 type instanceCharmProfileDataWatcher struct {
 	commonWatcher
 	// members is used to select the initial set of interesting entities.
