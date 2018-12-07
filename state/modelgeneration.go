@@ -3,6 +3,8 @@ package state
 import (
 	"strconv"
 
+	"github.com/juju/juju/core/model"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -55,8 +57,6 @@ func (g *Generation) ModelUUID() string {
 }
 
 // Active indicates the whether the model generation is currently active.
-// true:  active model generation = "next"
-// false: active model generation = "current"
 func (g *Generation) Active() bool {
 	return g.doc.Active
 }
@@ -72,7 +72,7 @@ func (m *Model) AddGeneration() error {
 	return errors.Trace(m.st.AddGeneration())
 }
 
-// AddGeneration creates a new "next" generation for the input model ID.
+// AddGeneration creates a new "next" generation for the current model.
 // The inserted generation is active, meaning the model's current generation
 // becomes "next" immediately.
 // A new generation can not be added for a model that has an existing
@@ -80,12 +80,10 @@ func (m *Model) AddGeneration() error {
 func (st *State) AddGeneration() error {
 	if _, err := st.NextGeneration(); err != nil {
 		if !errors.IsNotFound(err) {
-			mod, _ := st.modelName()
-			return errors.Annotatef(err, "checking model %q for next generation", mod)
+			return errors.Annotatef(err, "checking for next model generation")
 		}
 	} else {
-		mod, _ := st.modelName()
-		return errors.Errorf("model %q has a next generation that is not completed", mod)
+		return errors.Errorf("model has a next generation that is not completed")
 	}
 
 	seq, err := sequence(st, "generation")
@@ -94,19 +92,17 @@ func (st *State) AddGeneration() error {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return insertGenerationOps(strconv.Itoa(seq)), nil
+		return insertGenerationTxnOps(strconv.Itoa(seq)), nil
 	}
-
 	err = st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
-		mod, _ := st.modelName()
-		logger.Errorf("cannot create new generation for model %q: %v", mod, err)
+		logger.Errorf("cannot create new generation for model: %v", err)
 	}
 	return err
 }
 
-func insertGenerationOps(id string) []txn.Op {
+func insertGenerationTxnOps(id string) []txn.Op {
 	doc := &generationDoc{
 		Id:            id,
 		Active:        true,
@@ -122,6 +118,31 @@ func insertGenerationOps(id string) []txn.Op {
 	}
 }
 
+// ActiveGeneration returns the active generation for the model.
+func (m *Model) ActiveGeneration() (model.GenerationVersion, error) {
+	v, err := m.st.ActiveGeneration()
+	return v, errors.Trace(err)
+}
+
+// ActiveGeneration returns the active generation for the current model.
+// If there is no "next" generation pending completion, or if the generation is
+// not active, then the generation to use for config is "current".
+// Otherwise, the model's "next" generation is active.
+func (st *State) ActiveGeneration() (model.GenerationVersion, error) {
+	gen, err := st.NextGeneration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return model.GenerationCurrent, nil
+		}
+		return "", errors.Trace(err)
+	}
+
+	if gen.Active() {
+		return model.GenerationNext, nil
+	}
+	return model.GenerationCurrent, nil
+}
+
 // NextGeneration returns the model's "next" generation
 // if one exists that is not yet completed.
 func (m *Model) NextGeneration() (*Generation, error) {
@@ -130,7 +151,7 @@ func (m *Model) NextGeneration() (*Generation, error) {
 }
 
 // NextGeneration returns the "next" generation
-// if one exists for the input model, that is not yet completed.
+// if one exists for the current model, that is not yet completed.
 func (st *State) NextGeneration() (*Generation, error) {
 	doc, err := st.getNextGenerationDoc()
 	if err != nil {
@@ -163,5 +184,50 @@ func newGeneration(st *State, doc *generationDoc) *Generation {
 	return &Generation{
 		st:  st,
 		doc: *doc,
+	}
+}
+
+// SwitchGeneration ensures that the active generation of the model matches the
+// input version. This operation is idempotent
+func (m *Model) SwitchGeneration(version model.GenerationVersion) error {
+	return errors.Trace(m.st.SwitchGeneration(version))
+}
+
+// SwitchGeneration ensures that the active generation of the current model
+// matches the input version. This operation is idempotent.
+func (st *State) SwitchGeneration(version model.GenerationVersion) error {
+	active := version == model.GenerationNext
+
+	gen, err := st.NextGeneration()
+	if err != nil {
+		if errors.IsNotFound(err) && active {
+			return errors.New("cannot switch to next generation, as none exists")
+		}
+		return errors.Trace(err)
+	}
+
+	if gen.Active() == active {
+		return nil
+	}
+	gen.doc.Active = active
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		return switchGenerationTxnOps(gen), nil
+	}
+	err = st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
+func switchGenerationTxnOps(gen *Generation) []txn.Op {
+	return []txn.Op{
+		{
+			C:      generationsC,
+			Id:     gen.Id(),
+			Update: bson.D{{"$set", bson.D{{"active", gen.Active()}}}},
+		},
 	}
 }
