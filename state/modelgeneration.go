@@ -95,20 +95,20 @@ func (m *Model) AddGeneration() error {
 // A new generation can not be added for a model that has an existing
 // generation that is not completed.
 func (st *State) AddGeneration() error {
-	if _, err := st.NextGeneration(); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "checking for next model generation")
-		}
-	} else {
-		return errors.Errorf("model has a next generation that is not completed")
-	}
-
 	seq, err := sequence(st, "generation")
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if _, err := st.NextGeneration(); err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Annotatef(err, "checking for next model generation")
+			}
+		} else {
+			return nil, errors.Errorf("model has a next generation that is not completed")
+		}
+
 		return insertGenerationTxnOps(strconv.Itoa(seq)), nil
 	}
 	err = st.db().Run(buildTxn)
