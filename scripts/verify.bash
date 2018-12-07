@@ -64,6 +64,9 @@ go tool vet \
    -printfuncs=$all_prints \
     $FILES || [ -n "$IGNORE_VET_WARNINGS" ]
 
+echo "checking: copyright notices are in place ..."
+./scripts/copyright.bash
+
 echo "checking: dependency files ..."
 dep check
 
@@ -80,6 +83,3 @@ go build $(go list github.com/juju/juju/... | grep -v /vendor/)
 
 echo "checking: tests are wired up ..."
 ./scripts/checktesting.bash
-
-echo "checking: copyright notices are in place ..."
-./scripts/copyright.bash
