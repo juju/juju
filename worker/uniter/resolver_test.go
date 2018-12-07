@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -147,6 +148,7 @@ func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges
 		},
 	}
 	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
 	// Change relation state (to simulate simultaneous change remote state update)
 	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
