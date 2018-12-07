@@ -121,6 +121,7 @@ models:
   model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: kontroll
+  is-controller: true
   owner: admin
   cloud: dummy
   region: dummy-region

@@ -43,6 +43,7 @@ type ModelSummary struct {
 	Type           ModelType
 	Owner          string
 	ControllerUUID string
+	IsController   bool
 	Life           Life
 
 	CloudTag           string
@@ -113,6 +114,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 			Life:               doc.Life,
 			Owner:              doc.Owner,
 			ControllerUUID:     doc.ControllerUUID,
+			IsController:       st.IsController(),
 			SLALevel:           string(doc.SLA.Level),
 			SLAOwner:           doc.SLA.Owner,
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
