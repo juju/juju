@@ -43,7 +43,7 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 		globalTime: s.clock.Now(),
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
-	store, err := raftlease.NewStore(raftlease.StoreConfig{
+	s.store = raftlease.NewStore(raftlease.StoreConfig{
 		FSM:          s.fsm,
 		Hub:          s.hub,
 		Trapdoor:     FakeTrapdoor,
@@ -54,8 +54,6 @@ func (s *storeSuite) SetUpTest(c *gc.C) {
 		Clock:          s.clock,
 		ForwardTimeout: time.Second,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.store = store
 }
 
 func (s *storeSuite) TestClaim(c *gc.C) {

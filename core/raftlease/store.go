@@ -57,29 +57,19 @@ type StoreConfig struct {
 	RequestTopic  string
 	ResponseTopic func(requestID uint64) string
 
-	Clock             clock.Clock
-	ForwardTimeout    time.Duration
-	MetricsRegisterer prometheus.Registerer
+	Clock          clock.Clock
+	ForwardTimeout time.Duration
 }
 
 // NewStore returns a core/lease.Store that manages leases in Raft.
-func NewStore(config StoreConfig) (*Store, error) {
-	result := &Store{
+func NewStore(config StoreConfig) *Store {
+	return &Store{
 		fsm:      config.FSM,
 		hub:      config.Hub,
 		config:   config,
 		prevTime: config.FSM.GlobalTime(),
 		metrics:  newMetricsCollector(),
 	}
-
-	if config.MetricsRegisterer != nil {
-		config.MetricsRegisterer.Unregister(result.metrics)
-		err := config.MetricsRegisterer.Register(result.metrics)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return result, nil
 }
 
 // Store manages a raft FSM and forwards writes through a pubsub hub.
@@ -319,4 +309,14 @@ func RecoverError(resp *ResponseError) error {
 	default:
 		return errors.New(resp.Message)
 	}
+}
+
+// Describe is part of prometheus.Collector.
+func (s *Store) Describe(ch chan<- *prometheus.Desc) {
+	s.metrics.Describe(ch)
+}
+
+// Collect is part of prometheus.Collector.
+func (s *Store) Collect(ch chan<- prometheus.Metric) {
+	s.metrics.Collect(ch)
 }

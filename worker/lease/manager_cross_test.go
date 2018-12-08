@@ -193,8 +193,9 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 				return nil, errors.Errorf("bad namespace!")
 			}
 		},
-		MaxSleep: defaultMaxSleep,
-		Logger:   loggo.GetLogger("lease_test"),
+		MaxSleep:             defaultMaxSleep,
+		Logger:               loggo.GetLogger("lease_test"),
+		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

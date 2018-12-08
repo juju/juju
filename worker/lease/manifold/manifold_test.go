@@ -72,15 +72,15 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = leasemanager.Manifold(leasemanager.ManifoldConfig{
-		AgentName:         "agent",
-		ClockName:         "clock",
-		CentralHubName:    "hub",
-		FSM:               s.fsm,
-		RequestTopic:      "lease.manifold_test",
-		Logger:            &s.logger,
-		MetricsRegisterer: s.metrics,
-		NewWorker:         s.newWorker,
-		NewStore:          s.newStore,
+		AgentName:            "agent",
+		ClockName:            "clock",
+		CentralHubName:       "hub",
+		FSM:                  s.fsm,
+		RequestTopic:         "lease.manifold_test",
+		Logger:               &s.logger,
+		PrometheusRegisterer: s.metrics,
+		NewWorker:            s.newWorker,
+		NewStore:             s.newStore,
 	})
 }
 
@@ -104,9 +104,9 @@ func (s *manifoldSuite) newWorker(config lease.ManagerConfig) (worker.Worker, er
 	return s.worker, nil
 }
 
-func (s *manifoldSuite) newStore(config raftlease.StoreConfig) (*raftlease.Store, error) {
+func (s *manifoldSuite) newStore(config raftlease.StoreConfig) *raftlease.Store {
 	s.stub.MethodCall(s, "NewStore", config)
-	return s.store, s.stub.NextErr()
+	return s.store
 }
 
 var expectedInputs = []string{
@@ -143,12 +143,11 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, state.LeaseTrapdoorFunc())
 	storeConfig.Trapdoor = nil
 	c.Assert(storeConfig, gc.DeepEquals, raftlease.StoreConfig{
-		FSM:               s.fsm,
-		Hub:               s.hub,
-		RequestTopic:      "lease.manifold_test",
-		Clock:             s.clock,
-		ForwardTimeout:    5 * time.Second,
-		MetricsRegisterer: s.metrics,
+		FSM:            s.fsm,
+		Hub:            s.hub,
+		RequestTopic:   "lease.manifold_test",
+		Clock:          s.clock,
+		ForwardTimeout: 5 * time.Second,
 	})
 
 	args = s.stub.Calls()[1].Args
@@ -164,11 +163,12 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	config.Secretary = nil
 
 	c.Assert(config, jc.DeepEquals, lease.ManagerConfig{
-		Store:      s.store,
-		Clock:      s.clock,
-		Logger:     &s.logger,
-		MaxSleep:   time.Minute,
-		EntityUUID: "controller-uuid",
+		Store:                s.store,
+		Clock:                s.clock,
+		Logger:               &s.logger,
+		MaxSleep:             time.Minute,
+		EntityUUID:           "controller-uuid",
+		PrometheusRegisterer: s.metrics,
 	})
 }
 

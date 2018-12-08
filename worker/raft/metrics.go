@@ -17,7 +17,7 @@ func registerMetrics(registerer prometheus.Registerer) (prometheus.Collector, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, err = metrics.NewGlobal(metrics.DefaultConfig("jujumetrics"), sink)
+	_, err = metrics.NewGlobal(metrics.DefaultConfig("juju"), sink)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -55,12 +55,12 @@ type ManifoldConfig struct {
 	ClockName      string
 	CentralHubName string
 
-	FSM               *raftlease.FSM
-	RequestTopic      string
-	Logger            lease.Logger
-	MetricsRegisterer prometheus.Registerer
-	NewWorker         func(lease.ManagerConfig) (worker.Worker, error)
-	NewStore          func(raftlease.StoreConfig) (*raftlease.Store, error)
+	FSM                  *raftlease.FSM
+	RequestTopic         string
+	Logger               lease.Logger
+	PrometheusRegisterer prometheus.Registerer
+	NewWorker            func(lease.ManagerConfig) (worker.Worker, error)
+	NewStore             func(raftlease.StoreConfig) *raftlease.Store
 }
 
 // Validate checks that the config has all the required values.
@@ -83,8 +83,8 @@ func (c ManifoldConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if c.MetricsRegisterer == nil {
-		return errors.NotValidf("nil MetricsRegisterer")
+	if c.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if c.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -123,7 +123,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	source := rand.NewSource(clock.Now().UnixNano())
 	runID := rand.New(source).Int31()
 
-	store, err := s.config.NewStore(raftlease.StoreConfig{
+	s.store = s.config.NewStore(raftlease.StoreConfig{
 		FSM:          s.config.FSM,
 		Hub:          hub,
 		Trapdoor:     state.LeaseTrapdoorFunc(),
@@ -131,23 +131,19 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		ResponseTopic: func(requestID uint64) string {
 			return fmt.Sprintf("%s.%08x.%d", s.config.RequestTopic, runID, requestID)
 		},
-		Clock:             clock,
-		ForwardTimeout:    ForwardTimeout,
-		MetricsRegisterer: s.config.MetricsRegisterer,
+		Clock:          clock,
+		ForwardTimeout: ForwardTimeout,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	s.store = store
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
 	return s.config.NewWorker(lease.ManagerConfig{
-		Secretary:  lease.SecretaryFinder(controllerUUID),
-		Store:      s.store,
-		Clock:      clock,
-		Logger:     s.config.Logger,
-		MaxSleep:   MaxSleep,
-		EntityUUID: controllerUUID,
+		Secretary:            lease.SecretaryFinder(controllerUUID),
+		Store:                s.store,
+		Clock:                clock,
+		Logger:               s.config.Logger,
+		MaxSleep:             MaxSleep,
+		EntityUUID:           controllerUUID,
+		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
 }
 
@@ -191,6 +187,6 @@ func NewWorker(config lease.ManagerConfig) (worker.Worker, error) {
 }
 
 // NewStore is a shim to make a raftlease.Store for testability.
-func NewStore(config raftlease.StoreConfig) (*raftlease.Store, error) {
+func NewStore(config raftlease.StoreConfig) *raftlease.Store {
 	return raftlease.NewStore(config)
 }
