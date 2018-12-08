@@ -194,15 +194,24 @@ func newState(
 // Close the connection to the database.
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
-
-	if st.workers != nil {
-		if err := worker.Stop(st.workers); err != nil {
-			return errors.Annotatef(err, "failed to stop workers")
-		}
+	if err := st.stopWorkers(); err != nil {
+		return errors.Trace(err)
 	}
 	st.session.Close()
 	logger.Debugf("closed state without error")
 	// Remove the reference.
 	profileTracker.Remove(st)
+	return nil
+}
+
+func (st *State) stopWorkers() (err error) {
+	defer errors.DeferredAnnotatef(&err, "closing state failed")
+
+	if st.workers != nil {
+		if err := worker.Stop(st.workers); err != nil {
+			return errors.Annotatef(err, "failed to stop workers")
+		}
+		st.workers = nil
+	}
 	return nil
 }

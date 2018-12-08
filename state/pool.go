@@ -101,8 +101,9 @@ func (i *PoolItem) refCount() int {
 type StatePool struct {
 	systemState *State
 	// mu protects pool
-	mu   sync.Mutex
-	pool map[string]*PoolItem
+	mu      sync.Mutex
+	pool    map[string]*PoolItem
+	closing bool
 	// sourceKey is used to provide a unique number as a key for the
 	// referencesSources structure in the pool.
 	sourceKey uint64
@@ -218,6 +219,12 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 		return ps, nil
 	}
 
+	// Don't create any new pool objects if the state pool is in the
+	// process of closing down.
+	if p.closing {
+		return nil, errors.New("pool is closing")
+	}
+
 	// We need a new state and pool item.
 	st, err := p.openState(modelUUID)
 	if err != nil {
@@ -282,6 +289,10 @@ func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if p.pool == nil {
+		return false, errors.New("pool is closed")
+	}
+
 	item, ok := p.pool[modelUUID]
 	if !ok {
 		return false, errors.Errorf("unable to return unknown model %v to the pool", modelUUID)
@@ -305,6 +316,10 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.pool == nil {
+		return false, errors.New("pool is closed")
+	}
 
 	item, ok := p.pool[modelUUID]
 	if !ok {
@@ -332,16 +347,43 @@ func (p *StatePool) SystemState() *State {
 // Close closes all State instances in the pool.
 func (p *StatePool) Close() error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	// A nil pool map indicates that the pool has already been closed.
 	if p.pool == nil {
+		p.mu.Unlock()
 		return nil
 	}
-
 	logger.Tracef("state pool closed from:\n%s", debug.Stack())
 
+	// Before we go through and close the state pool objects, we need to
+	// stop all the workers running in the state objects. If anyone had asked
+	// for a mutliwatcher, an all watcher worker is stated in the state object's
+	// workers. These need to be stopped before we start closing connections
+	// as those workers use the pool.
+	p.closing = true
+	p.mu.Unlock()
+
+	for uuid, item := range p.pool {
+		if err := item.state.stopWorkers(); err != nil {
+			logger.Infof("state workers for model %s did not stop: %v", uuid, err)
+		}
+	}
+	if err := p.systemState.stopWorkers(); err != nil {
+		logger.Infof("state workers for controller model did not stop: %v", err)
+	}
+
+	// Reacquire the lock to modify the pool.
+	// Hopefully by now any workers running that may have released objects
+	// to the pool should be fine.
+	p.mu.Lock()
+	pool := p.pool
+	p.pool = nil
 	var lastErr error
-	for _, item := range p.pool {
+	// We release the lock as we are closing the state objects to allow
+	// other goroutines that may be attempting to Get a model from the pool
+	// to continue. The Get method will fail with a closed pool.
+	// We do this just in case the workers didn't stop above when we were trying.
+	p.mu.Unlock()
+	for _, item := range pool {
 		if item.refCount() != 0 || item.remove {
 			logger.Warningf(
 				"state for %v leaked from pool - references: %v, removed: %v",
@@ -355,14 +397,15 @@ func (p *StatePool) Close() error {
 			lastErr = err
 		}
 	}
-	p.pool = nil
+	p.mu.Lock()
 	if p.watcherRunner != nil {
 		worker.Stop(p.watcherRunner)
 	}
+	p.mu.Unlock()
+	// As with above and the other watchers. Unlock while releas
 	if err := p.systemState.Close(); err != nil {
 		lastErr = err
 	}
-	p.systemState = nil
 	return errors.Annotate(lastErr, "at least one error closing a state")
 }
 
