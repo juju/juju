@@ -65,7 +65,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 			user: "foobar",
 		}, {
 			args:        []string{"--foobar"},
-			errorString: "flag provided but not defined: --foobar",
+			errorString: "option provided but not defined: --foobar",
 		}, {
 			args:  []string{"--reset"},
 			reset: true,

@@ -22,7 +22,7 @@ func (s *storageAddSuite) getStorageUnitAddCommand(c *gc.C) cmd.Command {
 	hctx, _ := s.ContextSuite.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-add"))
 	c.Assert(err, jc.ErrorIsNil)
-	return com
+	return jujuc.NewJujucCommandWrappedForTest(com)
 }
 
 func (s *storageAddSuite) TestHelp(c *gc.C) {

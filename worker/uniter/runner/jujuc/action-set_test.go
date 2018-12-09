@@ -48,7 +48,7 @@ func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"oops=nope"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops=nope"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "not running an action")
@@ -130,7 +130,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		c.Logf("  command list: %#v", t.command)
-		code := cmd.Main(com, ctx, t.command)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
 		c.Check(code, gc.Equals, t.code)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
 		c.Check(hctx.commands, jc.DeepEquals, t.expected)
@@ -142,7 +142,7 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-set <key>=<value> [<key>=<value> ...]
 

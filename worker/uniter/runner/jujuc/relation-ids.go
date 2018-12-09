@@ -10,6 +10,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // RelationIdsCommand implements the relation-ids command.
@@ -41,12 +43,12 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 	} else if !errors.IsNotFound(err) {
 		logger.Errorf("Could not retrieve hook relation: %v", err)
 	}
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-ids",
 		Args:    args,
 		Purpose: "list all relation ids with the given relation name",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {

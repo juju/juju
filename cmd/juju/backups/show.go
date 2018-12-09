@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -28,12 +29,12 @@ type showCommand struct {
 
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-backup",
 		Args:    "<ID>",
 		Purpose: "Show metadata for the specified backup.",
 		Doc:     showDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

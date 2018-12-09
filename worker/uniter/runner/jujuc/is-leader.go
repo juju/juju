@@ -7,6 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // isLeaderCommand implements the is-leader command.
@@ -28,11 +30,11 @@ is-leader prints a boolean indicating whether the local unit is guaranteed to
 be application leader for at least 30 seconds. If it fails, you should assume that
 there is no such guarantee.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "is-leader",
 		Purpose: "print application leadership status",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags is part of the cmd.Command interface.

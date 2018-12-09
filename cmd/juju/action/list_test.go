@@ -67,7 +67,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validApplicationId),
 	}, {
-		should:               "default to yaml output when --schema flag is specified",
+		should:               "default to yaml output when --schema option is specified",
 		args:                 []string{"--schema", validApplicationId},
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validApplicationId),

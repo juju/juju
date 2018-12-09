@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/ssh"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -48,12 +49,12 @@ type listKeysCommand struct {
 
 // Info implements Command.Info.
 func (c *listKeysCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "ssh-keys",
 		Purpose: usageListSSHKeysSummary,
 		Doc:     usageListSSHKeysDetails,
 		Aliases: []string{"list-ssh-keys"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

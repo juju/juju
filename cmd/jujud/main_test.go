@@ -22,6 +22,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
@@ -63,7 +64,7 @@ func checkMessage(c *gc.C, msg string, cmd ...string) {
 func (s *MainSuite) TestParseErrors(c *gc.C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
-	msgf := "flag provided but not defined: --cheese"
+	msgf := "option provided but not defined: --cheese"
 	checkMessage(c, msgf, "--cheese", "cavitate")
 
 	cmds := []string{"bootstrap-state", "unit", "machine"}
@@ -120,11 +121,11 @@ here is some documentation
 `
 
 func (c *RemoteCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remote",
 		Purpose: "test jujuc",
 		Doc:     "here is some documentation",
-	}
+	})
 }
 
 func (c *RemoteCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -223,7 +224,7 @@ var argsTests = []struct {
 	{[]string{"remote", "--help"}, 0, expectUsage},
 	{[]string{"unknown"}, 1, "bad request: bad command: unknown\n"},
 	{[]string{"remote", "--error", "borken"}, 1, "borken\n"},
-	{[]string{"remote", "--unknown"}, 2, "flag provided but not defined: --unknown\n"},
+	{[]string{"remote", "--unknown"}, 2, "option provided but not defined: --unknown\n"},
 	{[]string{"remote", "unwanted"}, 2, `unrecognized args: ["unwanted"]` + "\n"},
 }
 
@@ -235,7 +236,6 @@ func (s *HookToolMainSuite) TestArgs(c *gc.C) {
 		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, nil, t.args...)
 		c.Assert(output, jc.Contains, t.output)
-
 	}
 }
 

@@ -6,6 +6,7 @@ package machine
 import (
 	"github.com/juju/cmd"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -42,12 +43,12 @@ type showMachineCommand struct {
 
 // Info implements Command.Info.
 func (c *showMachineCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-machine",
 		Args:    "<machineID> ...",
 		Purpose: "Show a machine's status.",
 		Doc:     showMachineCommandDoc,
-	}
+	})
 }
 
 // Init captures machineId's to show from CL args.

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -283,4 +284,8 @@ type cmdWrapper struct {
 func (c *cmdWrapper) Run(ctx *cmd.Context) error {
 	c.err = c.Command.Run(ctx)
 	return c.err
+}
+
+func (c *cmdWrapper) Info() *cmd.Info {
+	return jujucmd.Info(c.Command.Info())
 }

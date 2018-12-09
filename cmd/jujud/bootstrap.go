@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
@@ -75,10 +76,10 @@ func NewBootstrapCommand() *BootstrapCommand {
 
 // Info returns a description of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "bootstrap-state",
 		Purpose: "initialize juju state",
-	}
+	})
 }
 
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.

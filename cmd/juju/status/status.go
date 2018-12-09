@@ -20,6 +20,7 @@ import (
 
 	storageapi "github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
@@ -124,13 +125,13 @@ See also:
 `
 
 func (c *statusCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-status",
 		Args:    "[filter pattern ...]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
 		Aliases: []string{"status"},
-	}
+	})
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {

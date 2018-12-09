@@ -9,6 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -57,12 +58,12 @@ type removeStorageCommand struct {
 
 // Info implements Command.Info.
 func (c *removeStorageCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-storage",
 		Purpose: "Removes storage from the model.",
 		Doc:     removeStorageCommandDoc,
 		Args:    removeStorageCommandArgs,
-	}
+	})
 }
 
 func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -115,7 +116,7 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 	}
 	if anyAttached {
 		ctx.Infof(`
-Use the --force flag to remove attached storage, or use
+Use the --force option to remove attached storage, or use
 "juju detach-storage" to explicitly detach the storage
 before removing.`)
 	}

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -36,11 +37,11 @@ type RetryProvisioningAPI interface {
 }
 
 func (c *retryProvisioningCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "retry-provisioning",
 		Args:    "<machine> [...]",
 		Purpose: "Retries provisioning for failed machines.",
-	}
+	})
 }
 
 func (c *retryProvisioningCommand) Init(args []string) error {

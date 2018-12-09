@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
@@ -99,12 +100,12 @@ type upgradeJujuCommand struct {
 }
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-model",
 		Purpose: usageUpgradeJujuSummary,
 		Doc:     usageUpgradeJujuDetails,
 		Aliases: []string{"upgrade-juju"},
-	}
+	})
 }
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -399,7 +400,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return errors.Errorf("%s\n\n"+
 					"Please wait for the upgrade to complete or if there was a problem with\n"+
 					"the last upgrade that has been resolved, consider running the\n"+
-					"upgrade-model command with the --reset-previous-upgrade flag.", err,
+					"upgrade-model command with the --reset-previous-upgrade option.", err,
 				)
 			} else {
 				return block.ProcessBlockedError(err, block.BlockChange)

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -86,11 +87,11 @@ type modelGetConstraintsCommand struct {
 }
 
 func (c *modelGetConstraintsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "get-model-constraints",
 		Purpose: "Displays machine constraints for a model.",
 		Doc:     getConstraintsDoc,
-	}
+	})
 }
 
 func (c *modelGetConstraintsCommand) Init(args []string) error {
@@ -146,12 +147,12 @@ type modelSetConstraintsCommand struct {
 }
 
 func (c *modelSetConstraintsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-model-constraints",
 		Args:    "<constraint>=<value> ...",
 		Purpose: "Sets machine constraints on a model.",
 		Doc:     setConstraintsDoc,
-	}
+	})
 }
 
 func (c *modelSetConstraintsCommand) Init(args []string) (err error) {

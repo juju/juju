@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
@@ -79,12 +80,12 @@ func (c *offerCommand) NewApplicationOffersAPI() (*applicationoffers.Client, err
 
 // Info implements Command.Info.
 func (c *offerCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "offer",
 		Purpose: "Offer application endpoints for use in other models.",
 		Args:    "[model-name.]<application-name>:<endpoint-name>[,...] [offer-name]",
 		Doc:     offerCommandDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

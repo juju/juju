@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -62,13 +63,13 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "actions",
 		Args:    "<application name>",
 		Purpose: "List actions defined for an application.",
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
-	}
+	})
 }
 
 // Init validates the application name and any other options.

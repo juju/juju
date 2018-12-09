@@ -50,12 +50,12 @@ See also:
 // Info implements Command.Info
 // `unregister` may seem generic as a command, but aligns with `register`.
 func (c *unregisterCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "unregister",
 		Args:    "<controller name>",
 		Purpose: "Unregisters a Juju controller.",
 		Doc:     usageUnregisterDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

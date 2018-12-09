@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/api/cloud"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/permission"
@@ -103,12 +104,12 @@ type grantCloudCommand struct {
 
 // Info implements Command.Info.
 func (c *grantCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "grant-cloud",
 		Args:    "<user name> <permission> <cloud name> ...",
 		Purpose: usageGrantCloudSummary,
 		Doc:     usageGrantCloudDetails,
-	}
+	})
 }
 
 func (c *grantCloudCommand) getCloudsAPI() (GrantCloudAPI, error) {
@@ -152,12 +153,12 @@ type revokeCloudCommand struct {
 
 // Info implements cmd.Command.
 func (c *revokeCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "revoke-cloud",
 		Args:    "<user name> <permission> <cloud name> ...",
 		Purpose: usageRevokeCloudSummary,
 		Doc:     usageRevokeCloudDetails,
-	}
+	})
 }
 
 func (c *revokeCloudCommand) getCloudAPI() (RevokeCloudAPI, error) {

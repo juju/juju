@@ -23,6 +23,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	jujucmd "github.com/juju/juju/cmd"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
@@ -61,11 +62,11 @@ configuration is needed. In most circumstances the configuration will
 be found automatically. The --data-dir and/or --machine-id options may
 be required if the agent configuration can't be found automatically.
 `[1:]
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    corenames.JujuDumpLogs,
 		Purpose: "output the logs that are stored in the local Juju database",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags implements cmd.Command.

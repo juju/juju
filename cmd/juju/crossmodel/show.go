@@ -9,6 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -70,12 +71,12 @@ func (c *showCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-offer",
 		Args:    "[<controller>:]<offer url>",
 		Purpose: "Shows extended information about the offered application.",
 		Doc:     showCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

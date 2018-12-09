@@ -51,7 +51,7 @@ var relationGetTests = []struct {
 		relid:   -1,
 		code:    2,
 		args:    []string{"-r", "burble:123"},
-		out:     `invalid value "burble:123" for flag -r: relation not found`,
+		out:     `invalid value "burble:123" for option -r: relation not found`,
 	}, {
 		summary: "default relation, no unit chosen",
 		relid:   1,
@@ -147,7 +147,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
@@ -204,7 +204,7 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := cmdtesting.Context(c)
 			args := append(t.args, "--format", format)
-			code := cmd.Main(com, ctx, args)
+			code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 			c.Check(code, gc.Equals, 0)
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			stdout := bufferString(ctx.Stdout)
@@ -266,7 +266,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, []string{"--help"})
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		unitHelp := ""
 		if t.unit != "" {
@@ -283,7 +283,7 @@ func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--output", "some-file", "pew"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")

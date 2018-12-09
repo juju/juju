@@ -6,6 +6,8 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // OpenedPortsCommand implements the opened-ports command.
@@ -22,11 +24,11 @@ func NewOpenedPortsCommand(ctx Context) (cmd.Command, error) {
 func (c *OpenedPortsCommand) Info() *cmd.Info {
 	doc := `Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
 <from>-<to>/<protocol> (e.g. "8080-8088/udp").`
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "opened-ports",
 		Purpose: "lists all ports or ranges opened by the unit",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *OpenedPortsCommand) SetFlags(f *gnuflag.FlagSet) {

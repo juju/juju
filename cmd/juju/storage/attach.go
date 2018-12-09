@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -63,12 +64,12 @@ func (c *attachStorageCommand) Init(args []string) error {
 
 // Info implements Command.Info.
 func (c *attachStorageCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "attach-storage",
 		Purpose: "Attaches existing storage to a unit.",
 		Doc:     attachStorageCommandDoc,
 		Args:    attachStorageCommandArgs,
-	}
+	})
 }
 
 // Run implements Command.Run.

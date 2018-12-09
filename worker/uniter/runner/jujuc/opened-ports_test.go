@@ -62,7 +62,7 @@ func (s *OpenedPortsSuite) TestBadArgs(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmdtesting.InitCommand(com, []string{"foo"})
+	err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), []string{"foo"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
@@ -96,7 +96,7 @@ func (s *OpenedPortsSuite) runCommand(c *gc.C, hctx *Context, args ...string) (s
 	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, args)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Assert(code, gc.Equals, 0)
 	return bufferString(ctx.Stdout), bufferString(ctx.Stderr)
 }

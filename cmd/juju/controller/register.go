@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -102,12 +103,12 @@ See also:
 // `register` may seem generic, but is seen as simple and without potential
 // naming collisions in any current or planned features.
 func (c *registerCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "register",
 		Args:    "<registration string>|<controller host name>",
 		Purpose: usageRegisterSummary,
 		Doc:     usageRegisterDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.Init.

@@ -6,6 +6,8 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // ActionFailCommand implements the action-fail command.
@@ -27,12 +29,12 @@ action-fail sets the action's fail state with a given error message.  Using
 action-fail without a failure message will set a default message indicating a
 problem with the action.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "action-fail",
 		Args:    "[\"<failure message>\"]",
 		Purpose: "set action fail status with message",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags handles any option flags, but there are none.

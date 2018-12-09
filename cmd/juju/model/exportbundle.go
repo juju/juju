@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/bundle"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -45,11 +46,11 @@ Examples:
 
 // Info implements Command.
 func (c *exportBundleCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "export-bundle",
 		Purpose: "Exports the current model configuration as a reusable bundle.",
 		Doc:     exportBundleHelpDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.

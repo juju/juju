@@ -57,7 +57,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		// Test reset
 		description: "test empty args with reset fails",
 		args:        []string{"--reset"},
-		errorMatch:  "flag needs an argument: --reset",
+		errorMatch:  "option needs an argument: --reset",
 	}, {
 		description: "test reset with positional arg interpereted as invalid region",
 		args:        []string{"--reset", "something", "weird"},
@@ -85,7 +85,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 	}, {
 		description: "test trailing reset fails",
 		args:        []string{"foo=bar", "--reset"},
-		errorMatch:  "flag needs an argument: --reset",
+		errorMatch:  "option needs an argument: --reset",
 	}, {
 		description: "test reset and get init",
 		args:        []string{"--reset", "agent-version,b", "foo=bar"},

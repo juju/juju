@@ -582,7 +582,7 @@ func (*addSuite) TestSpecifyingCloudFileThroughFlag_CorrectlySetsMemberVar(c *gc
 func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
-	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
+	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with option and argument")
 }
 
 func (*addSuite) TestValidateGoodCloudFile(c *gc.C) {

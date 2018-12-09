@@ -259,6 +259,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Doc:                 jujuDoc,
 		MissingCallback:     RunPlugin,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
+		FlagKnownAs:         "option",
 	})
 	jcmd.AddHelpTopic("basics", "Basic Help Summary", usageHelp)
 	registerCommands(jcmd, ctx)

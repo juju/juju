@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujussh "github.com/juju/juju/network/ssh"
 )
@@ -85,12 +86,12 @@ type scpCommand struct {
 }
 
 func (c *scpCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "scp",
 		Args:    "<source> <destination>",
 		Purpose: usageSCPSummary,
 		Doc:     usageSCPDetails,
-	}
+	})
 }
 
 func (c *scpCommand) Init(args []string) error {

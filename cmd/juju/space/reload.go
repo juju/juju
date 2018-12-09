@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -28,11 +29,11 @@ Reloades spaces and subnets from substrate
 
 // Info is defined on the cmd.Command interface.
 func (c *ReloadCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "reload-spaces",
 		Purpose: "Reloads spaces and subnets from substrate.",
 		Doc:     strings.TrimSpace(ReloadCommandDoc),
-	}
+	})
 }
 
 // Run implements Command.Run.

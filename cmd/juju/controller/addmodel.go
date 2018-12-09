@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -105,12 +106,12 @@ Examples:
 `
 
 func (c *addModelCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-model",
 		Args:    "<model name> [cloud|region|(cloud/region)]",
 		Purpose: "Adds a hosted model.",
 		Doc:     strings.TrimSpace(addModelHelpDoc),
-	}
+	})
 }
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -403,7 +404,7 @@ func defaultCloud(cloudClient CloudAPI) (names.CloudTag, jujucloud.Cloud, error)
 			return names.CloudTag{}, jujucloud.Cloud{}, errors.NewNotFound(nil, `
 there is no default cloud defined, please specify one using:
 
-    juju add-model [flags] <model-name> cloud[/region]`[1:])
+    juju add-model [options] <model-name> cloud[/region]`[1:])
 		}
 		return names.CloudTag{}, jujucloud.Cloud{}, errors.Trace(err)
 	}
@@ -420,7 +421,7 @@ to the client with:
 
     juju autoload-credentials
 
-and then run the add-model command again with the --credential flag.`[1:],
+and then run the add-model command again with the --credential option.`[1:],
 )
 
 var ambiguousCredentialError = errors.New(`
@@ -428,7 +429,7 @@ more than one credential is available. List credentials with:
 
     juju credentials
 
-and then run the add-model command again with the --credential flag.`[1:],
+and then run the add-model command again with the --credential option.`[1:],
 )
 
 type findCredentialParams struct {

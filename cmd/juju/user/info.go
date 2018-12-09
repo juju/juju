@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -81,12 +82,12 @@ type UserInfo struct {
 
 // Info implements Command.Info.
 func (c *infoCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-user",
 		Args:    "[<user name>]",
 		Purpose: helpSummary,
 		Doc:     helpDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

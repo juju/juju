@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cloud"
 
 	cloudapi "github.com/juju/juju/api/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -64,12 +65,12 @@ func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 
 // Info returns help information about the command.
 func (c *RemoveCAASCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-k8s",
 		Args:    "<k8s name>",
 		Purpose: usageRemoveCAASSummary,
 		Doc:     usageRemoveCAASDetails,
-	}
+	})
 }
 
 // SetFlags initializes the flags supported by the command.

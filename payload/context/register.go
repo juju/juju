@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/payload"
 )
 
@@ -34,7 +35,7 @@ type RegisterCmd struct {
 
 // Info implements cmd.Command.
 func (c RegisterCmd) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    RegisterCmdName,
 		Args:    "<type> <class> <id> [tags...]",
 		Purpose: "register a charm payload with juju",
@@ -47,7 +48,7 @@ The payload class must correspond to one of the payloads defined in
 the charm's metadata.yaml.
 
 		`,
-	}
+	})
 }
 
 // Init implements cmd.Command.

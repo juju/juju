@@ -26,7 +26,7 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "add-metric")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
 Usage: add-metric [options] key1=value1 [key2=value2 ...]
@@ -272,7 +272,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		ret := cmd.Main(com, ctx, t.cmd[1:])
+		ret := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
 		c.Check(ret, gc.Equals, t.result)
 		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.stderr)

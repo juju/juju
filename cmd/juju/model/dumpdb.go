@@ -9,6 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -38,11 +39,11 @@ See also:
 
 // Info implements Command.
 func (c *dumpDBCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "dump-db",
 		Purpose: "Displays the mongo documents for of the model.",
 		Doc:     dumpDBHelpDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api/modelconfig"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -104,7 +105,7 @@ func (c *configCommand) Info() *cmd.Info {
 	info.Doc = fmt.Sprintf("%s%s",
 		modelConfigHelpDocPartOne,
 		modelConfigHelpDocPartTwo)
-	return info
+	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.

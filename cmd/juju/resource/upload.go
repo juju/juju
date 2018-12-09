@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -53,7 +54,7 @@ func NewUploadCommand(deps UploadDeps) modelcmd.ModelCommand {
 
 // Info implements cmd.Command.Info
 func (c *UploadCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "attach-resource",
 		Args:    "application name=file",
 		Purpose: "Upload a file as a resource for an application.",
@@ -62,7 +63,7 @@ This command uploads a file from your local disk to the juju controller to be
 used as a resource for an application.
 `,
 		Aliases: []string{"attach"},
-	}
+	})
 }
 
 // Init implements cmd.Command.Init. It will return an error satisfying

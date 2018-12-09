@@ -20,6 +20,7 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
@@ -41,7 +42,7 @@ controller.
 If the user is already logged in, the juju login command does nothing
 except verify that fact.
 
-If the -u flag is provided, the juju login command will attempt to log
+If the -u option is provided, the juju login command will attempt to log
 into the controller as that user.
 
 After login, a token ("macaroon") will become active. It has an expiration
@@ -109,12 +110,12 @@ type loginCommand struct {
 
 // Info implements Command.Info.
 func (c *loginCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "login",
 		Args:    "[controller host name or alias]",
 		Purpose: "Logs a user in to a controller.",
 		Doc:     loginDoc,
-	}
+	})
 }
 
 func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {
@@ -157,7 +158,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 		c.controllerName = c.domain
 	}
 	if strings.Contains(c.controllerName, ":") {
-		return errors.Errorf("cannot use %q as a controller name - use -c flag to choose a different one", c.controllerName)
+		return errors.Errorf("cannot use %q as a controller name - use -c option to choose a different one", c.controllerName)
 	}
 
 	// Find out details on the specified controller if there is one.
@@ -213,7 +214,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 		// existing controller.
 		return errors.Errorf(`
 controller at %q does not match existing controller.
-Please choose a different controller name with the -c flag, or
+Please choose a different controller name with the -c option, or
 use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.controllerName)
 	}
 	if controllerDetails == nil {

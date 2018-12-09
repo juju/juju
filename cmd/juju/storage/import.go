@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	apistorage "github.com/juju/juju/api/storage"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/storage"
@@ -114,12 +115,12 @@ func (c *importFilesystemCommand) Init(args []string) error {
 
 // Info implements Command.Info.
 func (c *importFilesystemCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "import-filesystem",
 		Purpose: "Imports a filesystem into the model.",
 		Doc:     importFilesystemCommandDoc,
 		Args:    importFilesystemCommandAgs,
-	}
+	})
 }
 
 // Run implements Command.Run.

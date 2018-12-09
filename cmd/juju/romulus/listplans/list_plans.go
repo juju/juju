@@ -21,6 +21,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/yaml.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -58,13 +59,13 @@ func NewListPlansCommand() modelcmd.ControllerCommand {
 
 // Info implements Command.Info.
 func (c *ListPlansCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "plans",
 		Args:    "",
 		Purpose: "List plans.",
 		Doc:     listPlansDoc,
 		Aliases: []string{"list-plans"},
-	}
+	})
 }
 
 // Init reads and verifies the cli arguments for the ListPlansCommand

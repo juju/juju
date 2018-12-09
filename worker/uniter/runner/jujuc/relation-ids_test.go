@@ -107,7 +107,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
 			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -149,7 +149,7 @@ Options:
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, []string{"--help"})
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		expect := fmt.Sprintf(template, t.usage, t.doc)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)

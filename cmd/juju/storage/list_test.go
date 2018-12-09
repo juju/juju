@@ -292,7 +292,7 @@ volumes:
 
 func (s *ListSuite) TestListInitErrors(c *gc.C) {
 	s.testListInitError(c, []string{"--filesystem", "--volume"}, "--filesystem and --volume can not be used together")
-	s.testListInitError(c, []string{"storage-id"}, "specifying IDs only supported with --filesystem and --volume flags")
+	s.testListInitError(c, []string{"storage-id"}, "specifying IDs only supported with --filesystem and --volume options")
 }
 
 func (s *ListSuite) testListInitError(c *gc.C, args []string, expectedErr string) {

@@ -18,3 +18,7 @@ func NewJujuLogCommandWithMocks(ctx JujuLogContext, loggerFactory JujuLogCommand
 		loggerFactory: loggerFactory,
 	}
 }
+
+func NewJujucCommandWrappedForTest(c cmd.Command) cmd.Command {
+	return &cmdWrapper{c, nil}
+}

@@ -12,6 +12,7 @@ import (
 	api "github.com/juju/romulus/api/budget"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
+	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -37,11 +38,11 @@ Examples:
 
 // Info implements cmd.Command.Info.
 func (c *createWalletCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "create-wallet",
 		Purpose: "Create a new wallet.",
 		Doc:     doc,
-	}
+	})
 }
 
 // Init implements cmd.Command.Init.

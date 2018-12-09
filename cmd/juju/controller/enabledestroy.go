@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -41,11 +42,11 @@ See also:
 
 // Info implements Command.Info
 func (c *enableDestroyController) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "enable-destroy-controller",
 		Purpose: "Enable destroy-controller by removing disabled commands in the controller.",
 		Doc:     enableDestroyDoc,
-	}
+	})
 }
 
 func (c *enableDestroyController) getAPI() (removeBlocksAPI, error) {

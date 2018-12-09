@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/storage"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -72,12 +73,12 @@ See also:
 `
 
 func (c *removeUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-unit",
 		Args:    "<unit> [...] | <application>",
 		Purpose: "Remove application units from the model.",
 		Doc:     removeUnitDoc,
-	}
+	})
 }
 
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {

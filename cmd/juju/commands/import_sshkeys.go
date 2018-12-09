@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -59,12 +60,12 @@ type importKeysCommand struct {
 
 // Info implements Command.Info.
 func (c *importKeysCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "import-ssh-key",
 		Args:    "<lp|gh>:<user identity> ...",
 		Purpose: usageImportSSHKeySummary,
 		Doc:     usageImportSSHKeyDetails,
-	}
+	})
 }
 
 // Init implements Command.Init.

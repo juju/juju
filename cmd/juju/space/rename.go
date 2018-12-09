@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -38,12 +39,12 @@ func (c *RenameCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info is defined on the cmd.Command interface.
 func (c *RenameCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "rename-space",
 		Args:    "<old-name> <new-name>",
 		Purpose: "Rename a network space",
 		Doc:     strings.TrimSpace(renameCommandDoc),
-	}
+	})
 }
 
 // Init is defined on the cmd.Command interface. It checks the

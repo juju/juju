@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
@@ -51,12 +52,12 @@ func NewSetDefaultCredentialCommand() cmd.Command {
 }
 
 func (c *setDefaultCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-default-credential",
 		Args:    "<cloud name> <credential name>",
 		Purpose: usageSetDefaultCredentialSummary,
 		Doc:     usageSetDefaultCredentialDetails,
-	}
+	})
 }
 
 func (c *setDefaultCredentialCommand) Init(args []string) (err error) {

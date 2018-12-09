@@ -6,6 +6,7 @@ package machine
 import (
 	"github.com/juju/cmd"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -42,12 +43,12 @@ type listMachinesCommand struct {
 
 // Info implements Command.Info.
 func (c *listMachinesCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "machines",
 		Purpose: usageListMachinesSummary,
 		Doc:     usageListMachinesDetails,
 		Aliases: []string{"list-machines"},
-	}
+	})
 }
 
 // Init ensures the machines Command does not take arguments.
