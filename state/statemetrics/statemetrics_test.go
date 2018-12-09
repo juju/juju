@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -150,6 +151,7 @@ func (s *collectorSuite) TestCollect(c *gc.C) {
 	labelpair := func(n, v string) *dto.LabelPair {
 		return &dto.LabelPair{Name: &n, Value: &v}
 	}
+
 	s.checkExpected(c, dtoMetrics, []dto.Metric{
 		// juju_state_machines
 		{
@@ -217,11 +219,13 @@ func (s *collectorSuite) TestCollect(c *gc.C) {
 		// juju_state_scrape_errors
 		{
 			Gauge: &dto.Gauge{Value: float64ptr(0)},
+			Label: []*dto.LabelPair{},
 		},
 
 		// juju_state_scrape_interval_seconds
 		{
 			Gauge: &dto.Gauge{Value: scrapeDurationMetric.Gauge.Value},
+			Label: []*dto.LabelPair{},
 		},
 	})
 }
@@ -231,23 +235,7 @@ func (s *collectorSuite) TestCollectErrors(c *gc.C) {
 		errors.New("no models for you"),
 		errors.New("no users for you"),
 	)
-	_, dtoMetrics := s.collect(c)
-
-	// The scrape time metric has a non-deterministic value,
-	// so we just check that it is non-zero.
-	c.Assert(dtoMetrics, gc.Not(gc.HasLen), 0)
-	scrapeDurationMetric := dtoMetrics[len(dtoMetrics)-1]
-	c.Assert(scrapeDurationMetric.Gauge.GetValue(), gc.Not(gc.Equals), 0)
-
-	s.checkExpected(c, dtoMetrics, []dto.Metric{
-		// juju_state_scrape_errors
-		{
-			Gauge: &dto.Gauge{Value: float64ptr(2)},
-		},
-
-		// juju_state_scrape_interval_seconds
-		{
-			Gauge: &dto.Gauge{Value: scrapeDurationMetric.Gauge.Value},
-		},
-	})
+	s.collect(c)
+	c.Check(testutil.ToFloat64(s.collector.ScrapeDurationGauge()), jc.GreaterThan, float64(0))
+	c.Check(testutil.ToFloat64(s.collector.ScrapeErrorsGauge()), gc.Equals, float64(2))
 }
