@@ -80,10 +80,9 @@ func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
 
 func (s *ValidationSuite) TestMissingPrometheusRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
-	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil PrometheusRegisterer not valid")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(manager, gc.IsNil)
+	err := s.config.Validate()
+	// Find to miss this out for now.
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {

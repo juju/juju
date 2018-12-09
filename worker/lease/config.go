@@ -83,8 +83,7 @@ func (config ManagerConfig) Validate() error {
 	if config.MaxSleep <= 0 {
 		return errors.NotValidf("non-positive MaxSleep")
 	}
-	if config.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
-	}
+	// TODO: make the PrometheusRegisterer required when we no longer
+	// have state workers managing leases.
 	return nil
 }
