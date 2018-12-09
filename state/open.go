@@ -205,13 +205,10 @@ func (st *State) Close() (err error) {
 }
 
 func (st *State) stopWorkers() (err error) {
-	defer errors.DeferredAnnotatef(&err, "closing state failed")
-
 	if st.workers != nil {
 		if err := worker.Stop(st.workers); err != nil {
 			return errors.Annotatef(err, "failed to stop workers")
 		}
-		st.workers = nil
 	}
 	return nil
 }
