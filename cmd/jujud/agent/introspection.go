@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"os"
 	"runtime"
 	"sync"
 
@@ -87,7 +86,8 @@ func newPrometheusRegistry() (*prometheus.Registry, error) {
 	if err := r.Register(prometheus.NewGoCollector()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := r.Register(prometheus.NewProcessCollector(os.Getpid(), "")); err != nil {
+	if err := r.Register(prometheus.NewProcessCollector(
+		prometheus.ProcessCollectorOpts{})); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
