@@ -59,12 +59,7 @@ func runNotifier(name string) {
 }
 
 func Info(i *cmd.Info) *cmd.Info {
-	return &cmd.Info{
-		Name:        i.Name,
-		Purpose:     i.Purpose,
-		Args:        i.Args,
-		Doc:         i.Doc,
-		Aliases:     i.Aliases,
-		FlagKnownAs: "option",
-	}
+	info := *i
+	info.FlagKnownAs = "option"
+	return &info
 }
