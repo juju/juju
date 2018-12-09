@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
 )
@@ -60,6 +61,8 @@ type ManagerConfig struct {
 	// EntityUUID is the entity that we are running this Manager for. Used for
 	// logging purposes.
 	EntityUUID string
+
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate returns an error if the configuration contains invalid information
@@ -80,5 +83,7 @@ func (config ManagerConfig) Validate() error {
 	if config.MaxSleep <= 0 {
 		return errors.NotValidf("non-positive MaxSleep")
 	}
+	// TODO: make the PrometheusRegisterer required when we no longer
+	// have state workers managing leases.
 	return nil
 }

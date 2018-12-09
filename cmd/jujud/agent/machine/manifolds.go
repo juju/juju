@@ -811,12 +811,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
-			ClockName:     clockName,
-			AgentName:     agentName,
-			TransportName: raftTransportName,
-			FSM:           leaseFSM,
-			Logger:        loggo.GetLogger("juju.worker.raft"),
-			NewWorker:     raft.NewWorker,
+			ClockName:            clockName,
+			AgentName:            agentName,
+			TransportName:        raftTransportName,
+			FSM:                  leaseFSM,
+			Logger:               loggo.GetLogger("juju.worker.raft"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            raft.NewWorker,
 		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
@@ -857,14 +858,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The global lease manager tracks lease information in the raft
 		// cluster rather than in mongo.
 		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
-			AgentName:      agentName,
-			ClockName:      clockName,
-			CentralHubName: centralHubName,
-			FSM:            leaseFSM,
-			RequestTopic:   leaseRequestTopic,
-			Logger:         loggo.GetLogger("juju.worker.lease.raft"),
-			NewWorker:      leasemanager.NewWorker,
-			NewStore:       leasemanager.NewStore,
+			AgentName:            agentName,
+			ClockName:            clockName,
+			CentralHubName:       centralHubName,
+			FSM:                  leaseFSM,
+			RequestTopic:         leaseRequestTopic,
+			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            leasemanager.NewWorker,
+			NewStore:             leasemanager.NewStore,
 		})),
 
 		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{

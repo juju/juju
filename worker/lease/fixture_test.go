@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -92,8 +93,9 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		Secretary: func(string) (lease.Secretary, error) {
 			return Secretary{}, nil
 		},
-		MaxSleep: defaultMaxSleep,
-		Logger:   loggo.GetLogger("lease_test"),
+		MaxSleep:             defaultMaxSleep,
+		Logger:               loggo.GetLogger("lease_test"),
+		PrometheusRegisterer: noopRegisterer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -119,4 +121,16 @@ func waitAlarms(c *gc.C, clock *testclock.Clock, count int) {
 			c.Fatalf("timed out waiting for %dth alarm set", i)
 		}
 	}
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return false
 }

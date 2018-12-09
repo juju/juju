@@ -89,6 +89,7 @@ type forwarder struct {
 	catacomb    catacomb.Catacomb
 	config      Config
 	unsubscribe func()
+	id          int
 }
 
 // Kill is part of the worker.Worker interface.
@@ -108,27 +109,32 @@ func (w *forwarder) loop() error {
 }
 
 func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err error) {
-	w.config.Logger.Tracef("received %#v, err: %s", req, err)
+	w.id++
+	reqID := w.id
+	w.config.Logger.Tracef("%d: received %#v, err: %s", reqID, req, err)
 	if err != nil {
 		// This should never happen, so treat it as fatal.
 		w.catacomb.Kill(errors.Annotate(err, "requests callback failed"))
 		return
 	}
-	response, err := w.processRequest(req.Command)
-	if err != nil {
-		w.catacomb.Kill(errors.Annotate(err, "applying command"))
-		return
-	}
-	_, err = w.config.Hub.Publish(req.ResponseTopic, response)
-	if err != nil {
-		w.catacomb.Kill(errors.Annotate(err, "publishing response"))
-		return
-	}
+	go func() {
+		defer w.config.Logger.Tracef("%d: done", reqID)
+		response, err := w.processRequest(req.Command)
+		if err != nil {
+			w.catacomb.Kill(errors.Annotate(err, "applying command"))
+			return
+		}
+		_, err = w.config.Hub.Publish(req.ResponseTopic, response)
+		if err != nil {
+			w.catacomb.Kill(errors.Annotate(err, "publishing response"))
+			return
+		}
+	}()
 }
 
-func (w *forwarder) processRequest(command []byte) (raftlease.ForwardResponse, error) {
+func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, error) {
 	var empty raftlease.ForwardResponse
-	future := w.config.Raft.Apply(command, applyTimeout)
+	future := w.config.Raft.Apply([]byte(command), applyTimeout)
 	if err := future.Error(); err != nil {
 		return empty, errors.Trace(err)
 	}

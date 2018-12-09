@@ -81,11 +81,14 @@
   source = "github.com/juju/gosigma"
 
 [[projects]]
-  digest = "1:8e384478a0e2aa016605896748d186832db7b7350a975bb26aa53ca702d19573"
+  digest = "1:0a776e52fa4deb432e3c382436ed79c2e20fb6fd02061782c11e3e3a58b86d78"
   name = "github.com/armon/go-metrics"
-  packages = ["."]
+  packages = [
+    ".",
+    "prometheus",
+  ]
   pruneopts = ""
-  revision = "93f237eba9b0602f3e73710416558854a81d9337"
+  revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
 
 [[projects]]
   digest = "1:de184b64adb3054bea074db0b1be1327c7dc3aaa04e3fd6cb01f62f339caecd5"
@@ -313,11 +316,27 @@
   revision = "9cad4c3443a7200dd6400aef47183728de563a38"
 
 [[projects]]
+  digest = "1:c5466dfad4c14bf8e52a34b0eb98f1301acc1e304e0f0ff2c51c356ca1b86747"
+  name = "github.com/hashicorp/go-immutable-radix"
+  packages = ["."]
+  pruneopts = ""
+  revision = "27df80928bb34bb1b0d6d0e01b9e679902e7a6b5"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:6396690228a7560bf9247cb90e5ae9c797bd630b01e7d2acab430bbca9a1ecb3"
   name = "github.com/hashicorp/go-msgpack"
   packages = ["codec"]
   pruneopts = ""
   revision = "fa3f63826f7c23912c15263591e65d54d080b458"
+
+[[projects]]
+  digest = "1:3313a63031ae281e5f6fd7b0bbca733dfa04d2429df86519e3b4d4c016ccb836"
+  name = "github.com/hashicorp/golang-lru"
+  packages = ["simplelru"]
+  pruneopts = ""
+  revision = "20f1fb78b0740ba8c3cb143a61e86ba5c8669768"
+  version = "v0.5.0"
 
 [[projects]]
   digest = "1:3dea8a64498e503e13eaa87133ab0c5423988a67f739e52273631230cf15a428"
@@ -1770,6 +1789,8 @@
     "github.com/altoros/gosigma",
     "github.com/altoros/gosigma/data",
     "github.com/altoros/gosigma/mock",
+    "github.com/armon/go-metrics",
+    "github.com/armon/go-metrics/prometheus",
     "github.com/bmizerany/pat",
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -39,8 +40,9 @@ type manifoldSuite struct {
 	clock *testclock.Clock
 	hub   *pubsub.StructuredHub
 
-	fsm    *raftlease.FSM
-	logger loggo.Logger
+	fsm     *raftlease.FSM
+	logger  loggo.Logger
+	metrics prometheus.Registerer
 
 	worker worker.Worker
 	store  *raftlease.Store
@@ -62,20 +64,23 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.fsm = raftlease.NewFSM()
 	s.logger = loggo.GetLogger("lease.manifold_test")
+	registerer := struct{ prometheus.Registerer }{}
+	s.metrics = &registerer
 
 	s.worker = &mockWorker{}
 	s.store = &raftlease.Store{}
 
 	s.context = s.newContext(nil)
 	s.manifold = leasemanager.Manifold(leasemanager.ManifoldConfig{
-		AgentName:      "agent",
-		ClockName:      "clock",
-		CentralHubName: "hub",
-		FSM:            s.fsm,
-		RequestTopic:   "lease.manifold_test",
-		Logger:         &s.logger,
-		NewWorker:      s.newWorker,
-		NewStore:       s.newStore,
+		AgentName:            "agent",
+		ClockName:            "clock",
+		CentralHubName:       "hub",
+		FSM:                  s.fsm,
+		RequestTopic:         "lease.manifold_test",
+		Logger:               &s.logger,
+		PrometheusRegisterer: s.metrics,
+		NewWorker:            s.newWorker,
+		NewStore:             s.newStore,
 	})
 }
 
@@ -158,11 +163,12 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	config.Secretary = nil
 
 	c.Assert(config, jc.DeepEquals, lease.ManagerConfig{
-		Store:      s.store,
-		Clock:      s.clock,
-		Logger:     &s.logger,
-		MaxSleep:   time.Minute,
-		EntityUUID: "controller-uuid",
+		Store:                s.store,
+		Clock:                s.clock,
+		Logger:               &s.logger,
+		MaxSleep:             time.Minute,
+		EntityUUID:           "controller-uuid",
+		PrometheusRegisterer: s.metrics,
 	})
 }
 

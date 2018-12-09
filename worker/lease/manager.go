@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/retry.v1"
 
@@ -140,6 +141,13 @@ func (manager *Manager) Wait() error {
 
 // loop runs until the manager is stopped.
 func (manager *Manager) loop() error {
+	if collector, ok := manager.config.Store.(prometheus.Collector); ok && manager.config.PrometheusRegisterer != nil {
+		// The store implements the collector interface, but the lease.Store
+		// doen't expose those.
+		manager.config.PrometheusRegisterer.Register(collector)
+		defer manager.config.PrometheusRegisterer.Unregister(collector)
+	}
+
 	defer manager.wg.Wait()
 	blocks := make(blocks)
 	for {

@@ -297,14 +297,14 @@ func (s *storeSuite) handleHubRequest(
 	expectCommand raftlease.Command,
 	responder func(raftlease.ForwardRequest),
 ) {
-	expectedBytes := marshal(c, expectCommand)
+	expected := marshal(c, expectCommand)
 	called := make(chan struct{})
 	unsubscribe, err := s.hub.Subscribe(
 		"lease.request",
 		func(_ string, req raftlease.ForwardRequest, err error) {
 			defer close(called)
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(req.Command, gc.DeepEquals, expectedBytes)
+			c.Check(req.Command, gc.DeepEquals, expected)
 			responder(req)
 		},
 	)
@@ -520,8 +520,8 @@ func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
 	}
 }
 
-func marshal(c *gc.C, command raftlease.Command) []byte {
+func marshal(c *gc.C, command raftlease.Command) string {
 	result, err := command.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	return result
+	return string(result)
 }
