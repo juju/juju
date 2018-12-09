@@ -298,6 +298,10 @@
   revision = "22422dad46e14561a0854ad42497a75af9b61909"
 
 [[constraint]]
+  name = "github.com/juju/go-oracle-cloud"
+  revision = "932a8cea00a1cd5cba3829a672c823955db674ae"
+
+[[constraint]]
   name = "github.com/juju/httprequest"
   revision = "266fd1e9debf09c037a63f074d099a2da4559ece"
 
