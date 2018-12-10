@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
 
@@ -143,7 +142,7 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
 	// f.Var(regionFlag{region: &c.region, cloudName: &c.cloudName}, "region", "kubernetes cluster cloud region")
-	f.StringVar(&cloudRegion, "region", "kubernetes cluster cloud region")
+	f.StringVar(&c.cloudRegion, "region", "", "kubernetes cluster cloud region")
 }
 
 // Init populates the command with the args from the command line.
@@ -288,6 +287,7 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) error {
 		return errors.Annotate(err, "validating cloud region")
 	}
 	// TODO: ensure cloudName/region is valid juju cloud region(juju regions <cloudName>).
+	logger.Criticalf("cloudName -> %q, region -> %q", cloudName, region)
 	return nil
 }
 
@@ -298,28 +298,28 @@ func (c *AddCAASCommand) getClusterRegion(
 ) (string, error) {
 	modelConfigClient, err := c.modelConfigAPIFunc()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer modelConfigClient.Close()
 
 	// this current model is not really we want, but it's just for generating the config.
 	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	broker, err := caas.New(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	interrupted := make(chan os.Signal, 1)
@@ -349,13 +349,13 @@ func (c *AddCAASCommand) getClusterRegion(
 			fmt.Printf(".")
 		case <-interrupted:
 			ctx.Infof("ctrl+c detected, aborting...")
-			return nil, nil
+			return "", nil
 		case <-time.After(timeout):
-			return nil, errors.Timeoutf("timeout after %v", timeout)
+			return "", errors.Timeoutf("timeout after %v", timeout)
 		case err := <-errChan:
-			return nil, err
-		case regions := <-result:
-			return set.NewStrings(regions...), nil
+			return "", err
+		case cloudRegion := <-result:
+			return cloudRegion, nil
 		}
 	}
 }

@@ -15,11 +15,11 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -190,13 +190,14 @@ func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
 	}
 	logger.Criticalf("ListHostCloudRegions.nodes -> %d, %v", len(nodes.Items), nodes)
 	var result set.Strings
-	for i, n := range nodes.Items {
-		var cloudRegion string
-		if v, ok := n.Labels[cloudLabelName]; !ok || v == "" {
+	for _, n := range nodes.Items {
+		var cloudRegion, v string
+		var ok bool
+		if v, ok = n.Labels[cloudLabelName]; !ok || v == "" {
 			continue
 		}
 		cloudRegion += v
-		if v, ok := n.Labels[regionLabelName]; !ok || v == "" {
+		if v, ok = n.Labels[regionLabelName]; !ok || v == "" {
 			continue
 		}
 		cloudRegion += "/" + v
