@@ -15,6 +15,7 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
@@ -179,21 +180,29 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 	return nil
 }
 
-// ListRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
-func (k *kubernetesClient) ListRegions() ([]string, error) {
+// ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
+func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
+	cloudLabelName := "manufacturer"
 	regionLabelName := "failure-domain.beta.kubernetes.io/region"
 	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing nodes")
 	}
-	logger.Criticalf("ListRegions.nodes -> %d, %v", len(nodes.Items), nodes)
-	var result []string
+	logger.Criticalf("ListHostCloudRegions.nodes -> %d, %v", len(nodes.Items), nodes)
+	var result set.Strings
 	for i, n := range nodes.Items {
-		if v, ok := n.Labels[regionLabelName]; ok && v != "" {
-			result[i] = v
+		var cloudRegion string
+		if v, ok := n.Labels[cloudLabelName]; !ok || v == "" {
+			continue
 		}
+		cloudRegion += v
+		if v, ok := n.Labels[regionLabelName]; !ok || v == "" {
+			continue
+		}
+		cloudRegion += "/" + v
+		result.Add(cloudRegion)
 	}
-	logger.Criticalf("ListRegions.result -> %v", result)
+	logger.Criticalf("ListHostCloudRegions.result -> %v", result)
 	time.Sleep(10 * time.Second)
 	return result, nil
 	// return []string{"australia-southeast1", "asia-southeast1"}, nil

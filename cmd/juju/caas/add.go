@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -86,8 +87,9 @@ type AddCAASCommand struct {
 	// clusterName is the name of the cluster (k8s) or credential to import
 	clusterName string
 
-	// regions are the cloud regions that the nodes of cluster (k8s) are running in.
-	regions set.Strings
+	// region is the cloud region that the nodes of cluster (k8s) are running in.
+	// The format is <cloudName/region>
+	cloudRegion string
 
 	// cloudName is name of the cloud.
 	cloudName string
@@ -140,7 +142,8 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
-	f.Var(regionsFlag{regions: &c.regions, cloudName: &c.cloudName}, "regions", "cluster regions")
+	// f.Var(regionFlag{region: &c.region, cloudName: &c.cloudName}, "region", "kubernetes cluster cloud region")
+	f.StringVar(&cloudRegion, "region", "kubernetes cluster cloud region")
 }
 
 // Init populates the command with the args from the command line.
@@ -230,21 +233,20 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		CACertificates: []string{cloudCAData},
 	}
 
-	regions := c.regions
-	if regions != nil && regions.Size() > 0 {
-		if err = c.validateCloudRegion(); err != nil {
-			return errors.Annotate(err, "validating cloud regions")
-		}
-	} else {
-		regions, err = c.getClusterRegions(ctx, newCloud, credential)
+	cloudRegion := c.cloudRegion
+	if cloudRegion == "" {
+		cloudRegion, err = c.getClusterRegion(ctx, newCloud, credential)
 		if err != nil {
-			ctx.Infof("It's not possible to list regions in this case, please use --regions options to parse in.")
+			ctx.Infof("It's not possible to fetch cluster region in this case, please use --region options to parse in.")
 			return errors.Annotate(err, "listing cluster regions")
 		}
-		// TODO(ycliuhw): do validation if we can get cloudName/provider/manufacturer information from k8s api.
 	}
-	// Question: is region really required or nice to have? Should we fail if regions is empty or not here???
-	newCloud.Regions = buildRegions(regions)
+
+	// TODO(ycliuhw): do validation if we can get cloudName/provider/manufacturer information from k8s api.
+	if err = c.validateCloudRegion(cloudRegion); err != nil {
+		return errors.Annotate(err, "validating cloud region")
+	}
+	newCloud.HostCloud = cloudRegion
 	logger.Criticalf("newCloud.Regions -> %+v", newCloud.Regions)
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -272,31 +274,28 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *AddCAASCommand) validateCloudRegion() error {
-	if c.cloudName == "" {
-		return errors.NotValidf("region option requires <cloud>/<region> format, cloud was missing")
+func parseCloudRegion(cloudRegion string) (string, string, error) {
+	fields := strings.SplitN(cloudRegion, "/", 2)
+	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
+		return "", "", errors.NotValidf("expected <cloud>/<region>")
 	}
-	// TODO: ensure c.regions are valid juju cloud regions (juju regions <cloudName>).
+	return fields[0], fields[1], nil
+}
+
+func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) error {
+	cloudName, region, err := parseCloudRegion(cloudRegion)
+	if err != nil {
+		return errors.Annotate(err, "validating cloud region")
+	}
+	// TODO: ensure cloudName/region is valid juju cloud region(juju regions <cloudName>).
 	return nil
 }
 
-func buildRegions(regions set.Strings) []jujucloud.Region {
-	var jujuRegions []jujucloud.Region
-
-	if regions == nil {
-		return jujuRegions
-	}
-	for _, v := range regions.SortedValues() {
-		jujuRegions = append(jujuRegions, jujucloud.Region{Name: v})
-	}
-	return jujuRegions
-}
-
-func (c *AddCAASCommand) getClusterRegions(
+func (c *AddCAASCommand) getClusterRegion(
 	ctx *cmd.Context,
 	cloud jujucloud.Cloud,
 	credential jujucloud.Credential,
-) (set.Strings, error) {
+) (string, error) {
 	modelConfigClient, err := c.modelConfigAPIFunc()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -328,14 +327,18 @@ func (c *AddCAASCommand) getClusterRegions(
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 
-	result := make(chan []string, 1)
+	result := make(chan string, 1)
 	errChan := make(chan error, 1)
 	go func() {
-		regions, err := broker.ListRegions()
+		cloudRegions, err := broker.ListHostCloudRegions()
 		if err != nil {
 			errChan <- err
 		}
-		result <- regions
+		if cloudRegions == nil || cloudRegions.Size() == 0 {
+			errChan <- errors.New("no cloud region information is set in the custer")
+		}
+		// we currently assume it's always a single region cluster.
+		result <- cloudRegions.SortedValues()[0]
 	}()
 
 	timeout := 30 * time.Second
