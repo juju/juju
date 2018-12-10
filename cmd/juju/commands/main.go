@@ -111,7 +111,13 @@ Example help commands:
     `[1:] + "`juju help`" + `          This help page
     ` + "`juju help commands`" + ` Lists all commands
     ` + "`juju help deploy`" + `   Shows help for command 'deploy'
-`
+
+Debug mode:
+  --debug flag enable debug mode for each command.
+
+  example:
+    ` + "`juju add-cloud --debug`" + ` execute add-cloud in debug mode
+ `
 
 var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
 
