@@ -614,13 +614,11 @@ func (w *RemoteStateWatcher) lxdProfileStatusChanged() error {
 	defer w.mu.Unlock()
 
 	status, err := w.lxdProfileStatus()
-	if errors.IsNotFound(err) {
-		logger.Debugf("no lxd profile in progress, assuming no action required")
-		w.current.UpgradeCharmProfileStatus = lxdprofile.NotKnownStatus
-		return nil
-	}
 	if err != nil {
-		return err
+		if !errors.IsNotFound(err) {
+			return err
+		}
+		logger.Debugf("no lxd profile in progress, assuming no action required")
 	}
 	w.current.UpgradeCharmProfileStatus = status
 	return nil
@@ -629,7 +627,7 @@ func (w *RemoteStateWatcher) lxdProfileStatusChanged() error {
 func (w *RemoteStateWatcher) lxdProfileStatus() (string, error) {
 	status, err := w.unit.UpgradeCharmProfileStatus()
 	if err != nil {
-		return "", err
+		return lxdprofile.NotKnownStatus, err
 	}
 	return status, nil
 }

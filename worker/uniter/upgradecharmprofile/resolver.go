@@ -27,7 +27,7 @@ func (l *upgradeCharmProfileResolver) NextOp(
 ) (operation.Operation, error) {
 	// Ensure the lxd profile is installed, before we move to upgrading
 	// of the charm.
-	if !lxdprofile.UpgradeStatusFinished(remoteState.UpgradeCharmProfileStatus) {
+	if !lxdprofile.UpgradeStatusTerminal(remoteState.UpgradeCharmProfileStatus) {
 		return nil, resolver.ErrDoNotProceed
 	}
 	// If the upgrade status is in an error state, we should log it out

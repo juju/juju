@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
-	charm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -2280,9 +2280,6 @@ func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, e
 		},
 	}
 
-	// TODO (hml) 2018-12-06
-	// Question: should this function even be called if the machine
-	// is not provisioned?
 	provisioned := true
 	profiles, err := m.CharmProfiles()
 	if err != nil {
@@ -2311,14 +2308,6 @@ func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, e
 		}
 	}
 
-	instanceData := instanceCharmProfileData{
-		DocID:                          m.doc.DocID,
-		MachineId:                      m.doc.Id,
-		UpgradeCharmProfileApplication: appName,
-		UpgradeCharmProfileCharmURL:    chURL,
-		UpgradeCharmProfileComplete:    lxdprofile.EmptyStatus,
-	}
-
 	// If the new charm has no profile, check to see if the application
 	// already has a profile applied to the machine, if not, we can
 	// set NotRequiredStatus.
@@ -2328,25 +2317,40 @@ func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, e
 			return nil, errors.Trace(err)
 		}
 		if appliedProfileName == "" {
-			instanceData.UpgradeCharmProfileCharmURL = ""
-			instanceData.UpgradeCharmProfileComplete = lxdprofile.NotRequiredStatus
+			logger.Debugf("Attempting to insert charm profile data for %s, %q, %q", appName, "", lxdprofile.NotRequiredStatus)
+			return append(ops, m.SetUpgradeCharmProfileOp(appName, "", lxdprofile.NotRequiredStatus)), nil
 		}
 	}
 
-	logger.Debugf("Attempting to insert charm profile data %#v", instanceData)
+	logger.Debugf("Attempting to insert charm profile data for %s, %q, %q", appName, charmURL, lxdprofile.EmptyStatus)
 
 	// We can always insert, because the doc was removed after the
 	// change triggered by this transaction was make.  Or should have
 	// been. Either during charm upgrade or when a new unit was added
 	// to an existing machine, perhaps a subordinate.
-	return append(ops,
-		txn.Op{
-			C:      instanceCharmProfileDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocMissing,
-			Insert: instanceData,
-		},
-	), nil
+	return append(ops, m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus)),
+		nil
+}
+
+// SetUpgradeCharmProfileOp returns a transaction for the machine to
+// trigger a change to its LXD Profile(s).
+func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op {
+	instanceData := instanceCharmProfileData{
+		DocID:                          m.doc.DocID,
+		MachineId:                      m.doc.Id,
+		UpgradeCharmProfileCharmURL:    chURL,
+		UpgradeCharmProfileApplication: appName,
+		UpgradeCharmProfileComplete:    status,
+	}
+	// We can always insert, because the doc was removed after the
+	// change triggered by this transaction was make.  Either during
+	// charm upgrade or when a new subordinate was added.
+	return txn.Op{
+		C:      instanceCharmProfileDataC,
+		Id:     m.doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: instanceData,
+	}
 }
 
 // verifyInstanceCharmProfileData checks to see if there is any InstanceCharmProfileData
