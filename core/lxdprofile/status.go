@@ -42,7 +42,7 @@ func UpgradeStatusFinished(status string) bool {
 // UpgradeStatusTerminal defines if the status is in a terminal state. Success
 // or not required is also considered terminal.
 func UpgradeStatusTerminal(status string) bool {
-	if UpgradeStatusFinished(status) || status == NotKnownStatus {
+	if UpgradeStatusFinished(status) {
 		return true
 	}
 
