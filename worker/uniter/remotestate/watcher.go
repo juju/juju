@@ -254,8 +254,11 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	var (
 		seenApplicationChange bool
 
-		upgradeSeriesChanges    watcher.NotifyChannel
 		seenUpgradeSeriesChange bool
+		upgradeSeriesChanges    watcher.NotifyChannel
+
+		seenLXDProfileChange bool
+		lxdProfileChanges    watcher.NotifyChannel
 	)
 
 	if w.modelType == model.IAAS {
@@ -282,17 +285,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 		upgradeSeriesChanges = upgradeSeriesw.Changes()
 		requiredEvents++
-	}
 
-	var seenLXDProfileChange bool
-	lxdProfilew, err := w.unit.WatchLXDProfileUpgradeNotifications()
-	if err != nil {
-		return errors.Trace(err)
+		lxdProfilew, err := w.unit.WatchLXDProfileUpgradeNotifications()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.catacomb.Add(lxdProfilew); err != nil {
+			return errors.Trace(err)
+		}
+		lxdProfileChanges = lxdProfilew.Changes()
+		requiredEvents++
 	}
-	if err := w.catacomb.Add(lxdProfilew); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
 
 	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage()
@@ -440,7 +443,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUpgradeSeriesChange)
 
-		case _, ok := <-lxdProfilew.Changes():
+		case _, ok := <-lxdProfileChanges:
 			logger.Debugf("got lxd profile change")
 			if !ok {
 				return errors.New("lxd profile watcher closed")
