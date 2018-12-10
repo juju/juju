@@ -432,14 +432,6 @@ func allCollections() collectionSchema {
 		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
-		// The generations collection holds data about
-		// active and completed "next" model generations.
-		generationsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "completed"},
-			}},
-		},
-
 		constraintsC:        {},
 		storageConstraintsC: {},
 		deviceConstraintsC:  {},
@@ -586,7 +578,6 @@ const (
 	applicationsC              = "applications"
 	endpointBindingsC          = "endpointbindings"
 	settingsC                  = "settings"
-	generationsC               = "generations"
 	refcountsC                 = "refcounts"
 	sshHostKeysC               = "sshhostkeys"
 	spacesC                    = "spaces"

@@ -26,7 +26,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelUserLastConnectionC,
 		permissionsC,
 		settingsC,
-		generationsC,
 		sequenceC,
 		sshHostKeysC,
 		statusesC,
@@ -520,7 +519,7 @@ func (s *MigrationSuite) TestRelationScopeDocFields(c *gc.C) {
 	s.AssertExportedFields(c, relationScopeDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestAnnotatorDocFields(c *gc.C) {
+func (s *MigrationSuite) TestAnnatatorDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
