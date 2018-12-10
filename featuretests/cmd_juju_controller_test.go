@@ -75,7 +75,7 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-Use --refresh flag with this command to see the latest information.
+Use --refresh option with this command to see the latest information.
 
 Controller  Model       User   Access     Cloud/Region        Models  Machines  HA  Version
 kontroll*   controller  admin  superuser  dummy/dummy-region       1         -   -  (unknown)  

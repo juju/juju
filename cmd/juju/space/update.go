@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -33,12 +34,12 @@ CIDRs) "leave" their current space and "enter" the one we're updating.
 
 // Info is defined on the cmd.Command interface.
 func (c *UpdateCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "update-space",
 		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
 		Purpose: "Update a network space's CIDRs",
 		Doc:     strings.TrimSpace(updateCommandDoc),
-	}
+	})
 }
 
 // Init is defined on the cmd.Command interface. It checks the

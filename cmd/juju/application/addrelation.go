@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -79,7 +80,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 		Purpose: "Add a relation between two application endpoints.",
 		Doc:     addRelationDoc,
 	}
-	return addCmd
+	return jujucmd.Info(addCmd)
 }
 
 func (c *addRelationCommand) Init(args []string) error {

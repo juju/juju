@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -47,12 +48,12 @@ Examples:
     juju remove-application -m test-model mariadb`[1:]
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-application",
 		Args:    "<application> [<application>...]",
 		Purpose: helpSummaryRmApp,
 		Doc:     helpDetailsRmApp,
-	}
+	})
 }
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {

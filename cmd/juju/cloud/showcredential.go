@@ -10,6 +10,7 @@ import (
 
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -66,13 +67,13 @@ func (c *showCredentialCommand) Init(args []string) error {
 }
 
 func (c *showCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-credential",
 		Args:    "[<cloud name> <credential name>]",
 		Purpose: "Shows credential information on a controller.",
 		Doc:     showCredentialDoc,
 		Aliases: []string{"show-credentials"},
-	}
+	})
 }
 
 func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {

@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
+	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -40,15 +42,25 @@ type MainSuite struct {
 
 var _ = gc.Suite(&MainSuite{})
 
+func helpText(command cmd.Command, name string) string {
+	buff := &bytes.Buffer{}
+	info := command.Info()
+	info.Name = name
+	f := gnuflag.NewFlagSetWithFlagKnownAs(info.Name, gnuflag.ContinueOnError, cmd.FlagAlias(command, "option"))
+	command.SetFlags(f)
+	buff.Write(info.Help(f))
+	return buff.String()
+}
+
 func deployHelpText() string {
-	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
+	return helpText(application.NewDeployCommand(), "juju deploy")
 }
 func configHelpText() string {
-	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
+	return helpText(application.NewConfigCommand(), "juju config")
 }
 
 func syncToolsHelpText() string {
-	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-agent-binaries")
+	return helpText(newSyncToolsCommand(), "juju sync-agent-binaries")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -104,17 +116,17 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
 		code:    2,
-		out:     "ERROR flag provided but not defined: --cheese\n",
+		out:     "ERROR option provided but not defined: --cheese\n",
 	}, {
 		summary: "unknown option after command",
 		args:    []string{"bootstrap", "--cheese"},
 		code:    2,
-		out:     "ERROR flag provided but not defined: --cheese\n",
+		out:     "ERROR option provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
 		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "ERROR flag provided but not defined: --model\n",
+		out:     "ERROR option provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-agent-binaries registered properly",
 		args:    []string{"sync-agent-binaries", "--help"},

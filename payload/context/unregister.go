@@ -6,6 +6,8 @@ package context
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // UnregisterCmdName is the name of the payload unregister command.
@@ -27,7 +29,7 @@ func NewUnregisterCmd(ctx HookContext) (*UnregisterCmd, error) {
 
 // Info implements cmd.Command.
 func (c UnregisterCmd) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    UnregisterCmdName,
 		Args:    "<class> <id>",
 		Purpose: "stop tracking a payload",
@@ -37,7 +39,7 @@ that a payload has been manually stopped. The <class> and <id> provided
 must match a payload that has been previously registered with juju using
 payload-register.
 `,
-	}
+	})
 }
 
 // Init implements cmd.Command.

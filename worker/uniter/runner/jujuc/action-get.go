@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // ActionGetCommand implements the action-get command.
@@ -32,12 +34,12 @@ action-get will print the value of the parameter at the given key, serialized
 as YAML.  If multiple keys are passed, action-get will recurse into the param
 map as needed.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "action-get",
 		Args:    "[<key>[.<key>.<key>...]]",
 		Purpose: "get action parameters",
 		Doc:     doc,
-	}
+	})
 }
 
 // SetFlags handles known option flags; in this case, [--output={json|yaml}]
@@ -80,7 +82,7 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 	// If our value is a map[s]i{}, we can keep recursing.
 	case map[string]interface{}:
 		return recurseMapOnKeys(keys[1:], typed)
-	// If it's a map[i{}]i{}, we need to check whether it's a map[s]i{}.
+		// If it's a map[i{}]i{}, we need to check whether it's a map[s]i{}.
 	case map[interface{}]interface{}:
 		m := make(map[string]interface{})
 		for k, v := range typed {
@@ -95,8 +97,8 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 		// If it is, recurse into it.
 		return recurseMapOnKeys(keys[1:], m)
 
-	// Otherwise, we're trying to recurse into something we don't know
-	// how to deal with, so our answer is that we don't have an answer.
+		// Otherwise, we're trying to recurse into something we don't know
+		// how to deal with, so our answer is that we don't have an answer.
 	default:
 		return nil, false
 	}

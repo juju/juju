@@ -15,6 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	apicontroller "github.com/juju/juju/api/controller"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -70,12 +71,12 @@ See also:
 // Info returns information about this command - it's part of
 // cmd.Command.
 func (c *configCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "controller-config",
 		Args:    "[<attribute key>[=<value>] ...]",
 		Purpose: "Displays or sets configuration settings for a controller.",
 		Doc:     strings.TrimSpace(configCommandHelpDoc),
-	}
+	})
 }
 
 // SetFlags adds command-specific flags to the flag set. It's part of

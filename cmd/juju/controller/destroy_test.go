@@ -273,7 +273,7 @@ func (s *DestroySuite) TestDestroyNoControllerNameError(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "-n")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -n")
 }
 
 func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
@@ -371,11 +371,11 @@ The controller has persistent storage remaining:
 	3 volumes and 1 filesystem across 3 models
 
 To destroy the storage, run the destroy-controller
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `)
@@ -437,7 +437,7 @@ func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 The controller has live hosted models. If you want
 to destroy all hosted models in the controller,
 run this command again with the --destroy-all-models
-flag.
+option.
 
 Models:
 	owner/test2:test2 (alive)

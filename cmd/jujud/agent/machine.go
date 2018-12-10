@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cert"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/reboot"
@@ -232,10 +233,10 @@ func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 
 // Info returns usage information for the command.
 func (a *machineAgentCmd) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "machine",
 		Purpose: "run a juju machine agent",
-	}
+	})
 }
 
 // MachineAgentFactoryFn returns a function which instantiates a

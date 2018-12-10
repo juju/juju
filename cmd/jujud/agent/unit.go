@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -81,10 +82,10 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter)
 
 // Info returns usage information for the command.
 func (a *UnitAgent) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "unit",
 		Purpose: "run a juju unit agent",
-	}
+	})
 }
 
 func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {

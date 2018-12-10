@@ -8,6 +8,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 const (
@@ -50,12 +52,12 @@ func (c *JujuRebootCommand) Info() *cmd.Info {
 
 	juju-reboot is not supported when running actions.
 	`
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-reboot",
 		Args:    "",
 		Purpose: "Reboot the host machine",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *JujuRebootCommand) SetFlags(f *gnuflag.FlagSet) {

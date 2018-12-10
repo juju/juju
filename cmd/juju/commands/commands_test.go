@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -71,7 +72,7 @@ func (c *stubCommand) Info() *cmd.Info {
 			Name: "some-command",
 		}
 	}
-	return c.info
+	return jujucmd.Info(c.info)
 }
 
 func (c *stubCommand) Run(ctx *cmd.Context) error {

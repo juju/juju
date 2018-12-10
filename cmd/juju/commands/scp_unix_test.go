@@ -112,7 +112,7 @@ var scpTests = []struct {
 	}, {
 		about: "scp from machine 0 to unit mysql/0 and extra args before",
 		args:  []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
-		error: "flag provided but not defined: -q",
+		error: "option provided but not defined: -q",
 	}, {
 		about:       "scp two local files to unit mysql/0",
 		args:        []string{"file1", "file2", "mysql/0:/foo/"},

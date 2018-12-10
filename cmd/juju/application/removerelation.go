@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -70,12 +71,12 @@ type removeRelationCommand struct {
 }
 
 func (c *removeRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-relation",
 		Args:    "<application1>[:<relation name1>] <application2>[:<relation name2>] | <relation-id>",
 		Purpose: helpSummary,
 		Doc:     helpDetails,
-	}
+	})
 }
 
 func (c *removeRelationCommand) Init(args []string) (err error) {

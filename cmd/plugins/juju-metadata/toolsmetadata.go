@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -76,12 +77,12 @@ juju metadata generate-agents -d <workingdir> --stream proposed --clean
 `
 
 func (c *toolsMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "generate-agents",
 		Purpose: "generate simplestreams agent metadata",
 		Doc:     toolsMetadataDoc,
 		Aliases: []string{"generate-tools"},
-	}
+	})
 }
 
 func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {

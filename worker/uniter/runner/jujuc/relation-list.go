@@ -9,6 +9,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // RelationListCommand implements the relation-list command.
@@ -38,11 +40,11 @@ func (c *RelationListCommand) Info() *cmd.Info {
 	if _, err := c.ctx.HookRelation(); err == nil {
 		doc = ""
 	}
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-list",
 		Purpose: "list relation units",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {

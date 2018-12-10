@@ -117,7 +117,7 @@ var testCreateBackupArgParsing = []createBackupArgParsing{
 	{
 		title:      "filename flag, no name",
 		args:       []string{"--filename"},
-		errMatch:   "flag needs an argument: --filename",
+		errMatch:   "option needs an argument: --filename",
 		filename:   backups.NotSet,
 		keepCopy:   false,
 		noDownload: false,

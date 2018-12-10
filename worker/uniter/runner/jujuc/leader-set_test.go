@@ -25,6 +25,7 @@ func (s *leaderSetSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.command, err = jujuc.NewLeaderSetCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.command = jujuc.NewJujucCommandWrappedForTest(s.command)
 }
 
 func (s *leaderSetSuite) TestInitEmpty(c *gc.C) {
@@ -47,7 +48,7 @@ func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
-	code := cmd.Main(command, runContext, nil)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{})
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
@@ -59,7 +60,7 @@ func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
-	code := cmd.Main(command, runContext, []string{"foo=bar", "baz=qux"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, []string{"foo=bar", "baz=qux"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -74,7 +75,7 @@ func (s *leaderSetSuite) TestWriteError(c *gc.C) {
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
-	code := cmd.Main(command, runContext, []string{"foo=bar"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, []string{"foo=bar"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")

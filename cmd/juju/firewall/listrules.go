@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/firewallrules"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -51,12 +52,12 @@ type listFirewallRulesCommand struct {
 
 // Info implements cmd.Command.
 func (c *listFirewallRulesCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "list-firewall-rules",
 		Purpose: listRulesHelpSummary,
 		Doc:     listRulesHelpDetails,
 		Aliases: []string{"firewall-rules"},
-	}
+	})
 }
 
 // SetFlags implements cmd.Command.

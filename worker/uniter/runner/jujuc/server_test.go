@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -34,11 +35,11 @@ type RpcCommand struct {
 }
 
 func (c *RpcCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remote",
 		Purpose: "act at a distance",
 		Doc:     "blah doc",
-	}
+	})
 }
 
 func (c *RpcCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -232,7 +233,7 @@ func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.Ex
 func (s *ServerSuite) TestParseError(c *gc.C) {
 	resp := s.AssertBadCommand(c, []string{"remote", "--cheese"}, 2)
 	c.Assert(string(resp.Stdout), gc.Equals, "")
-	c.Assert(string(resp.Stderr), gc.Equals, "ERROR flag provided but not defined: --cheese\n")
+	c.Assert(string(resp.Stderr), gc.Equals, "ERROR option provided but not defined: --cheese\n")
 }
 
 func (s *ServerSuite) TestBrokenCommand(c *gc.C) {

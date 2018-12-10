@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -49,7 +50,7 @@ type setPlanCommand struct {
 
 // Info implements cmd.Command.
 func (c *setPlanCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-plan",
 		Args:    "<application name> <plan>",
 		Purpose: "Set the plan for an application.",
@@ -62,7 +63,7 @@ particular charm. Use "juju list-plans <charm>" for more information.
 Examples:
     juju set-plan myapp example/uptime
 `,
-	}
+	})
 }
 
 // Init implements cmd.Command.

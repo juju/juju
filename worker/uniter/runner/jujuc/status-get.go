@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/status"
 )
 
@@ -29,12 +30,12 @@ func (c *StatusGetCommand) Info() *cmd.Info {
 By default, only the status value is printed.
 If the --include-data flag is passed, the associated data are printed also.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "status-get",
 		Args:    "[--include-data] [--application]",
 		Purpose: "print status information",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *StatusGetCommand) SetFlags(f *gnuflag.FlagSet) {

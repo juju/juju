@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -33,12 +34,12 @@ of the storage to create. If unspecified, COUNT defaults to 1.
 `[1:]
 
 func (s *StorageAddCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-add",
 		Args:    "<charm storage name>[=count] ...",
 		Purpose: "add storage instances",
 		Doc:     StorageAddDoc,
-	}
+	})
 }
 
 func (s *StorageAddCommand) Init(args []string) error {

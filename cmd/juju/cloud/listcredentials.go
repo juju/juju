@@ -14,6 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
@@ -120,13 +121,13 @@ func NewListCredentialsCommand() cmd.Command {
 }
 
 func (c *listCredentialsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "credentials",
 		Args:    "[<cloud name>]",
 		Purpose: usageListCredentialsSummary,
 		Doc:     usageListCredentialsDetails,
 		Aliases: []string{"list-credentials"},
-	}
+	})
 }
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {

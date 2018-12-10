@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -83,11 +84,11 @@ func (c *listImagesCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *listImagesCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "list-images",
 		Purpose: "lists cloud image metadata used when choosing an image to start",
 		Doc:     listCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

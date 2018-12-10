@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -36,10 +37,10 @@ type CreateCommand struct {
 const createCommandDoc = `
 Creates a new subnet with a given CIDR, associated with an existing Juju
 network space, and attached to one or more availablility zones. Desired
-access for the subnet can be specified using the mutually exclusive flags
+access for the subnet can be specified using the mutually exclusive options
 --private and --public.
 
-When --private is specified (or no flags are given, as this is the default),
+When --private is specified (or no options are given, as this is the default),
 the created subnet will not allow access from outside the model and
 the available address range is only cloud-local.
 
@@ -61,12 +62,12 @@ supported.
 
 // Info is defined on the cmd.Command interface.
 func (c *CreateCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "create-subnet",
 		Args:    "<CIDR> <space> <zone1> [<zone2> <zone3> ...] [--public|--private]",
 		Purpose: "create a new subnet",
 		Doc:     strings.TrimSpace(createCommandDoc),
-	}
+	})
 }
 
 // SetFlags is defined on the cmd.Command interface.

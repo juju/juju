@@ -18,6 +18,7 @@ import (
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/juju/charm.v6"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -74,12 +75,12 @@ func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements Command.Info.
 func (c *agreeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "agree",
 		Args:    "<term>",
 		Purpose: "Agree to terms.",
 		Doc:     agreeDoc,
-	}
+	})
 }
 
 // Init read and verifies the arguments.

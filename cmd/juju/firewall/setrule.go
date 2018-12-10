@@ -4,6 +4,7 @@
 package firewall
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
@@ -11,10 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"fmt"
-
 	"github.com/juju/juju/api/firewallrules"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -68,12 +68,12 @@ func (c *setFirewallRuleCommand) Info() *cmd.Info {
 		" -" + string(params.JujuControllerRule),
 		" -" + string(params.JujuApplicationOfferRule),
 	}
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-firewall-rule",
 		Args:    "<service-name>, --whitelist <cidr>[,<cidr>...]",
 		Purpose: setRuleHelpSummary,
 		Doc:     fmt.Sprintf(setRuleHelpDetails, strings.Join(supportedRules, "\n")),
-	}
+	})
 }
 
 // SetFlags implements cmd.Command.

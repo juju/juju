@@ -29,7 +29,7 @@ func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 	ctx, _ := s.newHookContext(-1, "")
 	cmd, err := jujuc.NewJujuLogCommand(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	return cmd
+	return jujuc.NewJujucCommandWrappedForTest(cmd)
 }
 
 func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *jujuc.MockJujuLogContext, *jujuc.MockJujuLogCommandLogger) {
@@ -41,7 +41,7 @@ func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name 
 	ctx := jujuc.NewMockJujuLogContext(ctrl)
 
 	cmd := jujuc.NewJujuLogCommandWithMocks(ctx, factory)
-	return cmd, ctx, logger
+	return jujuc.NewJujucCommandWrappedForTest(cmd), ctx, logger
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
@@ -53,10 +53,10 @@ func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
 func (s *JujuLogSuite) TestLogInitMissingLevel(c *gc.C) {
 	cmd := s.newJujuLogCommand(c)
 	err := cmdtesting.InitCommand(cmd, []string{"-l"})
-	c.Assert(err, gc.ErrorMatches, "flag needs an argument.*")
+	c.Assert(err, gc.ErrorMatches, "option needs an argument.*")
 
 	err = cmdtesting.InitCommand(cmd, []string{"--log-level"})
-	c.Assert(err, gc.ErrorMatches, "flag needs an argument.*")
+	c.Assert(err, gc.ErrorMatches, "option needs an argument.*")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {

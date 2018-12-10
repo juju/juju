@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -141,11 +142,11 @@ func formatSimple(writer io.Writer, value interface{}) error {
 }
 
 func (c *enableHACommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "enable-ha",
 		Purpose: "Ensure that sufficient controllers exist to provide redundancy.",
 		Doc:     enableHADoc,
-	}
+	})
 }
 
 func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {

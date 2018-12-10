@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -102,7 +103,7 @@ type helpToolCommand struct {
 }
 
 func (t *helpToolCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "hook-tool",
 		Args:    "[tool]",
 		Purpose: "Show help on a Juju charm hook tool.",
@@ -110,7 +111,7 @@ func (t *helpToolCommand) Info() *cmd.Info {
 		Aliases: []string{
 			"help-tool", // TODO (anastasimac 2017-11-1) This should be removed in Juju 3.
 			"hook-tools"},
-	}
+	})
 }
 
 func (t *helpToolCommand) Init(args []string) error {
@@ -130,7 +131,7 @@ func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		info := c.Info()
-		f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
+		f := gnuflag.NewFlagSetWithFlagKnownAs(info.Name, gnuflag.ContinueOnError, cmd.FlagAlias(c, "option"))
 		c.SetFlags(f)
 		ctx.Stdout.Write(info.Help(f))
 	}

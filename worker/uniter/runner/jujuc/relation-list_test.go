@@ -39,25 +39,25 @@ var relationListTests = []struct {
 		relid:   -1,
 		args:    []string{"-r", "bad"},
 		code:    2,
-		out:     `invalid value "bad" for flag -r: invalid relation id`,
+		out:     `invalid value "bad" for option -r: invalid relation id`,
 	}, {
 		summary: "no default relation, unknown arg",
 		relid:   -1,
 		args:    []string{"-r", "unknown:123"},
 		code:    2,
-		out:     `invalid value "unknown:123" for flag -r: relation not found`,
+		out:     `invalid value "unknown:123" for option -r: relation not found`,
 	}, {
 		summary: "default relation, bad arg",
 		relid:   1,
 		args:    []string{"-r", "bad"},
 		code:    2,
-		out:     `invalid value "bad" for flag -r: invalid relation id`,
+		out:     `invalid value "bad" for option -r: invalid relation id`,
 	}, {
 		summary: "default relation, unknown arg",
 		relid:   1,
 		args:    []string{"-r", "unknown:123"},
 		code:    2,
-		out:     `invalid value "unknown:123" for flag -r: relation not found`,
+		out:     `invalid value "unknown:123" for option -r: relation not found`,
 	}, {
 		summary: "default relation, no members",
 		relid:   1,
@@ -117,7 +117,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
 		c.Logf(bufferString(ctx.Stderr))
 		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
@@ -162,7 +162,7 @@ Options:
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, []string{"--help"})
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		expect := fmt.Sprintf(template, t.usage, t.doc)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)

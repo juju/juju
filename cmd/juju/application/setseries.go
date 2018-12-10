@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -44,9 +45,9 @@ type setSeriesCommand struct {
 }
 
 var setSeriesDoc = `
-When no flags are set, an application series value will be set within juju.
+When no options are set, an application series value will be set within juju.
 
-The update is disallowed unless the --force flag is used if the requested
+The update is disallowed unless the --force option is used if the requested
 series is not explicitly supported by the application's charm and all
 subordinates, as well as any other charms which may be deployed to the same
 machine.
@@ -61,12 +62,12 @@ See also:
 `
 
 func (c *setSeriesCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-series",
 		Args:    "<application> <series>",
 		Purpose: "Set an application's series.",
 		Doc:     setSeriesDoc,
-	}
+	})
 }
 
 func (c *setSeriesCommand) SetFlags(f *gnuflag.FlagSet) {

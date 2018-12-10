@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -42,11 +43,11 @@ func NewWhoAmICommand() cmd.Command {
 
 // Info implements Command.Info
 func (c *whoAmICommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "whoami",
 		Purpose: "Print current login details.",
 		Doc:     whoAmIDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

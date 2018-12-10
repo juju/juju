@@ -79,7 +79,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.command)
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
 		c.Check(code, gc.Equals, t.code)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
 		c.Check(hctx.actionMessage, gc.Equals, t.message)
@@ -92,7 +92,7 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"oops"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR not running an action\n")
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
@@ -103,7 +103,7 @@ func (s *ActionFailSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-fail ["<failure message>"]
 

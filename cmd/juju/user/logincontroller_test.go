@@ -95,7 +95,7 @@ func (s *LoginCommandSuite) TestRegisterPublicDNSNameWithPort(c *gc.C) {
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3:5678")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "ERROR cannot use \"0.1.2.3:5678\" as a controller name - use -c flag to choose a different one\n")
+	c.Check(stderr, gc.Equals, "ERROR cannot use \"0.1.2.3:5678\" as a controller name - use -c option to choose a different one\n")
 	c.Check(code, gc.Equals, 1)
 }
 
@@ -147,7 +147,7 @@ func (s *LoginCommandSuite) TestRegisterPublicControllerMismatch(c *gc.C) {
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Matches, `
 ERROR controller at "bighost" does not match existing controller.
-Please choose a different controller name with the -c flag, or
+Please choose a different controller name with the -c option, or
 use "juju unregister other" to remove the existing controller\.
 `[1:])
 	c.Check(code, gc.Equals, 1)

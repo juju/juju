@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -85,11 +86,11 @@ By default, "amd64" is used for the architecture but this may also be changed.
 `
 
 func (c *imageMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
 		Doc:     imageMetadataDoc,
-	}
+	})
 }
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {

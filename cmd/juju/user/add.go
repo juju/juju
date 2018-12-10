@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -63,12 +64,12 @@ type addCommand struct {
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-user",
 		Args:    "<user name> [<display name>]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-	}
+	})
 }
 
 // Init implements Command.Init.

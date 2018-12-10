@@ -18,6 +18,7 @@ import (
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/worker/metrics/sender"
@@ -54,12 +55,12 @@ func NewCollectMetricsCommand() cmd.Command {
 
 // Info implements Command.Info.
 func (c *collectMetricsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "collect-metrics",
 		Args:    "[application or unit]",
 		Purpose: "Collect metrics on the given unit/application.",
 		Doc:     collectMetricsDoc,
-	}
+	})
 }
 
 // Init reads and verifies the cli arguments for the collectMetricsCommand

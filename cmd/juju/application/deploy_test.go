@@ -797,7 +797,7 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	command := DeployCommand{}
-	flagSet := gnuflag.NewFlagSet(command.Info().Name, gnuflag.ContinueOnError)
+	flagSet := gnuflag.NewFlagSetWithFlagKnownAs(command.Info().Name, gnuflag.ContinueOnError, "option")
 	command.SetFlags(flagSet)
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
 	// Add to the slice below if a new flag is introduced which is valid for
@@ -1705,7 +1705,7 @@ func (s *DeployUnitTestSuite) TestDeployLocalWithBundleOverlay(c *gc.C) {
 	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--overlay", "somefile")
-	c.Check(err, gc.ErrorMatches, "flags provided but not supported when deploying a charm: --overlay")
+	c.Check(err, gc.ErrorMatches, "options provided but not supported when deploying a charm: --overlay")
 }
 
 func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.C) {

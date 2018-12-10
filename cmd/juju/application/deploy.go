@@ -34,6 +34,7 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -656,12 +657,12 @@ type DeploymentInfo struct {
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "deploy",
 		Args:    "<charm or bundle> [<application name>]",
 		Purpose: "Deploys a new application or bundle.",
 		Doc:     deployDoc,
-	}
+	})
 }
 
 var (
@@ -1197,14 +1198,14 @@ type deployFn func(*cmd.Context, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
 	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
-		return errors.Errorf("flags provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
+		return errors.Errorf("options provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
 
 func (c *DeployCommand) validateCharmFlags() error {
 	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("flags provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
+		return errors.Errorf("options provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }

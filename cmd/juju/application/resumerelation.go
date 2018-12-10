@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/application"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -54,12 +55,12 @@ type resumeRelationCommand struct {
 }
 
 func (c *resumeRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "resume-relation",
 		Args:    "<relation-id>[,<relation-id>]",
 		Purpose: resumeHelpSummary,
 		Doc:     resumeHelpDetails,
-	}
+	})
 }
 
 func (c *resumeRelationCommand) Init(args []string) (err error) {

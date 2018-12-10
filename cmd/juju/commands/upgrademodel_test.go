@@ -91,7 +91,7 @@ var upgradeJujuTests = []struct {
 	about:          "removed arg --dev specified",
 	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"--dev"},
-	expectInitErr:  "flag provided but not defined: --dev",
+	expectInitErr:  "option provided but not defined: --dev",
 }, {
 	about:          "invalid --agent-version value",
 	currentVersion: "1.0.0-quantal-amd64",
@@ -860,7 +860,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 		"\n"+
 		"Please wait for the upgrade to complete or if there was a problem with\n"+
 		"the last upgrade that has been resolved, consider running the\n"+
-		"upgrade-model command with the --reset-previous-upgrade flag.",
+		"upgrade-model command with the --reset-previous-upgrade option.",
 	)
 }
 

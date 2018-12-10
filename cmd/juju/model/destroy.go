@@ -118,12 +118,12 @@ type ModelConfigAPI interface {
 
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "destroy-model",
 		Args:    "[<controller name>:]<model name>",
 		Purpose: "Terminate all machines/containers and resources for a non-controller model.",
 		Doc:     destroyDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.
@@ -593,11 +593,11 @@ The model has persistent storage remaining:
 	%s
 
 To destroy the storage, run the destroy-model
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `, modelName, buf.String())

@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -180,12 +181,12 @@ type bootstrapCommand struct {
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "bootstrap",
 		Args:    "[<cloud name>[/region] [<controller name>]]",
 		Purpose: usageBootstrapSummary,
 		Doc:     usageBootstrapDetails,
-	}
+	})
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api/applicationoffers"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
@@ -103,13 +104,13 @@ func (c *listCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "offers",
 		Args:    "[<offer-name>]",
 		Aliases: []string{"list-offers"},
 		Purpose: "Lists shared endpoints.",
 		Doc:     listCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -48,13 +49,13 @@ Examples:
     juju remove-saas -m test-model hosted-mariadb`[1:]
 
 func (c *removeSaasCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-saas",
 		Args:    "<saas-application-name> [<saas-application-name>...]",
 		Aliases: []string{"remove-consumed-application"},
 		Purpose: helpSummaryRmSaas,
 		Doc:     helpDetailsRmSaas,
-	}
+	})
 }
 
 func (c *removeSaasCommand) Init(args []string) error {

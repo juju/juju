@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -50,12 +51,12 @@ Examples:
 
 // Info implements cmd.Command.
 func (c *scaleApplicationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "scale-application",
 		Args:    "<application> <scale>",
 		Purpose: "Set the desired number of application units.",
 		Doc:     scaleApplicationDoc,
-	}
+	})
 }
 
 func (c *scaleApplicationCommand) Init(args []string) error {

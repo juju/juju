@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -79,12 +80,12 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-user",
 		Args:    "<user name>",
 		Purpose: removeUsageSummary,
 		Doc:     removeUsageDetails,
-	}
+	})
 }
 
 // Init implements Command.Init.
