@@ -76,6 +76,7 @@ type Application interface {
 	SetExposed() error
 	SetCharmProfile(string) error
 	SetMetricCredentials([]byte) error
+	WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error)
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(charm.Settings) error

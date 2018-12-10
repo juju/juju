@@ -1937,6 +1937,36 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field that is specific to an application name.
+// Note: this is deprecated in favour of Machine.WatchLXDProfileUpgradeNotifications
+func (a *Application) WatchLXDProfileUpgradeNotifications() (NotifyWatcher, error) {
+	return newNoopWatcher(), nil
+}
+
+type noopWatcher struct {
+	commonWatcher
+	out chan struct{}
+}
+
+var _ Watcher = (*noopWatcher)(nil)
+
+func newNoopWatcher() NotifyWatcher {
+	w := &noopWatcher{
+		out: make(chan struct{}),
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return nil
+	})
+	return w
+}
+
+func (w *noopWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+// WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
+// of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
+// upgrade completed field that is specific to an application name.
 func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (NotifyWatcher, error) {
 	machineIds := set.NewStrings()
 	machineIds.Add(m.doc.DocID)

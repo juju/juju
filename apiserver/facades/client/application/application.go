@@ -780,6 +780,41 @@ func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) erro
 	return application.SetCharmProfile(args.CharmURL)
 }
 
+// WatchLXDProfileUpgradeNotifications returns a watcher that fires on LXD
+// profile events.
+func (api *APIBase) WatchLXDProfileUpgradeNotifications(entity params.Entity) (params.NotifyWatchResult, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+	tag, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+	app, err := api.backend.Application(tag.Id())
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+	w, err := app.WatchLXDProfileUpgradeNotifications()
+	if err != nil {
+		return params.NotifyWatchResult{}, errors.Trace(err)
+	}
+	return params.NotifyWatchResult{
+		NotifyWatcherId: api.resources.Register(w),
+	}, nil
+}
+
+// GetLXDProfileUpgradeMessages returns the lxd profile messages associated with
+// a application and set of machines
+func (api *APIBase) GetLXDProfileUpgradeMessages(arg params.LXDProfileUpgradeMessages) (params.LXDProfileUpgradeMessagesResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.LXDProfileUpgradeMessagesResults{}, errors.Trace(err)
+	}
+	results := params.LXDProfileUpgradeMessagesResults{
+		Results: make([]params.LXDProfileUpgradeMessagesResult, 0),
+	}
+	return results, nil
+}
+
 // GetConfig returns the charm config for each of the
 // applications asked for.
 func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
