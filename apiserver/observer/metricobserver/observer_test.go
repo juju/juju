@@ -79,10 +79,10 @@ func (s *observerSuite) TestRPCObserver(c *gc.C) {
 	}
 
 	labels := []*dto.LabelPair{
-		{stringptr("error_code"), stringptr("badness"), nil},
-		{stringptr("facade"), stringptr("api-facade"), nil},
-		{stringptr("method"), stringptr("api-method"), nil},
-		{stringptr("version"), stringptr("42"), nil},
+		{Name: stringptr("error_code"), Value: stringptr("badness")},
+		{Name: stringptr("facade"), Value: stringptr("api-facade")},
+		{Name: stringptr("method"), Value: stringptr("api-method")},
+		{Name: stringptr("version"), Value: stringptr("42")},
 	}
 
 	metricFamilies, err := s.registry.Gather()
