@@ -131,6 +131,15 @@ func (c *cloudList) all() map[string]*cloudDetails {
 	return result
 }
 
+// ListAllCloudDetails returns a list of all cloud details.
+func ListAllCloudDetails() (map[string]*cloudDetails, error) {
+	clouds, err := listCloudDetails()
+	if err != nil {
+		return nil, err
+	}
+	return clouds.all(), nil
+}
+
 func listCloudDetails() (*cloudList, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {

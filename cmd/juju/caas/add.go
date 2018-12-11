@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -242,10 +243,10 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if cloudRegion != "" {
 		// do validation if cloudRegion is presented or ignore because it's for jaas only but not juju.
 		if err = c.validateCloudRegion(cloudRegion); err != nil {
-			return errors.Annotate(err, "validating cloud region")
+			return errors.Trace(err)
 		}
 		newCloud.HostCloud = cloudRegion
-		logger.Criticalf("newCloud.Regions -> %+v", newCloud.Regions)
+		logger.Criticalf("newCloud -> %+v", newCloud)
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -281,14 +282,29 @@ func parseCloudRegion(cloudRegion string) (string, string, error) {
 	return fields[0], fields[1], nil
 }
 
-func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) error {
+func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "validating cloud region %q", cloudRegion)
+
 	cloudName, region, err := parseCloudRegion(cloudRegion)
 	if err != nil {
-		return errors.Annotate(err, "validating cloud region")
+		return err
 	}
-	// TODO: ensure cloudName/region is valid juju cloud region(juju regions <cloudName>).
-	logger.Criticalf("cloudName -> %q, region -> %q", cloudName, region)
-	return nil
+
+	clouds, err := jujucmdcloud.ListAllCloudDetails()
+	if err != nil {
+		return err
+	}
+	for _, v := range clouds {
+		if v.CloudType == cloudName {
+			for k := range v.RegionsMap {
+				if k == region {
+					logger.Debugf("cloud region %q is valid", cloudRegion)
+					return nil
+				}
+			}
+		}
+	}
+	return errors.NotValidf("")
 }
 
 func (c *AddCAASCommand) getClusterRegion(

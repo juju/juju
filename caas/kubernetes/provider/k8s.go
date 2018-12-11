@@ -187,7 +187,7 @@ func newLabelRequirements(rs ...requirement) k8slabels.Selector {
 	for _, r := range rs {
 		l, _ := k8slabels.NewRequirement(r.key, r.operator, r.strValues)
 		// TODO: assert _ == nil?
-		s.Add(*l)
+		s = s.Add(*l)
 	}
 	return s
 }
@@ -198,18 +198,19 @@ type requirement struct {
 	strValues []string
 }
 
-func getCloudProviderFromNodeMeta(node core.Node) string {
+var checkers = map[string]k8slabels.Selector{
+	"gce": newLabelRequirements(
+		requirement{"cloud.google.com/gke-nodepool", selection.Exists, nil},
+		requirement{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
+	),
+	"ec2": newLabelRequirements(
+		requirement{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
+	),
+	// format - cloudType: requirements.
+	// TODO(ycliuhw): add support for aks, etc.
+}
 
-	checkers := map[string]k8slabels.Selector{
-		"gce": newLabelRequirements(
-			requirement{"cloud.google.com/gke-nodepool", selection.Exists, nil},
-			requirement{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
-		),
-		"ec2": newLabelRequirements(
-			requirement{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
-		),
-		// format - cloudType: requirements.
-	}
+func getCloudProviderFromNodeMeta(node core.Node) string {
 	for k, checker := range checkers {
 		if checker.Matches(k8slabels.Set(node.GetLabels())) {
 			return k
@@ -225,7 +226,7 @@ func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "listing nodes")
 	}
-	logger.Criticalf("ListHostCloudRegions.nodes -> %d, %v", len(nodes.Items), nodes)
+	// logger.Criticalf("ListHostCloudRegions.nodes -> %d, %v", len(nodes.Items), nodes)
 	result := set.NewStrings()
 	for _, n := range nodes.Items {
 		var cloudRegion, v string
