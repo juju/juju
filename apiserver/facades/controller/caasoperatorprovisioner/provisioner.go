@@ -100,7 +100,7 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	vers := version.Current
 	vers.Build = 0
 	if imagePath == "" {
-		imagePath = fmt.Sprintf("%s/caas-jujud-operator:%s", "jujusolutions", vers.String())
+		imagePath = fmt.Sprintf("registry.jujucharms.com/juju/caas-jujud-operator:%s", vers.String())
 	}
 	charmStorageParams, err := charmStorageParams(a.storagePoolManager, a.storageProviderRegistry)
 	if err != nil {

@@ -212,14 +212,14 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
 		"juju-operator": "gitlab",
 	}
-	pod := provider.OperatorPod("gitlab", "/var/lib/juju", "jujusolutions/caas-jujud-operator", "2.99.0", tags)
+	pod := provider.OperatorPod("gitlab", "/var/lib/juju", "registry.jujucharms.com/juju/caas-jujud-operator", "2.99.0", tags)
 	c.Assert(pod.Name, gc.Equals, "juju-operator-gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
 		"juju-operator": "gitlab",
 		"juju-version":  "2.99.0",
 	})
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
-	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/caas-jujud-operator")
+	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "registry.jujucharms.com/juju/caas-jujud-operator")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
 }
