@@ -5,7 +5,6 @@ package uniter_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/testing"
 )
 
