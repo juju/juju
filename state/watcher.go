@@ -1943,7 +1943,6 @@ func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (S
 		if err != nil {
 			return false
 		}
-		logger.Debugf("filter charm profile %q %q", machineId, m.doc.Id)
 		return machineId == m.doc.Id
 	}
 	return newInstanceCharmProfileDataWatcher(m.st, applicationName, m.doc.DocID, filter), nil
@@ -1962,7 +1961,6 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications(applicationName string) (Stri
 		if err != nil {
 			return false
 		}
-		logger.Debugf("filter charm profile %q %q", machineId, m.doc.Id)
 		return machineId == m.doc.Id
 	}
 	return newInstanceCharmProfileDataWatcher(u.st, applicationName, m.doc.DocID, filter), nil
@@ -2020,14 +2018,13 @@ func (w *instanceCharmProfileDataWatcher) initial() error {
 	}
 	w.known = statusField
 
-	logger.Criticalf("Started watching instanceCharmProfileData for machine %s: %q", w.memberId, statusField)
+	logger.Tracef("Started watching instanceCharmProfileData for machine %s and application %q: %q", w.memberId, w.applicationName, statusField)
 	return nil
 }
 
 func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
 	machineId := change.Id.(string)
 	if change.Revno == -1 {
-		logger.Debugf("instanceCharmProfileData merge revno neg one")
 		return false, nil
 	}
 	instanceDataCol, instanceCloser := w.db.GetCollection(instanceCharmProfileDataC)
@@ -2051,11 +2048,9 @@ func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, er
 	if w.known != currentField {
 		w.known = currentField
 
-		logger.Debugf("Changes in watching instanceCharmProfileData for machine %s: %q", w.memberId, w.applicationName)
-		logger.Debugf("instanceCharmProfileData known value now %q", currentField)
+		logger.Tracef("Changes in watching instanceCharmProfileData for machine %s and application %q: %q", w.memberId, w.applicationName, currentField)
 		return true, nil
 	}
-	logger.Debugf("instanceCharmProfileData no watched change on %s", w.memberId)
 	return false, nil
 }
 
@@ -2083,10 +2078,8 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 			}
 			if isChanged {
 				out = w.out
-				logger.Debugf("before watching instanceCharmProfileData channel (%#v)", out)
 			}
 		case out <- []string{w.known}:
-			logger.Debugf("after watching instanceCharmProfileData channel (%#v) - %v", out, w.known)
 			out = nil
 		}
 	}
