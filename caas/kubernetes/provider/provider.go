@@ -113,6 +113,12 @@ func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*config.Config
 	return valid, nil
 }
 
+var supportedAuthTypes = cloud.AuthTypes{
+	cloud.UserPassAuthType,
+	cloud.CertificateAuthType,    // gke
+	cloud.OAuth2WithCertAuthType, // aks
+}
+
 func validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
@@ -123,7 +129,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType && authType != cloud.CertificateAuthType {
+	if authType := spec.Credential.AuthType(); !supportedAuthTypes.Contains(authType) {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

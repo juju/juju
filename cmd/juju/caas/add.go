@@ -287,12 +287,12 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (err error) {
 
 	cloudName, region, err := parseCloudRegion(cloudRegion)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "parsing cloud region")
 	}
 
 	clouds, err := jujucmdcloud.ListAllCloudDetails()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "listing juju cloud regions")
 	}
 	for _, v := range clouds {
 		if v.CloudType == cloudName {

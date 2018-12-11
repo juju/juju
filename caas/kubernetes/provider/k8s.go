@@ -206,8 +206,11 @@ var checkers = map[string]k8slabels.Selector{
 	"ec2": newLabelRequirements(
 		requirement{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
 	),
+	"azure": newLabelRequirements(
+		requirement{"kubernetes.azure.com/cluster", selection.Exists, nil},
+	),
 	// format - cloudType: requirements.
-	// TODO(ycliuhw): add support for aks, etc.
+	// TODO(ycliuhw): add support for cdk, etc.
 }
 
 func getCloudProviderFromNodeMeta(node core.Node) string {
