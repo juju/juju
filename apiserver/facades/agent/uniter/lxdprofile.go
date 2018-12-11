@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 //go:generate mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
@@ -147,15 +148,29 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		w, err := machine.WatchLXDProfileUpgradeNotifications(args.ApplicationName)
+
+		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, args.ApplicationName)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		watcherId := u.resources.Register(w)
+
 		result.Results[i].StringsWatcherId = watcherId
+		result.Results[i].Changes = initial
 	}
 	return result, nil
+}
+
+func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXDProfileMachine, applicationName string) (string, []string, error) {
+	watch, err := machine.WatchLXDProfileUpgradeNotifications(applicationName)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+
+	if changes, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
 }
 
 // RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status

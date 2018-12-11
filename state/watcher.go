@@ -2086,7 +2086,7 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 				logger.Debugf("before watching instanceCharmProfileData channel (%#v)", out)
 			}
 		case out <- []string{w.known}:
-			logger.Debugf("after watching instanceCharmProfileData channel (%#v)", out)
+			logger.Debugf("after watching instanceCharmProfileData channel (%#v) - %v", out, w.known)
 			out = nil
 		}
 	}
