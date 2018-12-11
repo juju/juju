@@ -96,7 +96,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{StringsWatcherId: "1", Error: nil},
+			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},
 		},
 	})
 }
@@ -127,7 +127,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
-			{StringsWatcherId: "1"},
+			{StringsWatcherId: "1", Changes: []string{""}},
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
