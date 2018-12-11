@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
+	"github.com/juju/proxy"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -369,6 +370,28 @@ func isAllowedOverrideAttr(attr string) bool {
 	return true
 }
 
+func (w *unixConfigure) formatCurlProxyArguments() (proxyArgs string) {
+	tools := w.icfg.ToolsList()[0]
+	var proxySettings proxy.Settings
+	if w.icfg.JujuProxySettings.HasProxySet() {
+		proxySettings = w.icfg.JujuProxySettings
+	} else if w.icfg.LegacyProxySettings.HasProxySet() {
+		proxySettings = w.icfg.LegacyProxySettings
+	}
+	if strings.HasPrefix(tools.URL, httpSchemePrefix) && proxySettings.Http != "" {
+		proxyUrl := proxySettings.Http
+		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
+	} else if strings.HasPrefix(tools.URL, httpsSchemePrefix) && proxySettings.Https != "" {
+		proxyUrl := proxySettings.Https
+		// curl automatically uses HTTP CONNECT for URLs containing HTTPS
+		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
+	}
+	if proxySettings.NoProxy != "" {
+		proxyArgs += fmt.Sprintf(" --noproxy %s", proxySettings.NoProxy)
+	}
+	return
+}
+
 // ConfigureCustomOverrides implements UserdataConfig.ConfigureCustomOverrides
 func (w *unixConfigure) ConfigureCustomOverrides() error {
 	for k, v := range w.icfg.CloudInitUserData {
@@ -441,6 +464,9 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 			if w.icfg.DisableSSLHostnameVerification {
 				curlCommand += " --insecure"
 			}
+
+			curlProxyArgs := w.formatCurlProxyArguments()
+			curlCommand += curlProxyArgs
 		} else {
 			// Allow up to 20 seconds for curl to make a connection. This prevents
 			// slow/broken routes from holding up others.
@@ -519,6 +545,8 @@ func (w *unixConfigure) setUpGUI() (func(), error) {
 		if w.icfg.DisableSSLHostnameVerification {
 			command += " --insecure"
 		}
+		curlProxyArgs := w.formatCurlProxyArguments()
+		command += curlProxyArgs
 		command += " " + shquote(u.String())
 		// A failure in fetching the Juju GUI archive should not prevent the
 		// model to be bootstrapped. Better no GUI than no Juju at all.
