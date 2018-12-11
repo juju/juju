@@ -873,7 +873,6 @@ func (a *Application) changeCharmOps(
 // If the application is a subordinate, the charm profile is applied
 // to the machine of the principal's unit.
 func (a *Application) SetCharmProfile(charmURL string) error {
-	logger.Debugf("Set charm profile for %q", a.Name())
 	machines, err := a.DeployedMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -1668,7 +1667,7 @@ func (a *Application) addUnitSubordinateCharmProfileOp(principalName string, pro
 		return nil, err
 	}
 
-	logger.Debugf("Set up to add new subordinate charm profile to existing machine %s for %s", machine.Id(), unit.Name())
+	logger.Tracef("Set up to add new subordinate charm profile to existing machine %s for %s", machine.Id(), unit.Name())
 	return machine.SetUpgradeCharmProfileTxns(a.doc.Name, a.doc.CharmURL.String())
 }
 

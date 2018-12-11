@@ -2218,7 +2218,6 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 // machine's needing a charm profile change.  For an LXD container or
 // machine only.
 func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
-	logger.Debugf("Set up to upgrade charm profile on machine %s for %s", m.Id(), appName)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2317,12 +2316,9 @@ func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, e
 			return nil, errors.Trace(err)
 		}
 		if appliedProfileName == "" {
-			logger.Debugf("Attempting to insert charm profile data for %s, %q, %q", appName, "", lxdprofile.NotRequiredStatus)
 			return append(ops, m.SetUpgradeCharmProfileOp(appName, "", lxdprofile.NotRequiredStatus)), nil
 		}
 	}
-
-	logger.Debugf("Attempting to insert charm profile data for %s, %q, %q", appName, charmURL, lxdprofile.EmptyStatus)
 
 	// We can always insert, because the doc was removed after the
 	// change triggered by this transaction was make.  Or should have
@@ -2369,7 +2365,7 @@ func (m *Machine) verifyInstanceCharmProfileData(appName, chURL string) error {
 		data.UpgradeCharmProfileComplete == lxdprofile.EmptyStatus) ||
 		(data.UpgradeCharmProfileApplication == appName &&
 			data.UpgradeCharmProfileComplete == lxdprofile.NotRequiredStatus) {
-		logger.Debugf("instance charm profile data already exists with expected values for machine %s and %q", data.MachineId, chURL)
+		logger.Tracef("Instance charm profile data already exists with expected values for machine %s and %q", data.MachineId, chURL)
 		return jujutxn.ErrNoOperations
 	}
 	return errors.Trace(errors.Errorf(
@@ -2397,7 +2393,6 @@ func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
 // If the profile has been removed, then this will throw an error upon
 // running the transaction
 func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
-	logger.Debugf("Set upgrade charm profile complete message for machine %s to %q", m.Id(), msg)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2443,7 +2438,7 @@ func (m *Machine) RemoveUpgradeCharmProfileData() error {
 		data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
 		// If the instance data is removed already, just
 		if errors.IsNotFound(err) {
-			logger.Debugf("Instance charm profile data already removed for machine %s", m.Id())
+			logger.Tracef("Instance charm profile data already removed for machine %s", m.Id())
 			return nil, jujutxn.ErrNoOperations
 		}
 		if err != nil {

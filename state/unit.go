@@ -698,7 +698,7 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
-		logger.Debugf("Remove charm profile from machine %s for %s", m.Id(), a.Name())
+		logger.Tracef("Remove charm profile from machine %s for %s", m.Id(), a.Name())
 		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
 	}
 
