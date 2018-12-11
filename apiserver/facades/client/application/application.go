@@ -739,6 +739,10 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := application.SetCharmProfile(args.CharmURL); err != nil {
+		return errors.Annotatef(err, "unable to set charm profile")
+	}
+
 	channel := csparams.Channel(args.Channel)
 	return api.applicationSetCharm(
 		args.ApplicationName,
@@ -753,31 +757,6 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		args.ResourceIDs,
 		args.StorageConstraints,
 	)
-}
-
-// SetCharmProfile a new charm's url on deployed machines for changing the profile used
-// on those machine.
-func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
-	}
-	// TODO (hml) 3-oct-2018
-	// We should do this....
-	// when forced units in error, don't block
-	//if !args.ForceUnits {
-	//	if err := api.check.ChangeAllowed(); err != nil {
-	//		return errors.Trace(err)
-	//	}
-	//}
-
-	// Don't verify the charm lxd profile, the watcher must be able to
-	// determine if a profile has been removed from the charm.
-
-	application, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return application.SetCharmProfile(args.CharmURL)
 }
 
 // GetConfig returns the charm config for each of the

@@ -393,16 +393,6 @@ type ApplicationSetCharm struct {
 	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
 }
 
-// ApplicationSetCharmProfile holds the parameters for making the
-// application SetCharmProfile call.
-type ApplicationSetCharmProfile struct {
-	// ApplicationName is the name of the application to set the profile on.
-	ApplicationName string `json:"application"`
-
-	// CharmURL is the new charm's url.
-	CharmURL string `json:"charm-url"`
-}
-
 // ApplicationExpose holds the parameters for making the application Expose call.
 type ApplicationExpose struct {
 	ApplicationName string `json:"application"`
