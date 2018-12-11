@@ -447,6 +447,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("lxd profile watcher closed")
 			}
+			if len(changes) != 1 {
+				return errors.New("expected on change in lxd profile watcher")
+			}
 			if err := w.lxdProfileStatusChanged(changes[0]); err != nil {
 				return errors.Trace(err)
 			}
