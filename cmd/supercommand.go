@@ -9,9 +9,11 @@ import (
 	"runtime"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/juju/osenv"
@@ -34,7 +36,7 @@ var logger = loggo.GetLogger("juju.cmd")
 // - The default logging configuration is taken from the environment;
 // - The version is configured to the current juju version;
 // - The command emits a log message when a command runs.
-func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
+func NewSuperCommand(p cmd.SuperCommandParams) *JujuCommand {
 	p.Log = &cmd.Log{
 		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 	}
@@ -50,8 +52,36 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 	p.Version = current.String()
 	p.NotifyRun = runNotifier
 	p.FlagKnownAs = "option"
-	return cmd.NewSuperCommand(p)
+	return &JujuCommand{cmd.NewSuperCommand(p)}
 }
+
+type JujuCommand struct {
+	*cmd.SuperCommand
+}
+
+func (c *JujuCommand) Register(subcmd cmd.Command) {
+	jujusub := &JujuSubCommand{subcmd, c}
+	c.SuperCommand.Register(jujusub)
+}
+
+type JujuSubCommand struct {
+	cmd.Command
+
+	super *JujuCommand
+}
+
+func (c *JujuSubCommand) SetFlags(f *gnuflag.FlagSet) {
+	supported := gnuflag.NewFlagSetWithFlagKnownAs(c.Info().Name, gnuflag.ContinueOnError, cmd.FlagAlias(c, "option"))
+	c.super.SetFlags(supported)
+	supported.VisitAll(func(flag *gnuflag.Flag) {
+		if desiredFlags.Contains(flag.Name) {
+			f.Var(flag.Value, flag.Name, flag.Usage)
+		}
+	})
+	c.Command.SetFlags(f)
+}
+
+var desiredFlags = set.NewStrings("debug", "show-log", "logging-config", "verbose", "quiet")
 
 func runNotifier(name string) {
 	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())
