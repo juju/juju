@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
@@ -180,20 +182,55 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 	return nil
 }
 
+func newLabelRequirements(rs ...requirement) k8slabels.Selector {
+	s := k8slabels.NewSelector()
+	for _, r := range rs {
+		l, _ := k8slabels.NewRequirement(r.key, r.operator, r.strValues)
+		// TODO: assert _ == nil?
+		s.Add(*l)
+	}
+	return s
+}
+
+type requirement struct {
+	key       string
+	operator  selection.Operator
+	strValues []string
+}
+
+func getCloudProviderFromNodeMeta(node core.Node) string {
+
+	checkers := map[string]k8slabels.Selector{
+		"gce": newLabelRequirements(
+			requirement{"cloud.google.com/gke-nodepool", selection.Exists, nil},
+			requirement{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
+		),
+		"ec2": newLabelRequirements(
+			requirement{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
+		),
+		// format - cloudType: requirements.
+	}
+	for k, checker := range checkers {
+		if checker.Matches(k8slabels.Set(node.GetLabels())) {
+			return k
+		}
+	}
+	return ""
+}
+
 // ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
 func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
-	cloudLabelName := "manufacturer"
 	regionLabelName := "failure-domain.beta.kubernetes.io/region"
 	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing nodes")
 	}
 	logger.Criticalf("ListHostCloudRegions.nodes -> %d, %v", len(nodes.Items), nodes)
-	var result set.Strings
+	result := set.NewStrings()
 	for _, n := range nodes.Items {
 		var cloudRegion, v string
 		var ok bool
-		if v, ok = n.Labels[cloudLabelName]; !ok || v == "" {
+		if v = getCloudProviderFromNodeMeta(n); v == "" {
 			continue
 		}
 		cloudRegion += v

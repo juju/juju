@@ -236,17 +236,17 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if cloudRegion == "" {
 		cloudRegion, err = c.getClusterRegion(ctx, newCloud, credential)
 		if err != nil {
-			ctx.Infof("It's not possible to fetch cluster region in this case, please use --region options to parse in.")
-			return errors.Annotate(err, "listing cluster regions")
+			logger.Debugf("It's not possible to fetch cluster region in this case, error: %v\n\tplease use --region options to parse in if you want to.", err)
 		}
 	}
-
-	// TODO(ycliuhw): do validation if we can get cloudName/provider/manufacturer information from k8s api.
-	if err = c.validateCloudRegion(cloudRegion); err != nil {
-		return errors.Annotate(err, "validating cloud region")
+	if cloudRegion != "" {
+		// do validation if cloudRegion is presented or ignore because it's for jaas only but not juju.
+		if err = c.validateCloudRegion(cloudRegion); err != nil {
+			return errors.Annotate(err, "validating cloud region")
+		}
+		newCloud.HostCloud = cloudRegion
+		logger.Criticalf("newCloud.Regions -> %+v", newCloud.Regions)
 	}
-	newCloud.HostCloud = cloudRegion
-	logger.Criticalf("newCloud.Regions -> %+v", newCloud.Regions)
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
@@ -336,9 +336,10 @@ func (c *AddCAASCommand) getClusterRegion(
 		}
 		if cloudRegions == nil || cloudRegions.Size() == 0 {
 			errChan <- errors.New("no cloud region information is set in the custer")
+		} else {
+			// we currently assume it's always a single region cluster.
+			result <- cloudRegions.SortedValues()[0]
 		}
-		// we currently assume it's always a single region cluster.
-		result <- cloudRegions.SortedValues()[0]
 	}()
 
 	timeout := 30 * time.Second
