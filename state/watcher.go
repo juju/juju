@@ -1982,6 +1982,7 @@ type instanceCharmProfileDataWatcher struct {
 	commonWatcher
 	// members is used to select the initial set of interesting entities.
 	memberId        string
+	known           string
 	applicationName string
 	filter          func(interface{}) bool
 	out             chan []string
@@ -2004,7 +2005,7 @@ func newInstanceCharmProfileDataWatcher(backend modelBackend, applicationName, m
 	return w
 }
 
-func (w *instanceCharmProfileDataWatcher) initial() (set.Strings, error) {
+func (w *instanceCharmProfileDataWatcher) initial() error {
 	instanceDataCol, instanceDataCloser := w.db.GetCollection(instanceCharmProfileDataC)
 	defer instanceDataCloser()
 
@@ -2017,15 +2018,13 @@ func (w *instanceCharmProfileDataWatcher) initial() (set.Strings, error) {
 	}).One(&instanceData); err == nil {
 		statusField = instanceData.UpgradeCharmProfileComplete
 	}
+	w.known = statusField
 
-	profileStatusValues := make(set.Strings)
-	profileStatusValues.Add(statusField)
-
-	logger.Criticalf("Started watching instanceCharmProfileData for machine %s: %s", w.memberId, profileStatusValues.Values())
-	return profileStatusValues, nil
+	logger.Criticalf("Started watching instanceCharmProfileData for machine %s: %q", w.memberId, statusField)
+	return nil
 }
 
-func (w *instanceCharmProfileDataWatcher) merge(profileStatusValues set.Strings, change watcher.Change) (bool, error) {
+func (w *instanceCharmProfileDataWatcher) merge(change watcher.Change) (bool, error) {
 	machineId := change.Id.(string)
 	if change.Revno == -1 {
 		logger.Debugf("instanceCharmProfileData merge revno neg one")
@@ -2047,16 +2046,10 @@ func (w *instanceCharmProfileDataWatcher) merge(profileStatusValues set.Strings,
 		return false, nil
 	}
 
-	if profileStatusValues.Size() != 1 {
-		return false, errors.Errorf("expected value")
-	}
-
 	// check the field before adding to the machineId
 	currentField := instanceData.UpgradeCharmProfileComplete
-	if value := profileStatusValues.Values()[0]; value != currentField {
-		// this removes the old value and then set the current field
-		profileStatusValues.Remove(value)
-		profileStatusValues.Add(currentField)
+	if w.known != currentField {
+		w.known = currentField
 
 		logger.Debugf("Changes in watching instanceCharmProfileData for machine %s: %q", w.memberId, w.applicationName)
 		logger.Debugf("instanceCharmProfileData known value now %q", currentField)
@@ -2067,7 +2060,7 @@ func (w *instanceCharmProfileDataWatcher) merge(profileStatusValues set.Strings,
 }
 
 func (w *instanceCharmProfileDataWatcher) loop() error {
-	profileStatusValues, err := w.initial()
+	err := w.initial()
 	if err != nil {
 		return err
 	}
@@ -2084,7 +2077,7 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case change := <-ch:
-			isChanged, err := w.merge(profileStatusValues, change)
+			isChanged, err := w.merge(change)
 			if err != nil {
 				return err
 			}
@@ -2092,10 +2085,9 @@ func (w *instanceCharmProfileDataWatcher) loop() error {
 				out = w.out
 				logger.Debugf("before watching instanceCharmProfileData channel (%#v)", out)
 			}
-		case out <- profileStatusValues.Values():
+		case out <- []string{w.known}:
 			logger.Debugf("after watching instanceCharmProfileData channel (%#v)", out)
 			out = nil
-			profileStatusValues = set.NewStrings()
 		}
 	}
 }
