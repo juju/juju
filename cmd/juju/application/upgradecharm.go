@@ -76,7 +76,6 @@ type CharmUpgradeClient interface {
 	GetCharmURL(string) (*charm.URL, error)
 	Get(string) (*params.ApplicationGetResults, error)
 	SetCharm(application.SetCharmConfig) error
-	SetCharmProfile(string, charmstore.CharmID) error
 }
 
 // CharmClient defines a subset of the charms facade, as required
@@ -357,12 +356,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	ids, err := c.upgradeResources(apiRoot, charmsClient, resourceLister, chID, csMac)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Next, upgrade the lxd-profile if appropriate.
-	err = charmUpgradeClient.SetCharmProfile(c.ApplicationName, chID)
 	if err != nil {
 		return errors.Trace(err)
 	}

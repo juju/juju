@@ -739,6 +739,10 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := application.SetCharmProfile(args.CharmURL); err != nil {
+		return errors.Annotatef(err, "unable to set charm profile")
+	}
+
 	channel := csparams.Channel(args.Channel)
 	return api.applicationSetCharm(
 		args.ApplicationName,
@@ -755,8 +759,11 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
-// SetCharmProfile a new charm's url on deployed machines for changing the profile used
-// on those machine.
+// SetCharmProfile a new charm's url on deployed machines for changing the
+// profile used on those machine.
+//
+// TODO: consider removing this public method as it is now done as part of
+// SetCharm.
 func (api *APIBase) SetCharmProfile(args params.ApplicationSetCharmProfile) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err

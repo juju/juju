@@ -209,8 +209,9 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharm")
-	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -231,8 +232,9 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharm")
-	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -251,8 +253,9 @@ postgresql:
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharm")
-	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
+	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
+	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})

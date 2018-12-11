@@ -901,6 +901,10 @@ func (a *Application) DeployedMachines() ([]*Machine, error) {
 		// whether principal or subordinate.
 		id, err := u.AssignedMachineId()
 		if err != nil {
+			if errors.IsNotAssigned(err) {
+				// We aren't interested in this unit at this time.
+				continue
+			}
 			return nil, errors.Trace(err)
 		}
 		if machineIds.Contains(id) {
