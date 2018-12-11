@@ -20,7 +20,9 @@ import (
 
 const (
 	// fileSchemePrefix is the prefix for file:// URLs.
-	fileSchemePrefix = "file://"
+	fileSchemePrefix  = "file://"
+	httpSchemePrefix  = "http://"
+	httpsSchemePrefix = "https://"
 
 	// NonceFile is written by cloud-init as the last thing it does.
 	// The file will contain the machine's nonce. The filename is

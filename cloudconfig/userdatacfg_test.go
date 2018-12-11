@@ -18,6 +18,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	pacconf "github.com/juju/packaging/config"
+	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -1261,6 +1262,48 @@ DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.
 			break
 		}
 	}
+	c.Assert(found, jc.IsTrue)
+}
+
+// Ensure the bootstrap curl which fetch tools respects the proxy settings
+func (s *cloudinitSuite) TestProxyArgsAddedToCurlCommand(c *gc.C) {
+	series := "bionic"
+	instcfg := makeBootstrapConfig("bionic").maybeSetModelConfig(
+		minimalModelConfig(c),
+	).render()
+	instcfg.JujuProxySettings = proxy.Settings{
+		Http: "0.1.2.3",
+	}
+
+	// create the cloud configuration
+	cldcfg, err := cloudinit.New(series)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create the user data configuration setup
+	udata, err := cloudconfig.NewUserdataConfig(&instcfg, cldcfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// configure the user data
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check to see that the first boot curl command to download tools
+	// respects the configured proxy settings.
+	cmds := cldcfg.RunCmds()
+	expectedCurlCommand := "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s ' --retry 10 --proxy 0.1.2.3 -o $bin/tools.tar.gz"
+	assertCommandsContain(c, cmds, expectedCurlCommand)
+}
+
+// search a list of first boot commands to ensure it contains the specified curl
+// command.
+func assertCommandsContain(c *gc.C, runCmds []string, str string) {
+	found := false
+	for _, runCmd := range runCmds {
+		if strings.Contains(runCmd, str) {
+			found = true
+		}
+	}
+	c.Logf("expecting to find %q in %#v", str, runCmds)
 	c.Assert(found, jc.IsTrue)
 }
 
