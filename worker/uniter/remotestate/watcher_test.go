@@ -64,7 +64,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
-			upgradeLXDProfileUpgradeWatcher:  newMockNotifyWatcher(),
+			upgradeLXDProfileUpgradeWatcher:  newMockStringsWatcher(),
 		},
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -92,7 +92,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
 	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
-	s.st.unit.upgradeLXDProfileUpgradeWatcher = newMockNotifyWatcher()
+	s.st.unit.upgradeLXDProfileUpgradeWatcher = newMockStringsWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		State:               s.st,
 		ModelType:           s.modelType,
@@ -159,7 +159,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	}
 	if s.st.unit.upgradeLXDProfileUpgradeWatcher != nil {
-		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- struct{}{}
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
 	}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
@@ -187,7 +187,7 @@ func (s *WatcherSuite) signalAll() {
 	if s.st.modelType == model.IAAS {
 		s.applicationWatcher.changes <- struct{}{}
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
-		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- struct{}{}
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.NotRequiredStatus}
 	}
 }
 
@@ -282,7 +282,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	if s.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		assertOneChange()
-		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- struct{}{}
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
 		assertOneChange()
 
 		s.st.unit.application.forceUpgrade = true

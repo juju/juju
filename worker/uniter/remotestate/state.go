@@ -43,14 +43,13 @@ type Unit interface {
 	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
-	WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error)
+	WatchLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	// WatchRelation returns a watcher that fires when relations
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	UpgradeCharmProfileStatus() (string, error)
 }
 
 type Application interface {

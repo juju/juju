@@ -24,7 +24,7 @@ type LXDProfileBackend interface {
 // LXDProfileMachine describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
-	WatchLXDProfileUpgradeNotifications(string) (state.NotifyWatcher, error)
+	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
 	Units() ([]LXDProfileUnit, error)
 	RemoveUpgradeCharmProfileData() error
 }
@@ -34,7 +34,6 @@ type LXDProfileMachine interface {
 type LXDProfileUnit interface {
 	Tag() names.Tag
 	AssignedMachineId() (string, error)
-	UpgradeCharmProfileStatus() (string, error)
 }
 
 type LXDProfileAPI struct {
@@ -121,16 +120,16 @@ func NewExternalLXDProfileAPI(
 	)
 }
 
-// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing
+// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing
 // changes to the lxd profile changes.
-func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfileUpgrade) (params.NotifyWatchResults, error) {
+func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfileUpgrade) (params.StringsWatchResults, error) {
 	u.logger.Tracef("Starting WatchLXDProfileUpgradeNotifications with %+v", args)
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnitOrMachine()
 	if err != nil {
-		return params.NotifyWatchResults{}, err
+		return params.StringsWatchResults{}, err
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -154,17 +153,9 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 			continue
 		}
 		watcherId := u.resources.Register(w)
-		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].StringsWatcherId = watcherId
 	}
 	return result, nil
-}
-
-// UpgradeCharmProfileUnitStatus returns the final status applying an lxd
-// profile to a unit in upgrade's machine.
-// If no lxd profile upgrade is in progress an error is returned instead.
-func (u *LXDProfileAPI) UpgradeCharmProfileUnitStatus(args params.Entities) (params.UpgradeCharmProfileStatusResults, error) {
-	u.logger.Tracef("Starting UpgradeCharmProfileUnitStatus with %+v", args)
-	return u.unitStatus(args)
 }
 
 // RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
@@ -224,36 +215,4 @@ func (u *LXDProfileAPI) getMachine(tag names.Tag) (LXDProfileMachine, error) {
 
 func (u *LXDProfileAPI) getUnit(tag names.Tag) (LXDProfileUnit, error) {
 	return u.backend.Unit(tag.Id())
-}
-
-func (u *LXDProfileAPI) unitStatus(args params.Entities) (params.UpgradeCharmProfileStatusResults, error) {
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.UpgradeCharmProfileStatusResults{}, err
-	}
-
-	results := make([]params.UpgradeCharmProfileStatusResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		status, err := unit.UpgradeCharmProfileStatus()
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		results[i].Status = status
-	}
-	return params.UpgradeCharmProfileStatusResults{Results: results}, nil
 }

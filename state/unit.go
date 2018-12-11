@@ -2979,15 +2979,6 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message 
 	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
 }
 
-// UpgradeCharmProfileStatus returns the lxd profile status of the units assigned machine
-func (u *Unit) UpgradeCharmProfileStatus() (string, error) {
-	machine, err := u.machine()
-	if err != nil {
-		return "", err
-	}
-	return machine.UpgradeCharmProfileComplete()
-}
-
 // RemoveUpgradeCharmProfileData removes the upgrade charm profile instance data
 // for a machine
 func (u *Unit) RemoveUpgradeCharmProfileData() error {
