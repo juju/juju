@@ -21,10 +21,22 @@ var _ = gc.Suite(&HelpToolSuite{})
 
 func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 	output := badrun(c, 0, "help", "help-tool")
-	c.Assert(output, gc.Equals, `Usage: juju hook-tool [tool]
+	c.Assert(output, gc.Equals, `Usage: juju hook-tool [options] [tool]
 
 Summary:
 Show help on a Juju charm hook tool.
+
+Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
 Details:
 Juju charms can access a series of built-in helpers called 'hook-tools'.

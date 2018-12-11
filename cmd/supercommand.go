@@ -75,7 +75,9 @@ func (c *JujuSubCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.super.SetFlags(supported)
 	supported.VisitAll(func(flag *gnuflag.Flag) {
 		if desiredFlags.Contains(flag.Name) {
-			f.Var(flag.Value, flag.Name, flag.Usage)
+			if found := f.Lookup(flag.Name); found == nil {
+				f.Var(flag.Value, flag.Name, flag.Usage)
+			}
 		}
 	})
 	c.Command.SetFlags(f)
