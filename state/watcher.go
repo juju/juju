@@ -3760,13 +3760,17 @@ func hashSettings(db Database, id string, name string) (string, error) {
 // WatchAddressesHash returns a StringsWatcher that emits the hash of
 // the machine's (sorted) addresses whenever they change.
 func (m *Machine) WatchAddressesHash() StringsWatcher {
+	mCopy := &Machine{
+		st:  m.st,
+		doc: m.doc,
+	}
 	w := &hashWatcher{
 		commonWatcher: newCommonWatcher(m.st),
 		out:           make(chan []string),
 		collection:    machinesC,
 		id:            m.doc.DocID,
 		hash: func() (string, error) {
-			return hashMachineAddresses(m)
+			return hashMachineAddresses(mCopy)
 		},
 	}
 	w.start()
