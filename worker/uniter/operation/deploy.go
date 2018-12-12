@@ -81,7 +81,7 @@ func (d *deploy) Execute(state State) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	// Ensure that we always clean up the LXD profile status before Upgrade.
-	if d.kind == Upgrade && d.revert == false && d.resolved == false {
+	if d.kind == Upgrade && !d.revert && !d.resolved {
 		if err := d.callbacks.RemoveUpgradeCharmProfileData(); err != nil {
 			return nil, errors.Trace(err)
 		}
