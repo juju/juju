@@ -1956,14 +1956,7 @@ func (u *Unit) WatchLXDProfileUpgradeNotifications(applicationName string) (Stri
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filter := func(id interface{}) bool {
-		machineId, err := u.st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		return machineId == m.doc.Id
-	}
-	return newInstanceCharmProfileDataWatcher(u.st, applicationName, m.doc.DocID, filter), nil
+	return m.WatchLXDProfileUpgradeNotifications(applicationName)
 }
 
 // instanceCharmProfileDataWatcher notifies about any changes to the
