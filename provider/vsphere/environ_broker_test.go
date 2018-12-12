@@ -106,7 +106,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
-	c.Assert(result.instance.Id(), gc.Equals, instance.Id("new-vm"))
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
 
 	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[1]

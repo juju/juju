@@ -149,7 +149,7 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
 		ZoneName:  "home-zone",
-		Instances: []instance.Id{s.instance.Id()},
+		Instances: []instance.Id{s.Instance.Id()},
 	}}
 
 	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
@@ -261,7 +261,7 @@ func (s *environBrokerSuite) TestAllInstances(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	err := s.Env.StopInstances(s.CallCtx, s.instance.Id())
+	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")
@@ -274,7 +274,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.StopInstances(s.CallCtx, s.instance.Id())
+	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }

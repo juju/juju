@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -113,10 +114,10 @@ func (s *InstanceSuite) TestOpenPortNoExternalNetwork(c *gc.C) {
 	s.client.virtualMachines = []*mo.VirtualMachine{
 		buildVM("inst-0").vm(),
 	}
-	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0"})
+	envInstances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 1)
-	inst0 := instances[0]
+	c.Assert(envInstances, gc.HasLen, 1)
+	inst0 := envInstances[0]
 	firewaller, ok := inst0.(instances.InstanceFirewaller)
 	c.Assert(ok, jc.IsTrue)
 	// machineID is ignored in per-instance firewallers

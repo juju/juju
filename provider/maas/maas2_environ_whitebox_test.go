@@ -341,7 +341,7 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceAppliesResourceTags(c *gc.C) {
@@ -387,7 +387,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	}
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
