@@ -701,6 +701,7 @@ resources:
 			waitUnitAgent{status: status.Idle},
 			waitHooks(startupHooks(false)),
 			verifyCharm{},
+			setUpgradeCharmProfile{},
 
 			pushResource{},
 			waitHooks{"upgrade-charm", "config-changed"},
