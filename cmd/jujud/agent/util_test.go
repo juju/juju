@@ -252,7 +252,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// runs it won't overwrite them.
 	instId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.ID{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], addrs)
 }
@@ -419,6 +419,6 @@ func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]in
 	return nil, nil
 }
 
-func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return nil, nil
 }

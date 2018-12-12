@@ -361,8 +361,8 @@ func (inst *openstackInstance) getServerDetail() *nova.ServerDetail {
 	return inst.serverDetail
 }
 
-func (inst *openstackInstance) Id() instance.ID {
-	return instance.ID(inst.getServerDetail().Id)
+func (inst *openstackInstance) Id() instance.Id {
+	return instance.Id(inst.getServerDetail().Id)
 }
 
 func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.Status {
@@ -582,7 +582,7 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -713,17 +713,17 @@ func (e *Environ) supportsNeutron() bool {
 	return ok
 }
 
-func (e *Environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (e *Environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(ctx, controllerUUID, e.ecfg().useFloatingIP())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ids := make([]instance.ID, 0, 1)
+	ids := make([]instance.Id, 0, 1)
 	for _, instance := range instances {
 		detail := instance.(*openstackInstance).getServerDetail()
 		if detail.Metadata[tags.JujuIsController] == "true" {
-			ids = append(ids, instance.ID())
+			ids = append(ids, instance.Id())
 		}
 	}
 	if len(ids) == 0 {
@@ -1001,8 +1001,8 @@ func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
 
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *Environ) DistributeInstances(
-	ctx context.ProviderCallContext, candidates, distributionGroup []instance.ID, limitZones []string,
-) ([]instance.ID, error) {
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
 	valid, err := common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -1237,7 +1237,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 					logger.Debugf("getting active server details from nova failed without fault details")
 				}
 				logger.Infof("Deleting instance %q in ERROR state%v", server.Id, faultMsg)
-				if err = e.terminateInstances(ctx, []instance.ID{instance.ID(server.Id)}); err != nil {
+				if err = e.terminateInstances(ctx, []instance.Id{instance.Id(server.Id)}); err != nil {
 					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
 				}
 				server = nil
@@ -1304,7 +1304,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			logger.Infof("allocated public IP %s", *publicIP)
 		}
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
-			if err := e.terminateInstances(ctx, []instance.ID{inst.Id()}); err != nil {
+			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
@@ -1402,7 +1402,7 @@ func isNoValidHostsError(err error) bool {
 	return false
 }
 
-func (e *Environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (e *Environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// If in instance firewall mode, gather the security group names.
 	securityGroupNames, err := e.firewaller.GetSecurityGroups(ctx, ids...)
 	if err == environs.ErrNoInstances {
@@ -1434,7 +1434,7 @@ func (e *Environ) isAliveServer(server nova.ServerDetail) bool {
 	return false
 }
 
-func (e *Environ) listServers(ctx context.ProviderCallContext, ids []instance.ID) ([]nova.ServerDetail, error) {
+func (e *Environ) listServers(ctx context.ProviderCallContext, ids []instance.Id) ([]nova.ServerDetail, error) {
 	wantedServers := make([]nova.ServerDetail, 0, len(ids))
 	if len(ids) == 1 {
 		// Common case, single instance, may return NotFound
@@ -1499,7 +1499,7 @@ func (e *Environ) updateFloatingIPAddresses(ctx context.ProviderCallContext, ins
 	return nil
 }
 
-func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1566,10 +1566,10 @@ func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 		return errors.Trace(err)
 	}
 	for _, instance := range instances {
-		err := e.TagInstance(ctx, instance.ID(), controllerTag)
+		err := e.TagInstance(ctx, instance.Id(), controllerTag)
 		if err != nil {
-			logger.Errorf("error updating controller tag for instance %s: %v", instance.ID(), err)
-			failed = append(failed, string(instance.ID()))
+			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
+			failed = append(failed, string(instance.Id()))
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
 				break
@@ -1737,7 +1737,7 @@ func (e *Environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
-	instIds := make([]instance.ID, len(insts))
+	instIds := make([]instance.Id, len(insts))
 	for i, inst := range insts {
 		instIds[i] = inst.Id()
 	}
@@ -1838,7 +1838,7 @@ func (e *Environ) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
-func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.ID) error {
+func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1890,7 +1890,7 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 }
 
 // TagInstance implements environs.InstanceTagger.
-func (e *Environ) TagInstance(ctx context.ProviderCallContext, id instance.ID, tags map[string]string) error {
+func (e *Environ) TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Annotate(err, "setting server metadata")
@@ -1930,7 +1930,7 @@ func validateAuthURL(authURL string) error {
 }
 
 // Subnets is specified on environs.Networking.
-func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	subnets, err := e.networking.Subnets(instId, subnetIds)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -1940,7 +1940,7 @@ func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.ID, s
 }
 
 // NetworkInterfaces is specified on environs.Networking.
-func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	infos, err := e.networking.NetworkInterfaces(instId)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -1984,7 +1984,7 @@ func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("allocate container address")
 }
 

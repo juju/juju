@@ -766,9 +766,9 @@ func (mr *MockEnvironMockRecorder) ConstraintsValidator(arg0 interface{}) *gomoc
 }
 
 // ControllerInstances mocks base method
-func (m *MockEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.ID, error) {
+func (m *MockEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.Id, error) {
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
-	ret0, _ := ret[0].([]instance.ID)
+	ret0, _ := ret[0].([]instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -828,7 +828,7 @@ func (mr *MockEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{}) *gomock
 }
 
 // Instances mocks base method
-func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.ID) ([]instances.Instance, error) {
+func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
@@ -914,7 +914,7 @@ func (mr *MockEnvironMockRecorder) StartInstance(arg0, arg1 interface{}) *gomock
 }
 
 // StopInstances mocks base method
-func (m *MockEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.ID) error {
+func (m *MockEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
@@ -1075,7 +1075,7 @@ func (m *MockInstanceTagger) EXPECT() *MockInstanceTaggerMockRecorder {
 }
 
 // TagInstance mocks base method
-func (m *MockInstanceTagger) TagInstance(arg0 context.ProviderCallContext, arg1 instance.ID, arg2 map[string]string) error {
+func (m *MockInstanceTagger) TagInstance(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 map[string]string) error {
 	ret := m.ctrl.Call(m, "TagInstance", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -1359,7 +1359,7 @@ func (mr *MockNetworkingEnvironMockRecorder) AllInstances(arg0 interface{}) *gom
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.ID, arg2 names_v2.MachineTag, arg3 []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v2.MachineTag, arg3 []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
@@ -1423,9 +1423,9 @@ func (mr *MockNetworkingEnvironMockRecorder) ConstraintsValidator(arg0 interface
 }
 
 // ControllerInstances mocks base method
-func (m *MockNetworkingEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.ID, error) {
+func (m *MockNetworkingEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.Id, error) {
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
-	ret0, _ := ret[0].([]instance.ID)
+	ret0, _ := ret[0].([]instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1485,7 +1485,7 @@ func (mr *MockNetworkingEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{
 }
 
 // Instances mocks base method
-func (m *MockNetworkingEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.ID) ([]instances.Instance, error) {
+func (m *MockNetworkingEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
@@ -1510,7 +1510,7 @@ func (mr *MockNetworkingEnvironMockRecorder) MaintainInstance(arg0, arg1 interfa
 }
 
 // NetworkInterfaces mocks base method
-func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 instance.ID) ([]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 instance.Id) ([]network.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
@@ -1635,7 +1635,7 @@ func (mr *MockNetworkingEnvironMockRecorder) StartInstance(arg0, arg1 interface{
 }
 
 // StopInstances mocks base method
-func (m *MockNetworkingEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.ID) error {
+func (m *MockNetworkingEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
@@ -1678,7 +1678,7 @@ func (mr *MockNetworkingEnvironMockRecorder) StorageProviderTypes() *gomock.Call
 }
 
 // Subnets mocks base method
-func (m *MockNetworkingEnviron) Subnets(arg0 context.ProviderCallContext, arg1 instance.ID, arg2 []network.Id) ([]network.SubnetInfo, error) {
+func (m *MockNetworkingEnviron) Subnets(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 []network.Id) ([]network.SubnetInfo, error) {
 	ret := m.ctrl.Call(m, "Subnets", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]network.SubnetInfo)
 	ret1, _ := ret[1].(error)

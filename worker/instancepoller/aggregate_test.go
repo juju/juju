@@ -31,7 +31,7 @@ var _ = gc.Suite(&aggregateSuite{})
 
 type testInstance struct {
 	instances.Instance
-	id        instance.ID
+	id        instance.Id
 	addresses []network.Address
 	status    string
 	err       error
@@ -39,7 +39,7 @@ type testInstance struct {
 
 var _ instances.Instance = (*testInstance)(nil)
 
-func (t *testInstance) Id() instance.ID {
+func (t *testInstance) Id() instance.Id {
 	return t.id
 }
 
@@ -57,13 +57,13 @@ func (t *testInstance) Status(ctx context.ProviderCallContext) instance.Status {
 type testInstanceGetter struct {
 	sync.RWMutex
 	// ids is set when the Instances method is called.
-	ids     []instance.ID
-	results map[instance.ID]instances.Instance
+	ids     []instance.Id
+	results map[instance.Id]instances.Instance
 	err     error
 	counter int32
 }
 
-func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []instance.ID) (result []instances.Instance, err error) {
+func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []instance.Id) (result []instances.Instance, err error) {
 	tig.ids = ids
 	atomic.AddInt32(&tig.counter, 1)
 	results := make([]instances.Instance, len(ids))
@@ -75,9 +75,9 @@ func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []
 	return results, tig.err
 }
 
-func (tig *testInstanceGetter) newTestInstance(id instance.ID, status string, addresses []string) *testInstance {
+func (tig *testInstanceGetter) newTestInstance(id instance.Id, status string, addresses []string) *testInstance {
 	if tig.results == nil {
-		tig.results = make(map[instance.ID]instances.Instance)
+		tig.results = make(map[instance.Id]instances.Instance)
 	}
 	thisInstance := &testInstance{
 		id:        id,
@@ -127,7 +127,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	workertest.CleanKill(c, aggregator)
 
 	ids := testGetter.ids
-	c.Assert(ids, gc.DeepEquals, []instance.ID{"foo"})
+	c.Assert(ids, gc.DeepEquals, []instance.Id{"foo"})
 }
 
 type credentialAPIForTest struct{}
@@ -167,7 +167,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 
 	// Create a closure for tests we can launch in goroutines.
 	var wg sync.WaitGroup
-	checkInfo := func(id instance.ID, expectStatus string) {
+	checkInfo := func(id instance.Id, expectStatus string) {
 		defer wg.Done()
 		info, err := aggregator.instanceInfo(id)
 		c.Check(err, jc.ErrorIsNil)
@@ -194,7 +194,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	workertest.CleanKill(c, aggregator)
 
 	// Ensure we got our list back with the expected contents.
-	c.Assert(testGetter.ids, jc.SameContents, []instance.ID{"foo2", "foo3"})
+	c.Assert(testGetter.ids, jc.SameContents, []instance.Id{"foo2", "foo3"})
 
 	// Ensure we called instances once and have no errors there.
 	c.Assert(testGetter.err, jc.ErrorIsNil)
@@ -221,7 +221,7 @@ func (s *aggregateSuite) TestKillingWorkerKillsPendinReqs(c *gc.C) {
 
 	// Set up a couple tests we can launch.
 	var wg sync.WaitGroup
-	checkInfo := func(id instance.ID) {
+	checkInfo := func(id instance.Id) {
 		defer wg.Done()
 		info, err := aggregator.instanceInfo(id)
 		c.Check(err.Error(), gc.Equals, "instanceInfo call aborted")
@@ -272,7 +272,7 @@ func (s *aggregateSuite) TestMultipleBatches(c *gc.C) {
 
 	// Create a checker we can launch as goroutines
 	var wg sync.WaitGroup
-	checkInfo := func(id instance.ID, expectStatus string) {
+	checkInfo := func(id instance.Id, expectStatus string) {
 		defer wg.Done()
 		info, err := aggregator.instanceInfo(id)
 		c.Check(err, jc.ErrorIsNil)
@@ -387,7 +387,7 @@ func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 
 	// // Create a checker we can launch as goroutines
 	var wg sync.WaitGroup
-	checkInfo := func(id instance.ID, expectStatus string, expectedError error) {
+	checkInfo := func(id instance.Id, expectStatus string, expectedError error) {
 		defer wg.Done()
 		info, err := aggregator.instanceInfo(id)
 		if expectedError == nil {

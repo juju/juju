@@ -149,7 +149,7 @@ type provisionerTask struct {
 	harvestModeChan            chan config.HarvestMode
 	retryStartInstanceStrategy RetryStrategy
 	// instance id -> instance
-	instances map[instance.ID]instances.Instance
+	instances map[instance.Id]instances.Instance
 	// machine id -> machine
 	machines                 map[string]apiprovisioner.MachineProvisioner
 	machinesMutex            sync.RWMutex
@@ -443,7 +443,7 @@ func instanceIds(instances []instances.Instance) []string {
 // populateMachineMaps updates task.instances. Also updates
 // task.machines map if a list of IDs is given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
-	task.instances = make(map[instance.ID]instances.Instance)
+	task.instances = make(map[instance.Id]instances.Instance)
 
 	instances, err := task.broker.AllInstances(task.cloudCallCtx)
 	if err != nil {
@@ -511,7 +511,7 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 
 type ClassifiableMachine interface {
 	Life() params.Life
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 	EnsureDead() error
 	Status() (status.Status, string, error)
 	InstanceStatus() (status.Status, string, error)
@@ -580,9 +580,9 @@ func classifyMachine(machine ClassifiableMachine) (
 // findUnknownInstances finds instances which are not associated with a machine.
 func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance) ([]instances.Instance, error) {
 	// Make a copy of the instances we know about.
-	instances := make(map[instance.ID]instances.Instance)
+	taskInstances := make(map[instance.Id]instances.Instance)
 	for k, v := range task.instances {
-		instances[k] = v
+		taskInstances[k] = v
 	}
 
 	task.machinesMutex.RLock()
@@ -591,7 +591,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance)
 		instId, err := m.InstanceId()
 		switch {
 		case err == nil:
-			delete(instances, instId)
+			delete(taskInstances, instId)
 		case params.IsCodeNotProvisioned(err):
 		case params.IsCodeNotFoundOrCodeUnauthorized(err):
 		default:
@@ -601,10 +601,10 @@ func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance)
 	// Now remove all those instances that we are stopping already as we
 	// know about those and don't want to include them in the unknown list.
 	for _, inst := range stopping {
-		delete(instances, inst.Id())
+		delete(taskInstances, inst.Id())
 	}
 	var unknown []instances.Instance
-	for _, inst := range instances {
+	for _, inst := range taskInstances {
 		unknown = append(unknown, inst)
 	}
 	return unknown, nil
@@ -643,7 +643,7 @@ func (task *provisionerTask) stopInstances(instances []instances.Instance) error
 		return errors.New("wrench in the works")
 	}
 
-	ids := make([]instance.ID, len(instances))
+	ids := make([]instance.Id, len(instances))
 	for i, inst := range instances {
 		ids[i] = inst.Id()
 	}
@@ -876,12 +876,12 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	// In this case, AvailabilityZoneAllocations() will return all of the "available"
 	// availability zones and their instance allocations.
 	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(
-		zonedEnv, task.cloudCallCtx, []instance.ID{})
+		zonedEnv, task.cloudCallCtx, []instance.Id{})
 	if err != nil {
 		return err
 	}
 
-	instanceMachines := make(map[instance.ID]string)
+	instanceMachines := make(map[instance.Id]string)
 	for _, machine := range task.machines {
 		instId, err := machine.InstanceId()
 		if err != nil {
@@ -1282,13 +1282,13 @@ func (task *provisionerTask) startMachine(
 	// gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
 	charmLXDProfiles := task.gatherCharmLXDProfiles(
-		string(result.instance.ID()),
+		string(result.Instance.Id()),
 		machine.Tag().Id(),
 		startInstanceParams.CharmLXDProfiles,
 	)
 
 	if err := machine.SetInstanceInfo(
-		result.instance.ID(),
+		result.Instance.Id(),
 		startInstanceParams.InstanceConfig.MachineNonce,
 		result.Hardware,
 		networkConfig,
@@ -1300,7 +1300,7 @@ func (task *provisionerTask) startMachine(
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
-		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.instance.ID()); err2 != nil {
+		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.Instance.Id()); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")
@@ -1310,7 +1310,7 @@ func (task *provisionerTask) startMachine(
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
-		result.instance.ID(),
+		result.Instance.Id(),
 		result.Hardware,
 		networkConfig,
 		volumes,

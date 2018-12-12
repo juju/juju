@@ -238,7 +238,7 @@ func (manager *containerManager) IsInitialized() bool {
 	return true
 }
 
-func (manager *containerManager) DestroyContainer(id instance.ID) error {
+func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	name := string(id)
 	kvmContainer := KvmObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {

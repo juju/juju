@@ -43,7 +43,7 @@ func (s *CmdCredentialSuite) SetUpTest(c *gc.C) {
 	// This is why we need to add a machine that corresponds to a "localhost" instance,
 	// i.e. just making the suite model valid in credential's eyes.
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.ID("localhost"),
+		InstanceId: instance.Id("localhost"),
 	})
 }
 

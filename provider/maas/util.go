@@ -20,7 +20,7 @@ import (
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.
 // "/MAAS/api/1.0/nodes/system_id/" => "system_id"
-func extractSystemId(instanceId instance.ID) string {
+func extractSystemId(instanceId instance.Id) string {
 	trimmed := strings.TrimRight(string(instanceId), "/")
 	split := strings.Split(trimmed, "/")
 	return split[len(split)-1]
@@ -29,7 +29,7 @@ func extractSystemId(instanceId instance.ID) string {
 // getSystemIdValues returns a url.Values object with all the 'system_ids'
 // from the given instanceIds stored under the specified key.  This is used
 // to filter out instances when listing the nodes objects.
-func getSystemIdValues(key string, instanceIds []instance.ID) url.Values {
+func getSystemIdValues(key string, instanceIds []instance.Id) url.Values {
 	values := url.Values{}
 	for _, instanceId := range instanceIds {
 		values.Add(key, extractSystemId(instanceId))

@@ -93,7 +93,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   openstack.CinderProviderType,
 			Machine:    mockMachineTag,
-			InstanceId: instance.ID(mockServerId),
+			InstanceId: instance.Id(mockServerId),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +125,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumesInvalidCredential(c *gc.C) {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   openstack.CinderProviderType,
 			Machine:    mockMachineTag,
-			InstanceId: instance.ID(mockServerId),
+			InstanceId: instance.Id(mockServerId),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumesNoDevice(c *gc.C) {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   openstack.CinderProviderType,
 			Machine:    mockMachineTag,
-			InstanceId: instance.ID(mockServerId),
+			InstanceId: instance.Id(mockServerId),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   openstack.CinderProviderType,
 				Machine:    mockMachineTag,
-				InstanceId: instance.ID(mockServerId),
+				InstanceId: instance.Id(mockServerId),
 			},
 		},
 	}})
@@ -336,7 +336,7 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   openstack.CinderProviderType,
 				Machine:    mockMachineTag,
-				InstanceId: instance.ID(mockServerId),
+				InstanceId: instance.Id(mockServerId),
 			},
 		},
 	}})
@@ -648,7 +648,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   openstack.CinderProviderType,
 				Machine:    mockMachineTag,
-				InstanceId: instance.ID(mockServerId),
+				InstanceId: instance.Id(mockServerId),
 			},
 		},
 	}, {
@@ -659,7 +659,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   openstack.CinderProviderType,
 				Machine:    mockMachineTag,
-				InstanceId: instance.ID(mockServerId),
+				InstanceId: instance.Id(mockServerId),
 			},
 		},
 	}, {
@@ -670,7 +670,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   openstack.CinderProviderType,
 				Machine:    mockMachineTag,
-				InstanceId: instance.ID(mockServerId),
+				InstanceId: instance.Id(mockServerId),
 			},
 		},
 	}}

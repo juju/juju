@@ -589,12 +589,12 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 }
 
 // controllerInstances returns all environ manager instances.
-func controllerInstances(st *state.State) ([]instance.ID, error) {
+func controllerInstances(st *state.State) ([]instance.Id, error) {
 	info, err := st.ControllerInfo()
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]instance.ID, 0, len(info.MachineIds))
+	instances := make([]instance.Id, 0, len(info.MachineIds))
 	for _, id := range info.MachineIds {
 		machine, err := st.Machine(id)
 		if err != nil {
@@ -612,7 +612,7 @@ func controllerInstances(st *state.State) ([]instance.ID, error) {
 
 // commonServiceInstances returns instances with
 // services in common with the specified machine.
-func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.ID, error) {
+func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, error) {
 	units, err := m.Units()
 	if err != nil {
 		return nil, err
@@ -630,10 +630,10 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.ID, e
 			instanceIdSet.Add(string(instanceId))
 		}
 	}
-	instanceIds := make([]instance.ID, instanceIdSet.Size())
+	instanceIds := make([]instance.Id, instanceIdSet.Size())
 	// Sort values to simplify testing.
 	for i, instanceId := range instanceIdSet.SortedValues() {
-		instanceIds[i] = instance.ID(instanceId)
+		instanceIds[i] = instance.Id(instanceId)
 	}
 	return instanceIds, nil
 }
@@ -889,7 +889,7 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 //go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
 	Units() ([]containerizer.Unit, error)

@@ -15,7 +15,7 @@ type StateMachine interface {
 	state.Entity
 
 	Id() string
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 	ProviderAddresses() []network.Address
 	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (status.StatusInfo, error)

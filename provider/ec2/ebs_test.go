@@ -134,7 +134,7 @@ func (s *ebsSuite) createVolumesParams(instanceId string) []storage.VolumeParams
 		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.ID(instanceId),
+				InstanceId: instance.Id(instanceId),
 			},
 		},
 		ResourceTags: map[string]string{
@@ -146,7 +146,7 @@ func (s *ebsSuite) createVolumesParams(instanceId string) []storage.VolumeParams
 		Provider: ec2.EBS_ProviderType,
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.ID(instanceId),
+				InstanceId: instance.Id(instanceId),
 			},
 		},
 		ResourceTags: map[string]string{
@@ -161,7 +161,7 @@ func (s *ebsSuite) createVolumesParams(instanceId string) []storage.VolumeParams
 		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.ID(instanceId),
+				InstanceId: instance.Id(instanceId),
 			},
 		},
 	}, {
@@ -173,7 +173,7 @@ func (s *ebsSuite) createVolumesParams(instanceId string) []storage.VolumeParams
 		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.ID(instanceId),
+				InstanceId: instance.Id(instanceId),
 			},
 		},
 	}, {
@@ -185,7 +185,7 @@ func (s *ebsSuite) createVolumesParams(instanceId string) []storage.VolumeParams
 		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.ID(instanceId),
+				InstanceId: instance.Id(instanceId),
 			},
 		},
 	}}
@@ -386,7 +386,7 @@ func (s *ebsSuite) TestVolumeTypeAliases(c *gc.C) {
 			},
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					InstanceId: instance.ID(instanceIdRunning),
+					InstanceId: instance.Id(instanceIdRunning),
 				},
 			},
 		}}
@@ -646,7 +646,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *gc.C) {
 	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
 	attachmentParams := storage.VolumeAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
-			InstanceId: instance.ID(instanceIdRunning),
+			InstanceId: instance.Id(instanceIdRunning),
 		},
 	}
 
@@ -670,7 +670,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *gc.C) {
 			Provider: ec2.EBS_ProviderType,
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					InstanceId: instance.ID(instanceIdPending),
+					InstanceId: instance.Id(instanceIdPending),
 				},
 			},
 		},
@@ -860,7 +860,7 @@ func (s *ebsSuite) setupAttachVolumesTest(
 		VolumeId: "vol-0",
 		AttachmentParams: storage.AttachmentParams{
 			Machine:    names.NewMachineTag("1"),
-			InstanceId: instance.ID(instanceId),
+			InstanceId: instance.Id(instanceId),
 		},
 	}}
 }

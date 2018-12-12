@@ -174,13 +174,13 @@ type OpDestroy struct {
 
 type OpNetworkInterfaces struct {
 	Env        string
-	InstanceId instance.ID
+	InstanceId instance.Id
 	Info       []network.InterfaceInfo
 }
 
 type OpSubnets struct {
 	Env        string
-	InstanceId instance.ID
+	InstanceId instance.Id
 	SubnetIds  []network.Id
 	Info       []network.SubnetInfo
 }
@@ -205,20 +205,20 @@ type OpStartInstance struct {
 
 type OpStopInstances struct {
 	Env string
-	Ids []instance.ID
+	Ids []instance.Id
 }
 
 type OpOpenPorts struct {
 	Env        string
 	MachineId  string
-	InstanceId instance.ID
+	InstanceId instance.Id
 	Rules      []network.IngressRule
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
-	InstanceId instance.ID
+	InstanceId instance.Id
 	Rules      []network.IngressRule
 }
 
@@ -255,7 +255,7 @@ type environState struct {
 	mu             sync.Mutex
 	maxId          int // maximum instance id allocated so far.
 	maxAddr        int // maximum allocated address last byte
-	insts          map[instance.ID]*dummyInstance
+	insts          map[instance.Id]*dummyInstance
 	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
 	mux            *apiserverhttp.Mux
@@ -460,7 +460,7 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 		name:           name,
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
-		insts:          make(map[instance.ID]*dummyInstance),
+		insts:          make(map[instance.Id]*dummyInstance),
 		creator:        string(buf),
 	}
 	return s
@@ -968,7 +968,7 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 	})
 }
 
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -981,7 +981,7 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	if !estate.bootstrapped {
 		return nil, environs.ErrNotBootstrapped
 	}
-	var controllerInstances []instance.ID
+	var controllerInstances []instance.Id
 	for _, v := range estate.insts {
 		if v.controller {
 			controllerInstances = append(controllerInstances, v.Id())
@@ -1117,7 +1117,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1", "::1")
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
-		id:           instance.ID(idString),
+		id:           instance.Id(idString),
 		addresses:    addrs,
 		machineId:    machineId,
 		series:       series,
@@ -1237,7 +1237,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}, nil
 }
 
-func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -1258,7 +1258,7 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 	return nil
 }
 
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) (insts []instances.Instance, err error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (insts []instances.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -1353,7 +1353,7 @@ func (env *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
+func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -1425,7 +1425,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
@@ -1459,7 +1459,7 @@ func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, arg
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1543,7 +1543,7 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.Su
 	}}
 	estate.ops <- OpSubnets{
 		Env:        env.name,
-		InstanceId: instance.UnknownID,
+		InstanceId: instance.UnknownId,
 		SubnetIds:  []network.Id{},
 		Info:       result,
 	}
@@ -1640,7 +1640,7 @@ func (*environ) Provider() environs.EnvironProvider {
 type dummyInstance struct {
 	state        *environState
 	rules        network.IngressRuleSlice
-	id           instance.ID
+	id           instance.Id
 	status       string
 	machineId    string
 	series       string
@@ -1652,7 +1652,7 @@ type dummyInstance struct {
 	broken    []string
 }
 
-func (inst *dummyInstance) Id() instance.ID {
+func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
@@ -1830,7 +1830,7 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

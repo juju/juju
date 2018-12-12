@@ -365,7 +365,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	// the call to Instances takes care of updating invalid credential details
-	_, err := s.Env.InstanceAvailabilityZoneNames(s.callCtx, []instance.ID{"not-valid"})
+	_, err := s.Env.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"not-valid"})
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
 	c.Assert(s.invalidCredential, jc.IsTrue)
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{

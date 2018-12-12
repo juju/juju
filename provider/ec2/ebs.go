@@ -554,7 +554,7 @@ func destroyVolume(client *ec2.EC2, ctx context.ProviderCallContext, volumeId st
 				// before we can destroy it.
 				args = append(args, storage.VolumeAttachmentParams{
 					AttachmentParams: storage.AttachmentParams{
-						InstanceId: instance.ID(a.InstanceId),
+						InstanceId: instance.Id(a.InstanceId),
 					},
 					VolumeId: volumeId,
 				})

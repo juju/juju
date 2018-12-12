@@ -2585,8 +2585,8 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 	var unprovisioned []*Machine
-	var instances []instance.ID
-	instanceMachines := make(map[instance.ID]*Machine)
+	var instances []instance.Id
+	instanceMachines := make(map[instance.Id]*Machine)
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
 		inst, err := m.InstanceId()

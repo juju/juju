@@ -50,7 +50,7 @@ type MachineTemplate struct {
 	// If this is empty, the provisioner will try to provision the machine.
 	// If this is non-empty, the HardwareCharacteristics and Nonce
 	// fields must be set appropriately.
-	InstanceId instance.ID
+	InstanceId instance.Id
 
 	// HardwareCharacteristics holds the h/w characteristics to
 	// be associated with the machine.

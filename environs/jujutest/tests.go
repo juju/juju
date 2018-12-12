@@ -156,7 +156,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
-	insts, err = e.Instances(t.ProviderCallContext, []instance.ID{id0, id1})
+	insts, err = e.Instances(t.ProviderCallContext, []instance.Id{id0, id1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Equals, id0)
@@ -171,7 +171,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	err = e.StopInstances(t.ProviderCallContext, inst0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	insts, err = e.Instances(t.ProviderCallContext, []instance.ID{id0, id1})
+	insts, err = e.Instances(t.ProviderCallContext, []instance.Id{id0, id1})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], gc.IsNil)
 	c.Assert(insts[1].Id(), gc.Equals, id1)

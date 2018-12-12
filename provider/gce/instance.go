@@ -29,8 +29,8 @@ func newInstance(base *google.Instance, env *environ) *environInstance {
 }
 
 // Id implements instances.Instance.
-func (inst *environInstance) Id() instance.ID {
-	return instance.ID(inst.base.ID)
+func (inst *environInstance) Id() instance.Id {
+	return instance.Id(inst.base.ID)
 }
 
 // Status implements instances.Instance.
@@ -58,7 +58,7 @@ func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]netwo
 	return inst.base.Addresses(), nil
 }
 
-func findInst(id instance.ID, instances []instances.Instance) instances.Instance {
+func findInst(id instance.Id, instances []instances.Instance) instances.Instance {
 	for _, inst := range instances {
 		if id == inst.Id() {
 			return inst

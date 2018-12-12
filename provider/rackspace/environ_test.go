@@ -212,7 +212,7 @@ func (e *fakeEnviron) StartInstance(callCtx context.ProviderCallContext, args en
 	}, nil
 }
 
-func (e *fakeEnviron) StopInstances(callCtx context.ProviderCallContext, ids ...instance.ID) error {
+func (e *fakeEnviron) StopInstances(callCtx context.ProviderCallContext, ids ...instance.Id) error {
 	e.Push("StopInstances", callCtx, ids)
 	return nil
 }
@@ -241,12 +241,12 @@ func (e *fakeEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	e.Push("Instances", callCtx, ids)
 	return []instances.Instance{&fakeInstance{}}, nil
 }
 
-func (e *fakeEnviron) ControllerInstances(callCtx context.ProviderCallContext, st string) ([]instance.ID, error) {
+func (e *fakeEnviron) ControllerInstances(callCtx context.ProviderCallContext, st string) ([]instance.Id, error) {
 	e.Push("ControllerInstances", callCtx, st)
 	return nil, nil
 }
@@ -358,9 +358,9 @@ func (p *fakeInstance) Pop() methodCall {
 	return m
 }
 
-func (e *fakeInstance) Id() instance.ID {
+func (e *fakeInstance) Id() instance.Id {
 	e.Push("Id")
-	return instance.ID("")
+	return instance.Id("")
 }
 
 func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.Status {

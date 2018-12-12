@@ -14,12 +14,12 @@ import (
 // are first put into a map, so the ordering of the result and expected values
 // is not tested, and duplicates are ignored.
 func MatchInstances(c *gc.C, result []instances.Instance, expected ...instances.Instance) {
-	resultMap := make(map[instance.ID]instances.Instance)
+	resultMap := make(map[instance.Id]instances.Instance)
 	for _, i := range result {
 		resultMap[i.Id()] = i
 	}
 
-	expectedMap := make(map[instance.ID]instances.Instance)
+	expectedMap := make(map[instance.Id]instances.Instance)
 	for _, i := range expected {
 		expectedMap[i.Id()] = i
 	}

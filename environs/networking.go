@@ -30,7 +30,7 @@ const DefaultSpaceName = ""
 type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
-	Subnets(ctx context.ProviderCallContext, inst instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error)
+	Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
 
 	// SuperSubnets returns information about aggregated subnets - eg. global CIDR
 	// for EC2 VPC.
@@ -38,7 +38,7 @@ type Networking interface {
 
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
-	NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error)
+	NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error)
 
 	// SupportsSpaces returns whether the current environment supports
 	// spaces. The returned error satisfies errors.IsNotSupported(),
@@ -88,7 +88,7 @@ type Networking interface {
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
-	AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
+	AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
 
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.

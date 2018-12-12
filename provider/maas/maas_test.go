@@ -184,10 +184,10 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	return env
 }
 
-func (suite *providerSuite) addNode(jsonText string) instance.ID {
+func (suite *providerSuite) addNode(jsonText string) instance.Id {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
-	return instance.ID(resourceURI)
+	return instance.Id(resourceURI)
 }
 
 func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {

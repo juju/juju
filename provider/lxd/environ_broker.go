@@ -325,7 +325,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.ID) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
 	prefix := env.namespace.Prefix()
 	var names []string
 	for _, id := range instances {

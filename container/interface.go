@@ -40,7 +40,7 @@ type Manager interface {
 
 	// DestroyContainer stops and destroys the container identified by
 	// instance id.
-	DestroyContainer(instance.ID) error
+	DestroyContainer(instance.Id) error
 
 	// ListContainers return a list of containers that have been started by
 	// this manager.

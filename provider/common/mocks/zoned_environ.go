@@ -119,9 +119,9 @@ func (mr *MockZonedEnvironMockRecorder) ConstraintsValidator(arg0 interface{}) *
 }
 
 // ControllerInstances mocks base method
-func (m *MockZonedEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.ID, error) {
+func (m *MockZonedEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.Id, error) {
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
-	ret0, _ := ret[0].([]instance.ID)
+	ret0, _ := ret[0].([]instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -181,7 +181,7 @@ func (mr *MockZonedEnvironMockRecorder) DestroyController(arg0, arg1 interface{}
 }
 
 // InstanceAvailabilityZoneNames mocks base method
-func (m *MockZonedEnviron) InstanceAvailabilityZoneNames(arg0 context.ProviderCallContext, arg1 []instance.ID) ([]string, error) {
+func (m *MockZonedEnviron) InstanceAvailabilityZoneNames(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]string, error) {
 	ret := m.ctrl.Call(m, "InstanceAvailabilityZoneNames", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -207,7 +207,7 @@ func (mr *MockZonedEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{}) *g
 }
 
 // Instances mocks base method
-func (m *MockZonedEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.ID) ([]instances.Instance, error) {
+func (m *MockZonedEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
@@ -293,7 +293,7 @@ func (mr *MockZonedEnvironMockRecorder) StartInstance(arg0, arg1 interface{}) *g
 }
 
 // StopInstances mocks base method
-func (m *MockZonedEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.ID) error {
+func (m *MockZonedEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)

@@ -28,8 +28,8 @@ func (inst *ec2Instance) String() string {
 
 var _ instances.Instance = (*ec2Instance)(nil)
 
-func (inst *ec2Instance) Id() instance.ID {
-	return instance.ID(inst.InstanceId)
+func (inst *ec2Instance) Id() instance.Id {
+	return instance.Id(inst.InstanceId)
 }
 
 func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status {

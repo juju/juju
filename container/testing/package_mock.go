@@ -54,7 +54,7 @@ func (mr *MockManagerMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, arg4,
 }
 
 // DestroyContainer mocks base method
-func (m *MockManager) DestroyContainer(arg0 instance.ID) error {
+func (m *MockManager) DestroyContainer(arg0 instance.Id) error {
 	ret := m.ctrl.Call(m, "DestroyContainer", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

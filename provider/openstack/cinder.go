@@ -392,7 +392,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 			args := make([]storage.VolumeAttachmentParams, len(v.Attachments))
 			for i, a := range v.Attachments {
 				args[i].VolumeId = volumeId
-				args[i].InstanceId = instance.ID(a.ServerId)
+				args[i].InstanceId = instance.Id(a.ServerId)
 			}
 			if len(args) > 0 {
 				results := detachVolumes(ctx, storageAdapter, args)

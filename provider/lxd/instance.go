@@ -30,8 +30,8 @@ func newInstance(container *lxd.Container, env *environ) *environInstance {
 }
 
 // Id implements instances.Instance.
-func (i *environInstance) Id() instance.ID {
-	return instance.ID(i.container.Name)
+func (i *environInstance) Id() instance.Id {
+	return instance.Id(i.container.Name)
 }
 
 // Status implements instances.Instance.

@@ -20,7 +20,7 @@ type utilSuite struct{}
 var _ = gc.Suite(&utilSuite{})
 
 func (*utilSuite) TestExtractSystemId(c *gc.C) {
-	instanceId := instance.ID("/MAAS/api/1.0/nodes/system_id/")
+	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 
 	systemId := extractSystemId(instanceId)
 
@@ -28,9 +28,9 @@ func (*utilSuite) TestExtractSystemId(c *gc.C) {
 }
 
 func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
-	instanceId1 := instance.ID("/MAAS/api/1.0/nodes/system_id1/")
-	instanceId2 := instance.ID("/MAAS/api/1.0/nodes/system_id2/")
-	instanceIds := []instance.ID{instanceId1, instanceId2}
+	instanceId1 := instance.Id("/MAAS/api/1.0/nodes/system_id1/")
+	instanceId2 := instance.Id("/MAAS/api/1.0/nodes/system_id2/")
+	instanceIds := []instance.Id{instanceId1, instanceId2}
 
 	values := getSystemIdValues("id", instanceIds)
 

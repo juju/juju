@@ -782,7 +782,7 @@ func (s *StorageProvisionerAPIv3) VolumeParams(args params.Entities) (params.Vol
 			}
 			// Volumes can be attached to units (caas models) or machines.
 			// We only care about instance id for machine attachments.
-			var instanceId instance.ID
+			var instanceId instance.Id
 			if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
 				instanceId, err = s.st.MachineInstanceId(machineTag)
 				if errors.IsNotProvisioned(err) {
@@ -1005,7 +1005,7 @@ func (s *StorageProvisionerAPIv3) VolumeAttachmentParams(
 		}
 		// Volumes can be attached to units (caas models) or machines.
 		// We only care about instance id for machine attachments.
-		var instanceId instance.ID
+		var instanceId instance.Id
 		if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
 			instanceId, err = s.st.MachineInstanceId(machineTag)
 			if errors.IsNotProvisioned(err) {
@@ -1089,7 +1089,7 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 		hostTag := filesystemAttachment.Host()
 		// Filesystems can be attached to units (caas models) or machines.
 		// We only care about instance id for machine attachments.
-		var instanceId instance.ID
+		var instanceId instance.Id
 		if machineTag, ok := filesystemAttachment.Host().(names.MachineTag); ok {
 			instanceId, err = s.st.MachineInstanceId(machineTag)
 			if errors.IsNotProvisioned(err) {

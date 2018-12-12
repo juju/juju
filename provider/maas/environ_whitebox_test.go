@@ -64,15 +64,15 @@ type ifaceInfo struct {
 	Disabled      bool
 }
 
-func (suite *environSuite) addNode(jsonText string) instance.ID {
+func (suite *environSuite) addNode(jsonText string) instance.Id {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
-	return instance.ID(resourceURI)
+	return instance.Id(resourceURI)
 }
 
 func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.ID{id})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{id})
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
@@ -81,7 +81,7 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
 	suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.ID{})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{})
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
@@ -96,7 +96,7 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *g
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
-	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.ID{"unknown"})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{"unknown"})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
@@ -120,8 +120,8 @@ func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C
 func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
 	known := suite.addNode(allocatedNode)
 	suite.addNode(`{"system_id": "test2"}`)
-	unknown := instance.ID("unknown systemID")
-	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.ID{known, unknown})
+	unknown := instance.Id("unknown systemID")
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{known, unknown})
 
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances, gc.HasLen, 2)
@@ -220,7 +220,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	statusGetter := func(context.ProviderCallContext, instance.ID) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -307,7 +307,7 @@ func (suite *environSuite) TestControllerInstances(c *gc.C) {
 	_, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
-	tests := [][]instance.ID{{}, {"inst-0"}, {"inst-0", "inst-1"}}
+	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
 	for _, expected := range tests {
 		err := common.SaveState(env.Storage(), &common.BootstrapState{
 			StateInstances: expected,
@@ -565,7 +565,7 @@ func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIds(c *gc.C) {
 		network.Id(fmt.Sprintf("%v", id2)),
 	}
 
-	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownID, subnetIDs)
+	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
@@ -580,7 +580,7 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 	id2 := suite.addSubnet(c, 2, 2, "node2")
 	env := suite.makeEnviron()
 
-	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownID, []network.Id{})
+	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
@@ -588,7 +588,7 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
-	subnetsInfo, err = env.Subnets(suite.callCtx, instance.UnknownID, nil)
+	subnetsInfo, err = env.Subnets(suite.callCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 }

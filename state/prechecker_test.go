@@ -130,7 +130,7 @@ func (s *PrecheckerSuite) addOneMachine(c *gc.C, modelCons constraints.Value, pl
 
 func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 	template := state.MachineTemplate{
-		InstanceId: instance.ID("bootstrap"),
+		InstanceId: instance.Id("bootstrap"),
 		Series:     "precise",
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageModel},

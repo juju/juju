@@ -103,9 +103,9 @@ func (mr *MockMachineMockRecorder) Id() *gomock.Call {
 }
 
 // InstanceId mocks base method
-func (m *MockMachine) InstanceId() (instance.ID, error) {
+func (m *MockMachine) InstanceId() (instance.Id, error) {
 	ret := m.ctrl.Call(m, "InstanceId")
-	ret0, _ := ret[0].(instance.ID)
+	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

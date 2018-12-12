@@ -114,8 +114,8 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx conte
 	return common.Bootstrap(ctx, env, callCtx, args)
 }
 
-func (env *joyentEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
-	instanceIds := []instance.ID{}
+func (env *joyentEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+	instanceIds := []instance.Id{}
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")

@@ -121,7 +121,7 @@ type ModelMachinesWatcher interface {
 
 // InstanceIdGetter defines a single method - InstanceId.
 type InstanceIdGetter interface {
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 }
 
 // ActionsWatcher defines the methods an entity exposes to watch Actions

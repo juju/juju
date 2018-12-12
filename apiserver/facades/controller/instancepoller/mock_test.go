@@ -206,7 +206,7 @@ func (m *mockState) StartSync() {}
 
 type machineInfo struct {
 	id                string
-	instanceId        instance.ID
+	instanceId        instance.Id
 	status            status.StatusInfo
 	instanceStatus    status.StatusInfo
 	providerAddresses []network.Address
@@ -226,7 +226,7 @@ type mockMachine struct {
 var _ instancepoller.StateMachine = (*mockMachine)(nil)
 
 // InstanceId implements StateMachine.
-func (m *mockMachine) InstanceId() (instance.ID, error) {
+func (m *mockMachine) InstanceId() (instance.Id, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

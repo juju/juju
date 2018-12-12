@@ -632,7 +632,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   providerType,
 				Machine:    hostTag,
-				InstanceId: instance.ID(in.Attachment.InstanceId),
+				InstanceId: instance.Id(in.Attachment.InstanceId),
 				ReadOnly:   in.Attachment.ReadOnly,
 			},
 			Volume: volumeTag,
@@ -661,7 +661,7 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
 			Machine:    hostTag,
-			InstanceId: instance.ID(in.InstanceId),
+			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
 		Volume:   volumeTag,

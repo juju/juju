@@ -13,7 +13,7 @@ import (
 type RestoreArgs struct {
 	PrivateAddress string
 	PublicAddress  string
-	NewInstId      instance.ID
+	NewInstId      instance.Id
 	NewInstTag     names.Tag
 	NewInstSeries  string
 }

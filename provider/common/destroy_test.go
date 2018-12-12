@@ -55,10 +55,10 @@ func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(ctx context.ProviderCallContext, ids []instance.ID) error {
+		stopInstances: func(ctx context.ProviderCallContext, ids []instance.Id) error {
 			c.Assert(ids, gc.HasLen, 2)
-			c.Assert(ids[0], gc.Equals, instance.ID("one"))
-			c.Assert(ids[1], gc.Equals, instance.ID("another"))
+			c.Assert(ids[0], gc.Equals, instance.Id("one"))
+			c.Assert(ids[1], gc.Equals, instance.Id("another"))
 			return fmt.Errorf("nah")
 		},
 		config: configGetter(c),
@@ -78,10 +78,10 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(ctx context.ProviderCallContext, ids []instance.ID) error {
+		stopInstances: func(ctx context.ProviderCallContext, ids []instance.Id) error {
 			c.Assert(ids, gc.HasLen, 2)
-			c.Assert(ids[0], gc.Equals, instance.ID("one"))
-			c.Assert(ids[1], gc.Equals, instance.ID("another"))
+			c.Assert(ids[0], gc.Equals, instance.Id("one"))
+			c.Assert(ids[1], gc.Equals, instance.Id("another"))
 			return nil
 		},
 		config: configGetter(c),
@@ -103,9 +103,9 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 				&mockInstance{id: "one"},
 			}, nil
 		},
-		stopInstances: func(ctx context.ProviderCallContext, ids []instance.ID) error {
+		stopInstances: func(ctx context.ProviderCallContext, ids []instance.Id) error {
 			c.Assert(ids, gc.HasLen, 1)
-			c.Assert(ids[0], gc.Equals, instance.ID("one"))
+			c.Assert(ids[0], gc.Equals, instance.Id("one"))
 			return nil
 		},
 		config: configGetter(c),

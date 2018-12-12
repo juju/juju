@@ -195,7 +195,7 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	subnetInfo, err := netEnv.Subnets(ctx, instance.UnknownID, nil)
+	subnetInfo, err := netEnv.Subnets(ctx, instance.UnknownId, nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot get provider subnets")
 	}

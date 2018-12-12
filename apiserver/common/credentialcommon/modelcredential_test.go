@@ -142,7 +142,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *gc.C) {
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *gc.C) {
 	machine1 := createTestMachine("2", "")
-	machine1.instanceIdFunc = func() (instance.ID, error) { return "", errors.New("retrieval failure") }
+	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
@@ -158,7 +158,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *g
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatal(c *gc.C) {
 	machine1 := createTestMachine("2", "")
-	machine1.instanceIdFunc = func() (instance.ID, error) { return "", errors.New("retrieval failure") }
+	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
@@ -180,7 +180,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 
 func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
 	machine2 := createTestMachine("2", "")
-	machine2.instanceIdFunc = func() (instance.ID, error) { return "", errors.NotProvisionedf("machine 2") }
+	machine2.instanceIdFunc = func() (instance.Id, error) { return "", errors.NotProvisionedf("machine 2") }
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine2}, nil
 	}
@@ -448,15 +448,15 @@ type mockInstance struct {
 	id string
 }
 
-func (i *mockInstance) Id() instance.ID {
-	return instance.ID(i.id)
+func (i *mockInstance) Id() instance.Id {
+	return instance.Id(i.id)
 }
 
 type mockMachine struct {
 	id             string
 	container      bool
 	manualFunc     func() (bool, error)
-	instanceIdFunc func() (instance.ID, error)
+	instanceIdFunc func() (instance.Id, error)
 }
 
 func (m *mockMachine) IsManual() (bool, error) {
@@ -467,7 +467,7 @@ func (m *mockMachine) IsContainer() bool {
 	return m.container
 }
 
-func (m *mockMachine) InstanceId() (instance.ID, error) {
+func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return m.instanceIdFunc()
 }
 
@@ -479,7 +479,7 @@ func createTestMachine(id, instanceId string) *mockMachine {
 	return &mockMachine{
 		id:             id,
 		manualFunc:     func() (bool, error) { return false, nil },
-		instanceIdFunc: func() (instance.ID, error) { return instance.ID(instanceId), nil },
+		instanceIdFunc: func() (instance.Id, error) { return instance.Id(instanceId), nil },
 	}
 }
 

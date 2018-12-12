@@ -50,7 +50,7 @@ func getAddresses(ctx context.ProviderCallContext, instances []instances.Instanc
 func waitAnyInstanceAddresses(
 	env Environ,
 	ctx context.ProviderCallContext,
-	instanceIds []instance.ID,
+	instanceIds []instance.Id,
 ) ([]network.Address, error) {
 	var addrs []network.Address
 	for a := AddressesRefreshAttempt.Start(); len(addrs) == 0 && a.Next(); {

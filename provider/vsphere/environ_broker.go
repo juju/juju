@@ -286,14 +286,14 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.StopInstances(ctx, ids...)
 	})
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	modelFolderPath := path.Join(
 		controllerFolderName("*"),
 		env.modelFolderName(),
@@ -302,7 +302,7 @@ func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ..
 	var wg sync.WaitGroup
 	for i, id := range ids {
 		wg.Add(1)
-		go func(i int, id instance.ID) {
+		go func(i int, id instance.Id) {
 			defer wg.Done()
 			results[i] = env.client.RemoveVirtualMachines(
 				env.ctx,
@@ -313,7 +313,7 @@ func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ..
 	}
 	wg.Wait()
 
-	var errIds []instance.ID
+	var errIds []instance.Id
 	var errs []error
 	for i, err := range results {
 		if err != nil {

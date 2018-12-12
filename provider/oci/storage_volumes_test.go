@@ -115,7 +115,7 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *gc.C) {
 			Provider: oci.OciStorageProviderType,
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					InstanceId: instance.ID(s.testInstanceID),
+					InstanceId: instance.Id(s.testInstanceID),
 				},
 			},
 		},
@@ -134,7 +134,7 @@ func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *gc.C) {
 			Provider: oci.OciStorageProviderType,
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
-					InstanceId: instance.ID(s.testInstanceID),
+					InstanceId: instance.Id(s.testInstanceID),
 				},
 			},
 		},
@@ -237,7 +237,7 @@ func (s *storageVolumeSuite) TestValidateVolumeParams(c *gc.C) {
 		Provider: oci.OciStorageProviderType,
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
-				InstanceId: instance.ID(s.testInstanceID),
+				InstanceId: instance.Id(s.testInstanceID),
 			},
 		},
 	}
@@ -393,7 +393,7 @@ func (s *storageVolumeSuite) TestAttachVolumeWithExistingAttachment(c *gc.C) {
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
-				InstanceId: instance.ID(s.testInstanceID),
+				InstanceId: instance.Id(s.testInstanceID),
 				ReadOnly:   false,
 				Machine:    names.NewMachineTag("1"),
 			},
@@ -426,7 +426,7 @@ func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *gc.C) {
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
-				InstanceId: instance.ID(s.testInstanceID),
+				InstanceId: instance.Id(s.testInstanceID),
 				ReadOnly:   false,
 				Machine:    names.NewMachineTag("1"),
 			},
@@ -515,7 +515,7 @@ func (s *storageVolumeSuite) TestAttachVolume(c *gc.C) {
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
-				InstanceId: instance.ID(s.testInstanceID),
+				InstanceId: instance.Id(s.testInstanceID),
 				ReadOnly:   false,
 				Machine:    names.NewMachineTag("1"),
 			},
@@ -559,7 +559,7 @@ func (s *storageVolumeSuite) TestDetachVolume(c *gc.C) {
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
-				InstanceId: instance.ID(s.testInstanceID),
+				InstanceId: instance.Id(s.testInstanceID),
 				ReadOnly:   false,
 				Machine:    names.NewMachineTag("1"),
 			},

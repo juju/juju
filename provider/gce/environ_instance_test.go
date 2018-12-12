@@ -30,7 +30,7 @@ func (s *environInstSuite) TestInstances(c *gc.C) {
 	eggs := s.NewInstance(c, "eggs")
 	s.FakeEnviron.Insts = []instances.Instance{spam, ham, eggs}
 
-	ids := []instance.ID{"spam", "eggs", "ham"}
+	ids := []instance.Id{"spam", "eggs", "ham"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -47,7 +47,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	failure := errors.New("<unknown>")
 	s.FakeEnviron.Err = failure
 
-	ids := []instance.ID{"spam"}
+	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 
 	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
@@ -57,7 +57,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.ID{"spam", "eggs"}
+	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 
 	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance, nil})
@@ -67,7 +67,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.ID{"eggs"}
+	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 
 	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
@@ -108,7 +108,7 @@ func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 	ids, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.ID{"spam"})
+	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
 func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
@@ -136,7 +136,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	ids, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.ID{"spam"})
+	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
 func (s *environInstSuite) TestParsePlacement(c *gc.C) {

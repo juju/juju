@@ -493,8 +493,8 @@ type mockInstance struct {
 	id string
 }
 
-func (i *mockInstance) Id() instance.ID {
-	return instance.ID(i.id)
+func (i *mockInstance) Id() instance.Id {
+	return instance.Id(i.id)
 }
 
 type fakeClaimer struct {

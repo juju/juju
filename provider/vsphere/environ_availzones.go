@@ -54,7 +54,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) (names []string, err error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (names []string, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		names, err = env.InstanceAvailabilityZoneNames(ctx, ids)
 		return err
@@ -63,7 +63,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

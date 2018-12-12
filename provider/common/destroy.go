@@ -33,7 +33,7 @@ func destroyInstances(env environs.Environ, ctx context.ProviderCallContext) err
 	instances, err := env.AllInstances(ctx)
 	switch err {
 	case nil:
-		ids := make([]instance.ID, len(instances))
+		ids := make([]instance.Id, len(instances))
 		for i, inst := range instances {
 			ids[i] = inst.Id()
 		}

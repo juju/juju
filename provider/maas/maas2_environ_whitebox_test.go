@@ -117,7 +117,7 @@ func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
 	expectedMachines := set.NewStrings("tuco", "tio", "gus")
 	actualMachines := set.NewStrings()
 	for _, instance := range result {
-		actualMachines.Add(string(instance.ID()))
+		actualMachines.Add(string(instance.Id()))
 	}
 	c.Assert(actualMachines, gc.DeepEquals, expectedMachines)
 }
@@ -133,7 +133,7 @@ func (suite *maas2EnvironSuite) TestInstances(c *gc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{"jake", "bonnibel"}, []string{"jake", "bonnibel"},
 	)
-	result, err := env.Instances(suite.callCtx, []instance.ID{"jake", "bonnibel"})
+	result, err := env.Instances(suite.callCtx, []instance.Id{"jake", "bonnibel"})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMachines := set.NewStrings("jake", "bonnibel")
 	actualMachines := set.NewStrings()
@@ -149,7 +149,7 @@ func (suite *maas2EnvironSuite) TestInstancesInvalidCredential(c *gc.C) {
 	}
 	env := suite.makeEnviron(c, controller)
 	c.Assert(suite.invalidCredential, jc.IsFalse)
-	_, err := env.Instances(suite.callCtx, []instance.ID{"jake", "bonnibel"})
+	_, err := env.Instances(suite.callCtx, []instance.Id{"jake", "bonnibel"})
 	c.Assert(err, gc.NotNil)
 	c.Assert(suite.invalidCredential, jc.IsTrue)
 }
@@ -158,11 +158,11 @@ func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{"jake", "bonnibel"}, []string{"tuco", "bonnibel"},
 	)
-	result, err := env.Instances(suite.callCtx, []instance.ID{"jake", "bonnibel"})
+	result, err := env.Instances(suite.callCtx, []instance.Id{"jake", "bonnibel"})
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(result, gc.HasLen, 2)
 	c.Assert(result[0], gc.IsNil)
-	c.Assert(result[1].Id(), gc.Equals, instance.ID("bonnibel"))
+	c.Assert(result[1].Id(), gc.Equals, instance.Id("bonnibel"))
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
@@ -341,7 +341,7 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.instance.ID(), gc.Equals, instance.ID("Bruce Sterling"))
+	c.Assert(result.instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceAppliesResourceTags(c *gc.C) {
@@ -387,7 +387,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	}
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.instance.ID(), gc.Equals, instance.ID("Bruce Sterling"))
+	c.Assert(result.instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
@@ -1112,7 +1112,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1241,7 +1241,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1335,7 +1335,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied
 		InterfaceName: "eth0",
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, ".*ServerError: 500 \\(I have failed you\\).*")
 }
@@ -1521,7 +1521,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		}},
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1533,7 +1533,7 @@ func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, c
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 }
 
@@ -1595,7 +1595,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -1630,7 +1630,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": bad device call`)
 	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
 		Hostname: []string{"juju-06f00d-1-lxd-0"},
@@ -1710,7 +1710,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *g
 		{InterfaceName: "eth1", CIDR: "", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	allocated, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	allocated, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allocated, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -1772,7 +1772,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": creating device interface: boom`)
 	args := getArgs(c, device.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
@@ -1822,7 +1822,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), ignored, prepared)
+	_, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "failed to create MAAS device.*boom")
 	args := getArgs(c, interface_.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)
@@ -1937,7 +1937,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 		InterfaceName: "eth0",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), containerTag, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -2136,7 +2136,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		InterfaceName: "eth1",
 	}}
 	containerTag := names.NewMachineTag("1/lxd/0")
-	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.ID("1"), containerTag, prepared)
+	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -2265,7 +2265,7 @@ func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
 		})
 	}
 
-	tests := [][]instance.ID{{"inst-0"}, {"inst-0", "inst-1"}}
+	tests := [][]instance.Id{{"inst-0"}, {"inst-0", "inst-1"}}
 	for _, expected := range tests {
 		controller.machines = make([]gomaasapi.Machine, len(expected))
 		for i := range expected {

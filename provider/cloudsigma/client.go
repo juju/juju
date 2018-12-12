@@ -107,30 +107,30 @@ func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 }
 
 //getControllerIds get list of ids for all controller instances
-func (c *environClient) getControllerIds() (ids []instance.ID, err error) {
+func (c *environClient) getControllerIds() (ids []instance.Id, err error) {
 	logger.Tracef("query state...")
 
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyController)
 	if err != nil {
-		return []instance.ID{}, errors.Trace(err)
+		return []instance.Id{}, errors.Trace(err)
 	}
 
 	if len(servers) == 0 {
-		return []instance.ID{}, environs.ErrNotBootstrapped
+		return []instance.Id{}, environs.ErrNotBootstrapped
 	}
 
-	ids = make([]instance.ID, len(servers))
+	ids = make([]instance.Id, len(servers))
 
 	for i, server := range servers {
 		logger.Tracef("controller id: %s", server.UUID())
-		ids[i] = instance.ID(server.UUID())
+		ids[i] = instance.Id(server.UUID())
 	}
 
 	return ids, nil
 }
 
 //stopInstance stops the CloudSigma server corresponding to the given instance ID.
-func (c *environClient) stopInstance(id instance.ID) error {
+func (c *environClient) stopInstance(id instance.Id) error {
 	uuid := string(id)
 	if uuid == "" {
 		return errors.New("invalid instance id")

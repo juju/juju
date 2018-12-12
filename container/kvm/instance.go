@@ -20,9 +20,9 @@ type kvmInstance struct {
 
 var _ instances.Instance = (*kvmInstance)(nil)
 
-// Id implements instances.instance.ID.
-func (kvm *kvmInstance) Id() instance.ID {
-	return instance.ID(kvm.id)
+// Id implements instances.instance.Id.
+func (kvm *kvmInstance) Id() instance.Id {
+	return instance.Id(kvm.id)
 }
 
 // Status implements instances.Instance.Status.

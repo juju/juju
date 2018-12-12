@@ -133,7 +133,7 @@ func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(result.instance.ID(), gc.Equals, instance.ID("juju-06f00d-1-kvm-0"))
+	c.Assert(result.instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }
 
@@ -149,7 +149,7 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
 
 	s.maintainInstance(c, broker, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(result.instance.ID(), gc.Equals, instance.ID("juju-06f00d-1-kvm-0"))
+	c.Assert(result.instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }
 
@@ -167,13 +167,13 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	c.Assert(err2, jc.ErrorIsNil)
 
 	callCtx := context.NewCloudCallContext()
-	err := broker.StopInstances(callCtx, result0.instance.ID())
+	err := broker.StopInstances(callCtx, result0.instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertResults(c, broker, result1, result2)
 	c.Assert(s.kvmContainerDir(result0), jc.DoesNotExist)
 	c.Assert(s.kvmRemovedContainerDir(result0), jc.IsDirectory)
 
-	err = broker.StopInstances(callCtx, result1.instance.ID(), result2.instance.ID())
+	err = broker.StopInstances(callCtx, result1.instance.Id(), result2.instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoResults(c, broker)
 }
@@ -189,7 +189,7 @@ func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
 	c.Assert(err1, jc.ErrorIsNil)
 	s.assertResults(c, broker, result0, result1)
 
-	err := broker.StopInstances(context.NewCloudCallContext(), result1.instance.ID())
+	err := broker.StopInstances(context.NewCloudCallContext(), result1.instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
@@ -374,7 +374,7 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	s.waitInstanceId(c, machine, instance.ID(event.InstanceId))
+	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
 	return event.InstanceId
 }
 

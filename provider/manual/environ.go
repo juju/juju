@@ -40,7 +40,7 @@ import (
 const (
 	// BootstrapInstanceId is the instance ID used
 	// for the manual provider's bootstrap instance.
-	BootstrapInstanceId instance.ID = "manual:"
+	BootstrapInstanceId instance.Id = "manual:"
 )
 
 var (
@@ -70,12 +70,12 @@ func (*manualEnviron) StartInstance(ctx context.ProviderCallContext, args enviro
 	return nil, errNoStartInstance
 }
 
-func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.ID) error {
+func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.Id) error {
 	return errNoStopInstance
 }
 
 func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.Instances(ctx, []instance.ID{BootstrapInstanceId})
+	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
 }
 
 func (e *manualEnviron) envConfig() (cfg *environConfig) {
@@ -133,7 +133,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	if !isRunningController() {
 		// Not running inside the controller, so we must
 		// verify the host.
@@ -141,7 +141,7 @@ func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, con
 			return nil, err
 		}
 	}
-	return []instance.ID{BootstrapInstanceId}, nil
+	return []instance.Id{BootstrapInstanceId}, nil
 }
 
 func (e *manualEnviron) verifyBootstrapHost() error {
@@ -197,12 +197,13 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 // This method will only ever return an Instance for the Id
 // BootstrapInstanceId. If any others are specified, then
 // ErrPartialInstances or ErrNoInstances will result.
-func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) (instances []instances.Instance, err error) {
-	instances = make([]instances.Instance, len(ids))
+func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+	result := make([]instances.Instance, len(ids))
 	var found bool
+	var err error
 	for i, id := range ids {
 		if id == BootstrapInstanceId {
-			instances[i] = manualBootstrapInstance{e.host}
+			result[i] = manualBootstrapInstance{e.host}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -211,7 +212,7 @@ func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 	if !found {
 		err = environs.ErrNoInstances
 	}
-	return instances, err
+	return result, err
 }
 
 var runSSHCommand = func(host string, command []string, stdin string) (stdout, stderr string, err error) {

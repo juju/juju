@@ -102,7 +102,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			instanceId, err := m.InstanceId()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(instanceId, gc.Equals, instance.ID("manual:"+hostname))
+			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))
 		}
 	}
 

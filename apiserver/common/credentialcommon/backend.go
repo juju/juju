@@ -63,7 +63,7 @@ type Machine interface {
 
 	// InstanceId returns the provider specific instance id for this
 	// machine, or a NotProvisionedError, if not set.
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 
 	// Id returns the machine id.
 	Id() string

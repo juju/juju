@@ -31,12 +31,12 @@ var instStatuses = []string{
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := getInstances(env, ctx)
+	all, err := getInstances(env, ctx)
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -50,7 +50,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID
 	numFound := 0 // This will never be greater than len(ids).
 	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
-		inst := findInst(id, instances)
+		inst := findInst(id, all)
 		if inst != nil {
 			numFound++
 		}
@@ -83,13 +83,13 @@ func (env *environ) gceInstances(ctx context.ProviderCallContext) ([]google.Inst
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	instances, err := env.gceInstances(ctx)
+	gceInstances, err := env.gceInstances(ctx)
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instances.Instance
-	for _, base := range instances {
+	for _, base := range gceInstances {
 		// If we don't make a copy then the same pointer is used for the
 		// base of all resulting instances.
 		copied := base
@@ -102,13 +102,13 @@ func (env *environ) instances(ctx context.ProviderCallContext) ([]instances.Inst
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := env.gceInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var results []instance.ID
+	var results []instance.Id
 	for _, inst := range instances {
 		metadata := inst.Metadata()
 		if uuid, ok := metadata[tags.JujuController]; !ok || uuid != controllerUUID {
@@ -116,7 +116,7 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 		}
 		isController, ok := metadata[tags.JujuIsController]
 		if ok && isController == "true" {
-			results = append(results, instance.ID(inst.ID))
+			results = append(results, instance.Id(inst.ID))
 		}
 	}
 	if len(results) == 0 {

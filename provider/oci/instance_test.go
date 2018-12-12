@@ -37,7 +37,7 @@ func (i *instanceSuite) TestId(c *gc.C) {
 	inst, err := oci.NewInstance(*i.ociInstance, i.env)
 	c.Assert(err, gc.IsNil)
 	id := inst.Id()
-	c.Assert(id, gc.Equals, instance.ID(i.testInstanceID))
+	c.Assert(id, gc.Equals, instance.Id(i.testInstanceID))
 }
 
 func (i *instanceSuite) TestStatus(c *gc.C) {

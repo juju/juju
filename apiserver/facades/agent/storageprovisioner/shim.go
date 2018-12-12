@@ -55,7 +55,7 @@ type Backend interface {
 	state.ModelAccessor
 
 	ControllerConfig() (controller.Config, error)
-	MachineInstanceId(names.MachineTag) (instance.ID, error)
+	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	ModelTag() names.ModelTag
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchApplications() state.StringsWatcher
@@ -134,7 +134,7 @@ func NewStateBackends(st *state.State) (Backend, StorageBackend, error) {
 	return stateShim{State: st, Model: m}, sb, nil
 }
 
-func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.ID, error) {
+func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {
 	m, err := s.Machine(tag.Id())
 	if err != nil {
 		return "", errors.Trace(err)

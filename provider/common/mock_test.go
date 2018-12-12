@@ -19,9 +19,9 @@ import (
 )
 
 type allInstancesFunc func(context.ProviderCallContext) ([]instances.Instance, error)
-type instancesFunc func(context.ProviderCallContext, []instance.ID) ([]instances.Instance, error)
+type instancesFunc func(context.ProviderCallContext, []instance.Id) ([]instances.Instance, error)
 type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
-type stopInstancesFunc func(context.ProviderCallContext, []instance.ID) error
+type stopInstancesFunc func(context.ProviderCallContext, []instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
 type setConfigFunc func(*config.Config) error
@@ -47,7 +47,7 @@ func (env *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instanc
 	return env.allInstances(ctx)
 }
 
-func (env *mockEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (env *mockEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return env.instances(ctx, ids)
 }
 
@@ -63,7 +63,7 @@ func (env *mockEnviron) StartInstance(ctx context.ProviderCallContext, args envi
 	}, nil
 }
 
-func (env *mockEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (env *mockEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	return env.stopInstances(ctx, ids)
 }
 
@@ -95,7 +95,7 @@ func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage
 }
 
 type availabilityZonesFunc func(context.ProviderCallContext) ([]common.AvailabilityZone, error)
-type instanceAvailabilityZoneNamesFunc func(context.ProviderCallContext, []instance.ID) ([]string, error)
+type instanceAvailabilityZoneNamesFunc func(context.ProviderCallContext, []instance.Id) ([]string, error)
 type deriveAvailabilityZonesFunc func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error)
 
 type mockZonedEnviron struct {
@@ -109,7 +109,7 @@ func (env *mockZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) 
 	return env.availabilityZones(ctx)
 }
 
-func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	return env.instanceAvailabilityZoneNames(ctx, ids)
 }
 
@@ -127,8 +127,8 @@ type mockInstance struct {
 	instances.Instance // stub out other methods with panics
 }
 
-func (inst *mockInstance) Id() instance.ID {
-	return instance.ID(inst.id)
+func (inst *mockInstance) Id() instance.Id {
+	return instance.Id(inst.id)
 }
 
 func (inst *mockInstance) Status(context.ProviderCallContext) instance.Status {

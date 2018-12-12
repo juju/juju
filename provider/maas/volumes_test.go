@@ -176,7 +176,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 
 func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(validVolumeJson)
-	statusGetter := func(context.ProviderCallContext, instance.ID) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
@@ -234,7 +234,7 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 
 func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
-	statusGetter := func(context.ProviderCallContext, instance.ID) (string, string) {
+	statusGetter := func(context.ProviderCallContext, instance.Id) (string, string) {
 		// status, substatus or status info.
 		return "provisioning", "substatus"
 	}

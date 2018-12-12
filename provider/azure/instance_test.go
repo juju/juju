@@ -149,7 +149,7 @@ func (s *instanceSuite) getInstance(c *gc.C) instances.Instance {
 	return instances[0]
 }
 
-func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.ID) []instances.Instance {
+func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instances.Instance {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.Instances(s.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
@@ -593,8 +593,8 @@ func (s *instanceSuite) TestAllInstances(c *gc.C) {
 	instances, err := s.env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
-	c.Assert(instances[0].Id(), gc.Equals, instance.ID("machine-0"))
-	c.Assert(instances[1].Id(), gc.Equals, instance.ID("machine-1"))
+	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
+	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
 }
 
 func (s *instanceSuite) TestControllerInstances(c *gc.C) {
@@ -603,7 +603,7 @@ func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
-	c.Assert(ids[0], gc.Equals, instance.ID("machine-0"))
+	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
 }
 
 var internalSecurityGroupPath = path.Join(

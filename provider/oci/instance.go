@@ -86,8 +86,8 @@ func (o *ociInstance) availabilityZone() string {
 }
 
 // Id implements instances.Instance
-func (o *ociInstance) Id() instance.ID {
-	return instance.ID(*o.raw.Id)
+func (o *ociInstance) Id() instance.Id {
+	return instance.Id(*o.raw.Id)
 }
 
 // Status implements instances.Instance

@@ -46,7 +46,7 @@ type FakeBackups struct {
 	// PrivateAddr Holds the address for the internal network of the machine.
 	PrivateAddr string
 	// InstanceId is the id of the machine to be restored.
-	InstanceId instance.ID
+	InstanceId instance.Id
 	// ArchiveArg holds the backup archive that was passed in.
 	ArchiveArg io.Reader
 	// KeepCopy holds the keepCopy bool that was passed in.

@@ -155,7 +155,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}, nil
 }
 
-func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		lxdLogger.Infof("stopping lxd container for instance: %s", id)

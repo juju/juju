@@ -37,7 +37,7 @@ func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
 	return e.(*environ).AllInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.ID, states ...string) ([]ec2.SecurityGroup, error) {
+func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
 	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 

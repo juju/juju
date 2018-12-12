@@ -226,7 +226,7 @@ func BootstrapInstance(
 		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
 
-	msg := fmt.Sprintf(" - %s (%s)", result.instance.ID(), formatHardware(result.Hardware))
+	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
 	// We need some padding below to overwrite any previous messages.
 	if len(msg) < 40 {
 		padding := make([]string, 40-len(msg))
@@ -235,7 +235,7 @@ func BootstrapInstance(
 	ctx.Infof(msg)
 
 	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
-		icfg.Bootstrap.BootstrapMachineInstanceId = result.instance.ID()
+		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
 		envConfig := env.Config()
@@ -514,7 +514,7 @@ type RefreshableInstance struct {
 
 // Refresh refreshes the addresses for the instance.
 func (i *RefreshableInstance) Refresh(ctx context.ProviderCallContext) error {
-	instances, err := i.Env.Instances(ctx, []instance.ID{i.Id()})
+	instances, err := i.Env.Instances(ctx, []instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}

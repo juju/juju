@@ -178,7 +178,7 @@ func (broker *kvmBroker) MaintainInstance(ctx context.ProviderCallContext, args 
 }
 
 // StopInstances shuts down the given instances.
-func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		kvmLogger.Infof("stopping kvm container for instance: %s", id)

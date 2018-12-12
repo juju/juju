@@ -64,7 +64,7 @@ type volumeSourceSuite struct {
 	gce.BaseSuite
 	source           storage.VolumeSource
 	params           []storage.VolumeParams
-	instId           instance.ID
+	instId           instance.Id
 	attachmentParams *storage.VolumeAttachmentParams
 }
 

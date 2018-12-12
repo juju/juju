@@ -301,7 +301,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.ID{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs := network.NewAddresses("1.2.3.4")
 	dummy.SetInstanceAddresses(insts[0], addrs)
@@ -340,7 +340,7 @@ func (s *MachineLegacyLeasesSuite) TestCallsUseMultipleCPUs(c *gc.C) {
 	c.Check(a.Stop(), jc.ErrorIsNil)
 }
 
-func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.ID) {
+func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

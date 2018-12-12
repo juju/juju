@@ -51,7 +51,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 
 // InstanceId returns the provider specific instance id for this
 // machine, or a CodeNotProvisioned error, if not set.
-func (m *Machine) InstanceId() (instance.ID, error) {
+func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
@@ -67,7 +67,7 @@ func (m *Machine) InstanceId() (instance.ID, error) {
 	if result.Error != nil {
 		return "", result.Error
 	}
-	return instance.ID(result.Result), nil
+	return instance.Id(result.Result), nil
 }
 
 // Life returns the machine's life cycle value.

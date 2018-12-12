@@ -117,7 +117,7 @@ func (u *updaterWorker) getMachine(tag names.MachineTag) (machine, error) {
 }
 
 // instanceInfo is part of the machineContext interface.
-func (u *updaterWorker) instanceInfo(id instance.ID) (instanceInfo, error) {
+func (u *updaterWorker) instanceInfo(id instance.Id) (instanceInfo, error) {
 	return u.aggregator.instanceInfo(id)
 }
 

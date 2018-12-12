@@ -79,19 +79,19 @@ type MachineProvisioner interface {
 	// that belong to the same distribution group as this
 	// Machine. The provisioner may use this information
 	// to distribute instances for high availability.
-	DistributionGroup() ([]instance.ID, error)
+	DistributionGroup() ([]instance.Id, error)
 
 	// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
 	// network config for this machine. Once set, the instance id cannot be changed.
 	SetInstanceInfo(
-		id instance.ID, nonce string, characteristics *instance.HardwareCharacteristics,
+		id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 		networkConfig []params.NetworkConfig, volumes []params.Volume,
 		volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 	) error
 
 	// InstanceId returns the provider specific instance id for the
 	// machine or an CodeNotProvisioned error, if not set.
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 
 	// KeepInstance returns the value of the keep-instance
 	// for the machine.
@@ -339,7 +339,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 }
 
 // DistributionGroup implements MachineProvisioner.DistributionGroup.
-func (m *Machine) DistributionGroup() ([]instance.ID, error) {
+func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	var results params.DistributionGroupResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
@@ -360,7 +360,7 @@ func (m *Machine) DistributionGroup() ([]instance.ID, error) {
 
 // SetInstanceInfo implements MachineProvisioner.SetInstanceInfo.
 func (m *Machine) SetInstanceInfo(
-	id instance.ID, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
@@ -385,7 +385,7 @@ func (m *Machine) SetInstanceInfo(
 }
 
 // InstanceId implements MachineProvisioner.InstanceId.
-func (m *Machine) InstanceId() (instance.ID, error) {
+func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
@@ -401,7 +401,7 @@ func (m *Machine) InstanceId() (instance.ID, error) {
 	if result.Error != nil {
 		return "", result.Error
 	}
-	return instance.ID(result.Result), nil
+	return instance.Id(result.Result), nil
 }
 
 // KeepInstance implements MachineProvisioner.KeepInstance.

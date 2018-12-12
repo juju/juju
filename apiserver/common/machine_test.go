@@ -121,7 +121,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
-			"1": {id: "1", instId: instance.ID("123"), status: status.Down, hasVote: true, wantsVote: true},
+			"1": {id: "1", instId: instance.Id("123"), status: status.Down, hasVote: true, wantsVote: true},
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
@@ -168,7 +168,7 @@ type mockMachine struct {
 	life               state.Life
 	containerType      instance.ContainerType
 	hw                 *instance.HardwareCharacteristics
-	instId             instance.ID
+	instId             instance.Id
 	hasVote, wantsVote bool
 	status             status.Status
 	statusErr          error
@@ -188,7 +188,7 @@ func (m *mockMachine) Life() state.Life {
 	return m.life
 }
 
-func (m *mockMachine) InstanceId() (instance.ID, error) {
+func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return m.instId, nil
 }
 

@@ -745,10 +745,10 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 	}
 }
 
-func assertInstanceIds(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, expected ...instance.ID) {
+func assertInstanceIds(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, expected ...instance.Id) {
 	insts, err := env.AllInstances(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	instIds := make([]instance.ID, len(insts))
+	instIds := make([]instance.Id, len(insts))
 	for i, inst := range insts {
 		instIds[i] = inst.Id()
 	}
@@ -898,48 +898,48 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 }
 
 var instanceGathering = []struct {
-	ids []instance.ID
+	ids []instance.Id
 	err error
 }{
-	{ids: []instance.ID{"id0"}},
-	{ids: []instance.ID{"id0", "id0"}},
-	{ids: []instance.ID{"id0", "id1"}},
-	{ids: []instance.ID{"id1", "id0"}},
-	{ids: []instance.ID{"id1", "id0", "id1"}},
+	{ids: []instance.Id{"id0"}},
+	{ids: []instance.Id{"id0", "id0"}},
+	{ids: []instance.Id{"id0", "id1"}},
+	{ids: []instance.Id{"id1", "id0"}},
+	{ids: []instance.Id{"id1", "id0", "id1"}},
 	{
-		ids: []instance.ID{""},
+		ids: []instance.Id{""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []instance.ID{"", ""},
+		ids: []instance.Id{"", ""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []instance.ID{"", "", ""},
+		ids: []instance.Id{"", "", ""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []instance.ID{"id0", ""},
+		ids: []instance.Id{"id0", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"", "id1"},
+		ids: []instance.Id{"", "id1"},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"id0", "id1", ""},
+		ids: []instance.Id{"id0", "id1", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"id0", "", "id0"},
+		ids: []instance.Id{"id0", "", "id0"},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"id0", "id0", ""},
+		ids: []instance.Id{"id0", "id0", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"", "id0", "id1"},
+		ids: []instance.Id{"", "id0", "id1"},
 		err: environs.ErrPartialInstances,
 	},
 }
@@ -986,7 +986,7 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 
 	for i, test := range instanceGathering {
 		c.Logf("test %d: find %v -> expect len %d, err: %v", i, test.ids, len(test.ids), test.err)
-		ids := make([]instance.ID, len(test.ids))
+		ids := make([]instance.Id, len(test.ids))
 		for j, id := range test.ids {
 			switch id {
 			case "id0":
@@ -1051,7 +1051,7 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	instances, err := s.env.Instances(s.callCtx, []instance.ID{stateInst1.Id(), stateInst2.Id()})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{stateInst1.Id(), stateInst2.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
@@ -1070,7 +1070,7 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 	)
 	defer cleanup()
 
-	instances, err := s.env.Instances(s.callCtx, []instance.ID{"1"})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"1"})
 	c.Check(instances, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error not instance.*")
 }
@@ -1086,7 +1086,7 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 	)
 	defer cleanup()
 
-	instances, err := s.env.Instances(s.callCtx, []instance.ID{"1", "2"})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"1", "2"})
 	c.Check(instances, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error no instances.*")
 }
@@ -1200,7 +1200,7 @@ func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C, cfg *config.Config)
 func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, instance.ID(""), []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1237,7 +1237,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, cfg)
 	// private_999 is the internal network, 998 is the external network
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, instance.ID(""), []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1269,7 +1269,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 
 func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
-	subnets, err := env.Subnets(s.callCtx, instance.ID(""), []network.Id{"missing"})
+	subnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }
@@ -2554,7 +2554,7 @@ func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expe
 	c.Assert(instances, gc.Not(gc.HasLen), 0)
 	for _, instance := range instances {
 		server := openstack.InstanceServerDetail(instance)
-		c.Logf(string(instance.ID()))
+		c.Logf(string(instance.Id()))
 		c.Check(server.Metadata[tags.JujuController], gc.Equals, expectedController)
 	}
 }

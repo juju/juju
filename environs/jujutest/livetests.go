@@ -261,7 +261,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
 
-	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.ID{id0, id0})
+	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, id0})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Equals, id0)
@@ -286,7 +286,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
-	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.ID{id0, ""})
+	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, ""})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Check(insts[0].Id(), gc.Equals, id0)
@@ -298,7 +298,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
 	for a := t.Attempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances(t.ProviderCallContext, []instance.ID{id0})
+		insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0})
 		if err != nil {
 			break
 		}
@@ -885,10 +885,10 @@ var waitAgent = utils.AttemptStrategy{
 	Delay: 1 * time.Second,
 }
 
-func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.ID) {
+func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.Id) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		_, err = t.Env.Instances(t.ProviderCallContext, []instance.ID{instId})
+		_, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{instId})
 		if err == nil {
 			continue
 		}
@@ -930,7 +930,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	result, err := t.Env.StartInstance(t.ProviderCallContext, params)
 	if result != nil && result.Instance != nil {
-		err := t.Env.StopInstances(t.ProviderCallContext, result.instance.ID())
+		err := t.Env.StopInstances(t.ProviderCallContext, result.Instance.Id())
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(result, gc.IsNil)

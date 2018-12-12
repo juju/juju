@@ -36,7 +36,7 @@ var (
 type machine interface {
 	Id() string
 	Tag() names.MachineTag
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 	ProviderAddresses() ([]network.Address, error)
 	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (params.StatusResult, error)
@@ -64,7 +64,7 @@ type lifetimeContext interface {
 
 type machineContext interface {
 	lifetimeContext
-	instanceInfo(id instance.ID) (instanceInfo, error)
+	instanceInfo(id instance.Id) (instanceInfo, error)
 }
 
 type updaterContext interface {

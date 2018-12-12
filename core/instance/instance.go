@@ -7,9 +7,9 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-// ID is a provider-specific identifier associated with an
+// Id is a provider-specific identifier associated with an
 // instance (physical or virtual machine allocated in the provider).
-type ID string
+type Id string
 
 // Status represents the status for a provider instance.
 type Status struct {
@@ -17,5 +17,5 @@ type Status struct {
 	Message string
 }
 
-// UnknownID can be used to explicitly specify the instance ID does not matter.
-const UnknownID ID = ""
+// UnknownId can be used to explicitly specify the instance Id does not matter.
+const UnknownId Id = ""

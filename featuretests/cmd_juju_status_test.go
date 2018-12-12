@@ -118,7 +118,7 @@ func (s *StatusSuite) setupSeveralUnitsOnAMachine(c *gc.C) {
 	// Put a unit from each, application A and B, on the same machine.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: instance.ID("id0"),
+		InstanceId: instance.Id("id0"),
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: applicationA,
@@ -136,7 +136,7 @@ func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
 	// Put a unit from an application on a new machine.
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: instance.ID("id1"),
+		InstanceId: instance.Id("id1"),
 	})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "another",
@@ -193,7 +193,7 @@ func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
 	// Put a unit from an application on the 1st machine.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: instance.ID("id1"),
+		InstanceId: instance.Id("id1"),
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
@@ -213,7 +213,7 @@ func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
 	// Put a unit from an application on the 10th machine.
 	machine10 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: instance.ID("id10"),
+		InstanceId: instance.Id("id10"),
 	})
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
@@ -260,7 +260,7 @@ func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
 
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
-		InstanceId: instance.ID("id1"),
+		InstanceId: instance.Id("id1"),
 	})
 
 	context := s.run(c, "status", "1")

@@ -28,7 +28,7 @@ func NewInstanceIdGetter(st state.EntityFinder, getCanRead GetAuthFunc) *Instanc
 	}
 }
 
-func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.ID, error) {
+func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
 	entity0, err := ig.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -58,7 +58,7 @@ func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResul
 		}
 		err = ErrPerm
 		if canRead(tag) {
-			var instanceId instance.ID
+			var instanceId instance.Id
 			instanceId, err = ig.getInstanceId(tag)
 			if err == nil {
 				result.Results[i].Result = string(instanceId)

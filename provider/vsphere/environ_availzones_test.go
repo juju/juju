@@ -45,7 +45,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 		buildVM("inst-1").resourcePool(z1.ResourcePool).vm(),
 		buildVM("inst-2").vm(),
 	}
-	ids := []instance.ID{"inst-0", "inst-1", "inst-2", "inst-3"}
+	ids := []instance.Id{"inst-0", "inst-1", "inst-2", "inst-3"}
 
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, ids)
@@ -55,7 +55,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *gc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	_, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, []instance.ID{"inst-0"})
+	_, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"inst-0"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 

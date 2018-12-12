@@ -88,7 +88,7 @@ func (m *containerManager) Namespace() instance.Namespace {
 }
 
 // DestroyContainer implements container.Manager.
-func (m *containerManager) DestroyContainer(id instance.ID) error {
+func (m *containerManager) DestroyContainer(id instance.Id) error {
 	return errors.Trace(m.server.RemoveContainer(string(id)))
 }
 

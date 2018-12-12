@@ -12,7 +12,7 @@ import (
 // Instance represents the the realization of a machine in state.
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
-	Id() instance.ID
+	Id() instance.Id
 
 	// Status returns the provider-specific status for the instance.
 	Status(context.ProviderCallContext) instance.Status

@@ -46,9 +46,9 @@ func FakeAPIInfo(machineId string) *api.Info {
 }
 
 // WaitAddresses waits until the specified instance has addresses, and returns them.
-func WaitInstanceAddresses(env environs.Environ, ctx context.ProviderCallContext, instId instance.ID) ([]network.Address, error) {
+func WaitInstanceAddresses(env environs.Environ, ctx context.ProviderCallContext, instId instance.Id) ([]network.Address, error) {
 	for a := testing.LongAttempt.Start(); a.Next(); {
-		insts, err := env.Instances(ctx, []instance.ID{instId})
+		insts, err := env.Instances(ctx, []instance.Id{instId})
 		if err != nil {
 			return nil, err
 		}

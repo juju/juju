@@ -937,7 +937,7 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 }
 
 // Subnets is defined on the environs.Networking interface.
-func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.ID, subnets []network.Id) ([]network.SubnetInfo, error) {
+func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	subIdSet := set.NewStrings()
 	for _, subId := range subnets {
@@ -953,7 +953,7 @@ func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.ID, su
 	if len(subIdSet) > 0 {
 		hasSubnetList = true
 	}
-	if id != instance.UnknownID {
+	if id != instance.UnknownId {
 		oInst, err := e.getOCIInstance(ctx, id)
 		if err != nil {
 			providerCommon.HandleCredentialError(err, ctx)
@@ -1034,7 +1034,7 @@ func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, er
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
@@ -1102,7 +1102,7 @@ func (e *Environ) SupportsContainerAddresses(ctx envcontext.ProviderCallContext)
 
 func (e *Environ) AllocateContainerAddresses(
 	ctx envcontext.ProviderCallContext,
-	hostInstanceID instance.ID,
+	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
 	preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 

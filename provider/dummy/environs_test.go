@@ -341,7 +341,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, gc.HasLen, 0)
 }
 
-func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.ID, expectInfo []network.InterfaceInfo) {
+func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []network.InterfaceInfo) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpNetworkInterfaces)
@@ -361,7 +361,7 @@ func assertSubnets(
 	c *gc.C,
 	e environs.Environ,
 	opc chan dummy.Operation,
-	instId instance.ID,
+	instId instance.Id,
 	subnetIds []network.Id,
 	expectInfo []network.SubnetInfo,
 ) {

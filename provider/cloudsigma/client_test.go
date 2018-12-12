@@ -122,7 +122,7 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
 
-	err = cli.stopInstance(instance.ID(suuid))
+	err = cli.stopInstance(instance.Id(suuid))
 	c.Assert(err, gc.IsNil)
 
 	_, err = cli.getControllerIds()
@@ -133,7 +133,7 @@ func (s *clientSuite) TestClientInvalidStopInstance(c *gc.C) {
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
 
-	var id instance.ID
+	var id instance.Id
 	err = cli.stopInstance(id)
 	c.Check(err, gc.ErrorMatches, "invalid instance id")
 

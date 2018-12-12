@@ -70,7 +70,7 @@ func (i instanceSuite) TestId(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst, gc.NotNil)
 	id := inst.Id()
-	c.Assert(id, gc.Equals, instance.ID("0"))
+	c.Assert(id, gc.Equals, instance.Id("0"))
 }
 
 func (i instanceSuite) TestStatus(c *gc.C) {

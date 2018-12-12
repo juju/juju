@@ -59,7 +59,7 @@ func (v *volumeSource) getVolumeStatus(resourceID *string) (string, error) {
 	return string(response.Volume.LifecycleState), nil
 }
 
-func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storage.VolumeParams, instanceMap map[instance.ID]*ociInstance) (_ *storage.Volume, err error) {
+func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storage.VolumeParams, instanceMap map[instance.Id]*ociInstance) (_ *storage.Volume, err error) {
 	var details ociCore.CreateVolumeResponse
 	defer func() {
 		if err != nil && details.Id != nil {
@@ -166,7 +166,7 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 	var credErr error
 
 	results := make([]storage.CreateVolumesResult, len(params))
-	instanceMap := map[instance.ID]*ociInstance{}
+	instanceMap := map[instance.Id]*ociInstance{}
 	for i, volume := range params {
 		if credErr != nil {
 			results[i].Error = errors.Trace(credErr)
@@ -356,7 +356,7 @@ func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	return nil
 }
 
-func (v *volumeSource) volumeAttachments(instanceId instance.ID) ([]ociCore.IScsiVolumeAttachment, error) {
+func (v *volumeSource) volumeAttachments(instanceId instance.Id) ([]ociCore.IScsiVolumeAttachment, error) {
 	instId := string(instanceId)
 	request := ociCore.ListVolumeAttachmentsRequest{
 		CompartmentId: v.env.ecfg().compartmentID(),
@@ -544,7 +544,7 @@ func (v *volumeSource) getAttachmentStatus(resourceID *string) (string, error) {
 func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	var credErr error
 
-	instanceIds := []instance.ID{}
+	instanceIds := []instance.Id{}
 	for _, val := range params {
 		instanceIds = append(instanceIds, val.InstanceId)
 	}
@@ -591,7 +591,7 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params 
 func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]error, error) {
 	var credErr error
 	ret := make([]error, len(params))
-	instanceAttachmentMap := map[instance.ID][]ociCore.IScsiVolumeAttachment{}
+	instanceAttachmentMap := map[instance.Id][]ociCore.IScsiVolumeAttachment{}
 
 	for idx, param := range params {
 		if credErr != nil {

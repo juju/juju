@@ -70,7 +70,7 @@ type Firewaller interface {
 
 	// GetSecurityGroups returns a list of the security groups that
 	// belong to given instances.
-	GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error)
+	GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error)
 
 	// SetUpGroups sets up initial security groups, if any, and returns
 	// their names.
@@ -173,7 +173,7 @@ func (f *switchingFirewaller) UpdateGroupController(ctx context.ProviderCallCont
 	return f.fw.UpdateGroupController(ctx, controllerUUID)
 }
 
-func (f *switchingFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error) {
+func (f *switchingFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
 	if err := f.initFirewaller(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -214,7 +214,7 @@ type firewallerBase struct {
 }
 
 // GetSecurityGroups implements Firewaller interface.
-func (c *firewallerBase) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error) {
+func (c *firewallerBase) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
 	var securityGroupNames []string
 	if c.environ.Config().FirewallMode() == config.FwInstance {
 		instances, err := c.environ.Instances(ctx, ids)

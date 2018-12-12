@@ -114,7 +114,7 @@ func (e *environSuite) TestSupportsContainerAddress(c *gc.C) {
 
 func (e *environSuite) TestAllocateContainerAddress(c *gc.C) {
 	var (
-		id   instance.ID
+		id   instance.Id
 		tag  names.MachineTag
 		info []networkenv.InterfaceInfo
 	)
@@ -142,7 +142,7 @@ func (e *environSuite) TestSubnetsWithEmptyParams(c *gc.C) {
 
 func (e *environSuite) TestSubnets(c *gc.C) {
 	ids := []networkenv.Id{networkenv.Id("0")}
-	info, err := e.netEnv.Subnets(e.callCtx, instance.ID("0"), ids)
+	info, err := e.netEnv.Subnets(e.callCtx, instance.Id("0"), ids)
 	c.Assert(info, jc.DeepEquals, []networkenv.SubnetInfo{})
 	c.Assert(err, gc.IsNil)
 }
@@ -167,7 +167,7 @@ func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
 	netEnv := network.NewEnviron(&fakeNetworkingAPI{}, env)
 	c.Assert(netEnv, gc.NotNil)
 
-	info, err := netEnv.NetworkInterfaces(e.callCtx, instance.ID("0"))
+	info, err := netEnv.NetworkInterfaces(e.callCtx, instance.Id("0"))
 	c.Assert(info, jc.DeepEquals, []networkenv.InterfaceInfo{})
 	c.Assert(err, gc.IsNil)
 }

@@ -173,7 +173,7 @@ func (env *maasEnviron) Bootstrap(
 	// We want to destroy the started instance if it doesn't transition to Deployed.
 	defer func() {
 		if err != nil {
-			if err := env.StopInstances(callCtx, result.instance.ID()); err != nil {
+			if err := env.StopInstances(callCtx, result.Instance.Id()); err != nil {
 				logger.Errorf("error releasing bootstrap instance: %v", err)
 			}
 		}
@@ -185,7 +185,7 @@ func (env *maasEnviron) Bootstrap(
 		dialOpts environs.BootstrapDialOpts,
 	) error {
 		// Wait for bootstrap instance to change to deployed state.
-		if err := env.waitForNodeDeployment(callCtx, result.instance.ID(), dialOpts.Timeout); err != nil {
+		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
 			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 		}
 		return finalizer(ctx, icfg, dialOpts)
@@ -200,18 +200,18 @@ func (env *maasEnviron) Bootstrap(
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *maasEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (env *maasEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	if !env.usingMAAS2() {
 		return env.controllerInstances1(ctx, controllerUUID)
 	}
 	return env.controllerInstances2(ctx, controllerUUID)
 }
 
-func (env *maasEnviron) controllerInstances1(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (env *maasEnviron) controllerInstances1(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	return common.ProviderStateInstances(env.Storage())
 }
 
-func (env *maasEnviron) controllerInstances2(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (env *maasEnviron) controllerInstances2(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := env.instances2(ctx, gomaasapi.MachinesArgs{
 		OwnerData: map[string]string{
 			tags.JujuIsController: "true",
@@ -224,7 +224,7 @@ func (env *maasEnviron) controllerInstances2(ctx context.ProviderCallContext, co
 	if len(instances) == 0 {
 		return nil, environs.ErrNotBootstrapped
 	}
-	ids := make([]instance.ID, len(instances))
+	ids := make([]instance.Id, len(instances))
 	for i := range instances {
 		ids[i] = instances[i].Id()
 	}
@@ -570,7 +570,7 @@ func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) ([]c
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (env *maasEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (env *maasEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -906,8 +906,8 @@ func (env *maasEnviron) startNode2(node maas2Instance, series string, userdata [
 
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (env *maasEnviron) DistributeInstances(
-	ctx context.ProviderCallContext, candidates, distributionGroup []instance.ID, limitZones []string,
-) ([]instance.ID, error) {
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
 	return common.DistributeInstances(env, ctx, candidates, distributionGroup, limitZones)
 }
 
@@ -1169,7 +1169,7 @@ func (env *maasEnviron) tagInstance2(inst *maas2Instance, instanceConfig *instan
 	}
 }
 
-func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.ID, timeout time.Duration) error {
+func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
 	if env.usingMAAS2() {
 		return env.waitForNodeDeployment2(ctx, id, timeout)
 	}
@@ -1199,7 +1199,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 	return errors.Errorf("instance %q is started but not deployed", id)
 }
 
-func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, id instance.ID, timeout time.Duration) error {
+func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
 	// TODO(katco): 2016-08-09: lp:1611427
 	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
@@ -1230,7 +1230,7 @@ func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, 
 	return errors.Errorf("instance %q is started but not deployed", id)
 }
 
-func (env *maasEnviron) deploymentStatusOne(ctx context.ProviderCallContext, id instance.ID) (string, string) {
+func (env *maasEnviron) deploymentStatusOne(ctx context.ProviderCallContext, id instance.Id) (string, string) {
 	results, err := env.deploymentStatus(ctx, id)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -1277,7 +1277,7 @@ func (env *maasEnviron) getDeploymentSubstatus(ctx context.ProviderCallContext, 
 // deploymentStatus returns the deployment state of MAAS instances with
 // the specified Juju instance ids.
 // Note: the result is a map of MAAS systemId to state.
-func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ...instance.ID) (map[string]string, error) {
+func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ...instance.Id) (map[string]string, error) {
 	nodesAPI := env.getMAASClient().GetSubObject("nodes")
 	result, err := DeploymentStatusCall(nodesAPI, ids...)
 	if err != nil {
@@ -1302,7 +1302,7 @@ func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ..
 	return statusValues, nil
 }
 
-func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.ID) (gomaasapi.JSONObject, error) {
+func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
 	filter := getSystemIdValues("nodes", ids)
 	return nodes.CallGet("deployment_status", filter)
 }
@@ -1459,7 +1459,7 @@ func (env *maasEnviron) releaseNodes1(ctx context.ProviderCallContext, nodes gom
 
 }
 
-func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []instance.ID, recurse bool) error {
+func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
 	args := gomaasapi.ReleaseMachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
 		Comment:   "Released by Juju MAAS provider",
@@ -1495,10 +1495,10 @@ func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []ins
 	}
 }
 
-func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext, ids []instance.ID) error {
+func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext, ids []instance.Id) error {
 	var lastErr error
 	for _, id := range ids {
-		err := env.releaseNodes2(ctx, []instance.ID{id}, false)
+		err := env.releaseNodes2(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
@@ -1510,7 +1510,7 @@ func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext
 	return errors.Trace(lastErr)
 }
 
-func instanceIdsToSystemIDs(ids []instance.ID) []string {
+func instanceIdsToSystemIDs(ids []instance.Id) []string {
 	systemIDs := make([]string, len(ids))
 	for index, id := range ids {
 		systemIDs[index] = string(id)
@@ -1519,7 +1519,7 @@ func instanceIdsToSystemIDs(ids []instance.ID) []string {
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil
@@ -1542,9 +1542,9 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 }
 
 // Instances returns the instances.Instance objects corresponding to the given
-// slice of instance.ID.  The error is ErrNoInstances if no instances
+// slice of instance.Id.  The error is ErrNoInstances if no instances
 // were found.
-func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		// This would be treated as "return all instances" below, so
 		// treat it as a special case.
@@ -1552,17 +1552,17 @@ func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 		// if no instances were found.
 		return nil, environs.ErrNoInstances
 	}
-	instances, err := env.acquiredInstances(ctx, ids)
+	acquired, err := env.acquiredInstances(ctx, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(instances) == 0 {
+	if len(acquired) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	idMap := make(map[instance.ID]instances.Instance)
-	for _, instance := range instances {
-		idMap[instance.ID()] = instance
+	idMap := make(map[instance.Id]instances.Instance)
+	for _, instance := range acquired {
+		idMap[instance.Id()] = instance
 	}
 
 	missing := false
@@ -1587,7 +1587,7 @@ func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 // The "ids" slice is a filter for specific instance IDs.
 // Due to how this works in the HTTP API, an empty "ids"
 // matches all instances (not none as you might expect).
-func (env *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (env *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if !env.usingMAAS2() {
 		filter := getSystemIdValues("id", ids)
 		filter.Add("agent_name", env.uuid)
@@ -1792,8 +1792,8 @@ func (env *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nodeId 
 	return subnets, checkNotFound(subnetIdSet)
 }
 
-func (env *maasEnviron) getInstance(ctx context.ProviderCallContext, instId instance.ID) (instances.Instance, error) {
-	instances, err := env.acquiredInstances(ctx, []instance.ID{instId})
+func (env *maasEnviron) getInstance(ctx context.ProviderCallContext, instId instance.Id) (instances.Instance, error) {
+	instances, err := env.acquiredInstances(ctx, []instance.Id{instId})
 	if err != nil {
 		// This path can never trigger on MAAS 2, but MAAS 2 doesn't
 		// return an error for a machine not found, it just returns
@@ -1930,16 +1930,16 @@ func (env *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]network.Spac
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
-func (env *maasEnviron) Subnets(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if env.usingMAAS2() {
 		return env.subnets2(ctx, instId, subnetIds)
 	}
 	return env.subnets1(ctx, instId, subnetIds)
 }
 
-func (env *maasEnviron) subnets1(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) subnets1(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var nodeId string
-	if instId != instance.UnknownID {
+	if instId != instance.UnknownId {
 		inst, err := env.getInstance(ctx, instId)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1953,7 +1953,7 @@ func (env *maasEnviron) subnets1(ctx context.ProviderCallContext, instId instanc
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if instId != instance.UnknownID {
+	if instId != instance.UnknownId {
 		logger.Debugf("instance %q has subnets %v", instId, subnets)
 	} else {
 		logger.Debugf("found subnets %v", subnets)
@@ -1962,9 +1962,9 @@ func (env *maasEnviron) subnets1(ctx context.ProviderCallContext, instId instanc
 	return subnets, nil
 }
 
-func (env *maasEnviron) subnets2(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) subnets2(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	subnets := []network.SubnetInfo{}
-	if instId == instance.UnknownID {
+	if instId == instance.UnknownId {
 		spaces, err := env.Spaces(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2001,7 +2001,7 @@ func (env *maasEnviron) subnets2(ctx context.ProviderCallContext, instId instanc
 	return result, checkNotFound(subnetMap)
 }
 
-func (env *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, instId instance.ID) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, instId instance.Id) ([]network.SubnetInfo, error) {
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(instId)},
@@ -2094,7 +2094,7 @@ func (env *maasEnviron) nodeIdFromInstance(inst instances.Instance) (string, err
 	return nodeId, err
 }
 
-func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	if len(preparedInfo) == 0 {
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
@@ -2105,7 +2105,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallConte
 	return env.allocateContainerAddresses2(ctx, hostInstanceID, containerTag, preparedInfo)
 }
 
-func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	subnetCIDRToVLANID := make(map[string]string)
 	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
 	result, err := subnetsAPI.CallGet("", nil)
@@ -2145,7 +2145,7 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create device for container")
 	}
-	deviceID := instance.ID(containerDevice.ResourceURI)
+	deviceID := instance.Id(containerDevice.ResourceURI)
 	logger.Debugf("created device %q with primary MAC address %q", deviceID, primaryMACAddress)
 
 	interfaces, err := env.deviceInterfaces(deviceID)
@@ -2215,7 +2215,7 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 	return finalInterfaces, nil
 }
 
-func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},
@@ -2354,7 +2354,7 @@ func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controll
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var failed []instance.ID
+	var failed []instance.Id
 	for _, inst := range instances {
 		maas2Instance, ok := inst.(*maas2Instance)
 		if !ok {

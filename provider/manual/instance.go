@@ -15,7 +15,7 @@ type manualBootstrapInstance struct {
 	host string
 }
 
-func (manualBootstrapInstance) Id() instance.ID {
+func (manualBootstrapInstance) Id() instance.Id {
 	return BootstrapInstanceId
 }
 

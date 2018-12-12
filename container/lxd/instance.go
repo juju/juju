@@ -24,9 +24,9 @@ type lxdInstance struct {
 
 var _ instances.Instance = (*lxdInstance)(nil)
 
-// Id implements instances.instance.ID.
-func (lxd *lxdInstance) Id() instance.ID {
-	return instance.ID(lxd.id)
+// Id implements instances.instance.Id.
+func (lxd *lxdInstance) Id() instance.Id {
+	return instance.Id(lxd.id)
 }
 
 func (*lxdInstance) Refresh() error {

@@ -418,7 +418,7 @@ func (fc *fakeCommon) Destroy(env environs.Environ, ctx context.ProviderCallCont
 	return fc.err()
 }
 
-func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.ID) ([]common.AvailabilityZoneInstances, error) {
+func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
 		"switch": env,
 		"group":  group,

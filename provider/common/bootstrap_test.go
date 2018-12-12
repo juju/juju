@@ -379,7 +379,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		startInstance: startInstance,
 		config:        getConfig,
 		setConfig:     setConfig,
-		instances: func(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+		instances: func(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
 			return []instances.Instance{inst}, nil
@@ -466,7 +466,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	env := &mockEnviron{
 		startInstance: startInstance,
 		config:        configGetter(c),
-		instances: func(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+		instances: func(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
 			return []instances.Instance{inst}, nil

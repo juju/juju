@@ -59,13 +59,13 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 // identified by the provider ID. In the Oracle compute cloud the provider
 // IDs of the instances has the following format:
 // /Compute-tenant_domain/tenant_username/instance_hostname/instance_UUID
-func extractInstanceIDFromMachineName(id string) (instance.ID, error) {
-	var instId instance.ID
+func extractInstanceIDFromMachineName(id string) (instance.Id, error) {
+	var instId instance.Id
 	name := strings.Split(id, "/")
 	if len(name) < 4 {
 		return instId, errors.Errorf("invalid instance name: %s", id)
 	}
-	instId = instance.ID(name[3])
+	instId = instance.Id(name[3])
 	return instId, nil
 }
 
@@ -96,16 +96,16 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 }
 
 // Id is defined on the instances.Instance interface.
-func (o *oracleInstance) Id() instance.ID {
+func (o *oracleInstance) Id() instance.Id {
 	if o.machine.Name != "" {
 		name, err := extractInstanceIDFromMachineName(o.machine.Name)
 		if err != nil {
-			return instance.ID(o.machine.Name)
+			return instance.Id(o.machine.Name)
 		}
 		return name
 	}
 
-	return instance.ID(o.name)
+	return instance.Id(o.name)
 }
 
 // Status is defined on the instances.Instance interface.

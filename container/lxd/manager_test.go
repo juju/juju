@@ -167,7 +167,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceId := instance.ID()
+	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostName)
 
 	instanceStatus := instance.Status(context.NewCloudCallContext())

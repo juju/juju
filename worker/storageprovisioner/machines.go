@@ -57,14 +57,14 @@ func refreshMachine(ctx *context, tag names.MachineTag) error {
 		}
 		return errors.Annotate(err, "getting machine instance ID")
 	}
-	machineProvisioned(ctx, tag, instance.ID(results[0].Result))
+	machineProvisioned(ctx, tag, instance.Id(results[0].Result))
 	// machine provisioning is the only thing we care about;
 	// stop the watcher.
 	return stopAndRemove()
 }
 
 // machineProvisioned is called when a watched machine is provisioned.
-func machineProvisioned(ctx *context, tag names.MachineTag, instanceId instance.ID) {
+func machineProvisioned(ctx *context, tag names.MachineTag, instanceId instance.Id) {
 	for _, params := range ctx.incompleteVolumeParams {
 		if params.Attachment.Machine != tag || params.Attachment.InstanceId != "" {
 			continue
@@ -92,7 +92,7 @@ type machineWatcher struct {
 	catacomb   catacomb.Catacomb
 	accessor   MachineAccessor
 	tag        names.MachineTag
-	instanceId instance.ID
+	instanceId instance.Id
 	out        chan<- names.MachineTag
 }
 

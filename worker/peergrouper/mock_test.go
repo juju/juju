@@ -310,7 +310,7 @@ type machineDoc struct {
 	id         string
 	wantsVote  bool
 	hasVote    bool
-	instanceId instance.ID
+	instanceId instance.Id
 	addresses  []network.Address
 	statusInfo status.StatusInfo
 	life       state.Life

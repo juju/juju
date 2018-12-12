@@ -152,7 +152,7 @@ type InstanceBroker interface {
 
 	// StopInstances shuts down the instances with the specified IDs.
 	// Unknown instance IDs are ignored, to enable idempotency.
-	StopInstances(context.ProviderCallContext, ...instance.ID) error
+	StopInstances(context.ProviderCallContext, ...instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
 	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)

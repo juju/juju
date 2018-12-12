@@ -31,8 +31,8 @@ func newInstance(base *mo.VirtualMachine, env *environ) *environInstance {
 }
 
 // Id implements instances.Instance.
-func (inst *environInstance) Id() instance.ID {
-	return instance.ID(inst.base.Name)
+func (inst *environInstance) Id() instance.Id {
+	return instance.Id(inst.base.Name)
 }
 
 // Status implements instances.Instance.

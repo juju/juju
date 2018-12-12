@@ -150,7 +150,7 @@ func findDNSServerConfig() (*network.DNSConfig, error) {
 
 func releaseContainerAddresses(
 	api APICalls,
-	instanceID instance.ID,
+	instanceID instance.Id,
 	namespace instance.Namespace,
 	log loggo.Logger,
 ) {

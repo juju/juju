@@ -196,7 +196,7 @@ func (s *MachineSuite) TestInstanceIdSuccess(c *gc.C) {
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	instId, err := machine.InstanceId()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(instId, gc.Equals, instance.ID("i-foo"))
+	c.Check(instId, gc.Equals, instance.Id("i-foo"))
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 

@@ -27,9 +27,9 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 }
 
 func (s *instanceSuite) TestID(c *gc.C) {
-	id := s.instance.ID()
+	id := s.instance.Id()
 
-	c.Check(id, gc.Equals, instance.ID("spam"))
+	c.Check(id, gc.Equals, instance.Id("spam"))
 	s.CheckNoAPI(c)
 }
 

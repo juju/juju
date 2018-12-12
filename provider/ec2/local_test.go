@@ -531,11 +531,11 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	insts, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	idsToStop := make([]instance.ID, len(insts)+1)
+	idsToStop := make([]instance.Id, len(insts)+1)
 	for i, one := range insts {
 		idsToStop[i] = one.Id()
 	}
-	idsToStop[len(insts)] = instance.ID("i-am-not-found")
+	idsToStop[len(insts)] = instance.Id("i-am-not-found")
 
 	err = env.StopInstances(t.callCtx, idsToStop...)
 	// NotFound should be ignored
@@ -546,7 +546,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
 	msg := "terminate instances error"
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.ID) (*amzec2.TerminateInstancesResp, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
 		return nil, errors.New(msg)
 	})
 
@@ -568,7 +568,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.ID) (*amzec2.TerminateInstancesResp, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
 		// Terminate the one destined for termination and
 		// err out to ensure that one instance will be terminated, the other - not.
 		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
@@ -589,7 +589,7 @@ func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c
 
 	insts, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	ids := make([]instance.ID, len(insts))
+	ids := make([]instance.Id, len(insts))
 	for i, one := range insts {
 		ids[i] = one.Id()
 	}
@@ -675,10 +675,10 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(volumeResults, gc.HasLen, 1)
 	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
 
-	assertInstances := func(expect ...instance.ID) {
+	assertInstances := func(expect ...instance.Id) {
 		insts, err := env.AllInstances(t.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
-		ids := make([]instance.ID, len(insts))
+		ids := make([]instance.Id, len(insts))
 		for i, inst := range insts {
 			ids[i] = inst.Id()
 		}
@@ -962,13 +962,13 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 }
 
 type mockAvailabilityZoneAllocations struct {
-	group  []instance.ID // input param
+	group  []instance.Id // input param
 	result []common.AvailabilityZoneInstances
 	err    error
 }
 
 func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.ID,
+	e common.ZonedEnviron, group []instance.Id,
 ) ([]common.AvailabilityZoneInstances, error) {
 	t.group = group
 	return t.result, t.err
@@ -1585,7 +1585,7 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.ID) {
+func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
@@ -1736,12 +1736,12 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	subnets, err := env.Subnets(t.callCtx, instance.UnknownID, []network.Id{"subnet-0"})
+	subnets, err := env.Subnets(t.callCtx, instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "vpc-0")
 
-	subnets, err = env.Subnets(t.callCtx, instance.UnknownID, nil)
+	subnets, err = env.Subnets(t.callCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 4)
 	validateSubnets(c, subnets, "vpc-0")

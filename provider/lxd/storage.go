@@ -412,7 +412,7 @@ func (s *lxdFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 
 // AttachFilesystems is specified on the storage.FilesystemSource interface.
 func (s *lxdFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
-	var instanceIds []instance.ID
+	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
 		if instanceIdsSeen.Contains(string(arg.InstanceId)) {
@@ -491,7 +491,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 
 // DetachFilesystems is specified on the storage.FilesystemSource interface.
 func (s *lxdFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
-	var instanceIds []instance.ID
+	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
 		if instanceIdsSeen.Contains(string(arg.InstanceId)) {

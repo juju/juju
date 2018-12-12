@@ -88,7 +88,7 @@ func (o *OracleEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]co
 }
 
 // InstanceAvailabilityzoneNames is defined in the common.ZonedEnviron interface
-func (o *OracleEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (o *OracleEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	instances, err := o.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -484,7 +484,7 @@ func (o *OracleEnviron) StartInstance(ctx context.ProviderCallContext, args envi
 }
 
 // StopInstances is part of the InstanceBroker interface.
-func (o *OracleEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (o *OracleEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	oracleInstances, err := o.getOracleInstances(ids...)
 	if err == environs.ErrNoInstances {
 		return nil
@@ -504,14 +504,14 @@ func (o *OracleEnviron) terminateInstances(instances ...*oracleInstance) error {
 	wg := sync.WaitGroup{}
 	wg.Add(len(instances))
 	errs := []error{}
-	instIds := []instance.ID{}
+	instIds := []instance.Id{}
 	for _, oInst := range instances {
 		inst := oInst
 		go func() {
 			defer wg.Done()
 			if err := inst.deleteInstanceAndResources(true); err != nil {
 				if !oci.IsNotFound(err) {
-					instIds = append(instIds, instance.ID(inst.name))
+					instIds = append(instIds, instance.Id(inst.name))
 					errs = append(errs, err)
 				}
 			}
@@ -550,7 +550,7 @@ func (o *OracleEnviron) allControllerManagedInstances(controllerUUID string) ([]
 
 // getOracleInstances attempts to fetch information from the oracle API for the
 // specified IDs.
-func (o *OracleEnviron) getOracleInstances(ids ...instance.ID) ([]*oracleInstance, error) {
+func (o *OracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstance, error) {
 	ret := make([]*oracleInstance, 0, len(ids))
 	resp, err := o.client.AllInstances(nil)
 	if err != nil {
@@ -579,7 +579,7 @@ func (o *OracleEnviron) getOracleInstances(ids ...instance.ID) ([]*oracleInstanc
 	return ret, nil
 }
 
-func (o *OracleEnviron) getOracleInstancesAsMap(ids ...instance.ID) (map[string]*oracleInstance, error) {
+func (o *OracleEnviron) getOracleInstancesAsMap(ids ...instance.Id) (map[string]*oracleInstance, error) {
 	instances, err := o.getOracleInstances(ids...)
 	if err != nil {
 		return map[string]*oracleInstance{}, errors.Trace(err)
@@ -592,15 +592,15 @@ func (o *OracleEnviron) getOracleInstancesAsMap(ids ...instance.ID) (map[string]
 }
 
 // AllInstances is part of the InstanceBroker interface.
-func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]envinstance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
-	instances, err := o.allInstances(tagFilter)
+	all, err := o.allInstances(tagFilter)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]instances.Instance, len(instances))
-	for i, val := range instances {
+	ret := make([]envinstance.Instance, len(all))
+	for i, val := range all {
 		ret[i] = val
 	}
 	return ret, nil
@@ -680,7 +680,7 @@ func (o *OracleEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (o *OracleEnviron) Details(id instance.ID) (ociResponse.Instance, error) {
+func (o *OracleEnviron) Details(id instance.Id) (ociResponse.Instance, error) {
 	inst, err := o.getOracleInstances(id)
 	if err != nil {
 		return ociResponse.Instance{}, err
@@ -690,7 +690,7 @@ func (o *OracleEnviron) Details(id instance.ID) (ociResponse.Instance, error) {
 }
 
 // Instances is part of the environs.Environ interface.
-func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]envinstance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -699,7 +699,7 @@ func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 		return nil, err
 	}
 
-	ret := []instances.Instance{}
+	ret := []envinstance.Instance{}
 	for _, val := range instances {
 		ret = append(ret, val)
 	}
@@ -707,14 +707,14 @@ func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (o *OracleEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (o *OracleEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	filter := tagValue{tags.JujuIsController, "true"}
-	ids := make([]instance.ID, 0, 1)
+	ids := make([]instance.Id, 0, 1)
 	for _, val := range instances {
 		found := false
 		for _, tag := range val.machine.Tags {
@@ -754,7 +754,7 @@ func (o *OracleEnviron) DestroyController(ctx context.ProviderCallContext, contr
 		}
 		return errors.Trace(err)
 	}
-	ids := make([]instance.ID, len(instances))
+	ids := make([]instance.Id, len(instances))
 	for i, val := range instances {
 		ids[i] = val.Id()
 	}

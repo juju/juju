@@ -23,8 +23,8 @@ type sigmaInstance struct {
 var ErrNoDNSName = errors.New("IPv4 address not found")
 
 // Id returns a provider-generated identifier for the Instance.
-func (i sigmaInstance) Id() instance.ID {
-	id := instance.ID(i.server.UUID())
+func (i sigmaInstance) Id() instance.Id {
+	id := instance.Id(i.server.UUID())
 	logger.Tracef("sigmaInstance.Id: %s", id)
 	return id
 }

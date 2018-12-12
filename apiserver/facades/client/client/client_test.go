@@ -409,7 +409,7 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.ID("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start an upgrade.
@@ -449,7 +449,7 @@ func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.ID("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start an upgrade.
@@ -1213,7 +1213,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-			InstanceId:              instance.ID(fmt.Sprintf("1234-%d", i)),
+			InstanceId:              instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:                   "foo",
 			HardwareCharacteristics: hc,
 			Addrs:                   params.FromNetworkAddresses(addrs...),
@@ -1245,7 +1245,7 @@ func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
 	machineInstanceId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
-	c.Assert(machineInstanceId, gc.Equals, instance.ID(instanceId))
+	c.Assert(machineInstanceId, gc.Equals, instance.Id(instanceId))
 	machineHardware, err := machine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineHardware.String(), gc.Equals, hc.String())
@@ -1275,7 +1275,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// apt_upgrade.
 	apiParams := params.AddMachineParams{
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		InstanceId:              instance.ID("1234"),
+		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
@@ -1313,7 +1313,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		InstanceId:              instance.ID("1234"),
+		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}

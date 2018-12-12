@@ -20,6 +20,6 @@ type Distributor interface {
 	// successful. If no instances can be assigned to (e.g. because of
 	// concurrent deployments), then a new machine will be allocated.
 	DistributeInstances(
-		ctx ProviderCallContext, candidates, distributionGroup []instance.ID, limitZones []string,
-	) ([]instance.ID, error)
+		ctx ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+	) ([]instance.Id, error)
 }

@@ -28,7 +28,7 @@ func (s *maas2InstanceSuite) TestString(c *gc.C) {
 func (s *maas2InstanceSuite) TestID(c *gc.C) {
 	machine := &fakeMachine{systemID: "herman"}
 	thing := &maas2Instance{machine: machine}
-	c.Assert(thing.Id(), gc.Equals, instance.ID("herman"))
+	c.Assert(thing.Id(), gc.Equals, instance.Id("herman"))
 }
 
 func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {

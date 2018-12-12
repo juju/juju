@@ -250,7 +250,7 @@ func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.Insta
 	return &inst, &hw, m.NextErr()
 }
 
-func (m *fakeContainerManager) DestroyContainer(id instance.ID) error {
+func (m *fakeContainerManager) DestroyContainer(id instance.Id) error {
 	m.MethodCall(m, "DestroyContainer", id)
 	return m.NextErr()
 }
@@ -282,9 +282,9 @@ type mockInstance struct {
 
 var _ instances.Instance = (*mockInstance)(nil)
 
-// Id implements instances.instance.ID.
-func (m *mockInstance) Id() instance.ID {
-	return instance.ID(m.id)
+// Id implements instances.instance.Id.
+func (m *mockInstance) Id() instance.Id {
+	return instance.Id(m.id)
 }
 
 // Status implements instances.Instance.Status.

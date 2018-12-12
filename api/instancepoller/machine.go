@@ -97,7 +97,7 @@ func (m *Machine) IsManual() (bool, error) {
 }
 
 // InstanceId returns the machine's instance id.
-func (m *Machine) InstanceId() (instance.ID, error) {
+func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
@@ -114,7 +114,7 @@ func (m *Machine) InstanceId() (instance.ID, error) {
 	if result.Error != nil {
 		return "", result.Error
 	}
-	return instance.ID(result.Result), nil
+	return instance.Id(result.Result), nil
 }
 
 // InstanceStatus returns the machine's instance status.

@@ -81,8 +81,8 @@ func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 2)
-	expectedIds := []instance.ID{"juju-06f00d-match1", "juju-06f00d-match2"}
-	ids := []instance.ID{containers[0].Id(), containers[1].Id()}
+	expectedIds := []instance.Id{"juju-06f00d-match1", "juju-06f00d-match2"}
+	ids := []instance.Id{containers[0].Id(), containers[1].Id()}
 	c.Assert(ids, jc.SameContents, expectedIds)
 }
 
@@ -97,7 +97,7 @@ func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 
 func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
-	name := string(instance.ID())
+	name := string(instance.Id())
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
@@ -105,10 +105,10 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
-	err := s.manager.DestroyContainer(instance.ID())
+	err := s.manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	name := string(instance.ID())
+	name := string(instance.Id())
 	// Check that the container dir is no longer in the container dir
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir

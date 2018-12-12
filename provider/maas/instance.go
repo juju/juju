@@ -31,7 +31,7 @@ type maasInstance interface {
 type maas1Instance struct {
 	maasObject   *gomaasapi.MAASObject
 	environ      *maasEnviron
-	statusGetter func(context.ProviderCallContext, instance.ID) (string, string)
+	statusGetter func(context.ProviderCallContext, instance.Id) (string, string)
 }
 
 var _ maasInstance = (*maas1Instance)(nil)
@@ -45,20 +45,20 @@ func (mi *maas1Instance) String() string {
 	return fmt.Sprintf("%s:%s", hostname, mi.Id())
 }
 
-func (mi *maas1Instance) Id() instance.ID {
+func (mi *maas1Instance) Id() instance.Id {
 	return maasObjectId(mi.maasObject)
 }
 
-func maasObjectId(maasObject *gomaasapi.MAASObject) instance.ID {
+func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	// Use the node's 'resource_uri' value.
-	return instance.ID(maasObject.URI().String())
+	return instance.Id(maasObject.URI().String())
 }
 
 func normalizeStatus(statusMsg string) string {
 	return strings.ToLower(strings.TrimSpace(statusMsg))
 }
 
-func convertInstanceStatus(statusMsg, substatus string, id instance.ID) instance.Status {
+func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance.Status {
 	maasInstanceStatus := status.Empty
 	switch normalizeStatus(statusMsg) {
 	case "":

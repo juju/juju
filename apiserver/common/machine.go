@@ -56,7 +56,7 @@ func (st *stateShim) Machine(id string) (Machine, error) {
 
 type Machine interface {
 	Id() string
-	InstanceId() (instance.ID, error)
+	InstanceId() (instance.Id, error)
 	WantsVote() bool
 	HasVote() bool
 	Status() (status.StatusInfo, error)

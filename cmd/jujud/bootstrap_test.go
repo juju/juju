@@ -864,7 +864,7 @@ type mockDummyEnviron struct {
 	environs.Environ
 }
 
-func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	// ensure that callback is used...
 	ctx.InvalidateCredential("considered invalid for the sake of testing")
 	return m.Environ.Instances(ctx, ids)

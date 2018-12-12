@@ -623,7 +623,7 @@ type StubNetworkingEnviron struct {
 
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
-func (se *StubNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.ID, subIds []network.Id) ([]network.SubnetInfo, error) {
+func (se *StubNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
@@ -668,7 +668,7 @@ func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallCon
 	return true, nil
 }
 
-func (se *StubZonedNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.ID, subIds []network.Id) ([]network.SubnetInfo, error) {
+func (se *StubZonedNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err

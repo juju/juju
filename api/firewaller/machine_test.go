@@ -64,7 +64,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 
 	instanceId, err := s.apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, instance.ID("i-manager"))
+	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 }
 
 func (s *machineSuite) TestWatchUnits(c *gc.C) {

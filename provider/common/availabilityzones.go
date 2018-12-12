@@ -34,7 +34,7 @@ type ZonedEnviron interface {
 	// InstanceAvailabilityZoneNames returns the names of the availability
 	// zones for the specified instances. The error returned follows the same
 	// rules as Environ.Instances.
-	InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error)
+	InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error)
 
 	// DeriveAvailabilityZones attempts to derive availability zones from
 	// the specified StartInstanceParams.
@@ -55,7 +55,7 @@ type AvailabilityZoneInstances struct {
 	ZoneName string
 
 	// Instances is a set of instances within the availability zone.
-	Instances []instance.ID
+	Instances []instance.Id
 }
 
 type byPopulationThenName []AvailabilityZoneInstances
@@ -86,14 +86,14 @@ func (b byPopulationThenName) Swap(i, j int) {
 // If the specified group is empty, then it will behave as if the result of
 // AllInstances were provided.
 func AvailabilityZoneAllocations(
-	env ZonedEnviron, ctx context.ProviderCallContext, group []instance.ID,
+	env ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id,
 ) ([]AvailabilityZoneInstances, error) {
 	if len(group) == 0 {
 		instances, err := env.AllInstances(ctx)
 		if err != nil {
 			return nil, err
 		}
-		group = make([]instance.ID, len(instances))
+		group = make([]instance.Id, len(instances))
 		for i, inst := range instances {
 			group[i] = inst.Id()
 		}
@@ -113,7 +113,7 @@ func AvailabilityZoneAllocations(
 	if err != nil {
 		return nil, err
 	}
-	instancesByZoneName := make(map[string][]instance.ID)
+	instancesByZoneName := make(map[string][]instance.Id)
 	for _, zone := range zones {
 		if !zone.Available() {
 			continue
@@ -157,8 +157,8 @@ var internalAvailabilityZoneAllocations = AvailabilityZoneAllocations
 // At that time limitZones could be transformed to a map so that lookups in the
 // filtering below are more efficient.
 func DistributeInstances(
-	env ZonedEnviron, ctx context.ProviderCallContext, candidates, group []instance.ID, limitZones []string,
-) ([]instance.ID, error) {
+	env ZonedEnviron, ctx context.ProviderCallContext, candidates, group []instance.Id, limitZones []string,
+) ([]instance.Id, error) {
 	// Determine availability zone distribution for the group.
 	zoneInstances, err := internalAvailabilityZoneAllocations(env, ctx, group)
 	if err != nil || len(zoneInstances) == 0 {
@@ -194,7 +194,7 @@ func DistributeInstances(
 	}
 	sort.Strings(allEligible)
 
-	eligible := make([]instance.ID, 0, len(candidates))
+	eligible := make([]instance.Id, 0, len(candidates))
 	for _, candidate := range candidates {
 		n := sort.SearchStrings(allEligible, string(candidate))
 		if n >= 0 && n < len(allEligible) {

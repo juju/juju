@@ -332,7 +332,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
 
-	instanceId := instance.ID(manual.ManualInstancePrefix + hostname)
+	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid)
 	machineParams := &params.AddMachineParams{
 		Series:                  series,

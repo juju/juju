@@ -215,48 +215,48 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 var instanceGathering = []struct {
-	ids []instance.ID
+	ids []instance.Id
 	err error
 }{
-	{ids: []instance.ID{"id0"}},
-	{ids: []instance.ID{"id0", "id0"}},
-	{ids: []instance.ID{"id0", "id1"}},
-	{ids: []instance.ID{"id1", "id0"}},
-	{ids: []instance.ID{"id1", "id0", "id1"}},
+	{ids: []instance.Id{"id0"}},
+	{ids: []instance.Id{"id0", "id0"}},
+	{ids: []instance.Id{"id0", "id1"}},
+	{ids: []instance.Id{"id1", "id0"}},
+	{ids: []instance.Id{"id1", "id0", "id1"}},
 	{
-		ids: []instance.ID{""},
+		ids: []instance.Id{""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []instance.ID{"", ""},
+		ids: []instance.Id{"", ""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []instance.ID{"", "", ""},
+		ids: []instance.Id{"", "", ""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []instance.ID{"id0", ""},
+		ids: []instance.Id{"id0", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"", "id1"},
+		ids: []instance.Id{"", "id1"},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"id0", "id1", ""},
+		ids: []instance.Id{"id0", "id1", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"id0", "", "id0"},
+		ids: []instance.Id{"id0", "", "id0"},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"id0", "id0", ""},
+		ids: []instance.Id{"id0", "id0", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []instance.ID{"", "id0", "id1"},
+		ids: []instance.Id{"", "id0", "id1"},
 		err: environs.ErrPartialInstances,
 	},
 }
@@ -286,7 +286,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 
 	for i, test := range instanceGathering {
 		c.Logf("test %d: find %v -> expect len %d, err: %v", i, test.ids, len(test.ids), test.err)
-		ids := make([]instance.ID, len(test.ids))
+		ids := make([]instance.Id, len(test.ids))
 		for j, id := range test.ids {
 			switch id {
 			case "id0":

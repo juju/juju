@@ -130,7 +130,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 
 func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.ID("inst-id"),
+		InstanceId: instance.Id("inst-id"),
 		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
@@ -176,7 +176,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 
 func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.ID("inst-id"),
+		InstanceId: instance.Id("inst-id"),
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
 			Attachment: state.FilesystemAttachmentParams{

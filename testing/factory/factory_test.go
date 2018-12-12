@@ -236,7 +236,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
-	id := instance.ID("some-id")
+	id := instance.Id("some-id")
 	volumes := []state.HostVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
 	filesystems := []state.HostFilesystemParams{{
 		Filesystem: state.FilesystemParams{Pool: "loop", Size: 2048},

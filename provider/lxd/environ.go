@@ -257,7 +257,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 // availability zones for the specified instances.
 // For containers, this means the LXD server node names where they reside.
 func (env *environ) InstanceAvailabilityZoneNames(
-	ctx context.ProviderCallContext, ids []instance.ID,
+	ctx context.ProviderCallContext, ids []instance.Id,
 ) ([]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {

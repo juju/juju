@@ -16,7 +16,7 @@ import (
 // and asks the InstanceDistributor policy (if any) which ones are suitable
 // for assigning the unit to. If there is no InstanceDistributor, or the
 // distribution group is empty, then all of the candidates will be returned.
-func distributeUnit(u *Unit, candidates []instance.ID, limitZones []string) ([]instance.ID, error) {
+func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]instance.Id, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
@@ -46,12 +46,12 @@ func distributeUnit(u *Unit, candidates []instance.ID, limitZones []string) ([]i
 
 // ApplicationInstances returns the instance IDs of provisioned
 // machines that are assigned units of the specified application.
-func ApplicationInstances(st *State, application string) ([]instance.ID, error) {
+func ApplicationInstances(st *State, application string) ([]instance.Id, error) {
 	units, err := allUnits(st, application)
 	if err != nil {
 		return nil, err
 	}
-	instanceIds := make([]instance.ID, 0, len(units))
+	instanceIds := make([]instance.Id, 0, len(units))
 	for _, unit := range units {
 		machineId, err := unit.AssignedMachineId()
 		if errors.IsNotAssigned(err) {

@@ -53,8 +53,8 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *gc.C) {
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.ID{"inst0", "inst1", "inst2"})
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		called++
 		return []string{"az0", "az1", "az2"}, nil
 	})
@@ -65,10 +65,10 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *g
 	// az1 comes first due to lexicographical ordering on the name.
 	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName:  "az1",
-		Instances: []instance.ID{"inst1"},
+		Instances: []instance.Id{"inst1"},
 	}, {
 		ZoneName:  "az2",
-		Instances: []instance.ID{"inst2"},
+		Instances: []instance.Id{"inst2"},
 	}})
 }
 
@@ -84,12 +84,12 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstancesError
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *gc.C) {
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.ID{"nichts", "inst1", "null", "inst2"})
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+		c.Assert(ids, gc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
 		called++
 		return []string{"", "az1", "", "az1"}, environs.ErrPartialInstances
 	})
-	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, []instance.ID{"nichts", "inst1", "null", "inst2"})
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, []instance.Id{"nichts", "inst1", "null", "inst2"})
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	// az2 has fewer instances, so comes first.
@@ -97,14 +97,14 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 		ZoneName: "az2",
 	}, {
 		ZoneName:  "az1",
-		Instances: []instance.ID{"inst1", "inst2"},
+		Instances: []instance.Id{"inst1", "inst2"},
 	}})
 }
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
 	returnErr := fmt.Errorf("whatever")
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 		called++
 		return nil, returnErr
 	})
@@ -116,7 +116,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *gc.C) {
 	var called int
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 		called++
 		return nil, environs.ErrNoInstances
 	})
@@ -128,8 +128,8 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) {
 	var calls []string
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.ID{"inst0", "inst1", "inst2"})
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return []string{"", "", ""}, nil
 	})
@@ -145,8 +145,8 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 	var calls []string
-	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.ID{"inst0", "inst1", "inst2"})
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return []string{"", "", ""}, nil
 	})
@@ -188,9 +188,9 @@ func (s *AvailabilityZoneSuite) TestValidateAvailabilityZone(c *gc.C) {
 }
 
 func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {
-	expectedGroup := []instance.ID{"0", "1", "2"}
+	expectedGroup := []instance.Id{"0", "1", "2"}
 	var called bool
-	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.ID) ([]common.AvailabilityZoneInstances, error) {
+	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		c.Assert(group, gc.DeepEquals, expectedGroup)
 		called = true
 		return nil, nil
@@ -202,7 +202,7 @@ func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {
 
 func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *gc.C) {
 	resultErr := fmt.Errorf("whatever")
-	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.ID) ([]common.AvailabilityZoneInstances, error) {
+	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		return nil, resultErr
 	})
 	_, err := common.DistributeInstances(&s.env, s.callCtx, nil, nil, nil)
@@ -211,90 +211,90 @@ func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *gc.C) {
 
 func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
 	var zoneInstances []common.AvailabilityZoneInstances
-	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.ID) ([]common.AvailabilityZoneInstances, error) {
+	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		return zoneInstances, nil
 	})
 
 	type distributeInstancesTest struct {
 		zoneInstances []common.AvailabilityZoneInstances
-		candidates    []instance.ID
+		candidates    []instance.Id
 		limitZones    []string
-		eligible      []instance.ID
+		eligible      []instance.Id
 	}
 
 	defaultZoneInstances := []common.AvailabilityZoneInstances{{
 		ZoneName:  "az0",
-		Instances: []instance.ID{"i0"},
+		Instances: []instance.Id{"i0"},
 	}, {
 		ZoneName:  "az1",
-		Instances: []instance.ID{"i1"},
+		Instances: []instance.Id{"i1"},
 	}, {
 		ZoneName:  "az2",
-		Instances: []instance.ID{"i2"},
+		Instances: []instance.Id{"i2"},
 	}}
 
 	tests := []distributeInstancesTest{{
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{"i2", "i3", "i4"},
-		eligible:      []instance.ID{"i2"},
+		candidates:    []instance.Id{"i2", "i3", "i4"},
+		eligible:      []instance.Id{"i2"},
 	}, {
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{"i0", "i1", "i2"},
-		eligible:      []instance.ID{"i0", "i1", "i2"},
+		candidates:    []instance.Id{"i0", "i1", "i2"},
+		eligible:      []instance.Id{"i0", "i1", "i2"},
 	}, {
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{"i3", "i4", "i5"},
-		eligible:      []instance.ID{},
+		candidates:    []instance.Id{"i3", "i4", "i5"},
+		eligible:      []instance.Id{},
 	}, {
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{},
-		eligible:      []instance.ID{},
+		candidates:    []instance.Id{},
+		eligible:      []instance.Id{},
 	}, {
 		zoneInstances: []common.AvailabilityZoneInstances{},
-		candidates:    []instance.ID{"i0"},
-		eligible:      []instance.ID{},
+		candidates:    []instance.Id{"i0"},
+		eligible:      []instance.Id{},
 	}, {
 		// Limit to all zones; essentially the same as no limit.
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{"i0", "i1", "i2"},
+		candidates:    []instance.Id{"i0", "i1", "i2"},
 		limitZones:    []string{"az0", "az1", "az2"},
-		eligible:      []instance.ID{"i0", "i1", "i2"},
+		eligible:      []instance.Id{"i0", "i1", "i2"},
 	}, {
 		// Simple limit to a subset of zones.
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{"i0", "i1", "i2"},
+		candidates:    []instance.Id{"i0", "i1", "i2"},
 		limitZones:    []string{"az0", "az1"},
-		eligible:      []instance.ID{"i0", "i1"},
+		eligible:      []instance.Id{"i0", "i1"},
 	}, {
 		// Intersecting zone limit with equal distribution.
 		zoneInstances: defaultZoneInstances,
-		candidates:    []instance.ID{"i0", "i1"},
+		candidates:    []instance.Id{"i0", "i1"},
 		limitZones:    []string{"az1", "az2", "az4"},
-		eligible:      []instance.ID{"i0", "i1"},
+		eligible:      []instance.Id{"i0", "i1"},
 	}, {
 		// Intersecting zone limit with unequal distribution.
 		zoneInstances: []common.AvailabilityZoneInstances{{
 			ZoneName:  "az0",
-			Instances: []instance.ID{"i0"},
+			Instances: []instance.Id{"i0"},
 		}, {
 			ZoneName:  "az1",
-			Instances: []instance.ID{"i1", "i2"},
+			Instances: []instance.Id{"i1", "i2"},
 		}},
-		candidates: []instance.ID{"i0", "i1", "i2"},
+		candidates: []instance.Id{"i0", "i1", "i2"},
 		limitZones: []string{"az0", "az1", "az666"},
-		eligible:   []instance.ID{"i0"},
+		eligible:   []instance.Id{"i0"},
 	}, {
 		// Limit filters out all zones - no eligible instances.
 		zoneInstances: []common.AvailabilityZoneInstances{{
 			ZoneName:  "az0",
-			Instances: []instance.ID{"i0"},
+			Instances: []instance.Id{"i0"},
 		}, {
 			ZoneName:  "az1",
-			Instances: []instance.ID{"i1"},
+			Instances: []instance.Id{"i1"},
 		}},
-		candidates: []instance.ID{"i0", "i1"},
+		candidates: []instance.Id{"i0", "i1"},
 		limitZones: []string{"az2", "az3"},
-		eligible:   []instance.ID{},
+		eligible:   []instance.Id{},
 	}}
 
 	for i, test := range tests {

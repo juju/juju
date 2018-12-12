@@ -121,7 +121,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
-	insts, err := t.Env.Instances(t.callCtx, []instance.ID{inst.Id()})
+	insts, err := t.Env.Instances(t.callCtx, []instance.Id{inst.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(insts), gc.Equals, 1)
 
@@ -158,7 +158,7 @@ func (t *LiveTests) TestControllerInstances(c *gc.C) {
 
 	insts, err := t.Env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.DeepEquals, []instance.ID{bootstrapInstId})
+	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
@@ -258,7 +258,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		inst := r.Instances[0]
 		msg := gc.Commentf("instance %#v", inst)
 		c.Assert(hasSecurityGroup(inst, groups[0]), gc.Equals, true, msg)
-		switch instance.ID(inst.InstanceId) {
+		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
 			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, true, msg)
 			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, false, msg)
@@ -271,8 +271,8 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	}
 
 	// Check that listing those instances finds them using the groups
-	instIds := []instance.ID{inst0.Id(), inst1.Id()}
-	idsFromInsts := func(insts []instances.Instance) (ids []instance.ID) {
+	instIds := []instance.Id{inst0.Id(), inst1.Id()}
+	idsFromInsts := func(insts []instances.Instance) (ids []instance.Id) {
 		for _, inst := range insts {
 			ids = append(ids, inst.Id())
 		}
@@ -388,7 +388,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// if it succeeds.
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances(t.callCtx, []instance.ID{inst0.Id(), inst2.Id()})
+		insts, err = t.Env.Instances(t.callCtx, []instance.Id{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			continue

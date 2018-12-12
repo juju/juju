@@ -50,7 +50,7 @@ func (st *State) ReloadSpaces(environ environs.Environ) error {
 		return errors.Trace(st.SaveSpacesFromProvider(spaces))
 	} else {
 		logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
-		subnets, err := netEnviron.Subnets(ctx, instance.UnknownID, nil)
+		subnets, err := netEnviron.Subnets(ctx, instance.UnknownId, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -213,7 +213,7 @@ func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]insta
 	return instances, nil
 }
 
-func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
+func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -230,7 +230,7 @@ func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []insta
 
 	for i, id := range ids {
 		for _, instance := range allInstances {
-			if instance.ID() == id {
+			if instance.Id() == id {
 				instances[i] = instance
 				found++
 			}
@@ -248,7 +248,7 @@ func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []insta
 	return instances, nil
 }
 
-func (env *joyentEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (env *joyentEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// Remove all the instances in parallel so that we incur less round-trips.
 	var wg sync.WaitGroup
 	//var err error

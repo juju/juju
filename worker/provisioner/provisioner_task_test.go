@@ -172,7 +172,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	s.machineGetter.CheckCallNames(c, "Machines")
 	s.instanceBroker.CheckCalls(c, []testing.StubCall{
 		{"AllInstances", []interface{}{s.callCtx}},
-		{"StopInstances", []interface{}{s.callCtx, []instance.ID{"zero"}}},
+		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
 	})
 	c.Assert(m0.markForRemoval, jc.IsTrue)
 	c.Assert(m1.markForRemoval, jc.IsTrue)
@@ -338,7 +338,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 // setUpZonedEnviron creates a mock environ with instances based on those set
 // on the test suite, and 3 availability zones.
 func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks.MockZonedEnviron {
-	instanceIds := make([]instance.ID, len(s.instances))
+	instanceIds := make([]instance.Id, len(s.instances))
 	for i, inst := range s.instances {
 		instanceIds[i] = inst.Id()
 	}
@@ -487,7 +487,7 @@ func (t *testInstanceBroker) StartInstance(ctx context.ProviderCallContext, args
 	return nil, t.NextErr()
 }
 
-func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
+func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	t.AddCall("StopInstances", ctx, ids)
 	t.callsChan <- "StopInstances"
 	return t.NextErr()
@@ -510,8 +510,8 @@ type testInstance struct {
 	id string
 }
 
-func (i *testInstance) Id() instance.ID {
-	return instance.ID(i.id)
+func (i *testInstance) Id() instance.Id {
+	return instance.Id(i.id)
 }
 
 type testMachine struct {
@@ -542,8 +542,8 @@ func (m *testMachine) Life() params.Life {
 	return m.life
 }
 
-func (m *testMachine) InstanceId() (instance.ID, error) {
-	return m.instance.ID(), nil
+func (m *testMachine) InstanceId() (instance.Id, error) {
+	return m.instance.Id(), nil
 }
 
 func (m *testMachine) KeepInstance() (bool, error) {
@@ -589,7 +589,7 @@ func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
 }
 
 func (m *testMachine) SetInstanceInfo(
-	id instance.ID, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {

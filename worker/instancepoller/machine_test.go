@@ -112,7 +112,7 @@ func (s *machineSuite) testShortPoll(
 
 func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	polled := make(chan struct{}, 1)
-	getInstanceInfo := func(id instance.ID) (instanceInfo, error) {
+	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		select {
 		case polled <- struct{}{}:
 		default:
@@ -125,7 +125,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	}
 	m := &testMachine{
 		tag:        names.NewMachineTag("99"),
-		instanceId: instance.ID(""),
+		instanceId: instance.Id(""),
 		refresh:    func() error { return nil },
 		addresses:  testAddrs,
 		life:       params.Alive,
@@ -202,7 +202,7 @@ func testRunMachine(
 	clock clock.Clock,
 	test func(),
 ) {
-	getInstanceInfo := func(id instance.ID) (instanceInfo, error) {
+	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(string(id), gc.Equals, instId)
 		if addrs == nil {
 			return instanceInfo{}, fmt.Errorf("no instance addresses available")
@@ -215,7 +215,7 @@ func testRunMachine(
 	}
 	m := &testMachine{
 		tag:        names.NewMachineTag("99"),
-		instanceId: instance.ID(instId),
+		instanceId: instance.Id(instId),
 		refresh:    func() error { return nil },
 		addresses:  addrs,
 		life:       params.Alive,
@@ -349,10 +349,10 @@ func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machin
 }
 
 func instanceInfoGetter(
-	c *gc.C, expectId instance.ID, addrs []network.Address,
-	instanceStatus string, err error) func(id instance.ID) (instanceInfo, error) {
+	c *gc.C, expectId instance.Id, addrs []network.Address,
+	instanceStatus string, err error) func(id instance.Id) (instanceInfo, error) {
 
-	return func(id instance.ID) (instanceInfo, error) {
+	return func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, expectId)
 		return instanceInfo{addrs, instance.Status{Status: status.Unknown, Message: instanceStatus}}, err
 	}
@@ -360,7 +360,7 @@ func instanceInfoGetter(
 
 type testMachineContext struct {
 	killErr         error
-	getInstanceInfo func(instance.ID) (instanceInfo, error)
+	getInstanceInfo func(instance.Id) (instanceInfo, error)
 	dyingc          chan struct{}
 }
 
@@ -371,7 +371,7 @@ func (context *testMachineContext) kill(err error) {
 	context.killErr = err
 }
 
-func (context *testMachineContext) instanceInfo(id instance.ID) (instanceInfo, error) {
+func (context *testMachineContext) instanceInfo(id instance.Id) (instanceInfo, error) {
 	return context.getInstanceInfo(id)
 }
 
@@ -384,7 +384,7 @@ func (context *testMachineContext) errDying() error {
 }
 
 type testMachine struct {
-	instanceId      instance.ID
+	instanceId      instance.Id
 	instanceIdErr   error
 	tag             names.MachineTag
 	instStatus      status.Status
@@ -414,7 +414,7 @@ func (m *testMachine) ProviderAddresses() ([]network.Address, error) {
 	return m.addresses, nil
 }
 
-func (m *testMachine) InstanceId() (instance.ID, error) {
+func (m *testMachine) InstanceId() (instance.Id, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.instanceId == "" {
@@ -427,7 +427,7 @@ func (m *testMachine) InstanceId() (instance.ID, error) {
 	return m.instanceId, m.instanceIdErr
 }
 
-func (m *testMachine) setInstanceId(id instance.ID) {
+func (m *testMachine) setInstanceId(id instance.Id) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.instanceId = id

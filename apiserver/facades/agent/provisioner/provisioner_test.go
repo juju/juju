@@ -975,7 +975,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned := func(id string) {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(instance.ID("machine-"+id+"-inst"), "nonce", nil)
+		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1022,11 +1022,11 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
 		Results: []params.DistributionGroupResult{
-			{Result: []instance.ID{"machine-2-inst", "machine-3-inst"}},
-			{Result: []instance.ID{}},
-			{Result: []instance.ID{"machine-2-inst"}},
-			{Result: []instance.ID{"machine-3-inst"}},
-			{Result: []instance.ID{"machine-5-inst", "machine-7-inst"}},
+			{Result: []instance.Id{"machine-2-inst", "machine-3-inst"}},
+			{Result: []instance.Id{}},
+			{Result: []instance.Id{"machine-2-inst"}},
+			{Result: []instance.Id{"machine-3-inst"}},
+			{Result: []instance.Id{"machine-5-inst", "machine-7-inst"}},
 		},
 	})
 }
@@ -1044,7 +1044,7 @@ func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
 		Results: []params.DistributionGroupResult{
 			// controller may access any top-level machines.
-			{Result: []instance.ID{}},
+			{Result: []instance.Id{}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			// only a machine agent for the container or its
 			// parent may access it.
@@ -1075,7 +1075,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
 		Results: []params.DistributionGroupResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: []instance.ID{}},
+			{Result: []instance.Id{}},
 			{Error: apiservertesting.ErrUnauthorized},
 			// only a machine agent for the container or its
 			// parent may access it.
@@ -1101,7 +1101,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned := func(id string) {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(instance.ID("machine-"+id+"-inst"), "nonce", nil)
+		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1319,10 +1319,10 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	instanceId, err := s.machines[1].InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.ID("i-will"))
+	c.Check(instanceId, gc.Equals, instance.Id("i-will"))
 	instanceId, err = s.machines[2].InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.ID("i-am-too"))
+	c.Check(instanceId, gc.Equals, instance.Id("i-am-too"))
 	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
 	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
 	gotHardware, err := s.machines[1].HardwareCharacteristics()
@@ -1842,7 +1842,7 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	emptySpace := ""
 
 	cExp := s.container.EXPECT()
-	cExp.InstanceId().Return(instance.UnknownID, errors.NotProvisionedf("idk-lol"))
+	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
 	cExp.DesiredSpaces().Return(set.NewStrings(emptySpace), nil)
 	cExp.Id().Return("lxd/0").AnyTimes()
 	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
@@ -1854,7 +1854,7 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 		map[string][]containerizer.LinkLayerDevice{emptySpace: {s.device}}, nil)
 	// Crucial behavioural trait. Set false to test failure.
 	hExp.IsManual().Return(true, nil)
-	hExp.InstanceId().Return(instance.ID("manual:10.0.0.66"), nil)
+	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
 
 }
 
@@ -1900,7 +1900,7 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	exp := s.container.EXPECT()
-	exp.InstanceId().Return(instance.ID("juju-8ebd6c-0"), nil)
+	exp.InstanceId().Return(instance.Id("juju-8ebd6c-0"), nil)
 	exp.Id().Return("0/lxd/0")
 
 	res := params.MachineNetworkConfigResults{

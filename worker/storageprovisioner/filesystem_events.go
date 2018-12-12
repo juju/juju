@@ -504,7 +504,7 @@ func filesystemAttachmentParamsFromParams(in params.FilesystemAttachmentParams) 
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
 			Machine:    hostTag,
-			InstanceId: instance.ID(in.InstanceId),
+			InstanceId: instance.Id(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
 		Filesystem:   filesystemTag,

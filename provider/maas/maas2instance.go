@@ -51,8 +51,8 @@ func (mi *maas2Instance) String() string {
 	return fmt.Sprintf("%s:%s", mi.machine.Hostname(), mi.machine.SystemID())
 }
 
-func (mi *maas2Instance) Id() instance.ID {
-	return instance.ID(mi.machine.SystemID())
+func (mi *maas2Instance) Id() instance.Id {
+	return instance.Id(mi.machine.SystemID())
 }
 
 func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {

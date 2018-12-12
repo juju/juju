@@ -67,9 +67,9 @@ func (mr *MockMachineProvisionerMockRecorder) CharmProfileChangeInfo() *gomock.C
 }
 
 // DistributionGroup mocks base method
-func (m *MockMachineProvisioner) DistributionGroup() ([]instance.ID, error) {
+func (m *MockMachineProvisioner) DistributionGroup() ([]instance.Id, error) {
 	ret := m.ctrl.Call(m, "DistributionGroup")
-	ret0, _ := ret[0].([]instance.ID)
+	ret0, _ := ret[0].([]instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -104,9 +104,9 @@ func (mr *MockMachineProvisionerMockRecorder) Id() *gomock.Call {
 }
 
 // InstanceId mocks base method
-func (m *MockMachineProvisioner) InstanceId() (instance.ID, error) {
+func (m *MockMachineProvisioner) InstanceId() (instance.Id, error) {
 	ret := m.ctrl.Call(m, "InstanceId")
-	ret0, _ := ret[0].(instance.ID)
+	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -254,7 +254,7 @@ func (mr *MockMachineProvisionerMockRecorder) SetCharmProfiles(arg0 interface{})
 }
 
 // SetInstanceInfo mocks base method
-func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.ID, arg1 string, arg2 *instance.HardwareCharacteristics, arg3 []params.NetworkConfig, arg4 []params.Volume, arg5 map[string]params.VolumeAttachmentInfo, arg6 []string) error {
+func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.Id, arg1 string, arg2 *instance.HardwareCharacteristics, arg3 []params.NetworkConfig, arg4 []params.Volume, arg5 map[string]params.VolumeAttachmentInfo, arg6 []string) error {
 	ret := m.ctrl.Call(m, "SetInstanceInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0

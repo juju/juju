@@ -28,11 +28,11 @@ type fakeInstanceIdGetter struct {
 	fetchError
 }
 
-func (f *fakeInstanceIdGetter) InstanceId() (instance.ID, error) {
+func (f *fakeInstanceIdGetter) InstanceId() (instance.Id, error) {
 	if f.err != "" {
 		return "", fmt.Errorf(f.err)
 	}
-	return instance.ID(f.instanceId), nil
+	return instance.Id(f.instanceId), nil
 }
 
 func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {

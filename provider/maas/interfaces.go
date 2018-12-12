@@ -86,7 +86,7 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	inst, err := env.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)

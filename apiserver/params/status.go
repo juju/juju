@@ -86,7 +86,7 @@ type MachineStatus struct {
 
 	// InstanceId holds the unique identifier for this machine, based on
 	// what is supplied by the provider.
-	InstanceId instance.ID `json:"instance-id"`
+	InstanceId instance.Id `json:"instance-id"`
 
 	// Series holds the name of the operating system release installed on
 	// this machine.

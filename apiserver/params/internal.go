@@ -388,7 +388,7 @@ type LifeResults struct {
 // network config.
 type InstanceInfo struct {
 	Tag             string                            `json:"tag"`
-	InstanceId      instance.ID                       `json:"instance-id"`
+	InstanceId      instance.Id                       `json:"instance-id"`
 	Nonce           string                            `json:"nonce"`
 	Characteristics *instance.HardwareCharacteristics `json:"characteristics"`
 	Volumes         []Volume                          `json:"volumes"`

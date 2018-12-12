@@ -497,7 +497,7 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	doc := &instanceData{
 		DocID:      mdoc.DocID,
 		MachineId:  mdoc.Id,
-		InstanceId: instance.ID(inst.InstanceId()),
+		InstanceId: instance.Id(inst.InstanceId()),
 		ModelUUID:  mdoc.ModelUUID,
 	}
 

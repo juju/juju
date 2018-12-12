@@ -55,7 +55,7 @@ func (mr *MockTestLXDManagerMockRecorder) CreateContainer(arg0, arg1, arg2, arg3
 }
 
 // DestroyContainer mocks base method
-func (m *MockTestLXDManager) DestroyContainer(arg0 instance.ID) error {
+func (m *MockTestLXDManager) DestroyContainer(arg0 instance.Id) error {
 	ret := m.ctrl.Call(m, "DestroyContainer", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

@@ -20,8 +20,8 @@ type joyentInstance struct {
 
 var _ instances.Instance = (*joyentInstance)(nil)
 
-func (inst *joyentInstance) Id() instance.ID {
-	return instance.ID(inst.machine.Id)
+func (inst *joyentInstance) Id() instance.Id {
+	return instance.Id(inst.machine.Id)
 }
 
 func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.Status {

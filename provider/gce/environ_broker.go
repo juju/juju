@@ -290,7 +290,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.ID) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

@@ -95,7 +95,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 }
 
 // ControllerInstances is part of the Environ interface.
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	return e.client.getControllerIds()
 }
 

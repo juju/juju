@@ -152,7 +152,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine for the dummy bootstrap instance,
 	// so the provisioner doesn't destroy it.
-	insts, err := s.Environ.Instances(s.callCtx, []instance.ID{dummy.BootstrapInstanceId})
+	insts, err := s.Environ.Instances(s.callCtx, []instance.Id{dummy.BootstrapInstanceId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs, err := insts[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,11 +357,11 @@ func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 	s.BackingState.StartSync()
 	instanceIdsToStop := set.NewStrings()
 	for _, instance := range instancesToStop {
-		instanceIdsToStop.Add(string(instance.ID()))
+		instanceIdsToStop.Add(string(instance.Id()))
 	}
 	instanceIdsToKeep := set.NewStrings()
 	for _, instance := range instancesToKeep {
-		instanceIdsToKeep.Add(string(instance.ID()))
+		instanceIdsToKeep.Add(string(instance.Id()))
 	}
 	// Continue checking for stop instance calls until all the instances we
 	// are waiting on to finish, actually finish, or we time out.
@@ -435,7 +435,7 @@ func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *state.Machine) {
 
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
-func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expect instance.ID) {
+func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expect instance.Id) {
 	s.waitHardwareCharacteristics(c, m, func() bool {
 		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, gc.Equals, expect)
@@ -868,8 +868,8 @@ func (m *MockMachine) Life() params.Life {
 	return m.life
 }
 
-func (m *MockMachine) InstanceId() (instance.ID, error) {
-	return instance.ID(m.id), m.idErr
+func (m *MockMachine) InstanceId() (instance.Id, error) {
+	return instance.Id(m.id), m.idErr
 }
 
 func (m *MockMachine) EnsureDead() error {
@@ -1927,7 +1927,7 @@ func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) ([]provi
 	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones(ctx)
 }
 
-func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
+func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ctx, ids)
 }
 

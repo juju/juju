@@ -238,7 +238,7 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 
 	n.setupNetworkInterfacesExpectations(vnicID, vcnID)
 
-	info, err := n.env.NetworkInterfaces(nil, instance.ID(n.testInstanceID))
+	info, err := n.env.NetworkInterfaces(nil, instance.Id(n.testInstanceID))
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Address, gc.Equals, network.NewScopedAddress("1.1.1.1", network.ScopeCloudLocal))
@@ -260,7 +260,7 @@ func (n *networkingSuite) TestSubnets(c *gc.C) {
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
-	info, err := n.env.Subnets(nil, instance.UnknownID, lookFor)
+	info, err := n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
@@ -268,7 +268,7 @@ func (n *networkingSuite) TestSubnets(c *gc.C) {
 	lookFor = []network.Id{
 		network.Id("IDontExist"),
 	}
-	_, err = n.env.Subnets(nil, instance.UnknownID, lookFor)
+	_, err = n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }
 
@@ -281,7 +281,7 @@ func (n *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
-	info, err := n.env.Subnets(nil, instance.ID(n.testInstanceID), lookFor)
+	info, err := n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
@@ -289,6 +289,6 @@ func (n *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
 	lookFor = []network.Id{
 		network.Id("notHere"),
 	}
-	_, err = n.env.Subnets(nil, instance.ID(n.testInstanceID), lookFor)
+	_, err = n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*notHere.*")
 }

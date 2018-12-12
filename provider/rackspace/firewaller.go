@@ -66,7 +66,7 @@ func (c *rackspaceFirewaller) UpdateGroupController(ctx context.ProviderCallCont
 }
 
 // GetSecurityGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error) {
+func (c *rackspaceFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
 	return nil, nil
 }
 
