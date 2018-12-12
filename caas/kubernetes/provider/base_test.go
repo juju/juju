@@ -52,6 +52,7 @@ type BaseSuite struct {
 	mockStorage                *mocks.MockStorageV1Interface
 	mockStorageClass           *mocks.MockStorageClassInterface
 	mockIngressInterface       *mocks.MockIngressInterface
+	mockNodes                  *mocks.MockNodeInterface
 
 	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
@@ -110,6 +111,9 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 
 	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
 	mockCoreV1.EXPECT().Secrets(testNamespace).AnyTimes().Return(s.mockSecrets)
+
+	s.mockNodes = mocks.NewMockNodeInterface(ctrl)
+	mockCoreV1.EXPECT().Nodes().AnyTimes().Return(s.mockNodes)
 
 	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)

@@ -87,18 +87,17 @@ type AddCAASCommand struct {
 	// clusterName is the name of the cluster (k8s) or credential to import
 	clusterName string
 
-	// region is the cloud region that the nodes of cluster (k8s) are running in.
-	// The format is <cloudName/region>
+	// cloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
+	// The format is <cloudType/region>
 	cloudRegion string
-
-	// cloudName is name of the cloud.
-	cloudName string
 
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
-	cloudAPIFunc          func() (AddCloudAPI, error)
+	addCloudAPIFunc       func() (AddCloudAPI, error)
 	modelConfigAPIFunc    func() (ModelConfigAPI, error)
 	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
+
+	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error)
 }
 
 // NewAddCAASCommand returns a command to add caas information.
@@ -110,7 +109,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
-	cmd.cloudAPIFunc = func() (AddCloudAPI, error) {
+	cmd.addCloudAPIFunc = func() (AddCloudAPI, error) {
 		root, err := cmd.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -125,6 +124,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		}
 		return modelconfig.NewClient(api), nil
 	}
+	cmd.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
 	return modelcmd.WrapController(cmd)
 }
 
@@ -142,7 +142,6 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
-	// f.Var(regionFlag{region: &c.region, cloudName: &c.cloudName}, "region", "kubernetes cluster cloud region")
 	f.StringVar(&c.cloudRegion, "region", "", "kubernetes cluster cloud region")
 }
 
@@ -252,7 +251,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	cloudClient, err := c.cloudAPIFunc()
+	cloudClient, err := c.addCloudAPIFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -276,7 +275,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 func parseCloudRegion(cloudRegion string) (string, string, error) {
 	fields := strings.SplitN(cloudRegion, "/", 2)
 	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
-		return "", "", errors.NotValidf("expected <cloud>/<region>")
+		return "", "", errors.NotValidf("expected <cloudType>/<region>")
 	}
 	return fields[0], fields[1], nil
 }
@@ -284,17 +283,17 @@ func parseCloudRegion(cloudRegion string) (string, string, error) {
 func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "validating cloud region %q", cloudRegion)
 
-	cloudName, region, err := parseCloudRegion(cloudRegion)
+	cloudType, region, err := parseCloudRegion(cloudRegion)
 	if err != nil {
 		return errors.Annotate(err, "parsing cloud region")
 	}
 
-	clouds, err := jujucmdcloud.ListAllCloudDetails()
+	clouds, err := c.getAllCloudDetails()
 	if err != nil {
 		return errors.Annotate(err, "listing juju cloud regions")
 	}
 	for _, v := range clouds {
-		if v.CloudType == cloudName {
+		if v.CloudType == cloudType {
 			for k := range v.RegionsMap {
 				if k == region {
 					logger.Debugf("cloud region %q is valid", cloudRegion)

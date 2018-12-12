@@ -17,10 +17,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
+	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -28,6 +30,7 @@ type addCAASSuite struct {
 	jujutesting.IsolationSuite
 	dir                 string
 	fakeCloudAPI        *fakeAddCloudAPI
+	fakeModelConfigAPI  *fakeModelConfigAPI
 	store               *fakeCloudMetadataStore
 	fileCredentialStore *fakeCredentialStore
 	fakeK8SConfigFunc   clientconfig.ClientConfigFunc
@@ -105,6 +108,19 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credentia
 	return nil
 }
 
+type fakeModelConfigAPI struct {
+	caas.ModelConfigAPI
+	jujutesting.Stub
+}
+
+func (api *fakeModelConfigAPI) Close() error {
+	return nil
+}
+
+func (api *fakeModelConfigAPI) ModelGet() (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
 func fakeNewK8sClientConfig(io.Reader) (*clientconfig.ClientConfig, error) {
 	return &clientconfig.ClientConfig{
 		Contexts: map[string]clientconfig.Context{
@@ -170,6 +186,7 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
+	s.fakeModelConfigAPI = &fakeModelConfigAPI{}
 	var logger loggo.Logger
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
@@ -208,11 +225,14 @@ func NewMockClientStore() *jujuclient.MemStore {
 }
 
 func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool, shouldFakeNewK8sClientConfig bool) cmd.Command {
-	addcmd := caas.NewAddCAASCommandForTest(s.store,
+	return caas.NewAddCAASCommandForTest(s.store,
 		&fakeCredentialStore{},
 		NewMockClientStore(),
 		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
+		},
+		func() (caas.ModelConfigAPI, error) {
+			return s.fakeModelConfigAPI, nil
 		},
 		func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			if !cloudTypeExists {
@@ -228,8 +248,23 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 				return fakeNewK8sClientConfig, nil
 			}
 		},
+		func() (map[string]*jujucmdcloud.CloudDetails, error) {
+			return map[string]*jujucmdcloud.CloudDetails{
+				"ec2": &jujucmdcloud.CloudDetails{
+					Source:           "public",
+					CloudType:        "gce",
+					CloudDescription: "Google Cloud Platform",
+					AuthTypes:        []string{"jsonfile", "oauth2"},
+					Regions: yaml.MapSlice{
+						{Key: "us-east1", Value: map[string]string{"Name": "us-east1", "Endpoint": "https://www.googleapis.com"}},
+					},
+					RegionsMap: map[string]jujucmdcloud.RegionDetails{
+						"us-east1": {Name: "us-east1", Endpoint: "https://www.googleapis.com"},
+					},
+				},
+			}, nil
+		},
 	)
-	return addcmd
 }
 
 func (s *addCAASSuite) runCommand(c *gc.C, stdin io.Reader, com cmd.Command, args ...string) (*cmd.Context, error) {

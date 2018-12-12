@@ -50,3 +50,7 @@ func StorageProvisioner(cfg *storageConfig) string {
 func StorageParameters(cfg *storageConfig) map[string]string {
 	return cfg.parameters
 }
+
+func GetCloudProviderFromNodeMeta(node core.Node) string {
+	return getCloudProviderFromNodeMeta(node)
+}

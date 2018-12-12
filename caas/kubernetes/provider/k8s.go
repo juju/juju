@@ -93,7 +93,7 @@ type kubernetesClient struct {
 // run "go generate" from the package directory.
 //go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
 //go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
-//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface
+//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 
@@ -224,9 +224,10 @@ func getCloudProviderFromNodeMeta(node core.Node) string {
 	return ""
 }
 
+var regionLabelName = "failure-domain.beta.kubernetes.io/region"
+
 // ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
 func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
-	regionLabelName := "failure-domain.beta.kubernetes.io/region"
 	// we only check 5 nodes which should be sufficient.
 	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
 	if err != nil {
