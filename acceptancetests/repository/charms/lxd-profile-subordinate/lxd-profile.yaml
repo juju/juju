@@ -1,0 +1,17 @@
+description: lxd profile subordinate for testing
+#config:
+#
+# allowed config
+#
+#  boot.autostart: "false"
+devices:
+#
+# allowed devices
+#
+# use different devices to see if a the lxd-profile correctly picks up the
+# subordinate details correctly (note: sandisk vs sony devices)
+#
+  sandisk:
+    type: usb
+    vendorid: 0781
+    productid: 8181
