@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
@@ -412,7 +412,7 @@ func (s *lxdFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 
 // AttachFilesystems is specified on the storage.FilesystemSource interface.
 func (s *lxdFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
-	var instanceIds []instance.Id
+	var instanceIds []instance.ID
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
 		if instanceIdsSeen.Contains(string(arg.InstanceId)) {
@@ -491,7 +491,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 
 // DetachFilesystems is specified on the storage.FilesystemSource interface.
 func (s *lxdFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
-	var instanceIds []instance.Id
+	var instanceIds []instance.ID
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
 		if instanceIdsSeen.Contains(string(arg.InstanceId)) {

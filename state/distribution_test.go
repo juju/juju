@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -26,15 +26,15 @@ type InstanceDistributorSuite struct {
 var _ = gc.Suite(&InstanceDistributorSuite{})
 
 type mockInstanceDistributor struct {
-	candidates        []instance.Id
-	distributionGroup []instance.Id
-	result            []instance.Id
+	candidates        []instance.ID
+	distributionGroup []instance.ID
+	result            []instance.ID
 	err               error
 }
 
 func (p *mockInstanceDistributor) DistributeInstances(
-	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
-) ([]instance.Id, error) {
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.ID, limitZones []string,
+) ([]instance.ID, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
 	result := p.result
@@ -48,7 +48,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.distributor = mockInstanceDistributor{}
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return &s.distributor, nil
 	}
 
@@ -73,7 +73,7 @@ func (s *InstanceDistributorSuite) setupScenario(c *gc.C) {
 	err = unit.AssignToMachine(s.machines[0])
 	c.Assert(err, jc.ErrorIsNil)
 	for i, m := range s.machines {
-		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
+		instId := instance.ID(fmt.Sprintf("i-blah-%d", i))
 		err = m.SetProvisioned(instId, "fake-nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -85,9 +85,9 @@ func (s *InstanceDistributorSuite) TestDistributeInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.distributor.candidates, jc.SameContents, []instance.Id{"i-blah-1", "i-blah-2"})
-	c.Assert(s.distributor.distributionGroup, jc.SameContents, []instance.Id{"i-blah-0"})
-	s.distributor.result = []instance.Id{}
+	c.Assert(s.distributor.candidates, jc.SameContents, []instance.ID{"i-blah-1", "i-blah-2"})
+	c.Assert(s.distributor.distributionGroup, jc.SameContents, []instance.ID{"i-blah-0"})
+	s.distributor.result = []instance.ID{}
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 }
@@ -96,7 +96,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesInvalidInstances(c *gc
 	s.setupScenario(c)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.distributor.result = []instance.Id{"notthere"}
+	s.distributor.result = []instance.ID{"notthere"}
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: invalid instance returned: notthere`)
 }
@@ -108,7 +108,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *gc.
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := unit.AssignToCleanMachine()
 		c.Assert(err, jc.ErrorIsNil)
-		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
+		instId := instance.ID(fmt.Sprintf("i-blah-%d", i))
 		err = m.SetProvisioned(instId, "fake-nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -133,7 +133,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	// If the policy's InstanceDistributor method fails, that will be returned first.
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return nil, fmt.Errorf("incapable of InstanceDistributor")
 	}
 	_, err = unit.AssignToCleanMachine()
@@ -160,7 +160,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
 	s.setupScenario(c)
 	var distributorErr error
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return nil, distributorErr
 	}
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
@@ -173,7 +173,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
@@ -196,7 +196,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c 
 
 	az := "az1"
 	for i, m := range s.machines {
-		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
+		instId := instance.ID(fmt.Sprintf("i-blah-%d", i))
 
 		// Only machines 0 and 1 are in the desired availability zone.
 		hc := &instance.HardwareCharacteristics{AvailabilityZone: &az}
@@ -212,13 +212,13 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Only machine 1 is empty, and in the desired AZ.
-	s.distributor.result = []instance.Id{"i-blah-1"}
+	s.distributor.result = []instance.ID{"i-blah-1"}
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Machine 2 filtered by zone constraint.
-	c.Check(s.distributor.candidates, jc.SameContents, []instance.Id{"i-blah-1"})
-	c.Check(s.distributor.distributionGroup, jc.SameContents, []instance.Id{"i-blah-0"})
+	c.Check(s.distributor.candidates, jc.SameContents, []instance.ID{"i-blah-1"})
+	c.Check(s.distributor.distributionGroup, jc.SameContents, []instance.ID{"i-blah-0"})
 }
 
 type ApplicationMachinesSuite struct {

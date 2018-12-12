@@ -37,7 +37,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
@@ -151,7 +151,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine for the dummy bootstrap instance,
 	// so the provisioner doesn't destroy it.
-	insts, err := s.Environ.Instances(s.callCtx, []instance.Id{dummy.BootstrapInstanceId})
+	insts, err := s.Environ.Instances(s.callCtx, []instance.ID{dummy.BootstrapInstanceId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs, err := insts[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +186,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 
 }
 
-func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
+func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instances.Instance {
 	instance, _ := testing.AssertStartInstance(c, s.Environ, s.callCtx, s.ControllerConfig.ControllerUUID(), id)
 	select {
 	case o := <-s.op:
@@ -201,7 +201,7 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 	return instance
 }
 
-func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
+func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instances.Instance {
 	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m}, "pork", s.defaultConstraints,
 		nil, nil, nil, nil, nil, true)
 	return retVal[m.Id()]
@@ -216,14 +216,14 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
-) instance.Instance {
+) instances.Instance {
 	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m},
 		secret, cons, networkInfo, subnetsToZones, volumes,
 		volumeAttachments, checkPossibleTools, waitInstanceId)
 	return retVal[m.Id()]
 }
 
-func (s *CommonProvisionerSuite) checkStartInstances(c *gc.C, machines []*state.Machine) map[string]instance.Instance {
+func (s *CommonProvisionerSuite) checkStartInstances(c *gc.C, machines []*state.Machine) map[string]instances.Instance {
 	return s.checkStartInstancesCustom(c, machines, "pork", s.defaultConstraints, nil, nil,
 		nil, nil, nil, true)
 }
@@ -240,10 +240,10 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) (
-	returnInstances map[string]instance.Instance,
+	returnInstances map[string]instances.Instance,
 ) {
 	s.BackingState.StartSync()
-	returnInstances = make(map[string]instance.Instance, len(machines))
+	returnInstances = make(map[string]instances.Instance, len(machines))
 	found := 0
 	for {
 		select {
@@ -345,22 +345,22 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 }
 
 // checkStopInstances checks that an instance has been stopped.
-func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instance.Instance) {
+func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instances.Instance) {
 	s.checkStopSomeInstances(c, instances, nil)
 }
 
 // checkStopSomeInstances checks that instancesToStop are stopped while instancesToKeep are not.
 func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
-	instancesToStop []instance.Instance, instancesToKeep []instance.Instance) {
+	instancesToStop []instances.Instance, instancesToKeep []instances.Instance) {
 
 	s.BackingState.StartSync()
 	instanceIdsToStop := set.NewStrings()
 	for _, instance := range instancesToStop {
-		instanceIdsToStop.Add(string(instance.Id()))
+		instanceIdsToStop.Add(string(instance.ID()))
 	}
 	instanceIdsToKeep := set.NewStrings()
 	for _, instance := range instancesToKeep {
-		instanceIdsToKeep.Add(string(instance.Id()))
+		instanceIdsToKeep.Add(string(instance.ID()))
 	}
 	// Continue checking for stop instance calls until all the instances we
 	// are waiting on to finish, actually finish, or we time out.
@@ -434,7 +434,7 @@ func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *state.Machine) {
 
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
-func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expect instance.Id) {
+func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expect instance.ID) {
 	s.waitHardwareCharacteristics(c, m, func() bool {
 		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, gc.Equals, expect)
@@ -867,8 +867,8 @@ func (m *MockMachine) Life() params.Life {
 	return m.life
 }
 
-func (m *MockMachine) InstanceId() (instance.Id, error) {
-	return instance.Id(m.id), m.idErr
+func (m *MockMachine) InstanceId() (instance.ID, error) {
+	return instance.ID(m.id), m.idErr
 }
 
 func (m *MockMachine) EnsureDead() error {
@@ -1413,7 +1413,7 @@ func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 
 	// When only harvesting unknown machines, only one of the machines
 	// is stopped.
-	s.checkStopSomeInstances(c, []instance.Instance{i1}, []instance.Instance{i0})
+	s.checkStopSomeInstances(c, []instances.Instance{i1}, []instances.Instance{i0})
 	s.waitForRemovalMark(c, m0)
 }
 
@@ -1440,7 +1440,7 @@ func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 
 	// When only harvesting destroyed machines, only one of the
 	// machines is stopped.
-	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.checkStopSomeInstances(c, []instances.Instance{i0}, []instances.Instance{i1})
 	s.waitForRemovalMark(c, m0)
 }
 
@@ -1466,7 +1466,7 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	c.Assert(m0.EnsureDead(), gc.IsNil)
 
 	// Everything must die!
-	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
+	s.checkStopSomeInstances(c, []instances.Instance{i0, i1}, []instances.Instance{})
 	s.waitForRemovalMark(c, m0)
 }
 
@@ -1926,7 +1926,7 @@ func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) ([]provi
 	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones(ctx)
 }
 
-func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
 	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ctx, ids)
 }
 

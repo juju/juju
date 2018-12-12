@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/poolmanager"
@@ -55,7 +55,7 @@ type Backend interface {
 	state.ModelAccessor
 
 	ControllerConfig() (controller.Config, error)
-	MachineInstanceId(names.MachineTag) (instance.Id, error)
+	MachineInstanceId(names.MachineTag) (instance.ID, error)
 	ModelTag() names.ModelTag
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchApplications() state.StringsWatcher
@@ -134,7 +134,7 @@ func NewStateBackends(st *state.State) (Backend, StorageBackend, error) {
 	return stateShim{State: st, Model: m}, sb, nil
 }
 
-func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {
+func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.ID, error) {
 	m, err := s.Machine(tag.Id())
 	if err != nil {
 		return "", errors.Trace(err)

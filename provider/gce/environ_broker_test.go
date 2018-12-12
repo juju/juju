@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/storage"
@@ -149,7 +149,7 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
 		ZoneName:  "home-zone",
-		Instances: []instance.Id{s.Instance.Id()},
+		Instances: []instance.ID{s.instance.ID()},
 	}}
 
 	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
@@ -253,15 +253,15 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestAllInstances(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
 	insts, err := s.Env.AllInstances(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance})
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
+	err := s.Env.StopInstances(s.CallCtx, s.instance.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")
@@ -274,7 +274,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
+	err := s.Env.StopInstances(s.CallCtx, s.instance.ID())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }

@@ -12,12 +12,12 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/worker/common"
 )
 
 type InstanceGetter interface {
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error)
 }
 
 type aggregatorConfig struct {
@@ -73,7 +73,7 @@ func newAggregator(config aggregatorConfig) (*aggregator, error) {
 }
 
 type instanceInfoReq struct {
-	instId instance.Id
+	instId instance.ID
 	reply  chan<- instanceInfoReply
 }
 
@@ -82,7 +82,7 @@ type instanceInfoReply struct {
 	err  error
 }
 
-func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
+func (a *aggregator) instanceInfo(id instance.ID) (instanceInfo, error) {
 	reply := make(chan instanceInfoReply)
 	reqc := a.reqc
 	for {
@@ -131,7 +131,7 @@ func (a *aggregator) loop() error {
 }
 
 func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
-	ids := make([]instance.Id, len(reqs))
+	ids := make([]instance.ID, len(reqs))
 	for i, req := range reqs {
 		ids[i] = req.instId
 	}
@@ -156,7 +156,7 @@ func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
 
 // instInfo returns the instance info for the given id
 // and instance. If inst is nil, it returns a not-found error.
-func (a *aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInfo, error) {
+func (a *aggregator) instInfo(id instance.ID, inst instances.Instance) (instanceInfo, error) {
 	if inst == nil {
 		return instanceInfo{}, errors.NotFoundf("instance %v", id)
 	}

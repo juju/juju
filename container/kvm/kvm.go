@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 var (
@@ -147,7 +147,7 @@ func (manager *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (_ instance.Instance, hc *instance.HardwareCharacteristics, err error) {
+) (_ instances.Instance, hc *instance.HardwareCharacteristics, err error) {
 
 	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
@@ -237,7 +237,7 @@ func (manager *containerManager) IsInitialized() bool {
 	return true
 }
 
-func (manager *containerManager) DestroyContainer(id instance.Id) error {
+func (manager *containerManager) DestroyContainer(id instance.ID) error {
 	name := string(id)
 	kvmContainer := KvmObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {
@@ -247,7 +247,7 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	return container.RemoveDirectory(name)
 }
 
-func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
+func (manager *containerManager) ListContainers() (result []instances.Instance, err error) {
 	containers, err := KvmObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)

@@ -9,13 +9,13 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 type OracleInstancer interface {
 	environs.Environ
 
-	Details(id instance.Id) (response.Instance, error)
+	Details(id instance.ID) (response.Instance, error)
 }
 
 // Instancer used to retrieve details from a given instance

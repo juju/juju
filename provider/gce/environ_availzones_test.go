@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
@@ -61,9 +61,9 @@ func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
 }
 
 func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.Id{instance.Id("spam")}
+	ids := []instance.ID{instance.ID("spam")}
 	zones, err := s.Env.InstanceAvailabilityZoneNames(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,9 +71,9 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 }
 
 func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.Id{instance.Id("spam")}
+	ids := []instance.ID{instance.ID("spam")}
 	_, err := s.Env.InstanceAvailabilityZoneNames(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 

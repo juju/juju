@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -206,7 +206,7 @@ func (m *mockState) StartSync() {}
 
 type machineInfo struct {
 	id                string
-	instanceId        instance.Id
+	instanceId        instance.ID
 	status            status.StatusInfo
 	instanceStatus    status.StatusInfo
 	providerAddresses []network.Address
@@ -226,7 +226,7 @@ type mockMachine struct {
 var _ instancepoller.StateMachine = (*mockMachine)(nil)
 
 // InstanceId implements StateMachine.
-func (m *mockMachine) InstanceId() (instance.Id, error) {
+func (m *mockMachine) InstanceId() (instance.ID, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

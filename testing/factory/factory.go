@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -89,7 +89,7 @@ type MachineParams struct {
 	Password        string
 	Nonce           string
 	Constraints     constraints.Value
-	InstanceId      instance.Id
+	InstanceId      instance.ID
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
 	Volumes         []state.HostVolumeParams
@@ -274,7 +274,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		params.Jobs = []state.MachineJob{state.JobHostUnits}
 	}
 	if params.InstanceId == "" {
-		params.InstanceId = instance.Id(uniqueString("id"))
+		params.InstanceId = instance.ID(uniqueString("id"))
 	}
 	if params.Password == "" {
 		var err error
@@ -349,7 +349,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	if params != nil {
 		c.Assert(params.Nonce, gc.Equals, "")
-		c.Assert(params.InstanceId, gc.Equals, instance.Id(""))
+		c.Assert(params.InstanceId, gc.Equals, instance.ID(""))
 		c.Assert(params.Characteristics, gc.IsNil)
 	}
 	params = factory.paramsFillDefaults(c, params)

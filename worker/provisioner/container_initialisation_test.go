@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"

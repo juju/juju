@@ -23,7 +23,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -103,7 +103,7 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 // updateMongoEntries will update the machine entries in the restored mongo to
 // reflect the real machine instanceid in case it changed (a newly bootstraped
 // server).
-func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string, dialInfo *mgo.DialInfo) error {
+func updateMongoEntries(newInstId instance.ID, newMachineId, oldMachineId string, dialInfo *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to mongo to update")

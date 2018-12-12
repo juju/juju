@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -209,7 +209,7 @@ func (m *Machine) globalKey() string {
 type instanceData struct {
 	DocID      string      `bson:"_id"`
 	MachineId  string      `bson:"machineid"`
-	InstanceId instance.Id `bson:"instanceid"`
+	InstanceId instance.ID `bson:"instanceid"`
 	ModelUUID  string      `bson:"model-uuid"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
@@ -1230,7 +1230,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 
 // InstanceId returns the provider specific instance id for this
 // machine, or a NotProvisionedError, if not set.
-func (m *Machine) InstanceId() (instance.Id, error) {
+func (m *Machine) InstanceId() (instance.ID, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
 		err = errors.NotProvisionedf("machine %v", m.Id())
@@ -1418,7 +1418,7 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 // lost) after starting the instance, we can be sure that only a single
 // instance will be able to act for that machine.
 func (m *Machine) SetProvisioned(
-	id instance.Id,
+	id instance.ID,
 	nonce string,
 	characteristics *instance.HardwareCharacteristics,
 ) (err error) {
@@ -1486,7 +1486,7 @@ func (m *Machine) SetProvisioned(
 // instance id, nonce, hardware characteristics, add link-layer devices and set
 // their addresses as needed.  After, set charm profiles if needed.
 func (m *Machine) SetInstanceInfo(
-	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.ID, nonce string, characteristics *instance.HardwareCharacteristics,
 	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,

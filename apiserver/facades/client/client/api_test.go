@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -114,7 +114,7 @@ var scenarioStatus = &params.FullStatus{
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
-			InstanceId: instance.Id("i-machine-0"),
+			InstanceId: instance.ID("i-machine-0"),
 			AgentStatus: params.DetailedStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
@@ -131,7 +131,7 @@ var scenarioStatus = &params.FullStatus{
 		},
 		"1": {
 			Id:         "1",
-			InstanceId: instance.Id("i-machine-1"),
+			InstanceId: instance.ID("i-machine-1"),
 			AgentStatus: params.DetailedStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
@@ -148,7 +148,7 @@ var scenarioStatus = &params.FullStatus{
 		},
 		"2": {
 			Id:         "2",
-			InstanceId: instance.Id("i-machine-2"),
+			InstanceId: instance.ID("i-machine-2"),
 			AgentStatus: params.DetailedStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
@@ -404,7 +404,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
+	err = m.SetProvisioned(instance.ID("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
@@ -481,7 +481,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			err = m.SetConstraints(constraints.MustParse("mem=1G"))
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
+		err = m.SetProvisioned(instance.ID("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		setDefaultPassword(c, m)
 		setDefaultStatus(c, m)

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
@@ -212,12 +212,12 @@ func (e *fakeEnviron) StartInstance(callCtx context.ProviderCallContext, args en
 	}, nil
 }
 
-func (e *fakeEnviron) StopInstances(callCtx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *fakeEnviron) StopInstances(callCtx context.ProviderCallContext, ids ...instance.ID) error {
 	e.Push("StopInstances", callCtx, ids)
 	return nil
 }
 
-func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]instances.Instance, error) {
 	e.Push("AllInstances", callCtx)
 	return nil, nil
 }
@@ -241,12 +241,12 @@ func (e *fakeEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	e.Push("Instances", callCtx, ids)
-	return []instance.Instance{&fakeInstance{}}, nil
+	return []instances.Instance{&fakeInstance{}}, nil
 }
 
-func (e *fakeEnviron) ControllerInstances(callCtx context.ProviderCallContext, st string) ([]instance.Id, error) {
+func (e *fakeEnviron) ControllerInstances(callCtx context.ProviderCallContext, st string) ([]instance.ID, error) {
 	e.Push("ControllerInstances", callCtx, st)
 	return nil, nil
 }
@@ -358,14 +358,14 @@ func (p *fakeInstance) Pop() methodCall {
 	return m
 }
 
-func (e *fakeInstance) Id() instance.Id {
+func (e *fakeInstance) Id() instance.ID {
 	e.Push("Id")
-	return instance.Id("")
+	return instance.ID("")
 }
 
-func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.InstanceStatus {
+func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.Status {
 	e.Push("Status", callCtx)
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  status.Provisioning,
 		Message: "a message",
 	}

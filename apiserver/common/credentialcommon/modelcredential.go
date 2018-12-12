@@ -138,7 +138,7 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
-		id := string(instance.Id())
+		id := string(instance.ID())
 		instanceIds.Add(id)
 		if _, found := machinesByInstance[id]; !found {
 			results = append(results, serverError(errors.Errorf("no machine with instance %q", id)))

@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/gomaasapi"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -28,7 +28,7 @@ func (s *maas2InstanceSuite) TestString(c *gc.C) {
 func (s *maas2InstanceSuite) TestID(c *gc.C) {
 	machine := &fakeMachine{systemID: "herman"}
 	thing := &maas2Instance{machine: machine}
-	c.Assert(thing.Id(), gc.Equals, instance.Id("herman"))
+	c.Assert(thing.Id(), gc.Equals, instance.ID("herman"))
 }
 
 func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
@@ -95,14 +95,14 @@ func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
 	thing := &maas2Instance{machine: machine}
 	result := thing.Status(s.callCtx)
-	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{status.Allocating, "Deploying: Wexler"})
+	c.Assert(result, jc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maas2InstanceSuite) TestStatusError(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
 	thing := &maas2Instance{machine: machine}
 	result := thing.Status(s.callCtx)
-	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{"", "error in getting status"})
+	c.Assert(result, jc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 
 func (s *maas2InstanceSuite) TestHostname(c *gc.C) {

@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 func hasJob(jobs []MachineJob, job MachineJob) bool {

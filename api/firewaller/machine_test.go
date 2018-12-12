@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -64,7 +64,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 
 	instanceId, err := s.apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
+	c.Assert(instanceId, gc.Equals, instance.ID("i-manager"))
 }
 
 func (s *machineSuite) TestWatchUnits(c *gc.C) {

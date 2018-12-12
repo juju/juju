@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	constraints "github.com/juju/juju/constraints"
-	instance "github.com/juju/juju/instance"
+	instance "github.com/juju/juju/core/instance"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	names_v2 "gopkg.in/juju/names.v2"
@@ -102,9 +102,9 @@ func (mr *MockMachineMockRecorder) Id() *gomock.Call {
 }
 
 // InstanceId mocks base method
-func (m *MockMachine) InstanceId() (instance.Id, error) {
+func (m *MockMachine) InstanceId() (instance.ID, error) {
 	ret := m.ctrl.Call(m, "InstanceId")
-	ret0, _ := ret[0].(instance.Id)
+	ret0, _ := ret[0].(instance.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

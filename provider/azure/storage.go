@@ -19,7 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
@@ -246,7 +246,7 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 
 // createUnmanagedDiskVolumes creates volumes with associated unmanaged disks (blobs).
 func (v *azureVolumeSource) createUnmanagedDiskVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams, results []storage.CreateVolumesResult) error {
-	var instanceIds []instance.Id
+	var instanceIds []instance.ID
 	for i, p := range params {
 		if results[i].Error != nil {
 			continue
@@ -548,7 +548,7 @@ func (v *azureVolumeSource) ValidateVolumeParams(params storage.VolumeParams) er
 // AttachVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(attachParams))
-	instanceIds := make([]instance.Id, len(attachParams))
+	instanceIds := make([]instance.ID, len(attachParams))
 	for i, p := range attachParams {
 		instanceIds[i] = p.InstanceId
 	}
@@ -566,7 +566,7 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 	// An attachment does not require an update
 	// if it is pre-existing, so we keep a record
 	// of which VMs need updating.
-	changed := make(map[instance.Id]bool, len(virtualMachines))
+	changed := make(map[instance.ID]bool, len(virtualMachines))
 	for i, p := range attachParams {
 		vm, ok := virtualMachines[p.InstanceId]
 		if !ok {
@@ -693,7 +693,7 @@ func (v *azureVolumeSource) addDataDisk(
 // DetachVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(attachParams))
-	instanceIds := make([]instance.Id, len(attachParams))
+	instanceIds := make([]instance.ID, len(attachParams))
 	for i, p := range attachParams {
 		instanceIds[i] = p.InstanceId
 	}
@@ -711,7 +711,7 @@ func (v *azureVolumeSource) DetachVolumes(ctx context.ProviderCallContext, attac
 	// An detachment does not require an update
 	// if the disk isn't attached, so we keep a
 	// record of which VMs need updating.
-	changed := make(map[instance.Id]bool, len(virtualMachines))
+	changed := make(map[instance.ID]bool, len(virtualMachines))
 	for i, p := range attachParams {
 		vm, ok := virtualMachines[p.InstanceId]
 		if !ok {
@@ -785,7 +785,7 @@ type maybeVirtualMachine struct {
 
 // virtualMachines returns a mapping of instance IDs to VirtualMachines and
 // errors, for each of the specified instance IDs.
-func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
+func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, instanceIds []instance.ID) (map[instance.ID]*maybeVirtualMachine, error) {
 	vmsClient := compute.VirtualMachinesClient{v.env.compute}
 	sdkCtx := stdcontext.Background()
 	result, err := vmsClient.ListComplete(sdkCtx, v.env.resourceGroup)
@@ -793,15 +793,15 @@ func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, ins
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 	}
 
-	all := make(map[instance.Id]*compute.VirtualMachine)
+	all := make(map[instance.ID]*compute.VirtualMachine)
 	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing disks")
 		}
 		vmCopy := result.Value()
-		all[instance.Id(to.String(vmCopy.Name))] = &vmCopy
+		all[instance.ID(to.String(vmCopy.Name))] = &vmCopy
 	}
-	results := make(map[instance.Id]*maybeVirtualMachine)
+	results := make(map[instance.ID]*maybeVirtualMachine)
 	for _, id := range instanceIds {
 		result := &maybeVirtualMachine{vm: all[id]}
 		if result.vm == nil {
@@ -817,7 +817,7 @@ func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, ins
 // virtual machine at most once.
 func (v *azureVolumeSource) updateVirtualMachines(
 	ctx context.ProviderCallContext,
-	virtualMachines map[instance.Id]*maybeVirtualMachine, instanceIds []instance.Id,
+	virtualMachines map[instance.ID]*maybeVirtualMachine, instanceIds []instance.ID,
 ) ([]error, error) {
 	results := make([]error, len(instanceIds))
 	vmsClient := compute.VirtualMachinesClient{v.env.compute}

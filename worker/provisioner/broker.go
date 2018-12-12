@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
@@ -150,7 +150,7 @@ func findDNSServerConfig() (*network.DNSConfig, error) {
 
 func releaseContainerAddresses(
 	api APICalls,
-	instanceID instance.Id,
+	instanceID instance.ID,
 	namespace instance.Namespace,
 	log loggo.Logger,
 ) {

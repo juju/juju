@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -130,7 +130,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 
 func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.Id("inst-id"),
+		InstanceId: instance.ID("inst-id"),
 		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
@@ -176,7 +176,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 
 func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.Id("inst-id"),
+		InstanceId: instance.ID("inst-id"),
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
 			Attachment: state.FilesystemAttachmentParams{

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/constraints"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )

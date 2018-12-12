@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -24,7 +24,7 @@ type LegacyNovaNetworking struct {
 }
 
 // AllocatePublicIP is part of the Networking interface.
-func (n *LegacyNovaNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
+func (n *LegacyNovaNetworking) AllocatePublicIP(instId instance.ID) (*string, error) {
 	fips, err := n.env.nova().ListFloatingIPs()
 	if err != nil {
 		return nil, err
@@ -80,11 +80,11 @@ func (n *LegacyNovaNetworking) ResolveNetwork(name string, external bool) (strin
 }
 
 // Subnets is part of the Networking interface.
-func (n *LegacyNovaNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *LegacyNovaNetworking) Subnets(instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("nova subnet")
 }
 
 // NetworkInterfaces is part of the Networking interface.
-func (n *LegacyNovaNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *LegacyNovaNetworking) NetworkInterfaces(instId instance.ID) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("nova network interfaces")
 }

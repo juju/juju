@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
@@ -31,15 +31,15 @@ type azureInstance struct {
 }
 
 // Id is specified in the Instance interface.
-func (inst *azureInstance) Id() instance.Id {
+func (inst *azureInstance) Id() instance.ID {
 	// Note: we use Name and not Id, since all VM operations are in
 	// terms of the VM name (qualified by resource group). The ID is
 	// an internal detail.
-	return instance.Id(inst.vmName)
+	return instance.ID(inst.vmName)
 }
 
 // Status is specified in the Instance interface.
-func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instanceStatus := status.Empty
 	message := inst.provisioningState
 	switch inst.provisioningState {
@@ -64,7 +64,7 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Inst
 	default:
 		instanceStatus = status.Provisioning
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  instanceStatus,
 		Message: message,
 	}
@@ -103,7 +103,7 @@ func instanceNetworkInterfaces(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
 	nicClient network.InterfacesClient,
-) (map[instance.Id][]network.Interface, error) {
+) (map[instance.ID][]network.Interface, error) {
 	sdkCtx := stdcontext.Background()
 	nicsResult, err := nicClient.ListComplete(sdkCtx, resourceGroup)
 	if err != nil {
@@ -112,10 +112,10 @@ func instanceNetworkInterfaces(
 	if nicsResult.Response().IsEmpty() {
 		return nil, nil
 	}
-	instanceNics := make(map[instance.Id][]network.Interface)
+	instanceNics := make(map[instance.ID][]network.Interface)
 	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(sdkCtx) {
 		nic := nicsResult.Value()
-		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
+		instanceId := instance.ID(to.String(nic.Tags[jujuMachineNameTag]))
 		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
 	}
 	return instanceNics, nil
@@ -128,7 +128,7 @@ func instancePublicIPAddresses(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
 	pipClient network.PublicIPAddressesClient,
-) (map[instance.Id][]network.PublicIPAddress, error) {
+) (map[instance.ID][]network.PublicIPAddress, error) {
 	sdkCtx := stdcontext.Background()
 	pipsResult, err := pipClient.ListComplete(sdkCtx, resourceGroup)
 	if err != nil {
@@ -137,10 +137,10 @@ func instancePublicIPAddresses(
 	if pipsResult.Response().IsEmpty() {
 		return nil, nil
 	}
-	instancePips := make(map[instance.Id][]network.PublicIPAddress)
+	instancePips := make(map[instance.ID][]network.PublicIPAddress)
 	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(sdkCtx) {
 		pip := pipsResult.Value()
-		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
+		instanceId := instance.ID(to.String(pip.Tags[jujuMachineNameTag]))
 		instancePips[instanceId] = append(instancePips[instanceId], pip)
 	}
 	return instancePips, nil
@@ -231,7 +231,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	// on changes made by the provisioner. We still record rules in the
 	// NSG in memory, so we can easily tell which priorities are available.
 	vmName := resourceName(names.NewMachineTag(machineId))
-	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	prefix := instanceNetworkSecurityRulePrefix(instance.ID(vmName))
 
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
@@ -308,7 +308,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 	// Delete rules one at a time; this is necessary to avoid trampling
 	// on changes made by the provisioner.
 	vmName := resourceName(names.NewMachineTag(machineId))
-	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	prefix := instanceNetworkSecurityRulePrefix(instance.ID(vmName))
 	sdkCtx := stdcontext.Background()
 
 	singleSourceIngressRules := explodeIngressRules(rules)
@@ -350,7 +350,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	}
 
 	vmName := resourceName(names.NewMachineTag(machineId))
-	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	prefix := instanceNetworkSecurityRulePrefix(instance.ID(vmName))
 
 	// Keep track of all the SourceAddressPrefixes for each port range.
 	portSourceCIDRs := make(map[jujunetwork.PortRange]*[]string)
@@ -433,7 +433,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 // access.
 func deleteInstanceNetworkSecurityRules(
 	ctx context.ProviderCallContext,
-	resourceGroup string, id instance.Id,
+	resourceGroup string, id instance.ID,
 	nsgClient network.SecurityGroupsClient,
 	securityRuleClient network.SecurityRulesClient,
 ) error {
@@ -480,7 +480,7 @@ func deleteInstanceNetworkSecurityRules(
 
 // instanceNetworkSecurityRulePrefix returns the unique prefix for network
 // security rule names that relate to the instance with the given ID.
-func instanceNetworkSecurityRulePrefix(id instance.Id) string {
+func instanceNetworkSecurityRulePrefix(id instance.ID) string {
 	return string(id) + "-"
 }
 

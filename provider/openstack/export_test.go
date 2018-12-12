@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envstorage "github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -25,11 +25,11 @@ var (
 	CinderAttempt  = &cinderAttempt
 )
 
-func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
+func InstanceServerDetail(inst instances.Instance) *nova.ServerDetail {
 	return inst.(*openstackInstance).serverDetail
 }
 
-func InstanceFloatingIP(inst instance.Instance) *string {
+func InstanceFloatingIP(inst instances.Instance) *string {
 	return inst.(*openstackInstance).floatingIP
 }
 

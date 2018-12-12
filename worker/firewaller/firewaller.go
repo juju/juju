@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/common"
 )
@@ -70,7 +70,7 @@ type EnvironFirewaller interface {
 // EnvironInstances defines methods to allow the worker to perform
 // operations on instances in a Juju cloud environment.
 type EnvironInstances interface {
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error)
 }
 
 type newCrossModelFacadeFunc func(*api.Info) (CrossModelFirewallerFacadeCloser, error)
@@ -549,7 +549,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if err != nil {
 			return err
 		}
-		instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
+		instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.ID{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
 		}
@@ -558,7 +558,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		}
 		machineId := machined.tag.Id()
 
-		fwInstance, ok := instances[0].(instance.InstanceFirewaller)
+		fwInstance, ok := instances[0].(instances.InstanceFirewaller)
 		if !ok {
 			return nil
 		}
@@ -911,11 +911,11 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
+	instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.ID{instanceId})
 	if err != nil {
 		return err
 	}
-	fwInstance, ok := instances[0].(instance.InstanceFirewaller)
+	fwInstance, ok := instances[0].(instances.InstanceFirewaller)
 	if !ok {
 		logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.", instances[0])
 		return nil

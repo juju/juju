@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -27,9 +27,9 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 }
 
 func (s *instanceSuite) TestID(c *gc.C) {
-	id := s.Instance.Id()
+	id := s.instance.ID()
 
-	c.Check(id, gc.Equals, instance.Id("spam"))
+	c.Check(id, gc.Equals, instance.ID("spam"))
 	s.CheckNoAPI(c)
 }
 

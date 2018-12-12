@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
@@ -388,7 +388,7 @@ type LifeResults struct {
 // network config.
 type InstanceInfo struct {
 	Tag             string                            `json:"tag"`
-	InstanceId      instance.Id                       `json:"instance-id"`
+	InstanceId      instance.ID                       `json:"instance-id"`
 	Nonce           string                            `json:"nonce"`
 	Characteristics *instance.HardwareCharacteristics `json:"characteristics"`
 	Volumes         []Volume                          `json:"volumes"`

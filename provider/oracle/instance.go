@@ -17,17 +17,17 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	oraclenetwork "github.com/juju/juju/provider/oracle/network"
 )
 
-// oracleInstance implements the instance.Instance interface
+// oracleInstance implements the instances.Instance interface
 type oracleInstance struct {
 	// name of the instance, generated after the vm creation
 	name string
 	// status holds the status of the instance
-	status instance.InstanceStatus
+	status instance.Status
 	// machine will hold the raw instance details obtained from
 	// the provider
 	machine response.Instance
@@ -59,13 +59,13 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 // identified by the provider ID. In the Oracle compute cloud the provider
 // IDs of the instances has the following format:
 // /Compute-tenant_domain/tenant_username/instance_hostname/instance_UUID
-func extractInstanceIDFromMachineName(id string) (instance.Id, error) {
-	var instId instance.Id
+func extractInstanceIDFromMachineName(id string) (instance.ID, error) {
+	var instId instance.ID
 	name := strings.Split(id, "/")
 	if len(name) < 4 {
 		return instId, errors.Errorf("invalid instance name: %s", id)
 	}
-	instId = instance.Id(name[3])
+	instId = instance.ID(name[3])
 	return instId, nil
 }
 
@@ -83,7 +83,7 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 	mutex := &sync.Mutex{}
 	instance := &oracleInstance{
 		name: string(name),
-		status: instance.InstanceStatus{
+		status: instance.Status{
 			Status:  status.Status(params.State),
 			Message: "",
 		},
@@ -95,21 +95,21 @@ func newInstance(params response.Instance, env *OracleEnviron) (*oracleInstance,
 	return instance, nil
 }
 
-// Id is defined on the instance.Instance interface.
-func (o *oracleInstance) Id() instance.Id {
+// Id is defined on the instances.Instance interface.
+func (o *oracleInstance) Id() instance.ID {
 	if o.machine.Name != "" {
 		name, err := extractInstanceIDFromMachineName(o.machine.Name)
 		if err != nil {
-			return instance.Id(o.machine.Name)
+			return instance.ID(o.machine.Name)
 		}
 		return name
 	}
 
-	return instance.Id(o.name)
+	return instance.ID(o.name)
 }
 
-// Status is defined on the instance.Instance interface.
-func (o *oracleInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+// Status is defined on the instances.Instance interface.
+func (o *oracleInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	return o.status
 }
 
@@ -366,7 +366,7 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 	return assoc.Result, nil
 }
 
-// Addresses is defined on the instance.Instance interface.
+// Addresses is defined on the instances.Instance interface.
 func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	addresses := []network.Address{}
 
@@ -394,7 +394,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]network.A
 	return addresses, nil
 }
 
-// OpenPorts is defined on the instance.Instance interface.
+// OpenPorts is defined on the instances.Instance interface.
 func (o *oracleInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
@@ -406,7 +406,7 @@ func (o *oracleInstance) OpenPorts(ctx context.ProviderCallContext, machineId st
 	return o.env.OpenPortsOnInstance(ctx, machineId, rules)
 }
 
-// ClosePorts is defined on the instance.Instance interface.
+// ClosePorts is defined on the instances.Instance interface.
 func (o *oracleInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
@@ -418,7 +418,7 @@ func (o *oracleInstance) ClosePorts(ctx context.ProviderCallContext, machineId s
 	return o.env.ClosePortsOnInstance(ctx, machineId, rules)
 }
 
-// IngressRules is defined on the instance.Instance interface.
+// IngressRules is defined on the instances.Instance interface.
 func (o *oracleInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	return o.env.MachineIngressRules(ctx, machineId)
 }

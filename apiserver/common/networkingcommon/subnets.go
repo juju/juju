@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 )
@@ -195,7 +195,7 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	subnetInfo, err := netEnv.Subnets(ctx, instance.UnknownId, nil)
+	subnetInfo, err := netEnv.Subnets(ctx, instance.UnknownID, nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot get provider subnets")
 	}

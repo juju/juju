@@ -7,7 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -28,7 +28,7 @@ func NewInstanceIdGetter(st state.EntityFinder, getCanRead GetAuthFunc) *Instanc
 	}
 }
 
-func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
+func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.ID, error) {
 	entity0, err := ig.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -58,7 +58,7 @@ func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResul
 		}
 		err = ErrPerm
 		if canRead(tag) {
-			var instanceId instance.Id
+			var instanceId instance.ID
 			instanceId, err = ig.getInstanceId(tag)
 			if err == nil {
 				result.Results[i].Result = string(instanceId)

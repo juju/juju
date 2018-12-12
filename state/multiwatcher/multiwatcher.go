@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying"

@@ -5,7 +5,7 @@ package instancepoller
 
 import (
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -15,7 +15,7 @@ type StateMachine interface {
 	state.Entity
 
 	Id() string
-	InstanceId() (instance.Id, error)
+	InstanceId() (instance.ID, error)
 	ProviderAddresses() []network.Address
 	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (status.StatusInfo, error)

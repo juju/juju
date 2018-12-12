@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -95,7 +95,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 }
 
 // ControllerInstances is part of the Environ interface.
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	return e.client.getControllerIds()
 }
 

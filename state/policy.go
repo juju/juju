@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
 )
@@ -42,8 +41,8 @@ type Policy interface {
 	// ConstraintsValidator returns a constraints.Validator or an error.
 	ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error)
 
-	// InstanceDistributor returns an instance.Distributor or an error.
-	InstanceDistributor() (instance.Distributor, error)
+	// InstanceDistributor returns an context.Distributor or an error.
+	InstanceDistributor() (context.Distributor, error)
 
 	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
 	StorageProviderRegistry() (storage.ProviderRegistry, error)

@@ -11,7 +11,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -51,7 +51,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 
 // InstanceId returns the provider specific instance id for this
 // machine, or a CodeNotProvisioned error, if not set.
-func (m *Machine) InstanceId() (instance.Id, error) {
+func (m *Machine) InstanceId() (instance.ID, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
@@ -67,7 +67,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	if result.Error != nil {
 		return "", result.Error
 	}
-	return instance.Id(result.Result), nil
+	return instance.ID(result.Result), nil
 }
 
 // Life returns the machine's life cycle value.

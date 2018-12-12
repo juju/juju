@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -2585,8 +2585,8 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 	var unprovisioned []*Machine
-	var instances []instance.Id
-	instanceMachines := make(map[instance.Id]*Machine)
+	var instances []instance.ID
+	instanceMachines := make(map[instance.ID]*Machine)
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
 		inst, err := m.InstanceId()

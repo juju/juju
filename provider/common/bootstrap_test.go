@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
@@ -109,7 +109,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	}
 
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -162,7 +162,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -213,7 +213,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 	}
 
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -252,7 +252,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 
 	var callZones []string
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -291,7 +291,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 
 	var callZones []string
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -345,7 +345,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		addresses: network.NewAddresses("testing.invalid"),
 	}
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -378,10 +378,10 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		startInstance: startInstance,
 		config:        getConfig,
 		setConfig:     setConfig,
-		instances: func(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+		instances: func(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
-			return []instance.Instance{inst}, nil
+			return []instances.Instance{inst}, nil
 		},
 	}
 	inner := cmdtesting.Context(c)
@@ -451,7 +451,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 		addresses: network.NewAddresses("testing.invalid"),
 	}
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instance.Instance,
+		instances.Instance,
 		*instance.HardwareCharacteristics,
 		[]network.InterfaceInfo,
 		error,
@@ -465,10 +465,10 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	env := &mockEnviron{
 		startInstance: startInstance,
 		config:        configGetter(c),
-		instances: func(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+		instances: func(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
-			return []instance.Instance{inst}, nil
+			return []instances.Instance{inst}, nil
 		},
 	}
 	ctx := envtesting.BootstrapContext(c)
@@ -514,8 +514,8 @@ func (neverRefreshes) Refresh(ctx context.ProviderCallContext) error {
 	return nil
 }
 
-func (neverRefreshes) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	return instance.InstanceStatus{}
+func (neverRefreshes) Status(ctx context.ProviderCallContext) instance.Status {
+	return instance.Status{}
 }
 
 type neverAddresses struct {
@@ -531,8 +531,8 @@ type failsProvisioning struct {
 	message string
 }
 
-func (f failsProvisioning) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	return instance.InstanceStatus{
+func (f failsProvisioning) Status(ctx context.ProviderCallContext) instance.Status {
+	return instance.Status{
 		Status:  status.ProvisioningError,
 		Message: f.message,
 	}
@@ -665,8 +665,8 @@ func (ac *addressesChange) Refresh(ctx context.ProviderCallContext) error {
 	return nil
 }
 
-func (ac *addressesChange) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	return instance.InstanceStatus{}
+func (ac *addressesChange) Status(ctx context.ProviderCallContext) instance.Status {
+	return instance.Status{}
 }
 
 func (ac *addressesChange) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {

@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
@@ -281,7 +281,7 @@ type StateInitializationParams struct {
 
 	// BootstrapMachineInstanceId is the instance ID of the bootstrap
 	// machine instance being initialized.
-	BootstrapMachineInstanceId instance.Id
+	BootstrapMachineInstanceId instance.ID
 
 	// BootstrapMachineConstraints holds the constraints for the bootstrap
 	// machine.
@@ -307,7 +307,7 @@ type stateInitializationParamsInternal struct {
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
-	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
+	BootstrapMachineInstanceId              instance.ID                       `yaml:"bootstrap-machine-instance-id"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
 	ModelConstraints                        constraints.Value                 `yaml:"model-constraints"`

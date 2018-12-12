@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -177,7 +177,7 @@ func (broker *kvmBroker) MaintainInstance(ctx context.ProviderCallContext, args 
 }
 
 // StopInstances shuts down the given instances.
-func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		kvmLogger.Infof("stopping kvm container for instance: %s", id)
@@ -191,6 +191,6 @@ func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // AllInstances only returns running containers.
-func (broker *kvmBroker) AllInstances(ctx context.ProviderCallContext) (result []instance.Instance, err error) {
+func (broker *kvmBroker) AllInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -76,7 +76,7 @@ func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	stor := suite.newStorage(c)
 	state := common.BootstrapState{
-		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+		StateInstances: []instance.ID{instance.ID("an-instance-id")},
 	}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +93,7 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 
 func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.BootstrapState {
 	state := common.BootstrapState{
-		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+		StateInstances: []instance.ID{instance.ID("an-instance-id")},
 	}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,7 +119,7 @@ func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 	storage := suite.newStorage(c)
 	state := common.BootstrapState{
-		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+		StateInstances: []instance.ID{instance.ID("an-instance-id")},
 	}
 	err := common.SaveState(storage, &state)
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,18 +132,18 @@ func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
 	storage := suite.newStorage(c)
 	for _, str := range []string{"a", "b", "c"} {
-		id := instance.Id(str)
-		err := common.AddStateInstance(storage, instance.Id(id))
+		id := instance.ID(str)
+		err := common.AddStateInstance(storage, instance.ID(id))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	storedState, err := common.LoadState(storage)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(storedState, gc.DeepEquals, &common.BootstrapState{
-		StateInstances: []instance.Id{
-			instance.Id("a"),
-			instance.Id("b"),
-			instance.Id("c"),
+		StateInstances: []instance.ID{
+			instance.ID("a"),
+			instance.ID("b"),
+			instance.ID("c"),
 		},
 	})
 }
@@ -151,10 +151,10 @@ func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
 func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 	storage := suite.newStorage(c)
 	state := common.BootstrapState{
-		StateInstances: []instance.Id{
-			instance.Id("a"),
-			instance.Id("b"),
-			instance.Id("c"),
+		StateInstances: []instance.ID{
+			instance.ID("a"),
+			instance.ID("b"),
+			instance.ID("c"),
 		},
 	}
 	err := common.SaveState(storage, &state)
@@ -163,14 +163,14 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 	err = common.RemoveStateInstances(
 		storage,
 		state.StateInstances[0],
-		instance.Id("not-there"),
+		instance.ID("not-there"),
 		state.StateInstances[2],
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
 	c.Assert(storedState, gc.DeepEquals, &common.BootstrapState{
-		StateInstances: []instance.Id{
+		StateInstances: []instance.ID{
 			state.StateInstances[1],
 		},
 	})
@@ -179,14 +179,14 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 func (suite *StateSuite) TestRemoveStateInstancesNone(c *gc.C) {
 	storage := suite.newStorage(c)
 	state := common.BootstrapState{
-		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+		StateInstances: []instance.ID{instance.ID("an-instance-id")},
 	}
 	err := common.SaveState(storage, &state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.RemoveStateInstances(
 		storage,
-		instance.Id("not-there"),
+		instance.ID("not-there"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -196,7 +196,7 @@ func (suite *StateSuite) TestRemoveStateInstancesNone(c *gc.C) {
 
 func (suite *StateSuite) TestRemoveStateInstancesNoProviderState(c *gc.C) {
 	storage := suite.newStorage(c)
-	err := common.RemoveStateInstances(storage, instance.Id("id"))
+	err := common.RemoveStateInstances(storage, instance.ID("id"))
 	// No error if the id is missing, so no error if the entire
 	// provider-state file is missing. This is the case if
 	// bootstrap failed.

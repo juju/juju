@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
@@ -602,13 +602,13 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
+		apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownID, []network.Id(nil)),
 
 		// caching subnets (4th attempt): succeeds
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
+		apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownID, []network.Id(nil)),
 
 		// caching spaces (1st and 2nd attempts)
 		apiservertesting.BackingCall("AllSpaces"),
@@ -655,12 +655,12 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 	case apiservertesting.StubNetworkingEnvironName:
 		expectedCalls = append(
 			expectedCalls,
-			apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
+			apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownID, []network.Id(nil)),
 		)
 	case apiservertesting.StubZonedNetworkingEnvironName:
 		expectedCalls = append(
 			expectedCalls,
-			apiservertesting.ZonedNetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
+			apiservertesting.ZonedNetworkingEnvironCall("Subnets", s.callContext, instance.UnknownID, []network.Id(nil)),
 		)
 	}
 

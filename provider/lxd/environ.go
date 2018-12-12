@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -257,7 +257,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 // availability zones for the specified instances.
 // For containers, this means the LXD server node names where they reside.
 func (env *environ) InstanceAvailabilityZoneNames(
-	ctx context.ProviderCallContext, ids []instance.Id,
+	ctx context.ProviderCallContext, ids []instance.ID,
 ) ([]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {

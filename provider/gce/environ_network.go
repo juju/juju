@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -23,7 +23,7 @@ type subnetMap map[string]network.SubnetInfo
 type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
-func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
 	if err != nil {
@@ -31,7 +31,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	}
 	ids := makeIncludeSet(subnetIds)
 	var results []network.SubnetInfo
-	if inst == instance.UnknownId {
+	if inst == instance.UnknownID {
 		results, err = e.getMatchingSubnets(ctx, ids, zones)
 	} else {
 		results, err = e.getInstanceSubnets(ctx, inst, ids, zones)
@@ -109,7 +109,7 @@ func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds 
 	return results, nil
 }
 
-func (e *environ) getInstanceSubnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
+func (e *environ) getInstanceSubnets(ctx context.ProviderCallContext, inst instance.ID, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
 	ifaces, err := e.NetworkInterfaces(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -129,8 +129,8 @@ func (e *environ) getInstanceSubnets(ctx context.ProviderCallContext, inst insta
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
-	insts, err := e.Instances(ctx, []instance.Id{instId})
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
+	insts, err := e.Instances(ctx, []instance.ID{instId})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -274,7 +274,7 @@ func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (b
 }
 
 // AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.ID, names.MachineTag, []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container addresses")
 }
 

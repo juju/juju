@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -27,13 +27,13 @@ func (s *environInstSuite) TestInstances(c *gc.C) {
 	spam := s.NewInstance(c, "spam")
 	ham := s.NewInstance(c, "ham")
 	eggs := s.NewInstance(c, "eggs")
-	s.FakeEnviron.Insts = []instance.Instance{spam, ham, eggs}
+	s.FakeEnviron.Insts = []instances.Instance{spam, ham, eggs}
 
-	ids := []instance.Id{"spam", "eggs", "ham"}
+	ids := []instance.ID{"spam", "eggs", "ham"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{spam, eggs, ham})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{spam, eggs, ham})
 }
 
 func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
@@ -46,30 +46,30 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	failure := errors.New("<unknown>")
 	s.FakeEnviron.Err = failure
 
-	ids := []instance.Id{"spam"}
+	ids := []instance.ID{"spam"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.Id{"spam", "eggs"}
+	ids := []instance.ID{"spam", "eggs"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance, nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance, nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
 }
 
 func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	ids := []instance.Id{"eggs"}
+	ids := []instance.ID{"eggs"}
 	insts, err := s.Env.Instances(s.CallCtx, ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
@@ -82,7 +82,7 @@ func (s *environInstSuite) TestBasicInstances(c *gc.C) {
 	insts, err := gce.GetInstances(s.Env, s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{
+	c.Check(insts, jc.DeepEquals, []instances.Instance{
 		s.NewInstance(c, "spam"),
 		s.NewInstance(c, "ham"),
 		s.NewInstance(c, "eggs"),
@@ -107,7 +107,7 @@ func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 	ids, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, jc.DeepEquals, []instance.ID{"spam"})
 }
 
 func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
@@ -135,7 +135,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	ids, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, jc.DeepEquals, []instance.ID{"spam"})
 }
 
 func (s *environInstSuite) TestParsePlacement(c *gc.C) {
@@ -218,7 +218,7 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	john := s.NewInstance(c, "john")
 	misty := s.NewInstance(c, "misty")
-	s.FakeEnviron.Insts = []instance.Instance{john, misty}
+	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
 	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,7 +235,7 @@ func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *gc.C) {
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	john := s.NewInstance(c, "john")
 	misty := s.NewInstance(c, "misty")
-	s.FakeEnviron.Insts = []instance.Instance{john, misty}
+	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
 	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
 	c.Check(err, gc.NotNil)

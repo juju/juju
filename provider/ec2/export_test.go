@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujustorage "github.com/juju/juju/storage"
 )
 
@@ -28,15 +28,15 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
-func InstanceEC2(inst instance.Instance) *ec2.Instance {
+func InstanceEC2(inst instances.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
 }
 
-func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
+func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
 	return e.(*environ).AllInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.ID, states ...string) ([]ec2.SecurityGroup, error) {
 	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 

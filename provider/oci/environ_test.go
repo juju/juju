@@ -20,7 +20,7 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/oci"
 	"github.com/juju/juju/testing"
 )
@@ -287,17 +287,17 @@ func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 		context.Background(), e.listInstancesRequest).Return(
 		e.listInstancesResponse, nil).Times(2)
 
-	req := []instance.Id{
-		instance.Id("fakeInstance1"),
+	req := []instance.ID{
+		instance.ID("fakeInstance1"),
 	}
 	zones, err := e.env.InstanceAvailabilityZoneNames(nil, req)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(zones), gc.Equals, 1)
 	c.Assert(zones[0], gc.Equals, "fakeZone1")
 
-	req = []instance.Id{
-		instance.Id("fakeInstance1"),
-		instance.Id("fakeInstance3"),
+	req = []instance.ID{
+		instance.ID("fakeInstance1"),
+		instance.ID("fakeInstance3"),
 	}
 	zones, err = e.env.InstanceAvailabilityZoneNames(nil, req)
 	c.Assert(err, gc.ErrorMatches, "only some instances were found")
@@ -312,23 +312,23 @@ func (e *environSuite) TestInstances(c *gc.C) {
 		context.Background(), e.listInstancesRequest).Return(
 		e.listInstancesResponse, nil).Times(2)
 
-	req := []instance.Id{
-		instance.Id("fakeInstance1"),
+	req := []instance.ID{
+		instance.ID("fakeInstance1"),
 	}
 
 	inst, err := e.env.Instances(nil, req)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(inst), gc.Equals, 1)
-	c.Assert(inst[0].Id(), gc.Equals, instance.Id("fakeInstance1"))
+	c.Assert(inst[0].Id(), gc.Equals, instance.ID("fakeInstance1"))
 
-	req = []instance.Id{
-		instance.Id("fakeInstance1"),
-		instance.Id("fakeInstance3"),
+	req = []instance.ID{
+		instance.ID("fakeInstance1"),
+		instance.ID("fakeInstance3"),
 	}
 	inst, err = e.env.Instances(nil, req)
 	c.Assert(err, gc.ErrorMatches, "only some instances were found")
 	c.Check(len(inst), gc.Equals, 1)
-	c.Assert(inst[0].Id(), gc.Equals, instance.Id("fakeInstance1"))
+	c.Assert(inst[0].Id(), gc.Equals, instance.ID("fakeInstance1"))
 }
 
 func (e *environSuite) TestPrepareForBootstrap(c *gc.C) {
@@ -485,7 +485,7 @@ func (e *environSuite) setupStopInstanceExpectations(instancesDetails []instance
 		}
 
 		terminateRequestMachine := ociCore.TerminateInstanceRequest{
-			InstanceId: inst.instance.Id,
+			InstanceId: inst.instance.ID,
 		}
 
 		terminateResponse := ociCore.TerminateInstanceResponse{
@@ -538,8 +538,8 @@ func (e *environSuite) TestStopInstances(c *gc.C) {
 		},
 	)
 
-	ids := []instance.Id{
-		instance.Id("instance1"),
+	ids := []instance.ID{
+		instance.ID("instance1"),
 	}
 	err := e.env.StopInstances(nil, ids...)
 	c.Assert(err, gc.IsNil)
@@ -567,10 +567,10 @@ func (e *environSuite) TestStopInstancesSingleFail(c *gc.C) {
 		},
 	)
 
-	ids := []instance.Id{
-		instance.Id("fakeInstance1"),
-		instance.Id("fakeInstance2"),
-		instance.Id("fakeInstance3"),
+	ids := []instance.ID{
+		instance.ID("fakeInstance1"),
+		instance.ID("fakeInstance2"),
+		instance.ID("fakeInstance3"),
 	}
 	err := e.env.StopInstances(nil, ids...)
 	c.Assert(err, gc.ErrorMatches, "failed to stop instance fakeInstance2: I failed to terminate")
@@ -602,11 +602,11 @@ func (e *environSuite) TestStopInstancesMultipleFail(c *gc.C) {
 		},
 	)
 
-	ids := []instance.Id{
-		instance.Id("fakeInstance1"),
-		instance.Id("fakeInstance2"),
-		instance.Id("fakeInstance3"),
-		instance.Id("fakeInstance4"),
+	ids := []instance.ID{
+		instance.ID("fakeInstance1"),
+		instance.ID("fakeInstance2"),
+		instance.ID("fakeInstance3"),
+		instance.ID("fakeInstance4"),
 	}
 	err := e.env.StopInstances(nil, ids...)
 	// order in which the instances are returned or fail is not guaranteed
@@ -676,8 +676,8 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.
 			responseMachine1, nil).Times(3),
 	)
 
-	ids := []instance.Id{
-		instance.Id("fakeInstance1"),
+	ids := []instance.ID{
+		instance.ID("fakeInstance1"),
 	}
 	err := e.env.StopInstances(nil, ids...)
 	c.Check(err, gc.ErrorMatches, ".*Instance still in running state after 2 checks")
@@ -749,8 +749,8 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C
 			responseMachine1Terminating, nil).AnyTimes(),
 	)
 
-	ids := []instance.Id{
-		instance.Id("fakeInstance2"),
+	ids := []instance.ID{
+		instance.ID("fakeInstance2"),
 	}
 	err := e.env.StopInstances(nil, ids...)
 	c.Check(err, gc.ErrorMatches, ".*Timed out waiting for instance to transition from TERMINATING to TERMINATED")

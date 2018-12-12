@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -75,8 +75,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(dfc) instance.Id should take a TAG!
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
+	// TODO(dfc) instance.ID should take a TAG!
+	err = m.SetProvisioned(instance.ID("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,7 +217,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Annotations: pairs,
 		})
 
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
+		err = m.SetProvisioned(instance.ID("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
 			Status:  status.Error,

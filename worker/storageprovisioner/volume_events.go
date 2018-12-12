@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/plans"
 )
@@ -632,7 +632,7 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   providerType,
 				Machine:    hostTag,
-				InstanceId: instance.Id(in.Attachment.InstanceId),
+				InstanceId: instance.ID(in.Attachment.InstanceId),
 				ReadOnly:   in.Attachment.ReadOnly,
 			},
 			Volume: volumeTag,
@@ -661,7 +661,7 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   storage.ProviderType(in.Provider),
 			Machine:    hostTag,
-			InstanceId: instance.Id(in.InstanceId),
+			InstanceId: instance.ID(in.InstanceId),
 			ReadOnly:   in.ReadOnly,
 		},
 		Volume:   volumeTag,

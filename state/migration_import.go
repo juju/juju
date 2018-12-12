@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -497,7 +497,7 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 	doc := &instanceData{
 		DocID:      mdoc.DocID,
 		MachineId:  mdoc.Id,
-		InstanceId: instance.Id(inst.InstanceId()),
+		InstanceId: instance.ID(inst.InstanceId()),
 		ModelUUID:  mdoc.ModelUUID,
 	}
 

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/testing"
 	jujuversion "github.com/juju/juju/juju/version"
 )
@@ -102,7 +102,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			instanceId, err := m.InstanceId()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))
+			c.Assert(instanceId, gc.Equals, instance.ID("manual:"+hostname))
 		}
 	}
 

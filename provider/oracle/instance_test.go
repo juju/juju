@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
@@ -70,7 +70,7 @@ func (i instanceSuite) TestId(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst, gc.NotNil)
 	id := inst.Id()
-	c.Assert(id, gc.Equals, instance.Id("0"))
+	c.Assert(id, gc.Equals, instance.ID("0"))
 }
 
 func (i instanceSuite) TestStatus(c *gc.C) {

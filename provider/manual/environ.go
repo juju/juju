@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -39,7 +39,7 @@ import (
 const (
 	// BootstrapInstanceId is the instance ID used
 	// for the manual provider's bootstrap instance.
-	BootstrapInstanceId instance.Id = "manual:"
+	BootstrapInstanceId instance.ID = "manual:"
 )
 
 var (
@@ -69,12 +69,12 @@ func (*manualEnviron) StartInstance(ctx context.ProviderCallContext, args enviro
 	return nil, errNoStartInstance
 }
 
-func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.Id) error {
+func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.ID) error {
 	return errNoStopInstance
 }
 
-func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
+func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return e.Instances(ctx, []instance.ID{BootstrapInstanceId})
 }
 
 func (e *manualEnviron) envConfig() (cfg *environConfig) {
@@ -132,7 +132,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	if !isRunningController() {
 		// Not running inside the controller, so we must
 		// verify the host.
@@ -140,7 +140,7 @@ func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, con
 			return nil, err
 		}
 	}
-	return []instance.Id{BootstrapInstanceId}, nil
+	return []instance.ID{BootstrapInstanceId}, nil
 }
 
 func (e *manualEnviron) verifyBootstrapHost() error {
@@ -196,8 +196,8 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 // This method will only ever return an Instance for the Id
 // BootstrapInstanceId. If any others are specified, then
 // ErrPartialInstances or ErrNoInstances will result.
-func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instance.Instance, err error) {
-	instances = make([]instance.Instance, len(ids))
+func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) (instances []instances.Instance, err error) {
+	instances = make([]instances.Instance, len(ids))
 	var found bool
 	for i, id := range ids {
 		if id == BootstrapInstanceId {

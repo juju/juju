@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // Instances is part of the environs.Environ interface.
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instance.Instance, err error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) (instances []instances.Instance, err error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -27,7 +27,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 }
 
 // Instances is part of the environs.Environ interface.
-func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -36,7 +36,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get instances")
 	}
-	findInst := func(id instance.Id) instance.Instance {
+	findInst := func(id instance.ID) instances.Instance {
 		for _, inst := range allInstances {
 			if id == inst.Id() {
 				return inst
@@ -46,7 +46,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 	}
 
 	var numFound int
-	results := make([]instance.Instance, len(ids))
+	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		if inst := findInst(id); inst != nil {
 			results[i] = inst
@@ -62,7 +62,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) (ids []instance.Id, err error) {
+func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) (ids []instance.ID, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		ids, err = env.ControllerInstances(ctx, controllerUUID)
 		return err
@@ -71,13 +71,13 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (env *sessionEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *sessionEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var results []instance.Id
+	var results []instance.ID
 	for _, inst := range instances {
 		vm := inst.(*environInstance).base
 		metadata := vm.Config.ExtraConfig

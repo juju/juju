@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 type formattedStatus struct {
@@ -65,7 +65,7 @@ type machineStatus struct {
 	JujuStatus        statusInfoContents            `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
 	DNSName           string                        `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	IPAddresses       []string                      `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
-	InstanceId        instance.Id                   `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	InstanceId        instance.ID                   `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	MachineStatus     statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
 	Series            string                        `json:"series,omitempty" yaml:"series,omitempty"`
 	Id                string                        `json:"-" yaml:"-"`

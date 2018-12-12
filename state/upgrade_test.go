@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -35,7 +35,7 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 		machine, err := s.State.Machine(machineId)
 		c.Assert(err, jc.ErrorIsNil)
 		err = machine.SetProvisioned(
-			instance.Id(fmt.Sprintf("instance-%s", machineId)),
+			instance.ID(fmt.Sprintf("instance-%s", machineId)),
 			fmt.Sprintf("nonce-%s", machineId),
 			nil,
 		)

@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
@@ -37,7 +37,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 
 func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 	env := &mockEnviron{
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, fmt.Errorf("nope")
 		},
 		config: configGetter(c),
@@ -48,16 +48,16 @@ func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 
 func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 	env := &mockEnviron{
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{
 				&mockInstance{id: "one"},
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(ctx context.ProviderCallContext, ids []instance.Id) error {
+		stopInstances: func(ctx context.ProviderCallContext, ids []instance.ID) error {
 			c.Assert(ids, gc.HasLen, 2)
-			c.Assert(ids[0], gc.Equals, instance.Id("one"))
-			c.Assert(ids[1], gc.Equals, instance.Id("another"))
+			c.Assert(ids[0], gc.Equals, instance.ID("one"))
+			c.Assert(ids[1], gc.Equals, instance.ID("another"))
 			return fmt.Errorf("nah")
 		},
 		config: configGetter(c),
@@ -71,16 +71,16 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 	// so failing storage should not affect success.
 	env := &mockEnviron{
 		storage: &mockStorage{removeAllErr: fmt.Errorf("noes!")},
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{
 				&mockInstance{id: "one"},
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(ctx context.ProviderCallContext, ids []instance.Id) error {
+		stopInstances: func(ctx context.ProviderCallContext, ids []instance.ID) error {
 			c.Assert(ids, gc.HasLen, 2)
-			c.Assert(ids[0], gc.Equals, instance.Id("one"))
-			c.Assert(ids[1], gc.Equals, instance.Id("another"))
+			c.Assert(ids[0], gc.Equals, instance.ID("one"))
+			c.Assert(ids[1], gc.Equals, instance.ID("another"))
 			return nil
 		},
 		config: configGetter(c),
@@ -97,14 +97,14 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 
 	env := &mockEnviron{
 		storage: stor,
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{
 				&mockInstance{id: "one"},
 			}, nil
 		},
-		stopInstances: func(ctx context.ProviderCallContext, ids []instance.Id) error {
+		stopInstances: func(ctx context.ProviderCallContext, ids []instance.ID) error {
 			c.Assert(ids, gc.HasLen, 1)
-			c.Assert(ids[0], gc.Equals, instance.Id("one"))
+			c.Assert(ids[0], gc.Equals, instance.ID("one"))
 			return nil
 		},
 		config: configGetter(c),
@@ -126,7 +126,7 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 
 	env := &mockEnviron{
 		storage: stor,
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		config: configGetter(c),
@@ -154,7 +154,7 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -198,7 +198,7 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -219,7 +219,7 @@ func (s *DestroySuite) TestIgnoreStaticVolumes(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -243,7 +243,7 @@ func (s *DestroySuite) TestIgnoreMachineScopedVolumes(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -270,7 +270,7 @@ func (s *DestroySuite) TestIgnoreNoVolumeSupport(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{

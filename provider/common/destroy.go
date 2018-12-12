@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 )
 
@@ -33,7 +33,7 @@ func destroyInstances(env environs.Environ, ctx context.ProviderCallContext) err
 	instances, err := env.AllInstances(ctx)
 	switch err {
 	case nil:
-		ids := make([]instance.Id, len(instances))
+		ids := make([]instance.ID, len(instances))
 		for i, inst := range instances {
 			ids[i] = inst.Id()
 		}

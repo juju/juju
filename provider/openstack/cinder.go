@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
@@ -392,7 +392,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 			args := make([]storage.VolumeAttachmentParams, len(v.Attachments))
 			for i, a := range v.Attachments {
 				args[i].VolumeId = volumeId
-				args[i].InstanceId = instance.Id(a.ServerId)
+				args[i].InstanceId = instance.ID(a.ServerId)
 			}
 			if len(args) > 0 {
 				results := detachVolumes(ctx, storageAdapter, args)

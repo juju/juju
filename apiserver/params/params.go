@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -211,7 +211,7 @@ type AddMachineParams struct {
 	// hardware characteristics and addresses.
 	// All the following fields will be ignored if ContainerType
 	// is set.
-	InstanceId              instance.Id                      `json:"instance-id"`
+	InstanceId              instance.ID                      `json:"instance-id"`
 	Nonce                   string                           `json:"nonce"`
 	HardwareCharacteristics instance.HardwareCharacteristics `json:"hardware-characteristics"`
 	Addrs                   []Address                        `json:"addresses"`
@@ -913,7 +913,7 @@ type JobsResults struct {
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
 	Error  *Error        `json:"error,omitempty"`
-	Result []instance.Id `json:"result"`
+	Result []instance.ID `json:"result"`
 }
 
 // DistributionGroupResults is the bulk form of

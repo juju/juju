@@ -26,7 +26,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/keys"
 	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
@@ -184,10 +184,10 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	return env
 }
 
-func (suite *providerSuite) addNode(jsonText string) instance.Id {
+func (suite *providerSuite) addNode(jsonText string) instance.ID {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
-	return instance.Id(resourceURI)
+	return instance.ID(resourceURI)
 }
 
 func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {

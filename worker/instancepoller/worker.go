@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -117,7 +117,7 @@ func (u *updaterWorker) getMachine(tag names.MachineTag) (machine, error) {
 }
 
 // instanceInfo is part of the machineContext interface.
-func (u *updaterWorker) instanceInfo(id instance.Id) (instanceInfo, error) {
+func (u *updaterWorker) instanceInfo(id instance.ID) (instanceInfo, error) {
 	return u.aggregator.instanceInfo(id)
 }
 

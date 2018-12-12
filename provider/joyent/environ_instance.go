@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/tools"
 )
 
@@ -191,8 +191,8 @@ func tagKey(aKey string) string {
 	return "tag." + aKey
 }
 
-func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-	instances := []instance.Instance{}
+func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	instances := []instances.Instance{}
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")
@@ -213,14 +213,14 @@ func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]insta
 	return instances, nil
 }
 
-func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 
 	logger.Debugf("Looking for instances %q", ids)
 
-	instances := make([]instance.Instance, len(ids))
+	instances := make([]instances.Instance, len(ids))
 	found := 0
 
 	allInstances, err := env.AllInstances(ctx)
@@ -230,7 +230,7 @@ func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []insta
 
 	for i, id := range ids {
 		for _, instance := range allInstances {
-			if instance.Id() == id {
+			if instance.ID() == id {
 				instances[i] = instance
 				found++
 			}
@@ -248,7 +248,7 @@ func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []insta
 	return instances, nil
 }
 
-func (env *joyentEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (env *joyentEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	// Remove all the instances in parallel so that we incur less round-trips.
 	var wg sync.WaitGroup
 	//var err error

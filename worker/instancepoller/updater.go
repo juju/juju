@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -36,7 +36,7 @@ var (
 type machine interface {
 	Id() string
 	Tag() names.MachineTag
-	InstanceId() (instance.Id, error)
+	InstanceId() (instance.ID, error)
 	ProviderAddresses() ([]network.Address, error)
 	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (params.StatusResult, error)
@@ -50,7 +50,7 @@ type machine interface {
 
 type instanceInfo struct {
 	addresses []network.Address
-	status    instance.InstanceStatus
+	status    instance.Status
 }
 
 // lifetimeContext was extracted to allow the various context clients to get
@@ -64,7 +64,7 @@ type lifetimeContext interface {
 
 type machineContext interface {
 	lifetimeContext
-	instanceInfo(id instance.Id) (instanceInfo, error)
+	instanceInfo(id instance.ID) (instanceInfo, error)
 }
 
 type updaterContext interface {
@@ -271,10 +271,10 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		// This should never occur since the machine is provisioned.
 		// But just in case, we reset polled status so we try again next time.
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
-		instInfo.status = instance.InstanceStatus{status.Unknown, ""}
+		instInfo.status = instance.Status{status.Unknown, ""}
 	} else {
 		// TODO(perrito666) add status validation.
-		currentInstStatus := instance.InstanceStatus{
+		currentInstStatus := instance.Status{
 			Status:  status.Status(instStat.Status),
 			Message: instStat.Info,
 		}

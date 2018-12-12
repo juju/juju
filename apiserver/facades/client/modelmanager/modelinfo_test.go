@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -920,7 +920,7 @@ func (m *mockMachine) AgentPresence() (bool, error) {
 	return true, nil
 }
 
-func (m *mockMachine) InstanceId() (instance.Id, error) {
+func (m *mockMachine) InstanceId() (instance.ID, error) {
 	return "", nil
 }
 

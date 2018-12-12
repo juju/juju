@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -97,7 +97,7 @@ func (m *Machine) IsManual() (bool, error) {
 }
 
 // InstanceId returns the machine's instance id.
-func (m *Machine) InstanceId() (instance.Id, error) {
+func (m *Machine) InstanceId() (instance.ID, error) {
 	var results params.StringResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
@@ -114,7 +114,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	if result.Error != nil {
 		return "", result.Error
 	}
-	return instance.Id(result.Result), nil
+	return instance.ID(result.Result), nil
 }
 
 // InstanceStatus returns the machine's instance status.

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -50,7 +50,7 @@ type MachineTemplate struct {
 	// If this is empty, the provisioner will try to provision the machine.
 	// If this is non-empty, the HardwareCharacteristics and Nonce
 	// fields must be set appropriately.
-	InstanceId instance.Id
+	InstanceId instance.ID
 
 	// HardwareCharacteristics holds the h/w characteristics to
 	// be associated with the machine.

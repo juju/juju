@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -341,7 +341,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, gc.HasLen, 0)
 }
 
-func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []network.InterfaceInfo) {
+func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.ID, expectInfo []network.InterfaceInfo) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpNetworkInterfaces)
@@ -361,7 +361,7 @@ func assertSubnets(
 	c *gc.C,
 	e environs.Environ,
 	opc chan dummy.Operation,
-	instId instance.Id,
+	instId instance.ID,
 	subnetIds []network.Id,
 	expectInfo []network.SubnetInfo,
 ) {

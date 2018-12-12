@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -20,7 +20,7 @@ import (
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -38,7 +38,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 
 	// Build the result, matching the provided instance IDs.
 	numFound := 0 // This will never be greater than len(ids).
-	results := make([]instance.Instance, len(ids))
+	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		inst := findInst(id, instances)
 		if inst != nil {
@@ -57,7 +57,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	return results, err
 }
 
-func findInst(id instance.Id, instances []*environInstance) instance.Instance {
+func findInst(id instance.ID, instances []*environInstance) instances.Instance {
 	for _, inst := range instances {
 		if id == inst.Id() {
 			return inst
@@ -94,20 +94,20 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	containers, err := env.server.AliveContainers("juju-")
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	var results []instance.Id
+	var results []instance.ID
 	for _, c := range containers {
 		if c.Metadata(tags.JujuController) != controllerUUID {
 			continue
 		}
 		if c.Metadata(tags.JujuIsController) == "true" {
-			results = append(results, instance.Id(c.Name))
+			results = append(results, instance.ID(c.Name))
 		}
 	}
 	if len(results) == 0 {
@@ -125,10 +125,10 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 		return errors.Annotate(err, "all instances")
 	}
 
-	var failed []instance.Id
+	var failed []instance.ID
 	qualifiedKey := lxd.UserNamespacePrefix + tags.JujuController
 	for _, instance := range instances {
-		id := instance.Id()
+		id := instance.ID()
 		// TODO (manadart 2018-06-27) This is a smell.
 		// Everywhere else, we update the container config on a container and then call WriteContainer.
 		// If we added a method directly to environInstance to do this, we wouldn't need this

@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
@@ -64,7 +64,7 @@ type volumeSourceSuite struct {
 	gce.BaseSuite
 	source           storage.VolumeSource
 	params           []storage.VolumeParams
-	instId           instance.Id
+	instId           instance.ID
 	attachmentParams *storage.VolumeAttachmentParams
 }
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -357,7 +357,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 
 func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 	tests := []struct {
-		instanceId instance.Id
+		instanceId instance.ID
 		nonce      string
 		isManual   bool
 	}{
@@ -841,7 +841,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-	c.Assert(iid, gc.Equals, instance.Id(""))
+	c.Assert(iid, gc.Equals, instance.ID(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
@@ -2786,7 +2786,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.ID("i-blah"), "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2851,7 +2851,7 @@ func (s *MachineSuite) TestWatchAddressesHash(c *gc.C) {
 	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.ID("i-blah"), "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

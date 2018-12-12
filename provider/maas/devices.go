@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -59,7 +59,7 @@ func getJSONBytes(object json.Marshaler) ([]byte, error) {
 	return rawBytes, nil
 }
 
-func (env *maasEnviron) createDevice(hostInstanceID instance.Id, hostname string, primaryMACAddress string) (*maasDevice, error) {
+func (env *maasEnviron) createDevice(hostInstanceID instance.ID, hostname string, primaryMACAddress string) (*maasDevice, error) {
 	devicesAPI := env.getMAASClient().GetSubObject("devices")
 	params := make(url.Values)
 	params.Add("hostname", hostname)
@@ -90,7 +90,7 @@ func parseInterface(jsonBytes []byte) (*maasInterface, error) {
 	return &iface, nil
 }
 
-func (env *maasEnviron) createDeviceInterface(deviceID instance.Id, name, macAddress, vlanID string) (*maasInterface, error) {
+func (env *maasEnviron) createDeviceInterface(deviceID instance.ID, name, macAddress, vlanID string) (*maasInterface, error) {
 	deviceSystemID := extractSystemId(deviceID)
 	uri := path.Join("nodes", deviceSystemID, "interfaces")
 	interfacesAPI := env.getMAASClient().GetSubObject(uri)
@@ -115,7 +115,7 @@ func (env *maasEnviron) createDeviceInterface(deviceID instance.Id, name, macAdd
 	return iface, nil
 }
 
-func (env *maasEnviron) updateDeviceInterface(deviceID instance.Id, interfaceID, name, macAddress, vlanID string) (*maasInterface, error) {
+func (env *maasEnviron) updateDeviceInterface(deviceID instance.ID, interfaceID, name, macAddress, vlanID string) (*maasInterface, error) {
 	deviceSystemID := extractSystemId(deviceID)
 	uri := path.Join("nodes", deviceSystemID, "interfaces", interfaceID)
 	interfacesAPI := env.getMAASClient().GetSubObject(uri)
@@ -140,7 +140,7 @@ func (env *maasEnviron) updateDeviceInterface(deviceID instance.Id, interfaceID,
 	return iface, nil
 }
 
-func (env *maasEnviron) linkDeviceInterfaceToSubnet(deviceID instance.Id, interfaceID, subnetID string, mode maasLinkMode) (*maasInterface, error) {
+func (env *maasEnviron) linkDeviceInterfaceToSubnet(deviceID instance.ID, interfaceID, subnetID string, mode maasLinkMode) (*maasInterface, error) {
 	deviceSystemID := extractSystemId(deviceID)
 	uri := path.Join("nodes", deviceSystemID, "interfaces", interfaceID)
 	interfacesAPI := env.getMAASClient().GetSubObject(uri)
@@ -164,7 +164,7 @@ func (env *maasEnviron) linkDeviceInterfaceToSubnet(deviceID instance.Id, interf
 	return iface, nil
 }
 
-func (env *maasEnviron) deviceInterfaces(deviceID instance.Id) ([]maasInterface, error) {
+func (env *maasEnviron) deviceInterfaces(deviceID instance.ID) ([]maasInterface, error) {
 	deviceSystemID := extractSystemId(deviceID)
 	uri := path.Join("nodes", deviceSystemID, "interfaces")
 	interfacesAPI := env.getMAASClient().GetSubObject(uri)
@@ -186,7 +186,7 @@ func (env *maasEnviron) deviceInterfaces(deviceID instance.Id) ([]maasInterface,
 
 }
 
-func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentName map[string]string) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.ID, nameToParentName map[string]string) ([]network.InterfaceInfo, error) {
 	interfaces, err := env.deviceInterfaces(deviceID)
 	if err != nil {
 		return nil, errors.Trace(err)

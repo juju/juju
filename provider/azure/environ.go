@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -324,7 +324,7 @@ func (env *azureEnviron) createCommonResourceDeployment(
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *azureEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *azureEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	instances, err := env.allInstances(ctx, env.resourceGroup, false, true)
 	if err != nil {
 		return nil, err
@@ -332,7 +332,7 @@ func (env *azureEnviron) ControllerInstances(ctx context.ProviderCallContext, co
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	ids := make([]instance.Id, len(instances))
+	ids := make([]instance.ID, len(instances))
 	for i, inst := range instances {
 		ids[i] = inst.Id()
 	}
@@ -536,7 +536,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		storageAccountType,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
-		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
+		if err := env.StopInstances(ctx, instance.ID(vmName)); err != nil {
 			logger.Errorf("could not destroy failed virtual machine: %v", err)
 		}
 		return nil, errors.Annotatef(err, "creating virtual machine %q", vmName)
@@ -1115,7 +1115,7 @@ func newOSProfile(
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1128,7 +1128,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 	for i, id := range ids {
 		logger.Debugf("canceling deployment for instance %q", id)
 		wg.Add(1)
-		go func(i int, id instance.Id) {
+		go func(i int, id instance.ID) {
 			defer wg.Done()
 			sdkCtx := stdcontext.Background()
 			cancelResults[i] = errors.Annotatef(
@@ -1182,7 +1182,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		// The deployment does not exist, so there's nothing more to do.
 		logger.Debugf("deleting instance %q", id)
 		wg.Add(1)
-		go func(i int, id instance.Id) {
+		go func(i int, id instance.ID) {
 			defer wg.Done()
 			sdkCtx := stdcontext.Background()
 			err := env.deleteVirtualMachine(
@@ -1238,7 +1238,7 @@ func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, sdkCt
 func (env *azureEnviron) deleteVirtualMachine(
 	ctx context.ProviderCallContext,
 	sdkCtx stdcontext.Context,
-	instId instance.Id,
+	instId instance.ID,
 	maybeStorageClient internalazurestorage.Client,
 	networkInterfaces []network.Interface,
 	publicIPAddresses []network.PublicIPAddress,
@@ -1385,16 +1385,16 @@ func (env *azureEnviron) deleteVirtualMachine(
 }
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	return env.instances(ctx, env.resourceGroup, ids, true /* refresh addresses */)
 }
 
 func (env *azureEnviron) instances(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	ids []instance.Id,
+	ids []instance.ID,
 	refreshAddresses bool,
-) ([]instance.Instance, error) {
+) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1402,12 +1402,12 @@ func (env *azureEnviron) instances(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	byId := make(map[instance.Id]instance.Instance)
+	byId := make(map[instance.ID]instances.Instance)
 	for _, inst := range all {
 		byId[inst.Id()] = inst
 	}
 	var found int
-	matching := make([]instance.Instance, len(ids))
+	matching := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		inst, ok := byId[id]
 		if !ok {
@@ -1528,7 +1528,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 }
 
 // AllInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return env.allInstances(ctx, env.resourceGroup, true /* refresh addresses */, false /* all instances */)
 }
 
@@ -1539,7 +1539,7 @@ func (env *azureEnviron) allInstances(
 	resourceGroup string,
 	refreshAddresses bool,
 	controllerOnly bool,
-) ([]instance.Instance, error) {
+) ([]instances.Instance, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	sdkCtx := stdcontext.Background()
 	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, "", nil)
@@ -1592,7 +1592,7 @@ func (env *azureEnviron) allInstances(
 		}
 	}
 
-	instances := make([]instance.Instance, len(azureInstances))
+	instances := make([]instances.Instance, len(azureInstances))
 	for i, inst := range azureInstances {
 		instances[i] = inst
 	}

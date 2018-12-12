@@ -7,7 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
@@ -285,7 +285,7 @@ type AttachmentParams struct {
 	// be attached to. This will only be of interest to storage providers
 	// that interact with the instances, such as EBS/EC2. The InstanceId
 	// field will be empty if the instance is not yet provisioned.
-	InstanceId instance.Id
+	InstanceId instance.ID
 
 	// ReadOnly indicates that the storage should be attached as read-only.
 	ReadOnly bool

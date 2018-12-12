@@ -28,13 +28,14 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 )
@@ -225,7 +226,7 @@ func BootstrapInstance(
 		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
 
-	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
+	msg := fmt.Sprintf(" - %s (%s)", result.instance.ID(), formatHardware(result.Hardware))
 	// We need some padding below to overwrite any previous messages.
 	if len(msg) < 40 {
 		padding := make([]string, 40-len(msg))
@@ -234,7 +235,7 @@ func BootstrapInstance(
 	ctx.Infof(msg)
 
 	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
-		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineInstanceId = result.instance.ID()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
 		envConfig := env.Config()
@@ -319,7 +320,7 @@ var FinishBootstrap = func(
 	client ssh.Client,
 	env environs.Environ,
 	callCtx context.ProviderCallContext,
-	inst instance.Instance,
+	inst instances.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
 ) error {
@@ -503,17 +504,17 @@ type InstanceRefresher interface {
 
 	// Status returns the provider-specific status for the
 	// instance.
-	Status(ctx context.ProviderCallContext) instance.InstanceStatus
+	Status(ctx context.ProviderCallContext) instance.Status
 }
 
 type RefreshableInstance struct {
-	instance.Instance
+	instances.Instance
 	Env environs.Environ
 }
 
 // Refresh refreshes the addresses for the instance.
 func (i *RefreshableInstance) Refresh(ctx context.ProviderCallContext) error {
-	instances, err := i.Env.Instances(ctx, []instance.Id{i.Id()})
+	instances, err := i.Env.Instances(ctx, []instance.ID{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}

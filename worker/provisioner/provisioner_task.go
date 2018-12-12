@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -148,7 +148,7 @@ type provisionerTask struct {
 	harvestModeChan            chan config.HarvestMode
 	retryStartInstanceStrategy RetryStrategy
 	// instance id -> instance
-	instances map[instance.Id]instance.Instance
+	instances map[instance.ID]instances.Instance
 	// machine id -> machine
 	machines                 map[string]apiprovisioner.MachineProvisioner
 	machinesMutex            sync.RWMutex
@@ -431,7 +431,7 @@ func (task *provisionerTask) processOneMachineProfileChange(
 	return initialAddOfSubordinateProfile, m.SetCharmProfiles(newProfiles)
 }
 
-func instanceIds(instances []instance.Instance) []string {
+func instanceIds(instances []instances.Instance) []string {
 	ids := make([]string, 0, len(instances))
 	for _, inst := range instances {
 		ids = append(ids, string(inst.Id()))
@@ -442,7 +442,7 @@ func instanceIds(instances []instance.Instance) []string {
 // populateMachineMaps updates task.instances. Also updates
 // task.machines map if a list of IDs is given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
-	task.instances = make(map[instance.Id]instance.Instance)
+	task.instances = make(map[instance.ID]instances.Instance)
 
 	instances, err := task.broker.AllInstances(task.cloudCallCtx)
 	if err != nil {
@@ -510,7 +510,7 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 
 type ClassifiableMachine interface {
 	Life() params.Life
-	InstanceId() (instance.Id, error)
+	InstanceId() (instance.ID, error)
 	EnsureDead() error
 	Status() (status.Status, string, error)
 	InstanceStatus() (status.Status, string, error)
@@ -577,9 +577,9 @@ func classifyMachine(machine ClassifiableMachine) (
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) ([]instance.Instance, error) {
+func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance) ([]instances.Instance, error) {
 	// Make a copy of the instances we know about.
-	instances := make(map[instance.Id]instance.Instance)
+	instances := make(map[instance.ID]instances.Instance)
 	for k, v := range task.instances {
 		instances[k] = v
 	}
@@ -602,18 +602,18 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	for _, inst := range stopping {
 		delete(instances, inst.Id())
 	}
-	var unknown []instance.Instance
+	var unknown []instances.Instance
 	for _, inst := range instances {
 		unknown = append(unknown, inst)
 	}
 	return unknown, nil
 }
 
-// instancesForDeadMachines returns a list of instance.Instance that represent
+// instancesForDeadMachines returns a list of instances.Instance that represent
 // the list of dead machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisioner.MachineProvisioner) []instance.Instance {
-	var instances []instance.Instance
+func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisioner.MachineProvisioner) []instances.Instance {
+	var instances []instances.Instance
 	for _, machine := range deadMachines {
 		instId, err := machine.InstanceId()
 		if err == nil {
@@ -632,7 +632,7 @@ func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisio
 	return instances
 }
 
-func (task *provisionerTask) stopInstances(instances []instance.Instance) error {
+func (task *provisionerTask) stopInstances(instances []instances.Instance) error {
 	// Although calling StopInstance with an empty slice should produce no change in the
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {
@@ -642,7 +642,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 		return errors.New("wrench in the works")
 	}
 
-	ids := make([]instance.Id, len(instances))
+	ids := make([]instance.ID, len(instances))
 	for i, inst := range instances {
 		ids[i] = inst.Id()
 	}
@@ -875,12 +875,12 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	// In this case, AvailabilityZoneAllocations() will return all of the "available"
 	// availability zones and their instance allocations.
 	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(
-		zonedEnv, task.cloudCallCtx, []instance.Id{})
+		zonedEnv, task.cloudCallCtx, []instance.ID{})
 	if err != nil {
 		return err
 	}
 
-	instanceMachines := make(map[instance.Id]string)
+	instanceMachines := make(map[instance.ID]string)
 	for _, machine := range task.machines {
 		instId, err := machine.InstanceId()
 		if err != nil {
@@ -1281,13 +1281,13 @@ func (task *provisionerTask) startMachine(
 	// gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
 	charmLXDProfiles := task.gatherCharmLXDProfiles(
-		string(result.Instance.Id()),
+		string(result.instance.ID()),
 		machine.Tag().Id(),
 		startInstanceParams.CharmLXDProfiles,
 	)
 
 	if err := machine.SetInstanceInfo(
-		result.Instance.Id(),
+		result.instance.ID(),
 		startInstanceParams.InstanceConfig.MachineNonce,
 		result.Hardware,
 		networkConfig,
@@ -1299,7 +1299,7 @@ func (task *provisionerTask) startMachine(
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
-		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.Instance.Id()); err2 != nil {
+		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.instance.ID()); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")
@@ -1309,7 +1309,7 @@ func (task *provisionerTask) startMachine(
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
-		result.Instance.Id(),
+		result.instance.ID(),
 		result.Hardware,
 		networkConfig,
 		volumes,

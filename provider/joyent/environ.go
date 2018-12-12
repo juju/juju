@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -114,8 +114,8 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx conte
 	return common.Bootstrap(ctx, env, callCtx, args)
 }
 
-func (env *joyentEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instanceIds := []instance.Id{}
+func (env *joyentEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
+	instanceIds := []instance.ID{}
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")

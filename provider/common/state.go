@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // StateFile is the name of the file where the provider's state is stored.
@@ -27,7 +27,7 @@ const StateFile = "provider-state"
 // the definition that most practically useful providers share unchanged.
 type BootstrapState struct {
 	// StateInstances are the controllers.
-	StateInstances []instance.Id `yaml:"state-instances"`
+	StateInstances []instance.ID `yaml:"state-instances"`
 }
 
 // putState writes the given data to the state file on the given storage.
@@ -89,7 +89,7 @@ func loadState(r io.ReadCloser) (*BootstrapState, error) {
 
 // AddStateInstance adds a controller instance ID to the provider-state
 // file in storage.
-func AddStateInstance(stor storage.Storage, id instance.Id) error {
+func AddStateInstance(stor storage.Storage, id instance.ID) error {
 	state, err := LoadState(stor)
 	if err == environs.ErrNotBootstrapped {
 		state = &BootstrapState{}
@@ -103,7 +103,7 @@ func AddStateInstance(stor storage.Storage, id instance.Id) error {
 // RemoveStateInstances removes controller instance IDs from the
 // provider-state file in storage. Instance IDs that are not found
 // in the file are ignored.
-func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {
+func RemoveStateInstances(stor storage.Storage, ids ...instance.ID) error {
 	state, err := LoadState(stor)
 	if err == environs.ErrNotBootstrapped {
 		return nil
@@ -130,7 +130,7 @@ func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {
 }
 
 // ProviderStateInstances extracts the instance IDs from provider-state.
-func ProviderStateInstances(stor storage.StorageReader) ([]instance.Id, error) {
+func ProviderStateInstances(stor storage.StorageReader) ([]instance.ID, error) {
 	st, err := LoadState(stor)
 	if err != nil {
 		return nil, err

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
@@ -554,7 +554,7 @@ func destroyVolume(client *ec2.EC2, ctx context.ProviderCallContext, volumeId st
 				// before we can destroy it.
 				args = append(args, storage.VolumeAttachmentParams{
 					AttachmentParams: storage.AttachmentParams{
-						InstanceId: instance.Id(a.InstanceId),
+						InstanceId: instance.ID(a.InstanceId),
 					},
 					VolumeId: volumeId,
 				})

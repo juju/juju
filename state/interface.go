@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/tools"
 )
 
@@ -121,7 +121,7 @@ type ModelMachinesWatcher interface {
 
 // InstanceIdGetter defines a single method - InstanceId.
 type InstanceIdGetter interface {
-	InstanceId() (instance.Id, error)
+	InstanceId() (instance.ID, error)
 }
 
 // ActionsWatcher defines the methods an entity exposes to watch Actions

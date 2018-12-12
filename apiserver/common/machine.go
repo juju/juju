@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -56,7 +56,7 @@ func (st *stateShim) Machine(id string) (Machine, error) {
 
 type Machine interface {
 	Id() string
-	InstanceId() (instance.Id, error)
+	InstanceId() (instance.ID, error)
 	WantsVote() bool
 	HasVote() bool
 	Status() (status.StatusInfo, error)

@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 )
 
@@ -433,7 +433,7 @@ func (s *oracleVolumeSource) getStorageAttachments() (map[string][]ociResponse.S
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) AttachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	instanceIds := []instance.Id{}
+	instanceIds := []instance.ID{}
 	for _, val := range params {
 		instanceIds = append(instanceIds, val.InstanceId)
 	}
@@ -523,7 +523,7 @@ func (s *oracleVolumeSource) attachVolume(
 		existingIndexes = append(existingIndexes, int(val.Index))
 	}
 
-	for _, val := range currentAttachments[string(instance.Id())] {
+	for _, val := range currentAttachments[string(instance.ID())] {
 		// index numbers range from 1 to 10. Ignore 0 valued indexes
 		// see: https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/op-storage-attachment--post.html
 		if val.Index == 0 {
@@ -574,10 +574,10 @@ func (s *oracleVolumeSource) attachVolume(
 		details.Name,
 		string(ociCommon.StateAttached), 5*time.Minute); err != nil {
 
-		currentAttachments[string(instance.Id())] = append(currentAttachments[string(instance.Id())], details)
+		currentAttachments[string(instance.ID())] = append(currentAttachments[string(instance.ID())], details)
 		return storage.AttachVolumesResult{Error: errors.Trace(err)}, nil
 	}
-	currentAttachments[string(instance.Id())] = append(currentAttachments[string(instance.Id())], details)
+	currentAttachments[string(instance.ID())] = append(currentAttachments[string(instance.ID())], details)
 
 	// TODO (gsamfira): make this more OS agnostic. In Windows you get disk indexes
 	// instead of device names; however storage is not supported on windows instances (yet).

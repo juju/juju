@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
@@ -154,7 +154,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}, nil
 }
 
-func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		lxdLogger.Infof("stopping lxd container for instance: %s", id)
@@ -168,7 +168,7 @@ func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // AllInstances only returns running containers.
-func (broker *lxdBroker) AllInstances(ctx context.ProviderCallContext) (result []instance.Instance, err error) {
+func (broker *lxdBroker) AllInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }
 

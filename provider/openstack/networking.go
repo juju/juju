@@ -15,7 +15,7 @@ import (
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -24,7 +24,7 @@ import (
 type Networking interface {
 	// AllocatePublicIP allocates a public (floating) IP
 	// to the specified instance.
-	AllocatePublicIP(instance.Id) (*string, error)
+	AllocatePublicIP(instance.ID) (*string, error)
 
 	// DefaultNetworks returns the set of networks that should be
 	// added by default to all new instances.
@@ -38,12 +38,12 @@ type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.
 	// Needed for Environ.Networking
-	Subnets(instance.Id, []network.Id) ([]network.SubnetInfo, error)
+	Subnets(instance.ID, []network.Id) ([]network.SubnetInfo, error)
 
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
 	// Needed for Environ.Networking
-	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
+	NetworkInterfaces(instId instance.ID) ([]network.InterfaceInfo, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -89,7 +89,7 @@ func (n *switchingNetworking) initNetworking() error {
 }
 
 // AllocatePublicIP is part of the Networking interface.
-func (n *switchingNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
+func (n *switchingNetworking) AllocatePublicIP(instId instance.ID) (*string, error) {
 	if err := n.initNetworking(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -113,7 +113,7 @@ func (n *switchingNetworking) ResolveNetwork(name string, external bool) (string
 }
 
 // Subnets is part of the Networking interface.
-func (n *switchingNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *switchingNetworking) Subnets(instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := n.initNetworking(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,7 +121,7 @@ func (n *switchingNetworking) Subnets(instId instance.Id, subnetIds []network.Id
 }
 
 // NetworkInterfaces is part of the Networking interface
-func (n *switchingNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *switchingNetworking) NetworkInterfaces(instId instance.ID) ([]network.InterfaceInfo, error) {
 	if err := n.initNetworking(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -157,7 +157,7 @@ func projectIdFilter(projectId string) *neutron.Filter {
 }
 
 // AllocatePublicIP is part of the Networking interface.
-func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
+func (n *NeutronNetworking) AllocatePublicIP(instId instance.ID) (*string, error) {
 	extNetworkIds := make([]string, 0)
 	neutronClient := n.env.neutron()
 	externalNetwork := n.env.ecfg().externalNetwork()
@@ -326,7 +326,7 @@ func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.S
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned.
-func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *NeutronNetworking) Subnets(instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	neutron := n.env.neutron()
 	internalNet := n.env.ecfg().network()
@@ -362,7 +362,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 	}
 
 	var results []network.SubnetInfo
-	if instId != instance.UnknownId {
+	if instId != instance.UnknownID {
 		// TODO(hml): 2017-03-20
 		// Implement Subnets() for case where instId is specified
 		return nil, errors.NotSupportedf("neutron subnets with instance Id")
@@ -419,6 +419,6 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *NeutronNetworking) NetworkInterfaces(instId instance.ID) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("neutron network interfaces")
 }

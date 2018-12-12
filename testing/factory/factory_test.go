@@ -15,7 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -236,7 +236,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
-	id := instance.Id("some-id")
+	id := instance.ID("some-id")
 	volumes := []state.HostVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
 	filesystems := []state.HostFilesystemParams{{
 		Filesystem: state.FilesystemParams{Pool: "loop", Size: 2048},

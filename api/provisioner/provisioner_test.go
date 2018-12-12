@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -279,7 +279,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	instanceId, err := apiMachine.InstanceId()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
-	c.Assert(instanceId, gc.Equals, instance.Id(""))
+	c.Assert(instanceId, gc.Equals, instance.ID(""))
 
 	hwChars := instance.MustParseHardware("cores=123", "mem=4G")
 
@@ -303,7 +303,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	instanceId, err = apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, instance.Id("i-will"))
+	c.Assert(instanceId, gc.Equals, instance.ID("i-will"))
 
 	// Try it again - should fail.
 	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil, nil, nil)
@@ -313,7 +313,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
 	instanceId, err = apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
+	c.Assert(instanceId, gc.Equals, instance.ID("i-manager"))
 
 	// Now check volumes and volume attachments.
 	sb, err := state.NewStorageBackend(s.State)
@@ -351,7 +351,7 @@ func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 	instanceId, err := apiMachine.InstanceId()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
-	c.Assert(instanceId, gc.Equals, instance.Id(""))
+	c.Assert(instanceId, gc.Equals, instance.ID(""))
 
 	availabilityZone := "ru-north-siberia"
 	hwChars := instance.MustParseHardware(fmt.Sprintf("availability-zone=%s", availabilityZone))
@@ -380,7 +380,7 @@ func (s *provisionerSuite) TestSetInstanceInfoProfiles(c *gc.C) {
 	instanceId, err := apiMachine.InstanceId()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
-	c.Assert(instanceId, gc.Equals, instance.Id(""))
+	c.Assert(instanceId, gc.Equals, instance.ID(""))
 
 	hwChars := instance.MustParseHardware("cores=123", "mem=4G")
 
@@ -531,7 +531,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	instances, err := apiMachine.DistributionGroup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.DeepEquals, []instance.Id{"i-manager"})
+	c.Assert(instances, gc.DeepEquals, []instance.ID{"i-manager"})
 
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -553,7 +553,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		instances, err := apiMachine.DistributionGroup()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(instances, gc.DeepEquals, []instance.Id{"i-d"})
+		c.Assert(instances, gc.DeepEquals, []instance.ID{"i-d"})
 	}
 }
 

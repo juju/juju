@@ -13,7 +13,7 @@ import (
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -25,9 +25,9 @@ type environInstSuite struct {
 var _ = gc.Suite(&environInstSuite{})
 
 func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
-	ids := []instance.Id{"spam", "eggs", "ham"}
+	ids := []instance.ID{"spam", "eggs", "ham"}
 	var containers []containerlxd.Container
-	var expected []instance.Instance
+	var expected []instances.Instance
 	for _, id := range ids {
 		containers = append(containers, *s.NewContainer(c, string(id)))
 		expected = append(expected, s.NewInstance(c, string(id)))
@@ -41,7 +41,7 @@ func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
-	ids := []instance.Id{"spam", "eggs", "ham"}
+	ids := []instance.ID{"spam", "eggs", "ham"}
 	s.Env.Instances(context.NewCloudCallContext(), ids)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
@@ -63,10 +63,10 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	failure := errors.New("<unknown>")
 	s.Stub.SetErrors(failure)
 
-	ids := []instance.Id{"spam"}
+	ids := []instance.ID{"spam"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
@@ -75,10 +75,10 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	expected := s.NewInstance(c, "spam")
 	s.Client.Containers = []containerlxd.Container{*container}
 
-	ids := []instance.Id{"spam", "eggs"}
+	ids := []instance.ID{"spam", "eggs"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{expected, nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{expected, nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
 }
 
@@ -86,10 +86,10 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	container := s.NewContainer(c, "spam")
 	s.Client.Containers = []containerlxd.Container{*container}
 
-	ids := []instance.Id{"eggs"}
+	ids := []instance.ID{"eggs"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
@@ -98,7 +98,7 @@ func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
 	// allInstances will ultimately return the error.
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
-	ids := []instance.Id{"eggs"}
+	ids := []instance.ID{"eggs"}
 	_, err := s.Env.Instances(&context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			invalidCred = true
@@ -116,7 +116,7 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	ids, err := s.Env.ControllerInstances(context.NewCloudCallContext(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, jc.DeepEquals, []instance.ID{"spam"})
 	s.BaseSuite.Client.CheckCallNames(c, "AliveContainers")
 	s.BaseSuite.Client.CheckCall(
 		c, 0, "AliveContainers", "juju-",
@@ -137,7 +137,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	ids, err := s.Env.ControllerInstances(context.NewCloudCallContext(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	c.Check(ids, jc.DeepEquals, []instance.ID{"spam"})
 }
 
 func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {

@@ -332,7 +332,7 @@ StateInfo method on Environ; and we jam all sorts of gymnastics into the state
 package to allow us to use Environs without doing so explicitly (see the
 state.Policy interface, and its many somewhat-inelegant uses). In other places,
 we have (quite reasonably) moved code out of the environs package (see both
-environs/config.Config, and instance.Instance).
+environs/config.Config, and instances.Instance).
 
 Environ implementations are expected to be goroutine-safe; we don't currently
 make much use of that property at the moment, but we will be coming to depend

@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	callcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
@@ -106,7 +106,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
+	c.Assert(result.instance.ID(), gc.Equals, instance.ID("new-vm"))
 
 	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[1]

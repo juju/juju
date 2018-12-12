@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -62,7 +62,7 @@ type Machine interface {
 
 	// InstanceId returns the provider specific instance id for this
 	// machine, or a NotProvisionedError, if not set.
-	InstanceId() (instance.Id, error)
+	InstanceId() (instance.ID, error)
 
 	// Id returns the machine id.
 	Id() string
@@ -71,7 +71,7 @@ type Machine interface {
 // CloudProvider defines methods needed from the cloud provider to perform the check.
 type CloudProvider interface {
 	// AllInstances returns all instances currently known to the cloud provider.
-	AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
 type stateShim struct {

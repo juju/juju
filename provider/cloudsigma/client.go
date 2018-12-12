@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -107,30 +107,30 @@ func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 }
 
 //getControllerIds get list of ids for all controller instances
-func (c *environClient) getControllerIds() (ids []instance.Id, err error) {
+func (c *environClient) getControllerIds() (ids []instance.ID, err error) {
 	logger.Tracef("query state...")
 
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyController)
 	if err != nil {
-		return []instance.Id{}, errors.Trace(err)
+		return []instance.ID{}, errors.Trace(err)
 	}
 
 	if len(servers) == 0 {
-		return []instance.Id{}, environs.ErrNotBootstrapped
+		return []instance.ID{}, environs.ErrNotBootstrapped
 	}
 
-	ids = make([]instance.Id, len(servers))
+	ids = make([]instance.ID, len(servers))
 
 	for i, server := range servers {
 		logger.Tracef("controller id: %s", server.UUID())
-		ids[i] = instance.Id(server.UUID())
+		ids[i] = instance.ID(server.UUID())
 	}
 
 	return ids, nil
 }
 
 //stopInstance stops the CloudSigma server corresponding to the given instance ID.
-func (c *environClient) stopInstance(id instance.Id) error {
+func (c *environClient) stopInstance(id instance.ID) error {
 	uuid := string(id)
 	if uuid == "" {
 		return errors.New("invalid instance id")

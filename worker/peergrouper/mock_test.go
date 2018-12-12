@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -310,7 +310,7 @@ type machineDoc struct {
 	id         string
 	wantsVote  bool
 	hasVote    bool
-	instanceId instance.Id
+	instanceId instance.ID
 	addresses  []network.Address
 	statusInfo status.StatusInfo
 	life       state.Life

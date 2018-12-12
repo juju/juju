@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -17,13 +17,13 @@ type joyentInstance struct {
 	env     *joyentEnviron
 }
 
-var _ instance.Instance = (*joyentInstance)(nil)
+var _ instances.Instance = (*joyentInstance)(nil)
 
-func (inst *joyentInstance) Id() instance.Id {
-	return instance.Id(inst.machine.Id)
+func (inst *joyentInstance) Id() instance.ID {
+	return instance.ID(inst.machine.Id)
 }
 
-func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.machine.State
 	jujuStatus := status.Pending
 	switch instStatus {
@@ -38,7 +38,7 @@ func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.Ins
 	default:
 		jujuStatus = status.Empty
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: instStatus,
 	}

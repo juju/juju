@@ -10,7 +10,7 @@ import (
 	constraints "github.com/juju/juju/constraints"
 	container "github.com/juju/juju/container"
 	environs "github.com/juju/juju/environs"
-	instance "github.com/juju/juju/instance"
+	instance "github.com/juju/juju/core/instance"
 	reflect "reflect"
 )
 
@@ -38,9 +38,9 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 }
 
 // CreateContainer mocks base method
-func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 string, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 string, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(instance.Instance)
+	ret0, _ := ret[0].(instances.Instance)
 	ret1, _ := ret[1].(*instance.HardwareCharacteristics)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -52,7 +52,7 @@ func (mr *MockManagerMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, arg4,
 }
 
 // DestroyContainer mocks base method
-func (m *MockManager) DestroyContainer(arg0 instance.Id) error {
+func (m *MockManager) DestroyContainer(arg0 instance.ID) error {
 	ret := m.ctrl.Call(m, "DestroyContainer", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -76,9 +76,9 @@ func (mr *MockManagerMockRecorder) IsInitialized() *gomock.Call {
 }
 
 // ListContainers mocks base method
-func (m *MockManager) ListContainers() ([]instance.Instance, error) {
+func (m *MockManager) ListContainers() ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "ListContainers")
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -370,14 +370,14 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error)
 
 	// ControllerInstances returns the IDs of instances corresponding
 	// to Juju controller, having the specified controller UUID.
 	// If there are no controller instances, ErrNoInstances is returned.
 	// If it can be determined that the environment has not been bootstrapped,
 	// then ErrNotBootstrapped should be returned instead.
-	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
+	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
@@ -493,7 +493,7 @@ type InstanceTagger interface {
 	//
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
-	TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error
+	TagInstance(ctx context.ProviderCallContext, id instance.ID, tags map[string]string) error
 }
 
 // InstanceTypesFetcher is an interface that allows for instance information from

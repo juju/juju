@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -251,7 +251,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// runs it won't overwrite them.
 	instId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.ID{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], addrs)
 }
@@ -414,10 +414,10 @@ func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
 	return nil
 }
 
-func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instances.Instance, error) {
 	return nil, nil
 }
 
-func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	return nil, nil
 }

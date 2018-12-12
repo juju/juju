@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -45,7 +45,7 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestInstances(c *gc.C) {
-	var ids []instance.Id
+	var ids []instance.ID
 
 	instances, err := s.env.Instances(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
@@ -64,7 +64,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], gc.NotNil)
 
-	ids = append(ids, instance.Id("invalid"))
+	ids = append(ids, instance.ID("invalid"))
 	instances, err = s.env.Instances(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances, gc.HasLen, 3)
@@ -72,7 +72,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 	c.Assert(instances[1], gc.NotNil)
 	c.Assert(instances[2], gc.IsNil)
 
-	ids = []instance.Id{instance.Id("invalid")}
+	ids = []instance.ID{instance.ID("invalid")}
 	instances, err = s.env.Instances(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 	c.Assert(instances, gc.HasLen, 1)
@@ -229,7 +229,7 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 		instances, err := s.env.ControllerInstances(s.callCtx, "not-used")
 		if test.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
+			c.Assert(instances, gc.DeepEquals, []instance.ID{BootstrapInstanceId})
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.expectedErr)
 			c.Assert(instances, gc.HasLen, 0)
@@ -259,5 +259,5 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *gc.C) {
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
 	instances, err := s.env.ControllerInstances(s.callCtx, "not-used")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
+	c.Assert(instances, gc.DeepEquals, []instance.ID{BootstrapInstanceId})
 }

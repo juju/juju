@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -122,7 +122,7 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
 
-	err = cli.stopInstance(instance.Id(suuid))
+	err = cli.stopInstance(instance.ID(suuid))
 	c.Assert(err, gc.IsNil)
 
 	_, err = cli.getControllerIds()
@@ -133,7 +133,7 @@ func (s *clientSuite) TestClientInvalidStopInstance(c *gc.C) {
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
 
-	var id instance.Id
+	var id instance.ID
 	err = cli.stopInstance(id)
 	c.Check(err, gc.ErrorMatches, "invalid instance id")
 

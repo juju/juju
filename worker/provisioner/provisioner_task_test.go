@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/common"
@@ -56,7 +56,7 @@ type ProvisionerTaskSuite struct {
 	machineStatusResults []apiprovisioner.MachineStatusResult
 	machineGetter        *testMachineGetter
 
-	instances      []instance.Instance
+	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
 
 	callCtx           *context.CloudCallContext
@@ -91,11 +91,11 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.instances = []instance.Instance{}
+	s.instances = []instances.Instance{}
 	s.instanceBroker = &testInstanceBroker{
 		Stub:      &testing.Stub{},
 		callsChan: make(chan string, 2),
-		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 			return s.instances, nil
 		},
 	}
@@ -138,7 +138,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 
 	i0 := &testInstance{id: "zero"}
 	i1 := &testInstance{id: "one"}
-	s.instances = []instance.Instance{
+	s.instances = []instances.Instance{
 		i0,
 		i1,
 	}
@@ -171,7 +171,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	s.machineGetter.CheckCallNames(c, "Machines")
 	s.instanceBroker.CheckCalls(c, []testing.StubCall{
 		{"AllInstances", []interface{}{s.callCtx}},
-		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
+		{"StopInstances", []interface{}{s.callCtx, []instance.ID{"zero"}}},
 	})
 	c.Assert(m0.markForRemoval, jc.IsTrue)
 	c.Assert(m1.markForRemoval, jc.IsTrue)
@@ -337,7 +337,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 // setUpZonedEnviron creates a mock environ with instances based on those set
 // on the test suite, and 3 availability zones.
 func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks.MockZonedEnviron {
-	instanceIds := make([]instance.Id, len(s.instances))
+	instanceIds := make([]instance.ID, len(s.instances))
 	for i, inst := range s.instances {
 		instanceIds[i] = inst.Id()
 	}
@@ -477,7 +477,7 @@ type testInstanceBroker struct {
 
 	callsChan chan string
 
-	allInstancesFunc func(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	allInstancesFunc func(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
 func (t *testInstanceBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -486,13 +486,13 @@ func (t *testInstanceBroker) StartInstance(ctx context.ProviderCallContext, args
 	return nil, t.NextErr()
 }
 
-func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	t.AddCall("StopInstances", ctx, ids)
 	t.callsChan <- "StopInstances"
 	return t.NextErr()
 }
 
-func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	t.AddCall("AllInstances", ctx)
 	t.callsChan <- "AllInstances"
 	return t.allInstancesFunc(ctx)
@@ -505,12 +505,12 @@ func (t *testInstanceBroker) MaintainInstance(ctx context.ProviderCallContext, a
 }
 
 type testInstance struct {
-	instance.Instance
+	instances.Instance
 	id string
 }
 
-func (i *testInstance) Id() instance.Id {
-	return instance.Id(i.id)
+func (i *testInstance) Id() instance.ID {
+	return instance.ID(i.id)
 }
 
 type testMachine struct {
@@ -541,8 +541,8 @@ func (m *testMachine) Life() params.Life {
 	return m.life
 }
 
-func (m *testMachine) InstanceId() (instance.Id, error) {
-	return m.instance.Id(), nil
+func (m *testMachine) InstanceId() (instance.ID, error) {
+	return m.instance.ID(), nil
 }
 
 func (m *testMachine) KeepInstance() (bool, error) {
@@ -588,7 +588,7 @@ func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
 }
 
 func (m *testMachine) SetInstanceInfo(
-	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.ID, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {

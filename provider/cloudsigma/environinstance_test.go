@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -108,13 +108,13 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
 
-	ids := []instance.Id{instance.Id(uuid0), instance.Id(uuid1)}
+	ids := []instance.ID{instance.ID(uuid0), instance.ID(uuid1)}
 	instances, err = env.Instances(s.callCtx, ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
 
-	ids = append(ids, instance.Id("fake-instance"))
+	ids = append(ids, instance.ID("fake-instance"))
 	instances, err = env.Instances(s.callCtx, ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
@@ -153,7 +153,7 @@ func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 	c.Assert(instances, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 
-	instances, err = environ.Instances(s.callCtx, []instance.Id{instance.Id("123"), instance.Id("321")})
+	instances, err = environ.Instances(s.callCtx, []instance.ID{instance.ID("123"), instance.ID("321")})
 	c.Assert(instances, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 }

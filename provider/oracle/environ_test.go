@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/oracle"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/testing"
@@ -69,8 +69,8 @@ func (e *environSuite) TestAvailabilityZone(c *gc.C) {
 }
 
 func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	zones, err := e.env.InstanceAvailabilityZoneNames(e.callCtx, []instance.Id{
-		instance.Id("0"),
+	zones, err := e.env.InstanceAvailabilityZoneNames(e.callCtx, []instance.ID{
+		instance.ID("0"),
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(zones, gc.NotNil)
@@ -92,7 +92,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
 
-	_, err = environ.InstanceAvailabilityZoneNames(e.callCtx, []instance.Id{instance.Id("0")})
+	_, err = environ.InstanceAvailabilityZoneNames(e.callCtx, []instance.ID{instance.ID("0")})
 	c.Assert(err, gc.NotNil)
 
 	environ, err = oracle.NewOracleEnviron(
@@ -110,9 +110,9 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
 
-	_, err = environ.InstanceAvailabilityZoneNames(e.callCtx, []instance.Id{
-		instance.Id("0"),
-		instance.Id("1"),
+	_, err = environ.InstanceAvailabilityZoneNames(e.callCtx, []instance.ID{
+		instance.ID("0"),
+		instance.ID("1"),
 	})
 	c.Assert(err, gc.NotNil)
 }
@@ -217,7 +217,7 @@ func (e *environSuite) TestAdoptResources(c *gc.C) {
 func (e *environSuite) TestStopInstances(c *gc.C) {
 	hostname, err := oracle.CreateHostname(e.env, "0")
 	c.Assert(err, gc.IsNil)
-	ids := []instance.Id{instance.Id(hostname)}
+	ids := []instance.ID{instance.ID(hostname)}
 	err = e.env.StopInstances(e.callCtx, ids...)
 	c.Assert(err, gc.IsNil)
 }
@@ -251,7 +251,7 @@ func (e *environSuite) TestSetConfig(c *gc.C) {
 func (e *environSuite) TestInstances(c *gc.C) {
 	hostname, err := oracle.CreateHostname(e.env, "0")
 	c.Assert(err, gc.IsNil)
-	instances, err := e.env.Instances(e.callCtx, []instance.Id{instance.Id(hostname)})
+	instances, err := e.env.Instances(e.callCtx, []instance.ID{instance.ID(hostname)})
 	c.Assert(err, gc.IsNil)
 	c.Assert(instances, gc.NotNil)
 }

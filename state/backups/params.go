@@ -6,14 +6,14 @@ package backups
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // RestoreArgs holds the args to be used to call state/backups.Restore
 type RestoreArgs struct {
 	PrivateAddress string
 	PublicAddress  string
-	NewInstId      instance.Id
+	NewInstId      instance.ID
 	NewInstTag     names.Tag
 	NewInstSeries  string
 }

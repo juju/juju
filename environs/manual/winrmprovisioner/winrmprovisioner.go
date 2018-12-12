@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -332,7 +332,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
 
-	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
+	instanceId := instance.ID(manual.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid)
 	machineParams := &params.AddMachineParams{
 		Series:                  series,

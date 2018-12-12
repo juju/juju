@@ -19,7 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/azure"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -179,7 +179,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 				AttachmentParams: storage.AttachmentParams{
 					Provider:   "azure",
 					Machine:    names.NewMachineTag(machine),
-					InstanceId: instance.Id("machine-" + machine),
+					InstanceId: instance.ID("machine-" + machine),
 				},
 				Volume: names.NewVolumeTag(volume),
 			},
@@ -292,7 +292,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 				AttachmentParams: storage.AttachmentParams{
 					Provider:   "azure",
 					Machine:    names.NewMachineTag(machine),
-					InstanceId: instance.Id("machine-" + machine),
+					InstanceId: instance.ID("machine-" + machine),
 				},
 				Volume: names.NewVolumeTag(volume),
 			},
@@ -376,7 +376,7 @@ func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
 				AttachmentParams: storage.AttachmentParams{
 					Provider:   "azure",
 					Machine:    names.NewMachineTag(machine),
-					InstanceId: instance.Id("machine-" + machine),
+					InstanceId: instance.ID("machine-" + machine),
 				},
 				Volume: names.NewVolumeTag(volume),
 			},
@@ -794,7 +794,7 @@ func (s *storageSuite) testAttachVolumes(c *gc.C, legacy bool) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   "azure",
 				Machine:    names.NewMachineTag(machine),
-				InstanceId: instance.Id("machine-" + machine),
+				InstanceId: instance.ID("machine-" + machine),
 			},
 			Volume:   names.NewVolumeTag(volume),
 			VolumeId: "volume-" + volume,
@@ -921,7 +921,7 @@ func (s *storageSuite) testDetachVolumes(c *gc.C, legacy bool) {
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   "azure",
 				Machine:    names.NewMachineTag(machine),
-				InstanceId: instance.Id("machine-" + machine),
+				InstanceId: instance.ID("machine-" + machine),
 			},
 			Volume:   names.NewVolumeTag(volume),
 			VolumeId: "volume-" + volume,
@@ -1002,7 +1002,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "azure",
 			Machine:    names.NewMachineTag("0"),
-			InstanceId: instance.Id("machine-0"),
+			InstanceId: instance.ID("machine-0"),
 		},
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "volume-0",

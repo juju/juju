@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -101,7 +101,7 @@ type statusUnitTestSuite struct {
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *gc.C) {
-	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
+	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.ID("0")})
 	container := s.Factory.MakeMachineNested(c, host.Id(), nil)
 
 	client := s.APIState.Client()
@@ -118,7 +118,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 }
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
-	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
+	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.ID("1")})
 	s.Factory.MakeMachineNested(c, host.Id(), nil)
 	lxdHost := s.Factory.MakeMachineNested(c, host.Id(), nil)
 	s.Factory.MakeMachineNested(c, lxdHost.Id(), nil)

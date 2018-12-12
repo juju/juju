@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
 )
@@ -56,10 +56,10 @@ func NewEnviron(api NetworkingAPI, env commonProvider.OracleInstancer) *Environ 
 }
 
 // Subnets is defined on the environs.Networking interface.
-func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
+func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.ID, subnets []network.Id) ([]network.SubnetInfo, error) {
 	ret := []network.SubnetInfo{}
 	found := make(map[string]bool)
-	if id != instance.UnknownId {
+	if id != instance.UnknownID {
 		instanceNets, err := e.NetworkInterfaces(ctx, id)
 		if err != nil {
 			return ret, errors.Trace(err)
@@ -155,7 +155,7 @@ func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 }
 
 // NetworkInterfaces is defined on the environs.Networking interface.
-func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
 	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func (e Environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bo
 // AllocateContainerAddresses is defined on the environs.Networking interface.
 func (e Environ) AllocateContainerAddresses(
 	ctx context.ProviderCallContext,
-	hostInstanceID instance.Id,
+	hostInstanceID instance.ID,
 	containerTag names.MachineTag,
 	preparedInfo []network.InterfaceInfo,
 ) ([]network.InterfaceInfo, error) {

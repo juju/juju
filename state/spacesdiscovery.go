@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -50,7 +50,7 @@ func (st *State) ReloadSpaces(environ environs.Environ) error {
 		return errors.Trace(st.SaveSpacesFromProvider(spaces))
 	} else {
 		logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
-		subnets, err := netEnviron.Subnets(ctx, instance.UnknownId, nil)
+		subnets, err := netEnviron.Subnets(ctx, instance.UnknownID, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}

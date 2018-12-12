@@ -65,7 +65,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -173,13 +173,13 @@ type OpDestroy struct {
 
 type OpNetworkInterfaces struct {
 	Env        string
-	InstanceId instance.Id
+	InstanceId instance.ID
 	Info       []network.InterfaceInfo
 }
 
 type OpSubnets struct {
 	Env        string
-	InstanceId instance.Id
+	InstanceId instance.ID
 	SubnetIds  []network.Id
 	Info       []network.SubnetInfo
 }
@@ -189,7 +189,7 @@ type OpStartInstance struct {
 	MachineId         string
 	MachineNonce      string
 	PossibleTools     coretools.List
-	Instance          instance.Instance
+	Instance          instances.Instance
 	Constraints       constraints.Value
 	SubnetsToZones    map[network.Id][]string
 	NetworkInfo       []network.InterfaceInfo
@@ -204,20 +204,20 @@ type OpStartInstance struct {
 
 type OpStopInstances struct {
 	Env string
-	Ids []instance.Id
+	Ids []instance.ID
 }
 
 type OpOpenPorts struct {
 	Env        string
 	MachineId  string
-	InstanceId instance.Id
+	InstanceId instance.ID
 	Rules      []network.IngressRule
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
-	InstanceId instance.Id
+	InstanceId instance.ID
 	Rules      []network.IngressRule
 }
 
@@ -254,7 +254,7 @@ type environState struct {
 	mu             sync.Mutex
 	maxId          int // maximum instance id allocated so far.
 	maxAddr        int // maximum allocated address last byte
-	insts          map[instance.Id]*dummyInstance
+	insts          map[instance.ID]*dummyInstance
 	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
 	mux            *apiserverhttp.Mux
@@ -459,7 +459,7 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 		name:           name,
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
-		insts:          make(map[instance.Id]*dummyInstance),
+		insts:          make(map[instance.ID]*dummyInstance),
 		creator:        string(buf),
 	}
 	return s
@@ -967,7 +967,7 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 	})
 }
 
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -980,7 +980,7 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	if !estate.bootstrapped {
 		return nil, environs.ErrNotBootstrapped
 	}
-	var controllerInstances []instance.Id
+	var controllerInstances []instance.ID
 	for _, v := range estate.insts {
 		if v.controller {
 			controllerInstances = append(controllerInstances, v.Id())
@@ -1116,7 +1116,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1", "::1")
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
-		id:           instance.Id(idString),
+		id:           instance.ID(idString),
 		addresses:    addrs,
 		machineId:    machineId,
 		series:       series,
@@ -1236,7 +1236,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}, nil
 }
 
-func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -1257,7 +1257,7 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 	return nil
 }
 
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (insts []instance.Instance, err error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) (insts []instances.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -1352,7 +1352,7 @@ func (env *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -1424,7 +1424,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
@@ -1458,7 +1458,7 @@ func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, arg
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1542,19 +1542,19 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.Su
 	}}
 	estate.ops <- OpSubnets{
 		Env:        env.name,
-		InstanceId: instance.UnknownId,
+		InstanceId: instance.UnknownID,
 		SubnetIds:  []network.Id{},
 		Info:       result,
 	}
 	return result, nil
 }
 
-func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
-	var insts []instance.Instance
+	var insts []instances.Instance
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -1639,7 +1639,7 @@ func (*environ) Provider() environs.EnvironProvider {
 type dummyInstance struct {
 	state        *environState
 	rules        network.IngressRuleSlice
-	id           instance.Id
+	id           instance.ID
 	status       string
 	machineId    string
 	series       string
@@ -1651,11 +1651,11 @@ type dummyInstance struct {
 	broken    []string
 }
 
-func (inst *dummyInstance) Id() instance.Id {
+func (inst *dummyInstance) Id() instance.ID {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
@@ -1667,7 +1667,7 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Inst
 		}
 	}
 
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: inst.status,
 	}
@@ -1676,7 +1676,7 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Inst
 
 // SetInstanceAddresses sets the addresses associated with the given
 // dummy instance.
-func SetInstanceAddresses(inst instance.Instance, addrs []network.Address) {
+func SetInstanceAddresses(inst instances.Instance, addrs []network.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
@@ -1686,7 +1686,7 @@ func SetInstanceAddresses(inst instance.Instance, addrs []network.Address) {
 
 // SetInstanceStatus sets the status associated with the given
 // dummy instance.
-func SetInstanceStatus(inst instance.Instance, status string) {
+func SetInstanceStatus(inst instances.Instance, status string) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.status = status
@@ -1695,7 +1695,7 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 
 // SetInstanceBroken marks the named methods of the instance as broken.
 // Any previously broken methods not in the set will no longer be broken.
-func SetInstanceBroken(inst instance.Instance, methods ...string) {
+func SetInstanceBroken(inst instances.Instance, methods ...string) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.broken = methods
@@ -1829,7 +1829,7 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

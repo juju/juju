@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -28,11 +28,11 @@ type fakeInstanceIdGetter struct {
 	fetchError
 }
 
-func (f *fakeInstanceIdGetter) InstanceId() (instance.Id, error) {
+func (f *fakeInstanceIdGetter) InstanceId() (instance.ID, error) {
 	if f.err != "" {
 		return "", fmt.Errorf(f.err)
 	}
-	return instance.Id(f.instanceId), nil
+	return instance.ID(f.instanceId), nil
 }
 
 func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {

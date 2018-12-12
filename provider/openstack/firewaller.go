@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
@@ -69,20 +69,20 @@ type Firewaller interface {
 
 	// GetSecurityGroups returns a list of the security groups that
 	// belong to given instances.
-	GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error)
+	GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error)
 
 	// SetUpGroups sets up initial security groups, if any, and returns
 	// their names.
 	SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPort int) ([]string, error)
 
 	// OpenInstancePorts opens the given port ranges for the specified  instance.
-	OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error
+	OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error
 
 	// CloseInstancePorts closes the given port ranges for the specified  instance.
-	CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error
+	CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error
 
 	// InstanceIngressRules returns the ingress rules applied to the specified  instance.
-	InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error)
+	InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error)
 }
 
 type firewallerFactory struct {
@@ -172,7 +172,7 @@ func (f *switchingFirewaller) UpdateGroupController(ctx context.ProviderCallCont
 	return f.fw.UpdateGroupController(ctx, controllerUUID)
 }
 
-func (f *switchingFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
+func (f *switchingFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error) {
 	if err := f.initFirewaller(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,21 +186,21 @@ func (f *switchingFirewaller) SetUpGroups(ctx context.ProviderCallContext, contr
 	return f.fw.SetUpGroups(ctx, controllerUUID, machineId, apiPort)
 }
 
-func (f *switchingFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+func (f *switchingFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
 	if err := f.initFirewaller(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return f.fw.OpenInstancePorts(ctx, inst, machineId, rules)
 }
 
-func (f *switchingFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+func (f *switchingFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
 	if err := f.initFirewaller(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return f.fw.CloseInstancePorts(ctx, inst, machineId, rules)
 }
 
-func (f *switchingFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+func (f *switchingFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
 	if err := f.initFirewaller(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -213,7 +213,7 @@ type firewallerBase struct {
 }
 
 // GetSecurityGroups implements Firewaller interface.
-func (c *firewallerBase) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
+func (c *firewallerBase) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.ID) ([]string, error) {
 	var securityGroupNames []string
 	if c.environ.Config().FirewallMode() == config.FwInstance {
 		instances, err := c.environ.Instances(ctx, ids)
@@ -248,7 +248,7 @@ func (c *firewallerBase) GetSecurityGroups(ctx context.ProviderCallContext, ids 
 	return securityGroupNames, nil
 }
 
-func instServerId(inst instance.Instance) (string, error) {
+func instServerId(inst instances.Instance) (string, error) {
 	openstackName := inst.(*openstackInstance).getServerDetail().Name
 	lastDashPos := strings.LastIndex(openstackName, "-")
 	if lastDashPos == -1 {
@@ -803,7 +803,7 @@ func (c *neutronFirewaller) IngressRules(ctx context.ProviderCallContext) ([]net
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *neutronFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, ports []network.IngressRule) error {
+func (c *neutronFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, ports []network.IngressRule) error {
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf("invalid firewall mode %q for opening ports on instance",
 			c.environ.Config().FirewallMode())
@@ -824,7 +824,7 @@ func (c *neutronFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, i
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *neutronFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, ports []network.IngressRule) error {
+func (c *neutronFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, ports []network.IngressRule) error {
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf("invalid firewall mode %q for closing ports on instance",
 			c.environ.Config().FirewallMode())
@@ -845,7 +845,7 @@ func (c *neutronFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, 
 }
 
 // InstanceIngressRules implements Firewaller interface.
-func (c *neutronFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+func (c *neutronFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			c.environ.Config().FirewallMode())

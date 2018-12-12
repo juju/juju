@@ -48,7 +48,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -893,7 +893,7 @@ func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
 }
 
 type mockBootstrapInstance struct {
-	instance.Instance
+	instances.Instance
 }
 
 func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {

@@ -34,7 +34,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -260,7 +260,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
 
-	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, id0})
+	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.ID{id0, id0})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Equals, id0)
@@ -285,7 +285,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
-	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, ""})
+	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.ID{id0, ""})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Check(insts[0].Id(), gc.Equals, id0)
@@ -297,7 +297,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
 	for a := t.Attempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0})
+		insts, err = t.Env.Instances(t.ProviderCallContext, []instance.ID{id0})
 		if err != nil {
 			break
 		}
@@ -312,7 +312,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(t.ProviderCallContext, inst1.Id())
-	fwInst1, ok := inst1.(instance.InstanceFirewaller)
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
@@ -321,7 +321,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "2")
 	c.Assert(inst2, gc.NotNil)
-	fwInst2, ok := inst2.(instance.InstanceFirewaller)
+	fwInst2, ok := inst2.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -580,7 +580,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 		},
 	)
 
-	fwInst1, ok := inst1.(instance.InstanceFirewaller)
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	// Check errors when acting on instances.
 	err = fwInst1.OpenPorts(t.ProviderCallContext,
@@ -884,10 +884,10 @@ var waitAgent = utils.AttemptStrategy{
 	Delay: 1 * time.Second,
 }
 
-func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.Id) {
+func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.ID) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		_, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{instId})
+		_, err = t.Env.Instances(t.ProviderCallContext, []instance.ID{instId})
 		if err == nil {
 			continue
 		}
@@ -929,7 +929,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	result, err := t.Env.StartInstance(t.ProviderCallContext, params)
 	if result != nil && result.Instance != nil {
-		err := t.Env.StopInstances(t.ProviderCallContext, result.Instance.Id())
+		err := t.Env.StopInstances(t.ProviderCallContext, result.instance.ID())
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(result, gc.IsNil)

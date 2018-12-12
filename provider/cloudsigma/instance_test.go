@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -72,7 +72,7 @@ func (s *instanceSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceId(c *gc.C) {
-	c.Check(s.inst.Id(), gc.Equals, instance.Id("f4ec5097-121e-44a7-a207-75bc02163260"))
+	c.Check(s.inst.Id(), gc.Equals, instance.ID("f4ec5097-121e-44a7-a207-75bc02163260"))
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {

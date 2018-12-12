@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -863,7 +863,7 @@ type mockDummyEnviron struct {
 	environs.Environ
 }
 
-func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	// ensure that callback is used...
 	ctx.InvalidateCredential("considered invalid for the sake of testing")
 	return m.Environ.Instances(ctx, ids)

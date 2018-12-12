@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 )
 
@@ -139,7 +139,7 @@ type mockVolumeAccessor struct {
 	attachmentsWatcher     *mockAttachmentsWatcher
 	attachmentPlansWatcher *mockAttachmentPlansWatcher
 	blockDevicesWatcher    *mockNotifyWatcher
-	provisionedMachines    map[string]instance.Id
+	provisionedMachines    map[string]instance.ID
 	provisionedVolumes     map[string]params.Volume
 	provisionedAttachments map[params.MachineStorageId]params.VolumeAttachment
 	blockDevices           map[params.MachineStorageId]storage.BlockDevice
@@ -322,7 +322,7 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 		attachmentsWatcher:     newMockAttachmentsWatcher(),
 		attachmentPlansWatcher: newMockAttachmentPlansWatcher(),
 		blockDevicesWatcher:    newMockNotifyWatcher(),
-		provisionedMachines:    make(map[string]instance.Id),
+		provisionedMachines:    make(map[string]instance.ID),
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
 		blockDevices:           make(map[params.MachineStorageId]storage.BlockDevice),
@@ -333,7 +333,7 @@ type mockFilesystemAccessor struct {
 	testing.Stub
 	filesystemsWatcher     *mockStringsWatcher
 	attachmentsWatcher     *mockAttachmentsWatcher
-	provisionedMachines    map[string]instance.Id
+	provisionedMachines    map[string]instance.ID
 	provisionedFilesystems map[string]params.Filesystem
 	provisionedAttachments map[params.MachineStorageId]params.FilesystemAttachment
 
@@ -465,7 +465,7 @@ func newMockFilesystemAccessor() *mockFilesystemAccessor {
 	return &mockFilesystemAccessor{
 		filesystemsWatcher:     newMockStringsWatcher(),
 		attachmentsWatcher:     newMockAttachmentsWatcher(),
-		provisionedMachines:    make(map[string]instance.Id),
+		provisionedMachines:    make(map[string]instance.ID),
 		provisionedFilesystems: make(map[string]params.Filesystem),
 		provisionedAttachments: make(map[params.MachineStorageId]params.FilesystemAttachment),
 	}
@@ -822,7 +822,7 @@ func (s *mockManagedFilesystemSource) DetachFilesystems(ctx context.ProviderCall
 }
 
 type mockMachineAccessor struct {
-	instanceIds map[names.MachineTag]instance.Id
+	instanceIds map[names.MachineTag]instance.ID
 	watcher     *mockNotifyWatcher
 }
 
@@ -847,7 +847,7 @@ func (a *mockMachineAccessor) InstanceIds(tags []names.MachineTag) ([]params.Str
 
 func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 	return &mockMachineAccessor{
-		instanceIds: make(map[names.MachineTag]instance.Id),
+		instanceIds: make(map[names.MachineTag]instance.ID),
 		watcher:     newMockNotifyWatcher(),
 	}
 }

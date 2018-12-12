@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
@@ -236,7 +236,7 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.ID) ([]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -391,8 +391,8 @@ const (
 
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *environ) DistributeInstances(
-	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
-) ([]instance.Id, error) {
+	ctx context.ProviderCallContext, candidates, distributionGroup []instance.ID, limitZones []string,
+) ([]instance.ID, error) {
 	return common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
 }
 
@@ -856,7 +856,7 @@ func _runInstances(e *ec2.EC2, ctx context.ProviderCallContext, ri *ec2.RunInsta
 	return resp, maybeConvertCredentialError(err, ctx)
 }
 
-func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.ID) error {
 	return errors.Trace(e.terminateInstances(ctx, ids))
 }
 
@@ -891,11 +891,11 @@ func isNotFoundError(err error) bool {
 }
 
 // Instances is part of the environs.Environ interface.
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.ID) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]instance.Instance, len(ids))
+	insts := make([]instances.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -937,8 +937,8 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 // insts slice has not been completely filled.
 func (e *environ) gatherInstances(
 	ctx context.ProviderCallContext,
-	ids []instance.Id,
-	insts []instance.Instance,
+	ids []instance.ID,
+	insts []instances.Instance,
 	filter *ec2.Filter,
 ) error {
 	resp, err := e.ec2.Instances(nil, filter)
@@ -973,7 +973,7 @@ func (e *environ) gatherInstances(
 }
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.ID) ([]network.InterfaceInfo, error) {
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -1064,14 +1064,14 @@ func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, 
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements
 // NetworkingEnviron.Subnets.
-func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.ID, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	subIdSet := make(map[string]bool)
 	for _, subId := range subnetIds {
 		subIdSet[string(subId)] = false
 	}
 
-	if instId != instance.UnknownId {
+	if instId != instance.UnknownID {
 		interfaces, err := e.NetworkInterfaces(ctx, instId)
 		if err != nil {
 			return results, errors.Trace(err)
@@ -1171,7 +1171,7 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 
 	resourceIds := make([]string, len(instances))
 	for i, instance := range instances {
-		resourceIds[i] = string(instance.Id())
+		resourceIds[i] = string(instance.ID())
 	}
 	resourceIds = append(resourceIds, volumeIds...)
 	resourceIds = append(resourceIds, groupIds...)
@@ -1181,13 +1181,13 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
-func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.AllInstancesByState(ctx, "pending", "running")
 }
 
 // AllInstancesByState returns all instances in the environment
 // with one of the specified instance states.
-func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instance.Instance, error) {
+func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instances.Instance, error) {
 	// NOTE(axw) we use security group filtering here because instances
 	// start out untagged. If Juju were to abort after starting an instance,
 	// but before tagging it, it would be leaked. We only need to do this
@@ -1223,7 +1223,7 @@ func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ..
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
@@ -1243,31 +1243,31 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 //
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
-func (e *environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.ID, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	e.addControllerFilter(filter, controllerUUID)
 	return e.allInstanceIDs(ctx, filter)
 }
 
-func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.Id, error) {
+func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.ID, error) {
 	insts, err := e.allInstances(ctx, filter)
 	if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	ids := make([]instance.Id, len(insts))
+	ids := make([]instance.ID, len(insts))
 	for i, inst := range insts {
 		ids[i] = inst.Id()
 	}
 	return ids, nil
 }
 
-func (e *environ) allInstances(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.Instance, error) {
+func (e *environ) allInstances(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instances.Instance, error) {
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing instances")
 	}
-	var insts []instance.Instance
+	var insts []instances.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
@@ -1479,7 +1479,7 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.ID, states ...string) ([]ec2.SecurityGroup, error) {
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
@@ -1552,7 +1552,7 @@ func (e *environ) cleanEnvironmentSecurityGroups(ctx context.ProviderCallContext
 	return nil
 }
 
-func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.Id) error {
+func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.ID) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1585,7 +1585,7 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	// 2. If we attempted to terminate several instances and got a NotFound error,
 	// it means that no instances were terminated.
 	// So try each instance individually, ignoring a NotFound error this time.
-	deletedIDs := []instance.Id{}
+	deletedIDs := []instance.ID{}
 	for _, id := range ids {
 		_, err = terminateInstancesById(e.ec2, ctx, id)
 		if err == nil {
@@ -1602,7 +1602,7 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	return nil
 }
 
-var terminateInstancesById = func(ec2inst *ec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
+var terminateInstancesById = func(ec2inst *ec2.EC2, ctx context.ProviderCallContext, ids ...instance.ID) (*ec2.TerminateInstancesResp, error) {
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
@@ -1614,7 +1614,7 @@ var terminateInstancesById = func(ec2inst *ec2.EC2, ctx context.ProviderCallCont
 	return r, nil
 }
 
-func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallContext, ids []instance.Id) {
+func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallContext, ids []instance.ID) {
 	if len(ids) == 0 {
 		logger.Debugf("no need to delete security groups: no intances were terminated successfully")
 		return
@@ -1991,7 +1991,7 @@ func ec2ErrCode(err error) string {
 	return ec2err.Code
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.ID, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

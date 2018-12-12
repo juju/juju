@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -51,8 +51,8 @@ func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 	s.instance = &mockInstance{id: "wind-up"}
 	s.provider = &mockProvider{
 		Stub: &testing.Stub{},
-		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{s.instance}, nil
+		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{s.instance}, nil
 		},
 	}
 	s.callContext = context.NewCloudCallContext()
@@ -79,8 +79,8 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 
 func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
 	instance2 := &mockInstance{id: "analyse"}
-	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-		return []instance.Instance{s.instance, instance2}, nil
+	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+		return []instances.Instance{s.instance, instance2}, nil
 	}
 
 	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext)
@@ -101,7 +101,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
-	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 		return nil, errors.New("kaboom")
 	}
 
@@ -141,7 +141,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *gc.C) {
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *gc.C) {
 	machine1 := createTestMachine("2", "")
-	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
+	machine1.instanceIdFunc = func() (instance.ID, error) { return "", errors.New("retrieval failure") }
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
@@ -157,7 +157,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *g
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatal(c *gc.C) {
 	machine1 := createTestMachine("2", "")
-	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
+	machine1.instanceIdFunc = func() (instance.ID, error) { return "", errors.New("retrieval failure") }
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
@@ -179,7 +179,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 
 func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
 	machine2 := createTestMachine("2", "")
-	machine2.instanceIdFunc = func() (instance.Id, error) { return "", errors.NotProvisionedf("machine 2") }
+	machine2.instanceIdFunc = func() (instance.ID, error) { return "", errors.NotProvisionedf("machine 2") }
 	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
 		return []credentialcommon.Machine{s.machine, machine2}, nil
 	}
@@ -402,8 +402,8 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel(c *gc.C) {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
 				Stub: &testing.Stub{},
-				allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-					return []instance.Instance{}, nil
+				allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+					return []instances.Instance{}, nil
 				},
 			},
 		}, nil
@@ -434,28 +434,28 @@ func createModelBackend(c *gc.C) *mockPersistedBackend {
 
 type mockProvider struct {
 	*testing.Stub
-	allInstancesFunc func(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	allInstancesFunc func(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
-func (m *mockProvider) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *mockProvider) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	m.MethodCall(m, "AllInstances", ctx)
 	return m.allInstancesFunc(ctx)
 }
 
 type mockInstance struct {
-	instance.Instance
+	instances.Instance
 	id string
 }
 
-func (i *mockInstance) Id() instance.Id {
-	return instance.Id(i.id)
+func (i *mockInstance) Id() instance.ID {
+	return instance.ID(i.id)
 }
 
 type mockMachine struct {
 	id             string
 	container      bool
 	manualFunc     func() (bool, error)
-	instanceIdFunc func() (instance.Id, error)
+	instanceIdFunc func() (instance.ID, error)
 }
 
 func (m *mockMachine) IsManual() (bool, error) {
@@ -466,7 +466,7 @@ func (m *mockMachine) IsContainer() bool {
 	return m.container
 }
 
-func (m *mockMachine) InstanceId() (instance.Id, error) {
+func (m *mockMachine) InstanceId() (instance.ID, error) {
 	return m.instanceIdFunc()
 }
 
@@ -478,7 +478,7 @@ func createTestMachine(id, instanceId string) *mockMachine {
 	return &mockMachine{
 		id:             id,
 		manualFunc:     func() (bool, error) { return false, nil },
-		instanceIdFunc: func() (instance.Id, error) { return instance.Id(instanceId), nil },
+		instanceIdFunc: func() (instance.ID, error) { return instance.ID(instanceId), nil },
 	}
 }
 
@@ -577,7 +577,7 @@ type mockEnviron struct {
 	*mockProvider
 }
 
-func (m *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return m.mockProvider.AllInstances(ctx)
 }
 

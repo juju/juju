@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing/factory"
@@ -43,7 +43,7 @@ func (s *CmdCredentialSuite) SetUpTest(c *gc.C) {
 	// This is why we need to add a machine that corresponds to a "localhost" instance,
 	// i.e. just making the suite model valid in credential's eyes.
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.Id("localhost"),
+		InstanceId: instance.ID("localhost"),
 	})
 }
 

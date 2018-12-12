@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
@@ -311,9 +311,9 @@ func (env *environ) getHardwareCharacteristics(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	environInstances, err := env.allInstances()
-	instances := make([]instance.Instance, len(environInstances))
+	instances := make([]instances.Instance, len(environInstances))
 	for i, inst := range environInstances {
 		if inst == nil {
 			continue
@@ -324,7 +324,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.In
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.ID) error {
 	prefix := env.namespace.Prefix()
 	var names []string
 	for _, id := range instances {

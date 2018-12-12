@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -189,7 +189,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return nil
 	}
 
-	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
+	instances, err := env.Instances(callCtx, []instance.ID{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return errors.Annotate(err, "getting bootstrap instance")
 	}

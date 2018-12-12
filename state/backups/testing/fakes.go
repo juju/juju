@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -46,7 +46,7 @@ type FakeBackups struct {
 	// PrivateAddr Holds the address for the internal network of the machine.
 	PrivateAddr string
 	// InstanceId is the id of the machine to be restored.
-	InstanceId instance.Id
+	InstanceId instance.ID
 	// ArchiveArg holds the backup archive that was passed in.
 	ArchiveArg io.Reader
 	// KeepCopy holds the keepCopy bool that was passed in.
