@@ -989,6 +989,8 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)
+	err = ctx.application.SetCharmProfile(sch.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1014,6 +1016,19 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	url, ok := ctx.unit.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
+}
+
+type setUpgradeCharmProfile struct{}
+
+func (s setUpgradeCharmProfile) step(c *gc.C, ctx *context) {
+	id, err := ctx.unit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	machine, err := ctx.st.Machine(id)
+	c.Assert(err, gc.IsNil)
+	url, ok := ctx.unit.CharmURL()
+	c.Assert(ok, jc.IsTrue)
+	err = machine.SetUpgradeCharmProfile(ctx.application.Name(), url.String())
+	c.Assert(err, gc.IsNil)
 }
 
 type pushResource struct{}

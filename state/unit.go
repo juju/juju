@@ -698,7 +698,7 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
-		// Remove the charm profile.
+		logger.Tracef("Remove charm profile from machine %s for %s", m.Id(), a.Name())
 		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
 	}
 
@@ -2977,15 +2977,6 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message 
 		return err
 	}
 	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
-}
-
-// UpgradeCharmProfileStatus returns the lxd profile status of the units assigned machine
-func (u *Unit) UpgradeCharmProfileStatus() (string, error) {
-	machine, err := u.machine()
-	if err != nil {
-		return "", err
-	}
-	return machine.UpgradeCharmProfileComplete()
 }
 
 // RemoveUpgradeCharmProfileData removes the upgrade charm profile instance data

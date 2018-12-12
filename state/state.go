@@ -1792,7 +1792,7 @@ func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) e
 		// no profile to add
 		return nil
 	}
-	logger.Debugf("set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
+	logger.Tracef("Set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
 	return machine.SetUpgradeCharmProfile(app.Name(), ch.URL().String())
 }
 

@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
@@ -258,7 +257,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		upgradeSeriesChanges    watcher.NotifyChannel
 
 		seenLXDProfileChange bool
-		lxdProfileChanges    watcher.NotifyChannel
+		lxdProfileChanges    watcher.StringsChannel
 	)
 
 	if w.modelType == model.IAAS {
@@ -443,12 +442,15 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUpgradeSeriesChange)
 
-		case _, ok := <-lxdProfileChanges:
+		case changes, ok := <-lxdProfileChanges:
 			logger.Debugf("got lxd profile change")
 			if !ok {
 				return errors.New("lxd profile watcher closed")
 			}
-			if err := w.lxdProfileStatusChanged(); err != nil {
+			if len(changes) != 1 {
+				return errors.New("expected one change in lxd profile watcher")
+			}
+			if err := w.lxdProfileStatusChanged(changes[0]); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenLXDProfileChange)
@@ -609,29 +611,12 @@ func (w *RemoteStateWatcher) updateStatusChanged() {
 	w.mu.Unlock()
 }
 
-func (w *RemoteStateWatcher) lxdProfileStatusChanged() error {
+func (w *RemoteStateWatcher) lxdProfileStatusChanged(status string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	status, err := w.lxdProfileStatus()
-	if errors.IsNotFound(err) {
-		logger.Debugf("no lxd profile in progress, assuming no action required")
-		w.current.UpgradeCharmProfileStatus = lxdprofile.NotKnownStatus
-		return nil
-	}
-	if err != nil {
-		return err
-	}
 	w.current.UpgradeCharmProfileStatus = status
 	return nil
-}
-
-func (w *RemoteStateWatcher) lxdProfileStatus() (string, error) {
-	status, err := w.unit.UpgradeCharmProfileStatus()
-	if err != nil {
-		return "", err
-	}
-	return status, nil
 }
 
 // commandsChanged is called when a command is enqueued.

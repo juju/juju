@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
-	charm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -295,7 +295,7 @@ func getInstanceCharmProfileData(st *State, id string) (instanceCharmProfileData
 		return instanceCharmProfileData{}, errors.NotFoundf("instance charm profile data %v", id)
 	}
 	if err != nil {
-		return instanceCharmProfileData{}, errors.Errorf("cannot get instance charm profile data for machine %v: %v", id, err)
+		return instanceCharmProfileData{}, errors.Annotatef(err, "cannot get instance charm profile data for machine %v", id)
 	}
 	return instData, nil
 }
@@ -2228,88 +2228,104 @@ func (m *Machine) SetUpgradeCharmProfile(appName, chURL string) error {
 		if life == Dead || life == Dying {
 			return nil, ErrDead
 		}
-
-		charmURL, err := charm.ParseURL(chURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ch, err := m.st.Charm(charmURL)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		var emptyProfile bool
-		if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
-			emptyProfile = true
-		}
-
-		ops := []txn.Op{
-			{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Assert: isAliveDoc,
-			},
-			// TODO: lxd profile - enhance checks for this set of transactions
-			//}, {
-			//	C:      charmsC,
-			//	Id:     ch.doc.DocID,
-			//	Assert: bson.D{{"url", ch.URL()}},
-			//},
-		}
-
-		provisioned := true
-		profiles, err := m.CharmProfiles()
-		if err != nil {
-			if errors.IsNotProvisioned(err) {
-				provisioned = false
-			} else {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		// The doc containing charm-profiles only exists after a machine
-		// is provisioned.  Even then, there is no guarantee the machine
-		// has a charm profile applied.
-		if provisioned {
-			if len(profiles) > 0 {
-				ops = append(ops, txn.Op{
-					C:      instanceDataC,
-					Id:     m.doc.DocID,
-					Assert: bson.D{{"charm-profiles", profiles}},
-				})
-			} else {
-				// "charm-profiles" is configured as omitempty,
-				// so an assert with an empty slice will fail.
-				// Do this instead.
-				ops = append(ops, m.checkCharmProfilesIsEmptyOp())
-			}
-		}
-
-		// If the new charm has no profile, check to see if the application
-		// already has a profile applied to the machine, if not, we can
-		// set NotRequiredStatus.
-		if emptyProfile {
-			appliedProfileName, err := lxdprofile.MatchProfileNameByAppName(profiles, appName)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if appliedProfileName == "" {
-				return append(ops,
-					m.SetUpgradeCharmProfileOp("", "", lxdprofile.NotRequiredStatus),
-				), nil
-			}
-		}
-		return append(ops,
-			m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus),
-		), nil
+		return m.SetUpgradeCharmProfileTxns(appName, chURL)
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// SetUpgradeCharmProfileTxns does the checks and creates the txns to
+// write an instanceCharmProfileDoc to trigger a profile change on a
+// machine.  AppName and Charm with an LXDProfile, adds or updates
+// the charm lxd profile on the machine. AppName and Charm without
+// an LXDProfile, removes the charm lxd profile from the machine if
+// was previously applied.  AppName without a Charm URL causes a
+// previously applied lxd profile for the charm to be removed from
+// the machine.
+func (m *Machine) SetUpgradeCharmProfileTxns(appName, chURL string) ([]txn.Op, error) {
+	// Check to see if the doc created in these txn already exists
+	// and has expected data.
+	err := m.verifyInstanceCharmProfileData(appName, chURL)
+	if err != nil {
+		return nil, err
+	}
+
+	charmURL, err := charm.ParseURL(chURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ch, err := m.st.Charm(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var emptyProfile bool
+	if ch == nil || (ch.LXDProfile() == nil || ch.LXDProfile().Empty()) {
+		emptyProfile = true
+	}
+
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: isAliveDoc,
+		}, {
+			C:      charmsC,
+			Id:     ch.doc.DocID,
+			Assert: bson.D{{"url", ch.URL()}},
+		},
+	}
+
+	provisioned := true
+	profiles, err := m.CharmProfiles()
+	if err != nil {
+		if errors.IsNotProvisioned(err) {
+			provisioned = false
+		} else {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// The doc containing charm-profiles only exists after a machine
+	// is provisioned.  Even then, there is no guarantee the machine
+	// has a charm profile applied.
+	if provisioned {
+		if len(profiles) > 0 {
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     m.doc.DocID,
+				Assert: bson.D{{"charm-profiles", profiles}},
+			})
+		} else {
+			// "charm-profiles" is configured as omitempty,
+			// so an assert with an empty slice will fail.
+			// Do this instead:
+			ops = append(ops, m.checkCharmProfilesIsEmptyOp())
+		}
+	}
+
+	// If the new charm has no profile, check to see if the application
+	// already has a profile applied to the machine, if not, we can
+	// set NotRequiredStatus.
+	if emptyProfile {
+		appliedProfileName, err := lxdprofile.MatchProfileNameByAppName(profiles, appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if appliedProfileName == "" {
+			return append(ops, m.SetUpgradeCharmProfileOp(appName, "", lxdprofile.NotRequiredStatus)), nil
+		}
+	}
+
+	// We can always insert, because the doc was removed after the
+	// change triggered by this transaction was make.  Or should have
+	// been. Either during charm upgrade or when a new unit was added
+	// to an existing machine, perhaps a subordinate.
+	return append(ops, m.SetUpgradeCharmProfileOp(appName, chURL, lxdprofile.EmptyStatus)),
+		nil
 }
 
 // SetUpgradeCharmProfileOp returns a transaction for the machine to
@@ -2333,6 +2349,46 @@ func (m *Machine) SetUpgradeCharmProfileOp(appName, chURL, status string) txn.Op
 	}
 }
 
+// verifyInstanceCharmProfileData checks to see if there is any InstanceCharmProfileData
+// for the machine with provided appName and chURL.  If one exists, does it contain
+// expected data?  If does not exist, returns nil.  If exists as expected return
+// jujutxn.ErrNoOperations.  Otherwise return the error.
+func (m *Machine) verifyInstanceCharmProfileData(appName, chURL string) error {
+	data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if (data.UpgradeCharmProfileApplication == appName &&
+		data.UpgradeCharmProfileCharmURL == chURL &&
+		data.UpgradeCharmProfileComplete == lxdprofile.EmptyStatus) ||
+		(data.UpgradeCharmProfileApplication == appName &&
+			data.UpgradeCharmProfileComplete == lxdprofile.NotRequiredStatus) {
+		logger.Tracef("Instance charm profile data already exists with expected values for machine %s and %q", data.MachineId, chURL)
+		return jujutxn.ErrNoOperations
+	}
+	return errors.Trace(errors.Errorf(
+		"upgrade charm profile already in process for machine %s, profile from %q",
+		data.MachineId, data.UpgradeCharmProfileCharmURL,
+	))
+}
+
+// checkCharmProfilesIsEmptyOp ensures that the charm-profiles on the instance
+// data is empty
+func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
+	return txn.Op{
+		C:  instanceDataC,
+		Id: m.doc.DocID,
+		Assert: bson.D{{
+			"$or", []bson.D{
+				{{"charm-profiles", bson.D{{"$size", 0}}}},
+				{{"charm-profiles", bson.D{{"$exists", false}}}},
+			},
+		}},
+	}
+}
+
 // SetUpgradeCharmProfileComplete on the instance charm profile data.
 // If the profile has been removed, then this will throw an error upon
 // running the transaction
@@ -2348,7 +2404,10 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 			return nil, ErrDead
 		}
 		data, err := getInstanceCharmProfileData(m.st, m.Id())
-		if err != nil || data.UpgradeCharmProfileComplete == msg {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if data.UpgradeCharmProfileComplete == msg {
 			return nil, jujutxn.ErrNoOperations
 		}
 		return []txn.Op{
@@ -2376,14 +2435,18 @@ func (m *Machine) SetUpgradeCharmProfileComplete(msg string) error {
 // data for a machine, even if the machine is dead.
 func (m *Machine) RemoveUpgradeCharmProfileData() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Write the instance data out to a log, so that we can audit the
-		// information if there is an issue.
 		data, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
 		// If the instance data is removed already, just
 		if errors.IsNotFound(err) {
+			logger.Tracef("Instance charm profile data already removed for machine %s", m.Id())
 			return nil, jujutxn.ErrNoOperations
 		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if err == nil {
+			// Write the instance data out to a log, so that we can audit the
+			// information if there is an issue.
 			logger.Debugf("Removing instance charm profile data %#v", data)
 		}
 
@@ -2404,21 +2467,6 @@ func (m *Machine) RemoveUpgradeCharmProfileData() error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// checkCharmProfilesIsEmptyOp ensures that the charm-profiles on the instance
-// data is empty
-func (m *Machine) checkCharmProfilesIsEmptyOp() txn.Op {
-	return txn.Op{
-		C:  instanceDataC,
-		Id: m.doc.DocID,
-		Assert: bson.D{{
-			"$or", []bson.D{
-				{{"charm-profiles", bson.D{{"$size", 0}}}},
-				{{"charm-profiles", bson.D{{"$exists", false}}}},
-			},
-		}},
-	}
 }
 
 // UpdateOperation returns a model operation that will update the machine.
