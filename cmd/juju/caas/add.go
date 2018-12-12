@@ -246,7 +246,6 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		newCloud.HostCloud = cloudRegion
-		logger.Criticalf("newCloud -> %+v", newCloud)
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -362,7 +361,7 @@ func (c *AddCAASCommand) getClusterRegion(
 	defer fmt.Println("")
 	for {
 		select {
-		case <-time.After(2 * time.Second):
+		case <-time.After(1 * time.Second):
 			fmt.Printf(".")
 		case <-interrupted:
 			ctx.Infof("ctrl+c detected, aborting...")

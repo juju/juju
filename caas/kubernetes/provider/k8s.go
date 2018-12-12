@@ -185,8 +185,10 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 func newLabelRequirements(rs ...requirement) k8slabels.Selector {
 	s := k8slabels.NewSelector()
 	for _, r := range rs {
-		l, _ := k8slabels.NewRequirement(r.key, r.operator, r.strValues)
-		// TODO: assert _ == nil?
+		l, err := k8slabels.NewRequirement(r.key, r.operator, r.strValues)
+		if err != nil {
+			panic(errors.Annotate(err, "fix this"))
+		}
 		s = s.Add(*l)
 	}
 	return s
@@ -225,11 +227,11 @@ func getCloudProviderFromNodeMeta(node core.Node) string {
 // ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
 func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
 	regionLabelName := "failure-domain.beta.kubernetes.io/region"
-	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{})
+	// we only check 5 nodes which should be sufficient.
+	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing nodes")
 	}
-	// logger.Criticalf("ListHostCloudRegions.nodes -> %d, %v", len(nodes.Items), nodes)
 	result := set.NewStrings()
 	for _, n := range nodes.Items {
 		var cloudRegion, v string
@@ -244,10 +246,7 @@ func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
 		cloudRegion += "/" + v
 		result.Add(cloudRegion)
 	}
-	logger.Criticalf("ListHostCloudRegions.result -> %v", result)
-	time.Sleep(10 * time.Second)
 	return result, nil
-	// return []string{"australia-southeast1", "asia-southeast1"}, nil
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
