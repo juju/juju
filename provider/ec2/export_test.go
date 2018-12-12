@@ -6,9 +6,10 @@ package ec2
 import (
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/instances"
 	jujustorage "github.com/juju/juju/storage"
 )
 

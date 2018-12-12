@@ -5,9 +5,10 @@
 package systemd_test
 
 import (
+	reflect "reflect"
+
 	dbus "github.com/coreos/go-systemd/dbus"
 	gomock "github.com/golang/mock/gomock"
-	reflect "reflect"
 )
 
 // MockDBusAPI is a mock of DBusAPI interface

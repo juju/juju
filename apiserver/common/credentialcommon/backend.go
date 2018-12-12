@@ -8,9 +8,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 )
 

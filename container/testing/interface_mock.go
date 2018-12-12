@@ -5,14 +5,16 @@
 package testing
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
 	constraints "github.com/juju/juju/constraints"
 	container "github.com/juju/juju/container"
-	environs "github.com/juju/juju/environs"
 	instance "github.com/juju/juju/core/instance"
+	environs "github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	reflect "reflect"
 )
 
 // MockTestLXDManager is a mock of TestLXDManager interface

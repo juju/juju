@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )

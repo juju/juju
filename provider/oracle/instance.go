@@ -13,11 +13,11 @@ import (
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	oraclenetwork "github.com/juju/juju/provider/oracle/network"
 )

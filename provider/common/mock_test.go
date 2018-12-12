@@ -6,12 +6,13 @@ package common_test
 import (
 	"io"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	jujustorage "github.com/juju/juju/storage"
@@ -117,12 +118,12 @@ func (env *mockZonedEnviron) DeriveAvailabilityZones(ctx context.ProviderCallCon
 }
 
 type mockInstance struct {
-	id                string
-	addresses         []network.Address
-	addressesErr      error
-	dnsName           string
-	dnsNameErr        error
-	status            instance.Status
+	id                 string
+	addresses          []network.Address
+	addressesErr       error
+	dnsName            string
+	dnsNameErr         error
+	status             instance.Status
 	instances.Instance // stub out other methods with panics
 }
 

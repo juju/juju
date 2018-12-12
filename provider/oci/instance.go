@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/status"
 
+	"github.com/juju/juju/core/instance"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oci/common"
 

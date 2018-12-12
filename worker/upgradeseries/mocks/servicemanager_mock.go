@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/service/common"
 	version "github.com/juju/version"
-	reflect "reflect"
 )
 
 // MockSystemdServiceManager is a mock of SystemdServiceManager interface

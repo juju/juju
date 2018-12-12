@@ -15,10 +15,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )

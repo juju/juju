@@ -5,8 +5,9 @@
 package mongo
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockSearchTools is a mock of SearchTools interface

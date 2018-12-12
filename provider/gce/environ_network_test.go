@@ -9,8 +9,9 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"

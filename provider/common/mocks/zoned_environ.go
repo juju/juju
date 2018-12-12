@@ -5,17 +5,18 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/constraints"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	instance "github.com/juju/juju/core/instance"
 	common "github.com/juju/juju/provider/common"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
-	reflect "reflect"
 )
 
 // MockZonedEnviron is a mock of ZonedEnviron interface

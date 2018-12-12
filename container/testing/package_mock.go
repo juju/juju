@@ -5,13 +5,15 @@
 package testing
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
 	constraints "github.com/juju/juju/constraints"
 	container "github.com/juju/juju/container"
-	environs "github.com/juju/juju/environs"
 	instance "github.com/juju/juju/core/instance"
-	reflect "reflect"
+	environs "github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
 )
 
 // MockManager is a mock of Manager interface

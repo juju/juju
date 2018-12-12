@@ -5,22 +5,23 @@
 package testing
 
 import (
+	io "io"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
 	constraints "github.com/juju/juju/constraints"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
 	names_v2 "gopkg.in/juju/names.v2"
-	io "io"
-	reflect "reflect"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface

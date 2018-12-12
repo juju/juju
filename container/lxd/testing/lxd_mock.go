@@ -5,13 +5,14 @@
 package testing
 
 import (
+	io "io"
+	http "net/http"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	websocket "github.com/gorilla/websocket"
 	client "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
-	io "io"
-	http "net/http"
-	reflect "reflect"
 )
 
 // MockOperation is a mock of Operation interface

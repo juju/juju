@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/instances/instancetest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"

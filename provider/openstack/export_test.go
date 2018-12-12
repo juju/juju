@@ -11,10 +11,11 @@ import (
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/goose.v2/swift"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	envstorage "github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
