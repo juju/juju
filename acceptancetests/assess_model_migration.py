@@ -312,7 +312,7 @@ def ensure_superuser_can_migrate_other_user_models(
         source_client, dest_client, tmp_dir):
 
     norm_source_client, norm_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'normaluser', 'addmodel')
+        source_client, dest_client, tmp_dir, 'normaluser', 'add-model')
 
     attempt_client = deploy_dummy_source_to_new_model(
         norm_source_client, 'supernormal-test')
