@@ -570,7 +570,7 @@ class ModelClient:
 
     model_permissions = frozenset(['read', 'write', 'admin'])
 
-    controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
+    controller_permissions = frozenset(['login', 'add-model', 'superuser'])
 
     # Granting 'login' will error as a created user has that at creation.
     ignore_permissions = frozenset(['login'])
