@@ -475,7 +475,7 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 // Pinning functionality is only available with the Raft leases implementation.
 func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
 	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
-		return nil, errors.Errorf(
+		return nil, errors.NotImplementedf(
 			"unable to get leadership pinner; pinning is not available with the legacy lease manager")
 	}
 	pinner, err := ctx.r.shared.leaseManager.Pinner(

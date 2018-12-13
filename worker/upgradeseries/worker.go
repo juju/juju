@@ -352,6 +352,14 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 
 	results, err := w.PinMachineApplications()
 	if err != nil {
+		// If pin machine applications method return not implemented because it's
+		// utilising the legacy leases store, then we should display the warning
+		// in the log and return out. Unpinning leaders should be safe as that
+		// should be considered a no-op
+		if errors.IsNotImplemented(errors.Cause(err)) {
+			w.logger.Warningf("failed to pin machine applications %+v", err)
+			return
+		}
 		return errors.Trace(err)
 	}
 
