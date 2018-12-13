@@ -36,7 +36,7 @@ var logger = loggo.GetLogger("juju.cmd")
 // - The default logging configuration is taken from the environment;
 // - The version is configured to the current juju version;
 // - The command emits a log message when a command runs.
-func NewSuperCommand(p cmd.SuperCommandParams) *JujuCommand {
+func NewSuperCommand(p cmd.SuperCommandParams) *JujuSuperCommand {
 	p.Log = &cmd.Log{
 		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 	}
@@ -52,38 +52,58 @@ func NewSuperCommand(p cmd.SuperCommandParams) *JujuCommand {
 	p.Version = current.String()
 	p.NotifyRun = runNotifier
 	p.FlagKnownAs = "option"
-	return &JujuCommand{cmd.NewSuperCommand(p)}
+	return &JujuSuperCommand{cmd.NewSuperCommand(p)}
 }
 
-type JujuCommand struct {
+// JujuSuperCommand defines a Juju super command.
+type JujuSuperCommand struct {
 	*cmd.SuperCommand
 }
 
-func (c *JujuCommand) Register(subcmd cmd.Command) {
-	jujusub := &JujuSubCommand{subcmd, c}
+// Register changes cmd.SuperCommand.Register() to
+// ensure that a sub commands is registered as a Juju subcommand.
+func (c *JujuSuperCommand) Register(subcmd cmd.Command) {
+	jujusub := NewJujuSubCommand(subcmd)
 	c.SuperCommand.Register(jujusub)
 }
 
-type JujuSubCommand struct {
-	cmd.Command
-
-	super *JujuCommand
+// NewJujuSubCommand creates new Juju subcommand.
+func NewJujuSubCommand(command cmd.Command) *JujuSubCommand {
+	return &JujuSubCommand{command}
 }
 
-func (c *JujuSubCommand) SetFlags(f *gnuflag.FlagSet) {
-	supported := gnuflag.NewFlagSetWithFlagKnownAs(c.Info().Name, gnuflag.ContinueOnError, cmd.FlagAlias(c, "option"))
-	c.super.SetFlags(supported)
-	supported.VisitAll(func(flag *gnuflag.Flag) {
-		if desiredFlags.Contains(flag.Name) {
-			if found := f.Lookup(flag.Name); found == nil {
-				f.Var(flag.Value, flag.Name, flag.Usage)
+// JujuSubCommand defines a Juju subcommand.
+type JujuSubCommand struct {
+	cmd.Command
+}
+
+// SetFlags implements cmd.Command.
+func (c *JujuSubCommand) SetFlags(flagset *gnuflag.FlagSet) {
+	superOptions := gnuflag.NewFlagSetWithFlagKnownAs(c.Info().Name, gnuflag.ContinueOnError, cmd.FlagAlias(c, "option"))
+	jujuSuper := NewSuperCommand(MinimumJujuCommandParameters())
+	jujuSuper.SetFlags(superOptions)
+
+	emptyFlag := &gnuflag.Flag{}
+	superOptions.VisitAll(func(flag *gnuflag.Flag) {
+		if supportedOptions.Contains(flag.Name) {
+			if found := flagset.Lookup(flag.Name); found == nil || found == emptyFlag {
+				flagset.Var(flag.Value, flag.Name, flag.Usage)
 			}
 		}
 	})
-	c.Command.SetFlags(f)
+	c.Command.SetFlags(flagset)
 }
 
-var desiredFlags = set.NewStrings("debug", "show-log", "logging-config", "verbose", "quiet")
+var supportedOptions = set.NewStrings("debug", "show-log", "logging-config", "verbose", "quiet", "help", "h")
+
+// MinimumJujuCommandParameters defines a minimums set of command parameters needed
+// to create a Juju super command.
+func MinimumJujuCommandParameters() cmd.SuperCommandParams {
+	return cmd.SuperCommandParams{
+		Name:        "juju",
+		FlagKnownAs: "option",
+	}
+}
 
 func runNotifier(name string) {
 	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())

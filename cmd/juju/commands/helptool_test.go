@@ -29,6 +29,8 @@ Show help on a Juju charm hook tool.
 Options:
 --debug  (= false)
     equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
 --logging-config (= "")
     specify log levels for modules
 --quiet  (= false)

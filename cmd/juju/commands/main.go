@@ -252,15 +252,14 @@ func juju2xConfigDataExists() bool {
 	return err == nil
 }
 
-// NewJujuCommand ...
+// NewJujuCommand constructs a super command for Juju CLI.
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
-	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:                "juju",
-		Doc:                 jujuDoc,
-		MissingCallback:     RunPlugin,
-		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
-		FlagKnownAs:         "option",
-	})
+	p := jujucmd.MinimumJujuCommandParameters()
+	p.Doc = jujuDoc
+	p.MissingCallback = RunPlugin
+	p.UserAliasesFilename = osenv.JujuXDGDataHomePath("aliases")
+
+	jcmd := jujucmd.NewSuperCommand(p)
 	jcmd.AddHelpTopic("basics", "Basic Help Summary", usageHelp)
 	registerCommands(jcmd, ctx)
 	return jcmd
