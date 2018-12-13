@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
 	"github.com/juju/os/series"
@@ -352,6 +353,14 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 
 	results, err := w.PinMachineApplications()
 	if err != nil {
+		// If pin machine applications method return not implemented because it's
+		// utilising the legacy leases store, then we should display the warning
+		// in the log and return out. Unpinning leaders should be safe as that
+		// should be considered a no-op
+		if params.IsCodeNotImplemented(err) {
+			w.logger.Infof("failed to pin machine applications, with legacy lease manager leadership pinning is not implemented")
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
