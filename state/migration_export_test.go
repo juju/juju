@@ -23,7 +23,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"

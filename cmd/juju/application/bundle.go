@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"

@@ -389,7 +389,7 @@ type DiskTarget struct {
 // we historically set this the same as Memory, which is also the default
 // behavior of libvirt. Constraints.Value.Mem documents this as "megabytes".
 // Interpreting that here as MiB.
-// See: Memory, github.com/juju/juju/constraints/constraints.Value.Mem
+// See: Memory, github.com/juju/juju/core/constraints/constraints.Value.Mem
 type CurrentMemory struct {
 	Unit string `xml:"unit,attr"`
 	Text uint64 `xml:",chardata"`

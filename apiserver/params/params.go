@@ -15,7 +15,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/macaroon.v2-unstable"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"

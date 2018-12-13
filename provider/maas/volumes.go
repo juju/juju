@@ -15,7 +15,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )

@@ -29,8 +29,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"

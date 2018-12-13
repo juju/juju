@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
-	constraints "github.com/juju/juju/constraints"
+	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"

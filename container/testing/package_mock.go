@@ -9,8 +9,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
-	constraints "github.com/juju/juju/constraints"
 	container "github.com/juju/juju/container"
+	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
