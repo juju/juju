@@ -358,7 +358,7 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 		// in the log and return out. Unpinning leaders should be safe as that
 		// should be considered a no-op
 		if params.IsCodeNotImplemented(err) {
-			w.logger.Infof("failed to pin machine applications %+v", err)
+			w.logger.Infof("failed to pin machine applications, with legacy lease manager leadership pinning is not implemented")
 			return nil
 		}
 		return errors.Trace(err)
