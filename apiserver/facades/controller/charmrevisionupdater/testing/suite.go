@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	jujucharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -80,9 +82,11 @@ func (s *CharmSuite) TearDownTest(c *gc.C) {
 
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
+	hostArchHC := instance.MustParseHardware(fmt.Sprintf("arch=%v", arch.HostArch()))
 	m, err := s.jcSuite.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{job},
+		Series:                  "quantal",
+		Jobs:                    []state.MachineJob{job},
+		HardwareCharacteristics: hostArchHC,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, machineId)
