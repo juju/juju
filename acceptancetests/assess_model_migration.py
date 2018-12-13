@@ -551,7 +551,7 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
     controllers.
     """
     user_source_client, user_dest_client = create_user_on_controllers(
-        source_client, dest_client, tmp_dir, 'failuser', 'addmodel')
+        source_client, dest_client, tmp_dir, 'failuser', 'add-model')
     user_new_model = deploy_dummy_source_to_new_model(
         user_source_client, 'user-fail')
     log.info('Attempting migration process')
