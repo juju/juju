@@ -38,7 +38,7 @@ __metaclass__ = type
 log = logging.getLogger("assess_caas_charm_deployment")
 
 JUJU_STORAGECLASS_NAME = "juju-storageclass"
-JUJU_STORAGECLASS_TEMPLATE = """
+JUJU_PV_TEMPLATE = """
 kind: PersistentVolume
 apiVersion: v1
 metadata:
@@ -52,6 +52,19 @@ spec:
   storageClassName: {class_name}
   hostPath:
     path: "/mnt/data/{model}"
+"""
+
+JUJU_STORAGECLASS_TEMPLATE = """
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  namespace: {model}
+  name: {class_name}
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+provisioner: kubernetes.io/host-path
 """
 
 
@@ -89,6 +102,7 @@ def assess_caas_charm_deployment(client):
 
     # ensure storage class
     caas_client.kubectl_apply(JUJU_STORAGECLASS_TEMPLATE.format(model=model_name, class_name=JUJU_STORAGECLASS_NAME))
+    caas_client.kubectl_apply(JUJU_PV_TEMPLATE.format(model=model_name, class_name=JUJU_STORAGECLASS_NAME))
 
     # ensure tmp dir for storage class.model_name
     o = subprocess.check_output(
