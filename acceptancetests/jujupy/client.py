@@ -2171,6 +2171,14 @@ class CaasClient:
         args = (self.kubectl_path, '--kubeconfig', self.kube_config_path) + args
         return subprocess.check_output(args, stderr=subprocess.STDOUT).decode('UTF-8').strip()
 
+    def kubectl_apply(self, stdin):
+        with subprocess.Popen(('echo', stdin), stdout=subprocess.PIPE) as echo:
+            o = subprocess.check_output(
+                (self.kubectl_path, '--kubeconfig', self.kube_config_path, 'apply', '-f', '-'),
+                stdin=echo.stdout
+            ).decode('UTF-8').strip()
+            log.debug(o)
+
     def get_external_hostname(self):
         status = self.client.get_status()
         # assume here always use single node cdk core or microk8s
