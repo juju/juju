@@ -70,6 +70,8 @@ from utility import (
 
 __metaclass__ = type
 
+log = logging.getLogger(__name__)
+
 
 LXD_PROFILE = """
 name: juju-{model_name}
@@ -140,10 +142,11 @@ def deploy_caas_stack(bundle_path, client, timeout=3600):
     model_name = client.model_name
     profile = LXD_PROFILE.format(model_name=model_name)
     with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
-        subprocess.check_output(
+        o = subprocess.check_output(
             ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
             stdin=echo.stdout
         ).decode('UTF-8').strip()
+        log.debug(o)
 
     client.deploy_bundle(bundle_path, static_bundle=True)
     # Wait for the deployment to finish.

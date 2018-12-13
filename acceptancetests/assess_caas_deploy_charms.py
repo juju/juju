@@ -13,6 +13,7 @@ import argparse
 import logging
 import sys
 import os
+import subprocess
 
 import requests
 
@@ -35,6 +36,23 @@ __metaclass__ = type
 
 
 log = logging.getLogger("assess_caas_charm_deployment")
+
+JUJU_STORAGECLASS_NAME = "juju-storageclass"
+JUJU_STORAGECLASS_TEMPLATE = """
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: {model}-data
+spec:
+  capacity:
+    storage: 100Mi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {class_name}
+  hostPath:
+    path: "/mnt/data/{model}"
+"""
 
 
 def check_app_healthy(url, timeout=300):
@@ -66,7 +84,23 @@ def assess_caas_charm_deployment(client):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
     # add caas model for deploying caas charms on top of it
-    k8s_model = caas_client.add_model('testcaas')
+    model_name = 'testcaas'
+    k8s_model = caas_client.add_model(model_name)
+
+    # ensure storage class
+    caas_client.kubectl_apply(JUJU_STORAGECLASS_TEMPLATE.format(model=model_name, class_name=JUJU_STORAGECLASS_NAME))
+
+    # ensure tmp dir for storage class.model_name
+    o = subprocess.check_output(
+        ('sudo', 'mkdir', '-p', '/mnt/data/%s' % model_name)  # unfortunately, needs sudo
+    )
+    log.debug(o.decode('UTF-8').strip())
+
+    # ensure storage pool
+    k8s_model.juju(
+        'create-storage-pool',
+        ('operator-storage', 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
+    )
 
     gitlab_charm_path = local_charm_path(charm='caas-gitlab', juju_ver=client.version)
     k8s_model.deploy(
