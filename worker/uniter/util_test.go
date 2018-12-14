@@ -1018,19 +1018,6 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 
-type setUpgradeCharmProfile struct{}
-
-func (s setUpgradeCharmProfile) step(c *gc.C, ctx *context) {
-	id, err := ctx.unit.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
-	machine, err := ctx.st.Machine(id)
-	c.Assert(err, gc.IsNil)
-	url, ok := ctx.unit.CharmURL()
-	c.Assert(ok, jc.IsTrue)
-	err = machine.SetUpgradeCharmProfile(ctx.application.Name(), url.String())
-	c.Assert(err, gc.IsNil)
-}
-
 type pushResource struct{}
 
 func (s pushResource) step(c *gc.C, ctx *context) {
