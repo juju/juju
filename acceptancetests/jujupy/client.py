@@ -411,7 +411,9 @@ class JujuData:
     def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
-        (credentials_item,) = cloud.items()
+        # cloud credential info may include defaults we need to remove
+        cloud_cred = {k: v for k, v in cloud.iteritems() if k not in ['default-region', 'default-credential']}
+        (credentials_item,) = cloud_cred.items()
         return credentials_item
 
     def get_cloud_credentials(self):
