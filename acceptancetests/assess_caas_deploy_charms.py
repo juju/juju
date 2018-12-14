@@ -198,10 +198,17 @@ def assess_caas_charm_deployment(client):
     # ensure storage class
     caas_client.kubectl_apply(HOST_PATH_PROVISIONER.format(class_name=JUJU_STORAGECLASS_NAME))
 
-    # ensure storage pool
+    # ensure storage pools for caas operator
     k8s_model.juju(
         'create-storage-pool',
         ('operator-storage', 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
+    )
+
+    # ensure storage pools for mariadb
+    mariadb_storage_pool_name = 'mariadb-pv'
+    k8s_model.juju(
+        'create-storage-pool',
+        (mariadb_storage_pool_name, 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
     )
 
     k8s_model.deploy(
@@ -213,6 +220,7 @@ def assess_caas_charm_deployment(client):
     k8s_model.deploy(
         charm="cs:~juju/mariadb-k8s-0",
         resource="mysql_image=mysql/mysql-server:5.7",
+        storage='database=10M,{pool_name}'.format(pool_name=mariadb_storage_pool_name),
     )
 
     k8s_model.juju('relate', ('mariadb-k8s', 'gitlab-k8s'))
