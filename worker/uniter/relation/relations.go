@@ -505,7 +505,7 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 	defer func() {
 		if e := worker.Stop(unitWatcher); e != nil {
 			if err == nil {
-				err = e
+				err = errors.Trace(e)
 			} else {
 				logger.Errorf("while stopping unit watcher: %v", e)
 			}
