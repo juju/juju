@@ -1,0 +1,8 @@
+#!/snap/charm/298/usr/bin/python3
+
+from charmhelpers.cli import cmdline
+from charmhelpers.cli.commands import *
+
+
+if __name__ == '__main__':
+    cmdline.run()

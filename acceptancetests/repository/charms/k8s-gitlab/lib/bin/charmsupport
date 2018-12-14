@@ -1,0 +1,31 @@
+#!/snap/charm/277/usr/bin/python3
+
+import argparse
+from charmhelpers.contrib.charmsupport import execd
+
+
+def run_execd(args):
+    execd.execd_run(args.module, args.dir, die_on_error=True)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Perform common charm tasks')
+    subparsers = parser.add_subparsers(help='Commands')
+
+    execd_parser = subparsers.add_parser('execd',
+                                         help='Execute a directory of commands')
+    execd_parser.add_argument('--module', default='charm-pre-install',
+                              help='module to run (default: charm-pre-install)')
+    execd_parser.add_argument('--dir',
+                              help="Override the exec.d directory path")
+    execd_parser.set_defaults(func=run_execd)
+
+    return parser.parse_args()
+
+
+def main():
+    arguments = parse_args()
+    arguments.func(arguments)
+
+if __name__ == '__main__':
+    exit(main())

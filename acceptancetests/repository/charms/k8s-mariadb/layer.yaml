@@ -1,0 +1,20 @@
+"name": "layer-caas-base"
+"maintainer": "Juju Core <juju@lists.ubuntu.com>"
+"description": "Base layer for CAAS charms."
+"includes":
+- "layer:options"
+- "layer:status"
+- "layer:caas-base"
+- "layer:docker-resource"
+- "interface:juju-relation-mysql"
+"tactics":
+- "tactics.wheelhouse.WheelhouseTactic"
+"options":
+  "status":
+    "patch-hookenv": !!bool "true"
+  "mariadb-k8s": {}
+  "layer-caas-base": {}
+  "docker-resource":
+    "set-status": !!bool "true"
+"repo": "https://github.com/wallyworld/caas.git"
+"is": "mariadb-k8s"

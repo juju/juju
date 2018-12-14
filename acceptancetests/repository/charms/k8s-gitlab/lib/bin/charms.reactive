@@ -1,0 +1,15 @@
+#!/snap/charm/277/usr/bin/python3
+
+import sys
+from charmhelpers.cli import cmdline
+
+# these all have commands defined in them
+from charms.reactive import bus  # noqa
+from charms.reactive import cli  # noqa
+from charms.reactive import helpers  # noqa
+from charms.reactive import relations  # noqa
+
+
+if __name__ == '__main__':
+    cmdline.run()
+    sys.exit(cmdline.exit_code)

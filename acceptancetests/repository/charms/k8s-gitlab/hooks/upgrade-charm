@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+
+# Load modules from $JUJU_CHARM_DIR/lib
+import sys
+sys.path.insert(0, 'lib')
+
+from charms.layer import caas_base
+caas_base.init_config_states()
+caas_base.import_layer_libs()
+
+
+# This will load and run the appropriate @hook and other decorated
+# handlers from $JUJU_CHARM_DIR/reactive, $JUJU_CHARM_DIR/hooks/reactive,
+# and $JUJU_CHARM_DIR/hooks/relations.
+#
+# See https://jujucharms.com/docs/stable/authors-charm-building
+# for more information on this pattern.
+from charms.reactive import main
+main()

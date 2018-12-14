@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+import sys
+import argparse
+from charms import layer
+
+
+parser = argparse.ArgumentParser(description='Access layer options.')
+parser.add_argument('section',
+                    help='the section, or layer, the option is from')
+parser.add_argument('option',
+                    help='the option to access')
+
+args = parser.parse_args()
+value = layer.options.get(args.section, args.option)
+if isinstance(value, bool):
+    sys.exit(0 if value else 1)
+elif isinstance(value, list):
+    for val in value:
+        print(val)
+else:
+    print(value)

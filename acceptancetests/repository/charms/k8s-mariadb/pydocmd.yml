@@ -1,0 +1,16 @@
+site_name: 'Status Management Layer'
+
+generate:
+  - status.md:
+    - charms.layer.status.WorkloadState
+    - charms.layer.status.maintenance
+    - charms.layer.status.maint
+    - charms.layer.status.blocked
+    - charms.layer.status.waiting
+    - charms.layer.status.active
+    - charms.layer.status.status_set
+
+pages:
+  - Status Management Layer: status.md
+
+gens_dir: docs

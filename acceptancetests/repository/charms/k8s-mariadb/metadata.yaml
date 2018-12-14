@@ -1,0 +1,25 @@
+"name": "mariadb-k8s"
+"summary": "MySQL is a fast, stable and true multi-user, multi-threaded SQL database"
+"maintainers":
+- "Juju Developers <juju@lists.ubuntu.com>"
+"description": |
+  MySQL is a fast, stable and true multi-user, multi-threaded SQL database
+  server. SQL (Structured Query Language) is the most popular database query
+  language in the world. The main goals of MySQL are speed, robustness and
+  ease of use.
+"tags":
+- "database"
+- "openstack"
+"series":
+- "kubernetes"
+"provides":
+  "server":
+    "interface": "mysql"
+"resources":
+  "mysql_image":
+    "type": "oci-image"
+    "description": "Image used for mysql pod."
+"storage":
+  "database":
+    "type": "filesystem"
+    "location": "/var/lib/mysql"

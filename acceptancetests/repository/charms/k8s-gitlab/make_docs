@@ -1,0 +1,20 @@
+#!.tox/py3/bin/python
+
+import os
+import sys
+from shutil import rmtree
+from unittest.mock import patch
+
+import pydocmd.__main__
+
+
+with patch('charmhelpers.core.hookenv.metadata') as metadata:
+    sys.path.insert(0, 'lib')
+    sys.path.insert(1, 'reactive')
+    print(sys.argv)
+    if len(sys.argv) == 1:
+        sys.argv.extend(['build'])
+    pydocmd.__main__.main()
+    rmtree('_build')
+    if os.path.exists('.unit-state.db'):
+        os.remove('.unit-state.db')
