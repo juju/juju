@@ -18,9 +18,9 @@ import (
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/nova"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )

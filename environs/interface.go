@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
@@ -370,7 +370,7 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
 
 	// ControllerInstances returns the IDs of instances corresponding
 	// to Juju controller, having the specified controller UUID.

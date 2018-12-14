@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -103,7 +102,7 @@ func (p environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext
 }
 
 // InstanceDistributor implements state.Policy.
-func (p environStatePolicy) InstanceDistributor() (instance.Distributor, error) {
+func (p environStatePolicy) InstanceDistributor() (context.Distributor, error) {
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -116,7 +115,7 @@ func (p environStatePolicy) InstanceDistributor() (instance.Distributor, error) 
 	if err != nil {
 		return nil, err
 	}
-	if p, ok := env.(instance.Distributor); ok {
+	if p, ok := env.(context.Distributor); ok {
 		return p, nil
 	}
 	return nil, errors.NotImplementedf("InstanceDistributor")

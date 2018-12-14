@@ -6,9 +6,10 @@ package rackspace
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
@@ -75,17 +76,17 @@ func (c *rackspaceFirewaller) SetUpGroups(ctx context.ProviderCallContext, contr
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
 	return c.changeIngressRules(ctx, inst, true, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
 	return c.changeIngressRules(ctx, inst, false, rules)
 }
 
 // InstanceIngressRules implements Firewaller interface.
-func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
 	_, configurator, err := c.getInstanceConfigurator(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -97,7 +98,7 @@ func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallConte
 	return rules, err
 }
 
-func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext, inst instance.Instance, insert bool, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext, inst instances.Instance, insert bool, rules []network.IngressRule) error {
 	addresses, sshClient, err := c.getInstanceConfigurator(ctx, inst)
 	if err != nil {
 		return errors.Trace(err)
@@ -115,7 +116,7 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 	return nil
 }
 
-func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instance.Instance) ([]network.Address, common.InstanceConfigurator, error) {
+func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instances.Instance) ([]network.Address, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)

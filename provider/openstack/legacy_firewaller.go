@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
@@ -237,17 +237,17 @@ func (c *legacyNovaFirewaller) IngressRules(ctx context.ProviderCallContext) ([]
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+func (c *legacyNovaFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
 	return c.openInstancePorts(ctx, c.openPortsInGroup, machineId, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+func (c *legacyNovaFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
 	return c.closeInstancePorts(ctx, c.closePortsInGroup, machineId, rules)
 }
 
 // InstanceIngressRules implements Firewaller interface.
-func (c *legacyNovaFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+func (c *legacyNovaFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
 	return c.instanceIngressRules(ctx, c.ingressRulesInGroup, machineId)
 }
 

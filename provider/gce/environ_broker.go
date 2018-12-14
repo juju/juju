@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/tools"
@@ -284,7 +284,7 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	instances, err := getInstances(env, ctx)
 	return instances, errors.Trace(err)
 }

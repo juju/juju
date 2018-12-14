@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	reflect "reflect"
 )
 
 // MockProfileMachine is a mock of ProfileMachine interface

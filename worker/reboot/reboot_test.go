@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api"
 	apireboot "github.com/juju/juju/api/reboot"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"

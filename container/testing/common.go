@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -41,7 +41,7 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 	return instanceConfig, nil
 }
 
-func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
+func CreateContainer(c *gc.C, manager container.Manager, machineId string) instances.Instance {
 	instanceConfig, err := MockMachineConfig(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	return CreateContainerWithMachineConfig(c, manager, instanceConfig)
@@ -51,7 +51,7 @@ func CreateContainerWithMachineConfig(
 	c *gc.C,
 	manager container.Manager,
 	instanceConfig *instancecfg.InstanceConfig,
-) instance.Instance {
+) instances.Instance {
 
 	networkConfig := container.BridgeNetworkConfig("nic42", 0, nil)
 	storageConfig := &container.StorageConfig{}
@@ -64,7 +64,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-) instance.Instance {
+) instances.Instance {
 
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", networkConfig, storageConfig, callback)

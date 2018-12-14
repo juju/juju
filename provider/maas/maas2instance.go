@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -82,7 +82,7 @@ func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]network.A
 
 // Status returns a juju status based on the maas instance returned
 // status message.
-func (mi *maas2Instance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (mi *maas2Instance) Status(ctx context.ProviderCallContext) instance.Status {
 	// A fresh status is not obtained here because the interface it is intended
 	// to satisfy gets a new maas2Instance before each call, using a fresh status
 	// would cause us to mask errors since this interface does not contemplate

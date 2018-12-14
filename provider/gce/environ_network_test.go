@@ -9,8 +9,9 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
@@ -156,7 +157,7 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 
 func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 	s.cannedData()
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +174,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 
 func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 	s.cannedData()
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []network.Id{"go-team"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,7 +191,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 
 func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c *gc.C) {
 	s.cannedData()
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []network.Id{"go-team", "shellac"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
@@ -200,7 +201,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 
 func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	s.cannedData()
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
 	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,7 +241,7 @@ func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
 			NatIP: "25.185.142.227",
 		}},
 	})
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Check(err, gc.NotNil)
@@ -264,7 +265,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 			NatIP: "25.185.142.227",
 		}},
 	})
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,7 +315,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 			NatIP: "25.185.142.227",
 		}},
 	}}
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,7 +353,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 			NatIP: "25.185.142.227",
 		}},
 	})
-	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
 	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)

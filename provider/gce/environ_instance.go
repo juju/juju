@@ -10,10 +10,11 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -30,12 +31,12 @@ var instStatuses = []string{
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := getInstances(env, ctx)
+	all, err := getInstances(env, ctx)
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -47,9 +48,9 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 
 	// Build the result, matching the provided instance IDs.
 	numFound := 0 // This will never be greater than len(ids).
-	results := make([]instance.Instance, len(ids))
+	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
-		inst := findInst(id, instances)
+		inst := findInst(id, all)
 		if inst != nil {
 			numFound++
 		}
@@ -66,7 +67,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	return results, err
 }
 
-var getInstances = func(env *environ, ctx context.ProviderCallContext) ([]instance.Instance, error) {
+var getInstances = func(env *environ, ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return env.instances(ctx)
 }
 
@@ -81,14 +82,14 @@ func (env *environ) gceInstances(ctx context.ProviderCallContext) ([]google.Inst
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
-func (env *environ) instances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-	instances, err := env.gceInstances(ctx)
+func (env *environ) instances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	gceInstances, err := env.gceInstances(ctx)
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
 	// whether or not we got an error.
-	var results []instance.Instance
-	for _, base := range instances {
+	var results []instances.Instance
+	for _, base := range gceInstances {
 		// If we don't make a copy then the same pointer is used for the
 		// base of all resulting instances.
 		copied := base

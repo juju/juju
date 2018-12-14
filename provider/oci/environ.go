@@ -22,12 +22,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	providerCommon "github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"
@@ -272,18 +272,18 @@ func (e *Environ) getOciInstancesAsMap(ctx envcontext.ProviderCallContext, ids .
 }
 
 // Instances implements environs.Environ.
-func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	instances, err := e.getOciInstances(ctx, ids...)
+	ociInstances, err := e.getOciInstances(ctx, ids...)
 	if err != nil && err != environs.ErrPartialInstances {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	ret := []instance.Instance{}
-	for _, val := range instances {
+	ret := []instances.Instance{}
+	for _, val := range ociInstances {
 		ret = append(ret, val)
 	}
 
@@ -721,18 +721,18 @@ func (o *Environ) terminateInstances(ctx envcontext.ProviderCallContext, instanc
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (e *Environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instance.Instance, error) {
+func (e *Environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	tags := map[string]string{
 		tags.JujuModel: e.Config().UUID(),
 	}
-	instances, err := e.allInstances(ctx, tags)
+	allInstances, err := e.allInstances(ctx, tags)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	ret := []instance.Instance{}
-	for _, val := range instances {
+	ret := []instances.Instance{}
+	for _, val := range allInstances {
 		ret = append(ret, val)
 	}
 	return ret, nil

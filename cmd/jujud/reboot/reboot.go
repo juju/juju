@@ -22,7 +22,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -117,8 +118,8 @@ func (r *Reboot) stopDeployedUnits() error {
 	return nil
 }
 
-func (r *Reboot) runningContainers() ([]instance.Instance, error) {
-	var runningInstances []instance.Instance
+func (r *Reboot) runningContainers() ([]instances.Instance, error) {
+	var runningInstances []instances.Instance
 	modelUUID := r.acfg.Model().Id()
 	for _, val := range instance.ContainerTypes {
 		managerConfig := container.ManagerConfig{

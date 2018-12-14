@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	networkenv "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/provider/oracle/network"

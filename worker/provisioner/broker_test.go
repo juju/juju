@@ -22,11 +22,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
-	instancetest "github.com/juju/juju/instance/testing"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/instances/instancetest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -241,7 +242,7 @@ func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.Insta
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
+) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
 	inst := mockInstance{id: "testinst"}
 	arch := "testarch"
@@ -254,7 +255,7 @@ func (m *fakeContainerManager) DestroyContainer(id instance.Id) error {
 	return m.NextErr()
 }
 
-func (m *fakeContainerManager) ListContainers() ([]instance.Instance, error) {
+func (m *fakeContainerManager) ListContainers() ([]instances.Instance, error) {
 	m.MethodCall(m, "ListContainers")
 	return nil, m.NextErr()
 }
@@ -279,19 +280,19 @@ type mockInstance struct {
 	id string
 }
 
-var _ instance.Instance = (*mockInstance)(nil)
+var _ instances.Instance = (*mockInstance)(nil)
 
-// Id implements instance.Instance.Id.
+// Id implements instances.instance.Id.
 func (m *mockInstance) Id() instance.Id {
 	return instance.Id(m.id)
 }
 
-// Status implements instance.Instance.Status.
-func (m *mockInstance) Status(context.ProviderCallContext) instance.InstanceStatus {
-	return instance.InstanceStatus{}
+// Status implements instances.Instance.Status.
+func (m *mockInstance) Status(context.ProviderCallContext) instance.Status {
+	return instance.Status{}
 }
 
-// Addresses implements instance.Instance.Addresses.
+// Addresses implements instances.Instance.Addresses.
 func (m *mockInstance) Addresses(context.ProviderCallContext) ([]network.Address, error) {
 	return nil, nil
 }
@@ -313,8 +314,8 @@ nameserver ns2.dummy
 	s.PatchValue(provisioner.ResolvConfFiles, []string{fakeResolvConf})
 }
 
-func instancesFromResults(results ...*environs.StartInstanceResult) []instance.Instance {
-	instances := make([]instance.Instance, len(results))
+func instancesFromResults(results ...*environs.StartInstanceResult) []instances.Instance {
+	instances := make([]instances.Instance, len(results))
 	for i := range results {
 		instances[i] = results[i].Instance
 	}

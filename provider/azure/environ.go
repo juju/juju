@@ -32,12 +32,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -1385,7 +1385,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 }
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return env.instances(ctx, env.resourceGroup, ids, true /* refresh addresses */)
 }
 
@@ -1394,7 +1394,7 @@ func (env *azureEnviron) instances(
 	resourceGroup string,
 	ids []instance.Id,
 	refreshAddresses bool,
-) ([]instance.Instance, error) {
+) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1402,12 +1402,12 @@ func (env *azureEnviron) instances(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	byId := make(map[instance.Id]instance.Instance)
+	byId := make(map[instance.Id]instances.Instance)
 	for _, inst := range all {
 		byId[inst.Id()] = inst
 	}
 	var found int
-	matching := make([]instance.Instance, len(ids))
+	matching := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		inst, ok := byId[id]
 		if !ok {
@@ -1528,7 +1528,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 }
 
 // AllInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return env.allInstances(ctx, env.resourceGroup, true /* refresh addresses */, false /* all instances */)
 }
 
@@ -1539,7 +1539,7 @@ func (env *azureEnviron) allInstances(
 	resourceGroup string,
 	refreshAddresses bool,
 	controllerOnly bool,
-) ([]instance.Instance, error) {
+) ([]instances.Instance, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	sdkCtx := stdcontext.Background()
 	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, "", nil)
@@ -1592,7 +1592,7 @@ func (env *azureEnviron) allInstances(
 		}
 	}
 
-	instances := make([]instance.Instance, len(azureInstances))
+	instances := make([]instances.Instance, len(azureInstances))
 	for i, inst := range azureInstances {
 		instances[i] = inst
 	}

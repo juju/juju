@@ -6,9 +6,10 @@ package kvm
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -17,22 +18,22 @@ type kvmInstance struct {
 	id        string
 }
 
-var _ instance.Instance = (*kvmInstance)(nil)
+var _ instances.Instance = (*kvmInstance)(nil)
 
-// Id implements instance.Instance.Id.
+// Id implements instances.instance.Id.
 func (kvm *kvmInstance) Id() instance.Id {
 	return instance.Id(kvm.id)
 }
 
-// Status implements instance.Instance.Status.
-func (kvm *kvmInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+// Status implements instances.Instance.Status.
+func (kvm *kvmInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	if kvm.container.IsRunning() {
-		return instance.InstanceStatus{
+		return instance.Status{
 			Status:  status.Running,
 			Message: "running",
 		}
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  status.Stopped,
 		Message: "stopped",
 	}
@@ -47,17 +48,17 @@ func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) ([]network.Ad
 	return nil, nil
 }
 
-// OpenPorts implements instance.Instance.OpenPorts.
+// OpenPorts implements instances.Instance.OpenPorts.
 func (kvm *kvmInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
-// ClosePorts implements instance.Instance.ClosePorts.
+// ClosePorts implements instances.Instance.ClosePorts.
 func (kvm *kvmInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
-// IngressRules implements instance.Instance.IngressRules.
+// IngressRules implements instances.Instance.IngressRules.
 func (kvm *kvmInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	return nil, fmt.Errorf("not implemented")
 }

@@ -1,9 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package instance
+package context
 
-import "github.com/juju/juju/environs/context"
+import "github.com/juju/juju/core/instance"
 
 // Distributor is an interface that may be used to distribute
 // application units across instances for high availability.
@@ -20,6 +20,6 @@ type Distributor interface {
 	// successful. If no instances can be assigned to (e.g. because of
 	// concurrent deployments), then a new machine will be allocated.
 	DistributeInstances(
-		ctx context.ProviderCallContext, candidates, distributionGroup []Id, limitZones []string,
-	) ([]Id, error)
+		ctx ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+	) ([]instance.Id, error)
 }

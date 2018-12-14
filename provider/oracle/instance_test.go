@@ -11,10 +11,10 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"

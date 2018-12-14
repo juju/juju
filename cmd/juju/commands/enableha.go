@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 func newEnableHACommand() cmd.Command {

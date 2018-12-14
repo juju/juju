@@ -8,10 +8,11 @@ import (
 
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -25,13 +26,13 @@ func (inst *ec2Instance) String() string {
 	return string(inst.Id())
 }
 
-var _ instance.Instance = (*ec2Instance)(nil)
+var _ instances.Instance = (*ec2Instance)(nil)
 
 func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
-func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status {
 	// pending | running | shutting-down | terminated | stopping | stopped
 	jujuStatus := status.Pending
 	switch inst.State.Name {
@@ -44,7 +45,7 @@ func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Instan
 	default:
 		jujuStatus = status.Empty
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: inst.State.Name,
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
@@ -128,7 +128,7 @@ type BaseSuiteUnpatched struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ instance.Instance = (*environInstance)(nil)
+var _ instances.Instance = (*environInstance)(nil)
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -430,12 +430,12 @@ type fakeEnviron struct {
 	fake
 
 	Inst  *google.Instance
-	Insts []instance.Instance
+	Insts []instances.Instance
 	Hwc   *instance.HardwareCharacteristics
 	Spec  *instances.InstanceSpec
 }
 
-func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
 		"switch": env,
 	})

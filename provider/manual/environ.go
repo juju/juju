@@ -23,13 +23,14 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -73,7 +74,7 @@ func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.Id)
 	return errNoStopInstance
 }
 
-func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
 }
 
@@ -196,12 +197,13 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 // This method will only ever return an Instance for the Id
 // BootstrapInstanceId. If any others are specified, then
 // ErrPartialInstances or ErrNoInstances will result.
-func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instance.Instance, err error) {
-	instances = make([]instance.Instance, len(ids))
+func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+	result := make([]instances.Instance, len(ids))
 	var found bool
+	var err error
 	for i, id := range ids {
 		if id == BootstrapInstanceId {
-			instances[i] = manualBootstrapInstance{e.host}
+			result[i] = manualBootstrapInstance{e.host}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -210,7 +212,7 @@ func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 	if !found {
 		err = environs.ErrNoInstances
 	}
-	return instances, err
+	return result, err
 }
 
 var runSSHCommand = func(host string, command []string, stdin string) (stdout, stderr string, err error) {

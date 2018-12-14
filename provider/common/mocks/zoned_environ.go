@@ -5,17 +5,18 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/constraints"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	instance "github.com/juju/juju/instance"
 	common "github.com/juju/juju/provider/common"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
-	reflect "reflect"
 )
 
 // MockZonedEnviron is a mock of ZonedEnviron interface
@@ -54,9 +55,9 @@ func (mr *MockZonedEnvironMockRecorder) AdoptResources(arg0, arg1, arg2 interfac
 }
 
 // AllInstances mocks base method
-func (m *MockZonedEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *MockZonedEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -206,9 +207,9 @@ func (mr *MockZonedEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{}) *g
 }
 
 // Instances mocks base method
-func (m *MockZonedEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instance.Instance, error) {
+func (m *MockZonedEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

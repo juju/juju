@@ -5,9 +5,10 @@
 package lxdprofile_test
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	reflect "reflect"
 )
 
 // MockLXDProfiler is a mock of LXDProfiler interface

@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/status"
 
+	"github.com/juju/juju/core/instance"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oci/common"
 
@@ -44,7 +44,7 @@ type vnicWithIndex struct {
 	Idx  int
 }
 
-var _ instance.Instance = (*ociInstance)(nil)
+var _ instances.Instance = (*ociInstance)(nil)
 var maxPollIterations = 30
 var pollTime time.Duration = 10 * time.Second
 
@@ -85,22 +85,22 @@ func (o *ociInstance) availabilityZone() string {
 	return *o.raw.AvailabilityDomain
 }
 
-// Id implements instance.Instance
+// Id implements instances.Instance
 func (o *ociInstance) Id() instance.Id {
 	return instance.Id(*o.raw.Id)
 }
 
-// Status implements instance.Instance
-func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.InstanceStatus {
+// Status implements instances.Instance
+func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	if err := o.refresh(); err != nil {
 		common.HandleCredentialError(err, ctx)
-		return instance.InstanceStatus{}
+		return instance.Status{}
 	}
 	state, ok := statusMap[o.raw.LifecycleState]
 	if !ok {
 		state = status.Unknown
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  state,
 		Message: strings.ToLower(string(o.raw.LifecycleState)),
 	}
@@ -158,7 +158,7 @@ func (o *ociInstance) getAddresses() ([]network.Address, error) {
 	return addresses, nil
 }
 
-// Addresses implements instance.Instance
+// Addresses implements instances.Instance
 func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]network.Address, error) {
 	addresses, err := o.getAddresses()
 	common.HandleCredentialError(err, ctx)

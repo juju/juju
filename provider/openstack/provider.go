@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -44,7 +45,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
@@ -323,7 +323,7 @@ type Environ struct {
 var _ environs.Environ = (*Environ)(nil)
 var _ environs.NetworkingEnviron = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
-var _ instance.Distributor = (*Environ)(nil)
+var _ context.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {
@@ -341,7 +341,7 @@ func (inst *openstackInstance) String() string {
 	return string(inst.Id())
 }
 
-var _ instance.Instance = (*openstackInstance)(nil)
+var _ instances.Instance = (*openstackInstance)(nil)
 
 func (inst *openstackInstance) Refresh(ctx context.ProviderCallContext) error {
 	inst.mu.Lock()
@@ -365,7 +365,7 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.getServerDetail().Id)
 }
 
-func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.getServerDetail().Status
 	jujuStatus := status.Pending
 	switch instStatus {
@@ -385,7 +385,7 @@ func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.
 	default:
 		jujuStatus = status.Empty
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: instStatus,
 	}
@@ -1476,7 +1476,7 @@ func (e *Environ) listServers(ctx context.ProviderCallContext, ids []instance.Id
 
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
-func (e *Environ) updateFloatingIPAddresses(ctx context.ProviderCallContext, instances map[string]instance.Instance) error {
+func (e *Environ) updateFloatingIPAddresses(ctx context.ProviderCallContext, instances map[string]instances.Instance) error {
 	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -1499,7 +1499,7 @@ func (e *Environ) updateFloatingIPAddresses(ctx context.ProviderCallContext, ins
 	return nil
 }
 
-func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1526,7 +1526,7 @@ func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		return nil, environs.ErrNoInstances
 	}
 
-	instsById := make(map[string]instance.Instance, len(foundServers))
+	instsById := make(map[string]instances.Instance, len(foundServers))
 	for i, server := range foundServers {
 		// TODO(wallyworld): lookup the flavor details to fill in the
 		// instance type data
@@ -1543,7 +1543,7 @@ func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		}
 	}
 
-	insts := make([]instance.Instance, len(ids))
+	insts := make([]instances.Instance, len(ids))
 	var err error
 	for i, id := range ids {
 		if inst := instsById[string(id)]; inst != nil {
@@ -1637,7 +1637,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx context.Prov
 }
 
 // AllInstances returns all instances in this environment.
-func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
 	instances, err := e.allInstances(ctx, tagFilter, e.ecfg().useFloatingIP())
 	if err != nil {
@@ -1649,7 +1649,7 @@ func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Inst
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+func (e *Environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string, updateFloatingIPAddresses bool) ([]instances.Instance, error) {
 	tagFilter := tagValue{tags.JujuController, controllerUUID}
 	instances, err := e.allInstances(ctx, tagFilter, updateFloatingIPAddresses)
 	if err != nil {
@@ -1665,13 +1665,13 @@ type tagValue struct {
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allInstances(ctx context.ProviderCallContext, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+func (e *Environ) allInstances(ctx context.ProviderCallContext, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instances.Instance, error) {
 	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, err
 	}
-	instsById := make(map[string]instance.Instance)
+	instsById := make(map[string]instances.Instance)
 	for _, server := range servers {
 		if server.Metadata[tagFilter.tag] != tagFilter.value {
 			continue
@@ -1688,7 +1688,7 @@ func (e *Environ) allInstances(ctx context.ProviderCallContext, tagFilter tagVal
 			return nil, err
 		}
 	}
-	insts := make([]instance.Instance, 0, len(instsById))
+	insts := make([]instances.Instance, 0, len(instsById))
 	for _, inst := range instsById {
 		insts = append(insts, inst)
 	}

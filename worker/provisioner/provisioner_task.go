@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -33,8 +34,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -148,7 +149,7 @@ type provisionerTask struct {
 	harvestModeChan            chan config.HarvestMode
 	retryStartInstanceStrategy RetryStrategy
 	// instance id -> instance
-	instances map[instance.Id]instance.Instance
+	instances map[instance.Id]instances.Instance
 	// machine id -> machine
 	machines                 map[string]apiprovisioner.MachineProvisioner
 	machinesMutex            sync.RWMutex
@@ -431,7 +432,7 @@ func (task *provisionerTask) processOneMachineProfileChange(
 	return initialAddOfSubordinateProfile, m.SetCharmProfiles(newProfiles)
 }
 
-func instanceIds(instances []instance.Instance) []string {
+func instanceIds(instances []instances.Instance) []string {
 	ids := make([]string, 0, len(instances))
 	for _, inst := range instances {
 		ids = append(ids, string(inst.Id()))
@@ -442,7 +443,7 @@ func instanceIds(instances []instance.Instance) []string {
 // populateMachineMaps updates task.instances. Also updates
 // task.machines map if a list of IDs is given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
-	task.instances = make(map[instance.Id]instance.Instance)
+	task.instances = make(map[instance.Id]instances.Instance)
 
 	instances, err := task.broker.AllInstances(task.cloudCallCtx)
 	if err != nil {
@@ -577,11 +578,11 @@ func classifyMachine(machine ClassifiableMachine) (
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) ([]instance.Instance, error) {
+func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance) ([]instances.Instance, error) {
 	// Make a copy of the instances we know about.
-	instances := make(map[instance.Id]instance.Instance)
+	taskInstances := make(map[instance.Id]instances.Instance)
 	for k, v := range task.instances {
-		instances[k] = v
+		taskInstances[k] = v
 	}
 
 	task.machinesMutex.RLock()
@@ -590,7 +591,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 		instId, err := m.InstanceId()
 		switch {
 		case err == nil:
-			delete(instances, instId)
+			delete(taskInstances, instId)
 		case params.IsCodeNotProvisioned(err):
 		case params.IsCodeNotFoundOrCodeUnauthorized(err):
 		default:
@@ -600,20 +601,20 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	// Now remove all those instances that we are stopping already as we
 	// know about those and don't want to include them in the unknown list.
 	for _, inst := range stopping {
-		delete(instances, inst.Id())
+		delete(taskInstances, inst.Id())
 	}
-	var unknown []instance.Instance
-	for _, inst := range instances {
+	var unknown []instances.Instance
+	for _, inst := range taskInstances {
 		unknown = append(unknown, inst)
 	}
 	return unknown, nil
 }
 
-// instancesForDeadMachines returns a list of instance.Instance that represent
+// instancesForDeadMachines returns a list of instances.Instance that represent
 // the list of dead machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisioner.MachineProvisioner) []instance.Instance {
-	var instances []instance.Instance
+func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisioner.MachineProvisioner) []instances.Instance {
+	var instances []instances.Instance
 	for _, machine := range deadMachines {
 		instId, err := machine.InstanceId()
 		if err == nil {
@@ -632,7 +633,7 @@ func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisio
 	return instances
 }
 
-func (task *provisionerTask) stopInstances(instances []instance.Instance) error {
+func (task *provisionerTask) stopInstances(instances []instances.Instance) error {
 	// Although calling StopInstance with an empty slice should produce no change in the
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {

@@ -12,9 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
@@ -37,7 +38,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 
 func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 	env := &mockEnviron{
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, fmt.Errorf("nope")
 		},
 		config: configGetter(c),
@@ -48,8 +49,8 @@ func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 
 func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 	env := &mockEnviron{
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{
 				&mockInstance{id: "one"},
 				&mockInstance{id: "another"},
 			}, nil
@@ -71,8 +72,8 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 	// so failing storage should not affect success.
 	env := &mockEnviron{
 		storage: &mockStorage{removeAllErr: fmt.Errorf("noes!")},
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{
 				&mockInstance{id: "one"},
 				&mockInstance{id: "another"},
 			}, nil
@@ -97,8 +98,8 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 
 	env := &mockEnviron{
 		storage: stor,
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{
 				&mockInstance{id: "one"},
 			}, nil
 		},
@@ -126,7 +127,7 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 
 	env := &mockEnviron{
 		storage: stor,
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		config: configGetter(c),
@@ -154,7 +155,7 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -198,7 +199,7 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -219,7 +220,7 @@ func (s *DestroySuite) TestIgnoreStaticVolumes(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -243,7 +244,7 @@ func (s *DestroySuite) TestIgnoreMachineScopedVolumes(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{
@@ -270,7 +271,7 @@ func (s *DestroySuite) TestIgnoreNoVolumeSupport(c *gc.C) {
 
 	env := &mockEnviron{
 		config: configGetter(c),
-		allInstances: func(context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstances: func(context.ProviderCallContext) ([]instances.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
 		storageProviders: storage.StaticProviderRegistry{

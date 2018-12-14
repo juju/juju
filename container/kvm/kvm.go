@@ -19,11 +19,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 )
 
 var (
@@ -147,7 +148,7 @@ func (manager *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (_ instance.Instance, hc *instance.HardwareCharacteristics, err error) {
+) (_ instances.Instance, hc *instance.HardwareCharacteristics, err error) {
 
 	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
@@ -247,7 +248,7 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	return container.RemoveDirectory(name)
 }
 
-func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
+func (manager *containerManager) ListContainers() (result []instances.Instance, err error) {
 	containers, err := KvmObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)

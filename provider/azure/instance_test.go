@@ -14,10 +14,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -142,13 +143,13 @@ func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
 	}
 }
 
-func (s *instanceSuite) getInstance(c *gc.C) instance.Instance {
+func (s *instanceSuite) getInstance(c *gc.C) instances.Instance {
 	instances := s.getInstances(c, "machine-0")
 	c.Assert(instances, gc.HasLen, 1)
 	return instances[0]
 }
 
-func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instance.Instance {
+func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instances.Instance {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.Instances(s.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
@@ -206,8 +207,8 @@ func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Allocating, "")
 }
 
-func assertInstanceStatus(c *gc.C, actual instance.InstanceStatus, status status.Status, message string) {
-	c.Assert(actual, jc.DeepEquals, instance.InstanceStatus{
+func assertInstanceStatus(c *gc.C, actual instance.Status, status status.Status, message string) {
+	c.Assert(actual, jc.DeepEquals, instance.Status{
 		Status:  status,
 		Message: message,
 	})
@@ -276,7 +277,7 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 
 func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	inst := s.getInstance(c)
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
@@ -373,7 +374,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 		},
 	}})
 	s.sender = azuretesting.Senders{nsgSender}
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	rules, err := fwInst.IngressRules(s.callCtx, "0")
@@ -388,7 +389,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	inst := s.getInstance(c)
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	sender := mocks.NewSender()
@@ -436,7 +437,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	}
 
 	inst := s.getInstance(c)
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	okSender := mocks.NewSender()
@@ -536,7 +537,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	}
 
 	inst := s.getInstance(c)
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	okSender := mocks.NewSender()
@@ -581,7 +582,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	inst := s.getInstance(c)
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	err := fwInst.OpenPorts(s.callCtx, "0", nil)
 	c.Assert(err, gc.ErrorMatches, "internal network address not found")

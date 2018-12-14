@@ -51,7 +51,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"

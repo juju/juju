@@ -6,9 +6,10 @@ package testing
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	core "github.com/oracle/oci-go-sdk/core"
-	reflect "reflect"
 )
 
 // MockOCINetworkingClient is a mock of OCINetworkingClient interface

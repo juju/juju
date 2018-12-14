@@ -8,9 +8,10 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
@@ -20,7 +21,7 @@ type environInstance struct {
 	env  *environ
 }
 
-var _ instance.Instance = (*environInstance)(nil)
+var _ instances.Instance = (*environInstance)(nil)
 
 func newInstance(base *mo.VirtualMachine, env *environ) *environInstance {
 	return &environInstance{
@@ -29,14 +30,14 @@ func newInstance(base *mo.VirtualMachine, env *environ) *environInstance {
 	}
 }
 
-// Id implements instance.Instance.
+// Id implements instances.Instance.
 func (inst *environInstance) Id() instance.Id {
 	return instance.Id(inst.base.Name)
 }
 
-// Status implements instance.Instance.
-func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	instanceStatus := instance.InstanceStatus{
+// Status implements instances.Instance.
+func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
+	instanceStatus := instance.Status{
 		Status:  status.Empty,
 		Message: string(inst.base.Runtime.PowerState),
 	}
@@ -47,7 +48,7 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.In
 	return instanceStatus
 }
 
-// Addresses implements instance.Instance.
+// Addresses implements instances.Instance.
 func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	if inst.base.Guest == nil {
 		return nil, nil

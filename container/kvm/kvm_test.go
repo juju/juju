@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
 

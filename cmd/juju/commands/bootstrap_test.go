@@ -42,13 +42,13 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -893,7 +893,7 @@ func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
 }
 
 type mockBootstrapInstance struct {
-	instance.Instance
+	instances.Instance
 }
 
 func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {

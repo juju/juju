@@ -15,11 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -271,7 +272,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 	// Check that listing those instances finds them using the groups
 	instIds := []instance.Id{inst0.Id(), inst1.Id()}
-	idsFromInsts := func(insts []instance.Instance) (ids []instance.Id) {
+	idsFromInsts := func(insts []instances.Instance) (ids []instance.Id) {
 		for _, inst := range insts {
 			ids = append(ids, inst.Id())
 		}
@@ -380,7 +381,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	err := t.Env.StopInstances(t.callCtx, inst0.Id(), inst1.Id(), inst2.Id())
 	c.Check(err, jc.ErrorIsNil)
 
-	var insts []instance.Instance
+	var insts []instances.Instance
 
 	// We need the retry logic here because we are waiting
 	// for Instances to return an error, and it will not retry

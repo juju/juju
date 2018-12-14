@@ -8,10 +8,11 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -20,12 +21,12 @@ import (
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := env.allInstances()
+	all, err := env.allInstances()
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -38,9 +39,9 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 
 	// Build the result, matching the provided instance IDs.
 	numFound := 0 // This will never be greater than len(ids).
-	results := make([]instance.Instance, len(ids))
+	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
-		inst := findInst(id, instances)
+		inst := findInst(id, all)
 		if inst != nil {
 			numFound++
 		}
@@ -57,7 +58,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	return results, err
 }
 
-func findInst(id instance.Id, instances []*environInstance) instance.Instance {
+func findInst(id instance.Id, instances []*environInstance) instances.Instance {
 	for _, inst := range instances {
 		if id == inst.Id() {
 			return inst

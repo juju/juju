@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -31,7 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/common"
@@ -56,7 +57,7 @@ type ProvisionerTaskSuite struct {
 	machineStatusResults []apiprovisioner.MachineStatusResult
 	machineGetter        *testMachineGetter
 
-	instances      []instance.Instance
+	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
 
 	callCtx           *context.CloudCallContext
@@ -91,11 +92,11 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.instances = []instance.Instance{}
+	s.instances = []instances.Instance{}
 	s.instanceBroker = &testInstanceBroker{
 		Stub:      &testing.Stub{},
 		callsChan: make(chan string, 2),
-		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 			return s.instances, nil
 		},
 	}
@@ -138,7 +139,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 
 	i0 := &testInstance{id: "zero"}
 	i1 := &testInstance{id: "one"}
-	s.instances = []instance.Instance{
+	s.instances = []instances.Instance{
 		i0,
 		i1,
 	}
@@ -477,7 +478,7 @@ type testInstanceBroker struct {
 
 	callsChan chan string
 
-	allInstancesFunc func(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	allInstancesFunc func(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
 func (t *testInstanceBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -492,7 +493,7 @@ func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids 
 	return t.NextErr()
 }
 
-func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	t.AddCall("AllInstances", ctx)
 	t.callsChan <- "AllInstances"
 	return t.allInstancesFunc(ctx)
@@ -505,7 +506,7 @@ func (t *testInstanceBroker) MaintainInstance(ctx context.ProviderCallContext, a
 }
 
 type testInstance struct {
-	instance.Instance
+	instances.Instance
 	id string
 }
 

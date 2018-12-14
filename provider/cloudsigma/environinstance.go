@@ -9,10 +9,11 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/tools"
 )
 
@@ -96,7 +97,7 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 }
 
 // AllInstances returns all instances currently known to the broker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
@@ -109,7 +110,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.In
 		return nil, err
 	}
 
-	instances := make([]instance.Instance, 0, len(servers))
+	instances := make([]instances.Instance, 0, len(servers))
 	for _, server := range servers {
 		instance := sigmaInstance{server: server}
 		instances = append(instances, instance)
@@ -131,7 +132,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.In
 // some but not all the instances were found, the returned slice
 // will have some nil slots, and an ErrPartialInstances error
 // will be returned.
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	logger.Tracef("environ.Instances %#v", ids)
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
@@ -146,7 +147,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	}
 
 	var found int
-	r := make([]instance.Instance, len(ids))
+	r := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		if s, ok := m[string(id)]; ok {
 			r[i] = sigmaInstance{server: s}

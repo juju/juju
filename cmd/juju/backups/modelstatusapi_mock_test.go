@@ -5,10 +5,11 @@
 package backups_test
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
 	names_v2 "gopkg.in/juju/names.v2"
-	reflect "reflect"
 )
 
 // MockModelStatusAPI is a mock of ModelStatusAPI interface

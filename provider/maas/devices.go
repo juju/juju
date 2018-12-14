@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 

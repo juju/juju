@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )

@@ -14,10 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -29,14 +30,14 @@ type aggregateSuite struct {
 var _ = gc.Suite(&aggregateSuite{})
 
 type testInstance struct {
-	instance.Instance
+	instances.Instance
 	id        instance.Id
 	addresses []network.Address
 	status    string
 	err       error
 }
 
-var _ instance.Instance = (*testInstance)(nil)
+var _ instances.Instance = (*testInstance)(nil)
 
 func (t *testInstance) Id() instance.Id {
 	return t.id
@@ -49,23 +50,23 @@ func (t *testInstance) Addresses(ctx context.ProviderCallContext) ([]network.Add
 	return t.addresses, nil
 }
 
-func (t *testInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	return instance.InstanceStatus{Status: status.Unknown, Message: t.status}
+func (t *testInstance) Status(ctx context.ProviderCallContext) instance.Status {
+	return instance.Status{Status: status.Unknown, Message: t.status}
 }
 
 type testInstanceGetter struct {
 	sync.RWMutex
 	// ids is set when the Instances method is called.
 	ids     []instance.Id
-	results map[instance.Id]instance.Instance
+	results map[instance.Id]instances.Instance
 	err     error
 	counter int32
 }
 
-func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []instance.Id) (result []instance.Instance, err error) {
+func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []instance.Id) (result []instances.Instance, err error) {
 	tig.ids = ids
 	atomic.AddInt32(&tig.counter, 1)
-	results := make([]instance.Instance, len(ids))
+	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		// We don't check 'ok' here, because we want the Instance{nil}
 		// response for those
@@ -76,7 +77,7 @@ func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []
 
 func (tig *testInstanceGetter) newTestInstance(id instance.Id, status string, addresses []string) *testInstance {
 	if tig.results == nil {
-		tig.results = make(map[instance.Id]instance.Instance)
+		tig.results = make(map[instance.Id]instances.Instance)
 	}
 	thisInstance := &testInstance{
 		id:        id,

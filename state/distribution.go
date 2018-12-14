@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // distributeUnit takes a unit and set of clean, possibly empty, instances

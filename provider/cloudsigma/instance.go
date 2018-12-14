@@ -7,13 +7,14 @@ import (
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
-var _ instance.Instance = (*sigmaInstance)(nil)
+var _ instances.Instance = (*sigmaInstance)(nil)
 
 type sigmaInstance struct {
 	server gosigma.Server
@@ -29,7 +30,7 @@ func (i sigmaInstance) Id() instance.Id {
 }
 
 // Status returns the provider-specific status for the instance.
-func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	entityStatus := i.server.Status()
 	logger.Tracef("sigmaInstance.Status: %s", entityStatus)
 	jujuStatus := status.Pending
@@ -47,7 +48,7 @@ func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.Instance
 		jujuStatus = status.Pending
 	}
 
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: entityStatus,
 	}

@@ -24,13 +24,14 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
@@ -756,7 +757,7 @@ func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
-func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instances.Instance, error) {
 	env := s.bootstrap(c)
 	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, AvailabilityZone: zone}
 	result, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)

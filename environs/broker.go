@@ -8,11 +8,12 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -105,7 +106,7 @@ type StartInstanceParams struct {
 // InstanceBroker.StartInstance method call.
 type StartInstanceResult struct {
 	// Instance is an interface representing a cloud instance.
-	Instance instance.Instance
+	Instance instances.Instance
 
 	// Config holds the environment config to be used for any further
 	// operations, if the instance is for a controller.
@@ -154,7 +155,7 @@ type InstanceBroker interface {
 	StopInstances(context.ProviderCallContext, ...instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
-	AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
 
 	// MaintainInstance is used to run actions on jujud startup for existing
 	// instances. It is currently only used to ensure that LXC hosts have the

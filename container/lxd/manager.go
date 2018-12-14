@@ -19,11 +19,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -99,7 +100,7 @@ func (m *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
+) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	callback(status.Provisioning, "Creating container spec", nil)
 	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
 	if err != nil {
@@ -120,13 +121,13 @@ func (m *containerManager) CreateContainer(
 }
 
 // ListContainers implements container.Manager.
-func (m *containerManager) ListContainers() ([]instance.Instance, error) {
+func (m *containerManager) ListContainers() ([]instances.Instance, error) {
 	containers, err := m.server.FilterContainers(m.namespace.Prefix())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result []instance.Instance
+	var result []instances.Instance
 	for _, i := range containers {
 		result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
 	}

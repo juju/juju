@@ -17,8 +17,8 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"

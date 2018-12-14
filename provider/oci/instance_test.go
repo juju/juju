@@ -12,8 +12,8 @@ import (
 
 	ociCore "github.com/oracle/oci-go-sdk/core"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oci"
 )
@@ -49,7 +49,7 @@ func (i *instanceSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	instStatus := inst.Status(nil)
-	expectedStatus := instance.InstanceStatus{
+	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
 	}
@@ -63,7 +63,7 @@ func (i *instanceSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	instStatus = inst.Status(nil)
-	expectedStatus = instance.InstanceStatus{
+	expectedStatus = instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateTerminating)),
 	}
@@ -92,7 +92,7 @@ func (i *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	instStatus := inst.Status(nil)
-	expectedStatus := instance.InstanceStatus{
+	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
 	}

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -90,7 +90,7 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 	}
 }
 
-func createContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
+func createContainer(c *gc.C, manager container.Manager, machineId string) instances.Instance {
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)

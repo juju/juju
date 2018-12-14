@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/state/multiwatcher"
 )

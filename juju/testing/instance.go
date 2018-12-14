@@ -12,14 +12,15 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -68,7 +69,7 @@ func WaitInstanceAddresses(env environs.Environ, ctx context.ProviderCallContext
 func AssertStartControllerInstance(
 	c *gc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics,
+	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
 	err := FillInStartInstanceParams(env, machineId, true, &params)
@@ -83,7 +84,7 @@ func AssertStartControllerInstance(
 func AssertStartInstance(
 	c *gc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics,
+	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstance(env, ctx, controllerUUID, machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,7 +96,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
+	instances.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	return StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, constraints.Value{})
 }
@@ -107,7 +108,7 @@ func AssertStartInstanceWithConstraints(
 	c *gc.C, env environs.Environ, ctx context.ProviderCallContext,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics,
+	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +123,7 @@ func StartInstanceWithConstraints(
 	ctx context.ProviderCallContext,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
+	instances.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
 	result, err := StartInstanceWithParams(env, ctx, machineId, params)

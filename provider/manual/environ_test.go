@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
 

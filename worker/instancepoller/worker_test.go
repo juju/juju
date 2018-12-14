@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -174,9 +174,9 @@ func machinesSatisfy(c *gc.C, machines []*apiinstancepoller.Machine, f func(i in
 	return true
 }
 
-func (s *workerSuite) setupScenario(c *gc.C) ([]*apiinstancepoller.Machine, []instance.Instance) {
+func (s *workerSuite) setupScenario(c *gc.C) ([]*apiinstancepoller.Machine, []instances.Instance) {
 	var machines []*apiinstancepoller.Machine
-	var insts []instance.Instance
+	var insts []instances.Instance
 	for i := 0; i < 10; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)

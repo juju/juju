@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -58,7 +60,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -383,7 +384,7 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		client ssh.Client,
 		env environs.Environ,
 		callCtx context.ProviderCallContext,
-		inst instance.Instance,
+		inst instances.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
 		_ environs.BootstrapDialOpts,
 	) error {
@@ -416,7 +417,7 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		client ssh.Client,
 		env environs.Environ,
 		callCtx context.ProviderCallContext,
-		inst instance.Instance,
+		inst instances.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
 		_ environs.BootstrapDialOpts,
 	) error {
@@ -2151,7 +2152,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
-func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instances.Instance, error) {
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 

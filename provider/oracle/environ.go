@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envinstance "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
@@ -592,15 +592,15 @@ func (o *OracleEnviron) getOracleInstancesAsMap(ids ...instance.Id) (map[string]
 }
 
 // AllInstances is part of the InstanceBroker interface.
-func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]envinstance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
-	instances, err := o.allInstances(tagFilter)
+	all, err := o.allInstances(tagFilter)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]instance.Instance, len(instances))
-	for i, val := range instances {
+	ret := make([]envinstance.Instance, len(all))
+	for i, val := range all {
 		ret[i] = val
 	}
 	return ret, nil
@@ -690,7 +690,7 @@ func (o *OracleEnviron) Details(id instance.Id) (ociResponse.Instance, error) {
 }
 
 // Instances is part of the environs.Environ interface.
-func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]envinstance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -699,7 +699,7 @@ func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 		return nil, err
 	}
 
-	ret := []instance.Instance{}
+	ret := []envinstance.Instance{}
 	for _, val := range instances {
 		ret = append(ret, val)
 	}

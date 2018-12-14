@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -120,8 +120,8 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
-func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machineId string, expected []network.IngressRule) {
-	fwInst, ok := inst.(instance.InstanceFirewaller)
+func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, machineId string, expected []network.IngressRule) {
+	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	start := time.Now()
@@ -187,7 +187,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.U
 }
 
 // startInstance starts a new instance for the given machine.
-func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
+func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instances.Instance {
 	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.callCtx, s.ControllerConfig.ControllerUUID(), m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)

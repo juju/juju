@@ -5,11 +5,12 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	reflect "reflect"
 )
 
 // MockLinkLayerDevice is a mock of LinkLayerDevice interface
