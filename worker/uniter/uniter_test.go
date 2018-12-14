@@ -674,6 +674,10 @@ func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
 	// adding a "wp-content" filesystem store. We do it here rather
 	// than in the charm itself to avoid modifying all of the other
 	// scenarios.
+	// NOTE: this test does not expect the charm profile data to be
+	// in place for the resource charm upgrade. In fact it's important
+	// that we don't have it there, otherwise it causes the resource
+	// changes to stall out in real world scenarios.
 	appendResource := func(c *gc.C, ctx *context, path string) {
 		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
 		c.Assert(err, jc.ErrorIsNil)
@@ -701,7 +705,6 @@ resources:
 			waitUnitAgent{status: status.Idle},
 			waitHooks(startupHooks(false)),
 			verifyCharm{},
-			setUpgradeCharmProfile{},
 
 			pushResource{},
 			waitHooks{"upgrade-charm", "config-changed"},
