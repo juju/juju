@@ -198,25 +198,36 @@ def assess_caas_charm_deployment(client):
     # ensure storage class
     caas_client.kubectl_apply(HOST_PATH_PROVISIONER.format(class_name=JUJU_STORAGECLASS_NAME))
 
-    # ensure storage pool
+    # ensure storage pools for caas operator
     k8s_model.juju(
         'create-storage-pool',
         ('operator-storage', 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
     )
 
-    gitlab_charm_path = local_charm_path(charm='caas-gitlab', juju_ver=client.version)
-    k8s_model.deploy(
-        charm=gitlab_charm_path, config='juju-external-hostname={}'.format(external_hostname)
+    # ensure storage pools for mariadb
+    mariadb_storage_pool_name = 'mariadb-pv'
+    k8s_model.juju(
+        'create-storage-pool',
+        (mariadb_storage_pool_name, 'kubernetes', 'storage-class=%s' % JUJU_STORAGECLASS_NAME)
     )
 
-    mysql_charm_path = local_charm_path(charm='caas-mysql', juju_ver=client.version)
-    k8s_model.deploy(charm=mysql_charm_path)
+    k8s_model.deploy(
+        charm="cs:~juju/gitlab-k8s-0",
+        config='juju-external-hostname={}'.format(external_hostname),
+        resource="gitlab_image=gitlab/gitlab-ce:11.0.6-ce.0",
+    )
 
-    k8s_model.juju('relate', ('gitlab', 'mysql'))
-    k8s_model.juju('expose', ('gitlab',))
+    k8s_model.deploy(
+        charm="cs:~juju/mariadb-k8s-0",
+        resource="mysql_image=mysql/mysql-server:5.7",
+        storage='database=10M,{pool_name}'.format(pool_name=mariadb_storage_pool_name),
+    )
+
+    k8s_model.juju('relate', ('mariadb-k8s', 'gitlab-k8s'))
+    k8s_model.juju('expose', ('gitlab-k8s',))
     k8s_model.wait_for_workloads(timeout=3600)
 
-    url = '{}://{}/{}'.format('http', external_hostname, 'gitlab')
+    url = '{}://{}/{}'.format('http', external_hostname, 'gitlab-k8s')
     check_app_healthy(url, timeout=1200)
 
     log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
