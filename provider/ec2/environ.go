@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
@@ -891,11 +891,11 @@ func isNotFoundError(err error) bool {
 }
 
 // Instances is part of the environs.Environ interface.
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]instance.Instance, len(ids))
+	insts := make([]instances.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -938,7 +938,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 func (e *environ) gatherInstances(
 	ctx context.ProviderCallContext,
 	ids []instance.Id,
-	insts []instance.Instance,
+	insts []instances.Instance,
 	filter *ec2.Filter,
 ) error {
 	resp, err := e.ec2.Instances(nil, filter)
@@ -1181,13 +1181,13 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
-func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.AllInstancesByState(ctx, "pending", "running")
 }
 
 // AllInstancesByState returns all instances in the environment
 // with one of the specified instance states.
-func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instance.Instance, error) {
+func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instances.Instance, error) {
 	// NOTE(axw) we use security group filtering here because instances
 	// start out untagged. If Juju were to abort after starting an instance,
 	// but before tagging it, it would be leaked. We only need to do this
@@ -1262,12 +1262,12 @@ func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filter *ec2.Fi
 	return ids, nil
 }
 
-func (e *environ) allInstances(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.Instance, error) {
+func (e *environ) allInstances(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instances.Instance, error) {
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing instances")
 	}
-	var insts []instance.Instance
+	var insts []instances.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]

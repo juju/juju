@@ -24,11 +24,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -468,9 +469,9 @@ func (e *mockEnv) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	return e.NextErr()
 }
 
-func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
-	results := make([]instance.Instance, len(e.instances))
+	results := make([]instances.Instance, len(e.instances))
 	for i, instance := range e.instances {
 		results[i] = instance
 	}
@@ -488,7 +489,7 @@ func (e *mockBroker) AdoptResources(ctx context.ProviderCallContext, controllerU
 }
 
 type mockInstance struct {
-	instance.Instance
+	instances.Instance
 	id string
 }
 

@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 )
 
 const (
@@ -35,7 +36,7 @@ type Manager interface {
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig,
-		callback environs.StatusCallbackFunc) (instance.Instance, *instance.HardwareCharacteristics, error)
+		callback environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroys the container identified by
 	// instance id.
@@ -43,7 +44,7 @@ type Manager interface {
 
 	// ListContainers return a list of containers that have been started by
 	// this manager.
-	ListContainers() ([]instance.Instance, error)
+	ListContainers() ([]instances.Instance, error)
 
 	// IsInitialized check whether or not required packages have been installed
 	// to support this manager.

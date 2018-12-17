@@ -27,10 +27,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -1000,8 +1000,8 @@ func (s *provisionerSuite) TestWatchModelMachinesCharmProfiles(c *gc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// Update the upgrade-charm charm profile to trigger watcher.
-	s.machine.SetUpgradeCharmProfile("app-name", "local:quantal/lxd-profile-0")
+	// Trigger the watcher.
+	err = s.machine.SetUpgradeCharmProfile("lxd-profile", "local:quantal/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.machine.Id())
 }

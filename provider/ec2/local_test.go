@@ -30,19 +30,20 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -758,7 +759,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	c.Assert(errors.Details(err), gc.Matches, `.*availability zone \"\" not valid.*`)
 }
 
-func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instances.Instance, error) {
 	env := t.prepareAndBootstrap(c)
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, AvailabilityZone: zone, StatusCallback: fakeCallback}
@@ -856,7 +857,7 @@ func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
 }
 
-func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (instance.Instance, error) {
+func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (instances.Instance, error) {
 	subIDs, vpcId := t.addTestingSubnets(c)
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId, "vpc-id-force": true})
 	params := environs.StartInstanceParams{

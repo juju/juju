@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -61,7 +62,7 @@ func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testControllerCommand)
 	wrapped := modelcmd.WrapController(cmd, modelcmd.WrapControllerSkipControllerFlags)
 	err := cmdtesting.InitCommand(wrapped, []string{"-s", "testsys"})
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -s")
 }
 
 func (s *ControllerCommandSuite) TestInnerCommand(c *gc.C) {
@@ -75,7 +76,10 @@ type testControllerCommand struct {
 }
 
 func (c *testControllerCommand) Info() *cmd.Info {
-	panic("should not be called")
+	return jujucmd.Info(&cmd.Info{
+		Name:        "testControllerCommand",
+		FlagKnownAs: "option",
+	})
 }
 
 func (c *testControllerCommand) Run(ctx *cmd.Context) error {

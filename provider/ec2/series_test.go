@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/instance"
 )
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
@@ -29,7 +29,7 @@ func UseTestImageData(c *gc.C, files map[string]string) {
 
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
-func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
+func FabricateInstance(inst instances.Instance, newId string) instances.Instance {
 	oldi := inst.(*ec2Instance)
 	newi := &ec2Instance{
 		e:        oldi.e,

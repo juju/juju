@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -1300,29 +1300,5 @@ func (s *applicationSuite) TestSetCharmProfileError(c *gc.C) {
 	err := client.SetCharmProfile("foo", charmstore.CharmID{
 		URL: charm.MustParseURL("local:testing-1"),
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *applicationSuite) TestWatchLXDProfileUpgradeNotificationsError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, response interface{}) error {
-			c.Assert(request, gc.Equals, "WatchLXDProfileUpgradeNotifications")
-			return errors.New("boom")
-		},
-	)
-	client := newClient(apiCaller)
-	_, _, err := client.WatchLXDProfileUpgradeNotifications("foo")
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *applicationSuite) TestGetLXDProfileUpgradeMessagesError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, response interface{}) error {
-			c.Assert(request, gc.Equals, "GetLXDProfileUpgradeMessages")
-			return errors.New("boom")
-		},
-	)
-	client := newClient(apiCaller)
-	_, err := client.GetLXDProfileUpgradeMessages("foo", "xxx-aaa-yyy-ccc")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

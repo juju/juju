@@ -8,14 +8,15 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 )
 
 // Instances is part of the environs.Environ interface.
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instance.Instance, err error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instances.Instance, err error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -27,7 +28,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 }
 
 // Instances is part of the environs.Environ interface.
-func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -36,7 +37,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get instances")
 	}
-	findInst := func(id instance.Id) instance.Instance {
+	findInst := func(id instance.Id) instances.Instance {
 		for _, inst := range allInstances {
 			if id == inst.Id() {
 				return inst
@@ -46,7 +47,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 	}
 
 	var numFound int
-	results := make([]instance.Instance, len(ids))
+	results := make([]instances.Instance, len(ids))
 	for i, id := range ids {
 		if inst := findInst(id); inst != nil {
 			results[i] = inst

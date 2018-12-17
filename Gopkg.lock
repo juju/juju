@@ -81,11 +81,14 @@
   source = "github.com/juju/gosigma"
 
 [[projects]]
-  digest = "1:8e384478a0e2aa016605896748d186832db7b7350a975bb26aa53ca702d19573"
+  digest = "1:0a776e52fa4deb432e3c382436ed79c2e20fb6fd02061782c11e3e3a58b86d78"
   name = "github.com/armon/go-metrics"
-  packages = ["."]
+  packages = [
+    ".",
+    "prometheus",
+  ]
   pruneopts = ""
-  revision = "93f237eba9b0602f3e73710416558854a81d9337"
+  revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
 
 [[projects]]
   digest = "1:de184b64adb3054bea074db0b1be1327c7dc3aaa04e3fd6cb01f62f339caecd5"
@@ -313,11 +316,27 @@
   revision = "9cad4c3443a7200dd6400aef47183728de563a38"
 
 [[projects]]
+  digest = "1:c5466dfad4c14bf8e52a34b0eb98f1301acc1e304e0f0ff2c51c356ca1b86747"
+  name = "github.com/hashicorp/go-immutable-radix"
+  packages = ["."]
+  pruneopts = ""
+  revision = "27df80928bb34bb1b0d6d0e01b9e679902e7a6b5"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:6396690228a7560bf9247cb90e5ae9c797bd630b01e7d2acab430bbca9a1ecb3"
   name = "github.com/hashicorp/go-msgpack"
   packages = ["codec"]
   pruneopts = ""
   revision = "fa3f63826f7c23912c15263591e65d54d080b458"
+
+[[projects]]
+  digest = "1:3313a63031ae281e5f6fd7b0bbca733dfa04d2429df86519e3b4d4c016ccb836"
+  name = "github.com/hashicorp/golang-lru"
+  packages = ["simplelru"]
+  pruneopts = ""
+  revision = "20f1fb78b0740ba8c3cb143a61e86ba5c8669768"
+  version = "v0.5.0"
 
 [[projects]]
   digest = "1:3dea8a64498e503e13eaa87133ab0c5423988a67f739e52273631230cf15a428"
@@ -409,14 +428,14 @@
   revision = "bab88fc672997ef02d03f85310182d97a93dee21"
 
 [[projects]]
-  digest = "1:f91efc16d7fdb155fdd939262bbfd972e83874c1f1e2d6e38b41de90ca242a2e"
+  digest = "1:f624cc391243b5ceb94a5b1ea7dfd8c7680627e7e78069ed7506db5eb6e102fb"
   name = "github.com/juju/cmd"
   packages = [
     ".",
     "cmdtesting",
   ]
   pruneopts = ""
-  revision = "e74f39857ca013cf63947ba2843806f7afdd380d"
+  revision = "fd568e4a4120f7d5a417252d701daff61a6322b4"
 
 [[projects]]
   digest = "1:243ec2217cb77ad028a956bf4d886b0f070d2dbfe861ceadfcf270412c2e7b90"
@@ -448,6 +467,17 @@
   packages = ["."]
   pruneopts = ""
   revision = "2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65"
+
+[[projects]]
+  digest = "1:88472cd128b0e341f80d682a5ac7059a67992b53dea26c59185d26445a36284a"
+  name = "github.com/juju/go-oracle-cloud"
+  packages = [
+    "api",
+    "common",
+    "response",
+  ]
+  pruneopts = ""
+  revision = "932a8cea00a1cd5cba3829a672c823955db674ae"
 
 [[projects]]
   branch = "master"
@@ -644,11 +674,11 @@
   revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
 
 [[projects]]
-  digest = "1:e2a32bd21a401eb581eef3fa3954477d3a64f26d2cb4dd696f96efd2cc7a0add"
+  digest = "1:635b65b0b4a17f59ab380b6ec8efb91783e20c6b1b48f0a7ef12cb0d953d1d50"
   name = "github.com/juju/schema"
   packages = ["."]
   pruneopts = ""
-  revision = "075de04f9b7d7580d60a1e12a0b3f50bb18e6998"
+  revision = "64a6158e90710d0a16c6bd3cf0a6be6b2e80193c"
 
 [[projects]]
   digest = "1:e3f03b6b31f1b273e4b37b1ac54fb10a0553fbc6c66441fe5388450caa385129"
@@ -994,24 +1024,26 @@
   revision = "839d9e913e063e28dfd0e6c7b7512793e0a48be9"
 
 [[projects]]
-  digest = "1:27041ddf3fbd721e5ef83d81d93877677ac3ec0e03063656eca49f02d5a5d876"
+  digest = "1:1bfe9cdcc4064d443dae242aa86aba25aeeec58bd7f0028682b2eef07870b7fa"
   name = "github.com/prometheus/client_golang"
   packages = [
     "prometheus",
+    "prometheus/internal",
     "prometheus/promhttp",
+    "prometheus/testutil",
   ]
   pruneopts = ""
-  revision = "575f371f7862609249a1be4c9145f429fe065e32"
+  revision = "32b1bb4674c4db541df5b547bb1a325337522022"
 
 [[projects]]
-  digest = "1:d20fc05e7dfd1cf72429188a04109e12937ff582b9f9e3a700b2665349b7ca95"
+  digest = "1:185cf55b1f44a1bf243558901c3f06efa5c64ba62cfdcbb1bf7bbe8c3fb68561"
   name = "github.com/prometheus/client_model"
   packages = ["go"]
   pruneopts = ""
-  revision = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6"
+  revision = "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f"
 
 [[projects]]
-  digest = "1:608fef3652268232bd8609c0bde5c1a33d782502cacae1c7b5ee3a409f650b0d"
+  digest = "1:3015ace839b82abfb015b6fc2aebf32f4a6a8c522defacd916552387948c22a8"
   name = "github.com/prometheus/common"
   packages = [
     "expfmt",
@@ -1019,14 +1051,19 @@
     "model",
   ]
   pruneopts = ""
-  revision = "dd586c1c5abb0be59e60f942c22af711a2008cb4"
+  revision = "4724e9255275ce38f7179b2478abeae4e28c904f"
 
 [[projects]]
-  digest = "1:1465c0f68602aee5e2c07de9ec98e34b068d30097e27d28561dbc9363604b4a8"
+  digest = "1:a56d65fd7955ac60e4550b9e4824877e4cba082fd4128f782eb89055505f5997"
   name = "github.com/prometheus/procfs"
-  packages = ["."]
+  packages = [
+    ".",
+    "internal/util",
+    "nfs",
+    "xfs",
+  ]
   pruneopts = ""
-  revision = "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
+  revision = "aa55a523dc0a8297edf51bb75e8eec13eb3be45d"
 
 [[projects]]
   branch = "master"
@@ -1770,6 +1807,8 @@
     "github.com/altoros/gosigma",
     "github.com/altoros/gosigma/data",
     "github.com/altoros/gosigma/mock",
+    "github.com/armon/go-metrics",
+    "github.com/armon/go-metrics/prometheus",
     "github.com/bmizerany/pat",
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
@@ -1802,6 +1841,9 @@
     "github.com/juju/description",
     "github.com/juju/errors",
     "github.com/juju/gnuflag",
+    "github.com/juju/go-oracle-cloud/api",
+    "github.com/juju/go-oracle-cloud/common",
+    "github.com/juju/go-oracle-cloud/response",
     "github.com/juju/gojsonschema",
     "github.com/juju/gomaasapi",
     "github.com/juju/httprequest",
@@ -1881,6 +1923,7 @@
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/prometheus/client_golang/prometheus/testutil",
     "github.com/prometheus/client_model/go",
     "github.com/vmware/govmomi",
     "github.com/vmware/govmomi/find",

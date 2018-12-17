@@ -15,10 +15,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -51,8 +52,8 @@ func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 	s.instance = &mockInstance{id: "wind-up"}
 	s.provider = &mockProvider{
 		Stub: &testing.Stub{},
-		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-			return []instance.Instance{s.instance}, nil
+		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+			return []instances.Instance{s.instance}, nil
 		},
 	}
 	s.callContext = context.NewCloudCallContext()
@@ -79,8 +80,8 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 
 func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
 	instance2 := &mockInstance{id: "analyse"}
-	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-		return []instance.Instance{s.instance, instance2}, nil
+	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+		return []instances.Instance{s.instance, instance2}, nil
 	}
 
 	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext)
@@ -101,7 +102,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
-	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 		return nil, errors.New("kaboom")
 	}
 
@@ -402,8 +403,8 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel(c *gc.C) {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
 				Stub: &testing.Stub{},
-				allInstancesFunc: func(ctx context.ProviderCallContext) ([]instance.Instance, error) {
-					return []instance.Instance{}, nil
+				allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+					return []instances.Instance{}, nil
 				},
 			},
 		}, nil
@@ -434,16 +435,16 @@ func createModelBackend(c *gc.C) *mockPersistedBackend {
 
 type mockProvider struct {
 	*testing.Stub
-	allInstancesFunc func(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	allInstancesFunc func(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
-func (m *mockProvider) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *mockProvider) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	m.MethodCall(m, "AllInstances", ctx)
 	return m.allInstancesFunc(ctx)
 }
 
 type mockInstance struct {
-	instance.Instance
+	instances.Instance
 	id string
 }
 
@@ -577,7 +578,7 @@ type mockEnviron struct {
 	*mockProvider
 }
 
-func (m *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return m.mockProvider.AllInstances(ctx)
 }
 

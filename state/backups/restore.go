@@ -23,7 +23,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"

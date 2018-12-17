@@ -19,8 +19,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -117,7 +117,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 		case polled <- struct{}{}:
 		default:
 		}
-		return instanceInfo{testAddrs, instance.InstanceStatus{Status: status.Unknown, Message: "pending"}}, nil
+		return instanceInfo{testAddrs, instance.Status{Status: status.Unknown, Message: "pending"}}, nil
 	}
 	context := &testMachineContext{
 		getInstanceInfo: getInstanceInfo,
@@ -207,7 +207,7 @@ func testRunMachine(
 		if addrs == nil {
 			return instanceInfo{}, fmt.Errorf("no instance addresses available")
 		}
-		return instanceInfo{addrs, instance.InstanceStatus{Status: status.Unknown, Message: instStatus}}, nil
+		return instanceInfo{addrs, instance.Status{Status: status.Unknown, Message: instStatus}}, nil
 	}
 	context := &testMachineContext{
 		getInstanceInfo: getInstanceInfo,
@@ -354,7 +354,7 @@ func instanceInfoGetter(
 
 	return func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, expectId)
-		return instanceInfo{addrs, instance.InstanceStatus{Status: status.Unknown, Message: instanceStatus}}, err
+		return instanceInfo{addrs, instance.Status{Status: status.Unknown, Message: instanceStatus}}, err
 	}
 }
 

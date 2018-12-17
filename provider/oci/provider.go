@@ -21,10 +21,10 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/oci/common"
 )
 

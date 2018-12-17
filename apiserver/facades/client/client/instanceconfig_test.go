@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"

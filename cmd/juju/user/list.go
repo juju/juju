@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -83,12 +84,12 @@ func (c *listCommand) getModelAPI() (modelUsersAPI, error) {
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "users",
 		Purpose: usageListUsersSummary,
 		Doc:     usageListUsersDetails,
 		Aliases: []string{"list-users"},
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

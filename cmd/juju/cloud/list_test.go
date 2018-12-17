@@ -31,10 +31,10 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	out = strings.Replace(out, "\n", "", -1)
 
 	// Check that we are producing the expected fields
-	c.Assert(out, gc.Matches, `Cloud        Regions  Default        Type        Description.*`)
+	c.Assert(out, gc.Matches, `Cloud +Regions +Default +Type +Description.*`)
 	// // Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws               [0-9]+  [a-z0-9-]+      ec2         Amazon Web Services.*`)
-	c.Assert(out, gc.Matches, `.*azure             [0-9]+  [a-z0-9-]+      azure       Microsoft Azure.*`)
+	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +Amazon Web Services.*`)
+	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +Microsoft Azure.*`)
 	// LXD should be there too.
 	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
 }
@@ -60,7 +60,7 @@ clouds:
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `Hypervisorhomestack          1  london         openstack   Openstack Cloud`)
+	c.Assert(out, jc.Contains, `Hypervisorhomestack             1  london           openstack   Openstack Cloud`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {

@@ -26,7 +26,7 @@ func (s *GoalStateSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("goal-state"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: goal-state [options]
 
@@ -116,7 +116,7 @@ func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Conte
 	com, err := jujuc.NewCommand(hctx, cmdString("goal-state"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, args)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	return ctx, code
 }
 
@@ -124,5 +124,5 @@ func (s *GoalStateSuite) TestUnknownArg(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("goal-state"))
 	c.Assert(err, jc.ErrorIsNil)
-	cmdtesting.TestInit(c, com, []string{}, "")
+	cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), []string{}, "")
 }

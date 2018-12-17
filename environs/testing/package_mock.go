@@ -5,22 +5,23 @@
 package testing
 
 import (
+	io "io"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
 	constraints "github.com/juju/juju/constraints"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	instance "github.com/juju/juju/instance"
 	network "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
 	names_v2 "gopkg.in/juju/names.v2"
-	io "io"
-	reflect "reflect"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface
@@ -714,9 +715,9 @@ func (mr *MockEnvironMockRecorder) AdoptResources(arg0, arg1, arg2 interface{}) 
 }
 
 // AllInstances mocks base method
-func (m *MockEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *MockEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -827,9 +828,9 @@ func (mr *MockEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{}) *gomock
 }
 
 // Instances mocks base method
-func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instance.Instance, error) {
+func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1345,9 +1346,9 @@ func (mr *MockNetworkingEnvironMockRecorder) AdoptResources(arg0, arg1, arg2 int
 }
 
 // AllInstances mocks base method
-func (m *MockNetworkingEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *MockNetworkingEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1484,9 +1485,9 @@ func (mr *MockNetworkingEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{
 }
 
 // Instances mocks base method
-func (m *MockNetworkingEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instance.Instance, error) {
+func (m *MockNetworkingEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

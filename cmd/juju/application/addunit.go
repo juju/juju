@@ -14,11 +14,12 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/instance"
 )
 
 var usageAddUnitSummary = `Adds one or more units to a deployed application.`
@@ -162,12 +163,12 @@ type addUnitCommand struct {
 }
 
 func (c *addUnitCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-unit",
 		Args:    "<application name>",
 		Purpose: usageAddUnitSummary,
 		Doc:     usageAddUnitDetails,
-	}
+	})
 }
 
 // IncompatibleModel returns an error if the command is being run against

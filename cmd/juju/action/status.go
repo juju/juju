@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -41,12 +42,12 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *statusCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-action-status",
 		Args:    "[<action ID>|<action ID prefix>]",
 		Purpose: "Show results of all actions filtered by optional ID prefix.",
 		Doc:     statusDoc,
-	}
+	})
 }
 
 func (c *statusCommand) Init(args []string) error {

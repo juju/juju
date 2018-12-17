@@ -12,16 +12,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/utils"
-	"github.com/juju/utils/cert"
 )
 
 type CloudMetadataStore interface {
@@ -58,7 +59,7 @@ Juju stores that definition its internal cache directly after
 validating the contents.
 
 If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
-flag is required.
+option is required.
 
 A cloud definition file has the following YAML format:
 
@@ -133,12 +134,12 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand 
 
 // Info returns help information about the command.
 func (c *AddCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-cloud",
 		Args:    "<cloud name> <cloud definition file>",
 		Purpose: usageAddCloudSummary,
 		Doc:     usageAddCloudDetails,
-	}
+	})
 }
 
 // SetFlags initializes the flags supported by the command.
@@ -158,7 +159,7 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	}
 	if len(args) > 1 {
 		if c.CloudFile != args[1] && c.CloudFile != "" {
-			return errors.BadRequestf("cannot specify cloud file with flag and argument")
+			return errors.BadRequestf("cannot specify cloud file with option and argument")
 		}
 		c.CloudFile = args[1]
 	}

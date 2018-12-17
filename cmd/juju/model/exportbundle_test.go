@@ -156,7 +156,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleFailNoFilename(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename")
 	c.Assert(err, gc.NotNil)
 
-	c.Assert(err.Error(), gc.Equals, "flag needs an argument: --filename")
+	c.Assert(err.Error(), gc.Equals, "option needs an argument: --filename")
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *gc.C) {

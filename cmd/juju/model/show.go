@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -52,12 +53,12 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 
 // Info implements Command.Info.
 func (c *showModelCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-model",
 		Args:    "<model name>",
 		Purpose: "Shows information about the current or specified model.",
 		Doc:     showModelCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

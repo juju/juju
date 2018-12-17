@@ -168,7 +168,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}, {
 		message:  "invalid time",
 		args:     []string{"--timeout=foo", "--all", "sudo reboot"},
-		errMatch: `invalid value "foo" for flag --timeout: time: invalid duration foo`,
+		errMatch: `invalid value "foo" for option --timeout: time: invalid duration foo`,
 	}, {
 		message: "two hours",
 		args:    []string{"--timeout=2h", "--all", "sudo reboot"},

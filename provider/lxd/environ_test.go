@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
 )

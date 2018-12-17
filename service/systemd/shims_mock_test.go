@@ -5,10 +5,11 @@
 package systemd
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	exec "github.com/juju/utils/exec"
 	os "os"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	exec "github.com/juju/utils/exec"
 )
 
 // MockShimFileOps is a mock of ShimFileOps interface

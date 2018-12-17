@@ -18,15 +18,16 @@ import (
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -117,12 +118,12 @@ type addCommand struct {
 }
 
 func (c *addCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-machine",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | winrm:[user@]host | placement]",
 		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
-	}
+	})
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {

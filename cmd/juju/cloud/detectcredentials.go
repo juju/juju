@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
@@ -94,11 +95,11 @@ func NewDetectCredentialsCommand() cmd.Command {
 }
 
 func (c *detectCredentialsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "autoload-credentials",
 		Purpose: detectCredentialsSummary,
 		Doc:     detectCredentialsDoc,
-	}
+	})
 }
 
 type discoveredCredential struct {

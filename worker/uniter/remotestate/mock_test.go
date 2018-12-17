@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -207,6 +208,7 @@ type mockUnit struct {
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
 	relationsWatcher                 *mockStringsWatcher
+	upgradeLXDProfileUpgradeWatcher  *mockNotifyWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -265,8 +267,16 @@ func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	return model.UpgradeSeriesPrepareStarted, nil
 }
 
-func (m *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
+func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	return nil
+}
+
+func (u *mockUnit) WatchLXDProfileUpgradeNotifications() (watcher.NotifyWatcher, error) {
+	return u.upgradeLXDProfileUpgradeWatcher, nil
+}
+
+func (m *mockUnit) UpgradeCharmProfileStatus() (string, error) {
+	return lxdprofile.NotRequiredStatus, nil
 }
 
 type mockApplication struct {

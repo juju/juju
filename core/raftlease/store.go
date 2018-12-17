@@ -10,11 +10,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 )
+
+var logger = loggo.GetLogger("juju.core.raftlease")
 
 // NotifyTarget defines methods needed to keep an external database
 // updated with who holds leases. (In non-test code the notify target
@@ -64,6 +68,7 @@ func NewStore(config StoreConfig) *Store {
 		hub:      config.Hub,
 		config:   config,
 		prevTime: config.FSM.GlobalTime(),
+		metrics:  newMetricsCollector(),
 	}
 }
 
@@ -73,6 +78,7 @@ type Store struct {
 	hub       *pubsub.StructuredHub
 	requestID uint64
 	config    StoreConfig
+	metrics   *metricsCollector
 
 	prevTimeMu sync.Mutex
 	prevTime   time.Time
@@ -204,28 +210,53 @@ func (s *Store) runOnLeader(command *Command) error {
 	}
 	defer unsubscribe()
 
+	start := time.Now()
+	defer func() {
+		elapsed := time.Now().Sub(start)
+		logger.Tracef("runOnLeader elapsed from publish: %v", elapsed.Round(time.Millisecond))
+	}()
 	_, err = s.hub.Publish(s.config.RequestTopic, ForwardRequest{
-		Command:       bytes,
+		Command:       string(bytes),
 		ResponseTopic: responseTopic,
 	})
 	if err != nil {
+		s.record(command.Operation, "error", start)
 		return errors.Trace(err)
 	}
 
 	select {
 	case <-s.config.Clock.After(s.config.ForwardTimeout):
+		logger.Infof("timeout")
+		s.record(command.Operation, "timeout", start)
 		return lease.ErrTimeout
 	case err := <-errChan:
+		logger.Errorf("%v", err)
+		s.record(command.Operation, "error", start)
 		return errors.Trace(err)
 	case response := <-responseChan:
-		return RecoverError(response.Error)
+		err := RecoverError(response.Error)
+		logger.Tracef("got response, err %v", err)
+		result := "failure"
+		if err == nil {
+			result = "success"
+		}
+		s.record(command.Operation, result, start)
+		return err
 	}
+}
+
+func (s *Store) record(operation, result string, start time.Time) {
+	elapsedMS := float64(time.Now().Sub(start)) / float64(time.Millisecond)
+	s.metrics.requests.With(prometheus.Labels{
+		"operation": operation,
+		"result":    result,
+	}).Observe(elapsedMS)
 }
 
 // ForwardRequest is a message sent over the hub to the raft forwarder
 // (only running on the raft leader node).
 type ForwardRequest struct {
-	Command       []byte `yaml:"command"`
+	Command       string `yaml:"command"`
 	ResponseTopic string `yaml:"response-topic"`
 }
 
@@ -278,4 +309,14 @@ func RecoverError(resp *ResponseError) error {
 	default:
 		return errors.New(resp.Message)
 	}
+}
+
+// Describe is part of prometheus.Collector.
+func (s *Store) Describe(ch chan<- *prometheus.Desc) {
+	s.metrics.Describe(ch)
+}
+
+// Collect is part of prometheus.Collector.
+func (s *Store) Collect(ch chan<- prometheus.Metric) {
+	s.metrics.Collect(ch)
 }

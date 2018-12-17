@@ -6,9 +6,10 @@ package ec2
 import (
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujustorage "github.com/juju/juju/storage"
 )
 
@@ -28,11 +29,11 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2
 }
 
-func InstanceEC2(inst instance.Instance) *ec2.Instance {
+func InstanceEC2(inst instances.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
 }
 
-func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
+func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
 	return e.(*environ).AllInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 

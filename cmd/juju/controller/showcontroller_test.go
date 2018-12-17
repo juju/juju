@@ -323,12 +323,12 @@ func (s *ShowControllerSuite) TestShowControllerNotFound(c *gc.C) {
 }
 
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedFlag(c *gc.C) {
-	s.expectedErr = `flag provided but not defined: -m`
+	s.expectedErr = `option provided but not defined: -m`
 	s.assertShowControllerFailed(c, "-m", "my.world")
 }
 
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) {
-	s.expectedErr = `flag provided but not defined: --model`
+	s.expectedErr = `option provided but not defined: --model`
 	s.assertShowControllerFailed(c, "--model", "still.my.world")
 }
 

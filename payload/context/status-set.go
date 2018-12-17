@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/payload"
 )
 
@@ -30,7 +31,7 @@ type StatusSetCmd struct {
 
 // Info implements cmd.Command.
 func (c StatusSetCmd) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    StatusSetCmdName,
 		Args:    "<class> <id> <status>",
 		Purpose: "update the status of a payload",
@@ -40,7 +41,7 @@ The <class> and <id> provided must match a payload that has been previously
 registered with juju using payload-register. The <status> must be one of the
 follow: starting, started, stopping, stopped
 `,
-	}
+	})
 }
 
 // Init implements cmd.Command.

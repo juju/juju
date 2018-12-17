@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -31,12 +32,12 @@ associated with the space will be transferred to the default space.
 
 // Info is defined on the cmd.Command interface.
 func (c *RemoveCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-space",
 		Args:    "<name>",
 		Purpose: "Remove a network space",
 		Doc:     strings.TrimSpace(removeCommandDoc),
-	}
+	})
 }
 
 // Init is defined on the cmd.Command interface. It checks the

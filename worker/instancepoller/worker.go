@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/worker/common"
 )
 

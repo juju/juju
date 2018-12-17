@@ -11,9 +11,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -191,6 +192,6 @@ func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // AllInstances only returns running containers.
-func (broker *kvmBroker) AllInstances(ctx context.ProviderCallContext) (result []instance.Instance, err error) {
+func (broker *kvmBroker) AllInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }

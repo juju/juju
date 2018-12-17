@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -52,11 +53,11 @@ func (c *deleteImageMetadataCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *deleteImageMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "delete-image",
 		Purpose: "deletes image metadata from environment",
 		Doc:     deleteImageCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

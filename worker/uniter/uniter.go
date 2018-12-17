@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
@@ -323,6 +324,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions:             actions.NewResolver(),
 			UpgradeSeries:       upgradeseries.NewResolver(),
+			UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
 			Relations:           relation.NewRelationsResolver(u.relations),
 			Storage:             storage.NewResolver(u.storage, u.modelType),

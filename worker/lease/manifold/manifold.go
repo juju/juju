@@ -17,6 +17,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -54,11 +55,12 @@ type ManifoldConfig struct {
 	ClockName      string
 	CentralHubName string
 
-	FSM          *raftlease.FSM
-	RequestTopic string
-	Logger       lease.Logger
-	NewWorker    func(lease.ManagerConfig) (worker.Worker, error)
-	NewStore     func(raftlease.StoreConfig) *raftlease.Store
+	FSM                  *raftlease.FSM
+	RequestTopic         string
+	Logger               lease.Logger
+	PrometheusRegisterer prometheus.Registerer
+	NewWorker            func(lease.ManagerConfig) (worker.Worker, error)
+	NewStore             func(raftlease.StoreConfig) *raftlease.Store
 }
 
 // Validate checks that the config has all the required values.
@@ -80,6 +82,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if c.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -132,12 +137,13 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	controllerUUID := agent.CurrentConfig().Controller().Id()
 	return s.config.NewWorker(lease.ManagerConfig{
-		Secretary:  lease.SecretaryFinder(controllerUUID),
-		Store:      s.store,
-		Clock:      clock,
-		Logger:     s.config.Logger,
-		MaxSleep:   MaxSleep,
-		EntityUUID: controllerUUID,
+		Secretary:            lease.SecretaryFinder(controllerUUID),
+		Store:                s.store,
+		Clock:                clock,
+		Logger:               s.config.Logger,
+		MaxSleep:             MaxSleep,
+		EntityUUID:           controllerUUID,
+		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
 }
 

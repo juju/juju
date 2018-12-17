@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -24,7 +25,6 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"

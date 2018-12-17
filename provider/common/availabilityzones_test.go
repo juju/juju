@@ -10,9 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,11 +31,11 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 
 	s.callCtx = context.NewCloudCallContext()
-	allInstances := make([]instance.Instance, 3)
+	allInstances := make([]instances.Instance, 3)
 	for i := range allInstances {
 		allInstances[i] = &mockInstance{id: fmt.Sprintf("inst%d", i)}
 	}
-	s.env.allInstances = func(context.ProviderCallContext) ([]instance.Instance, error) {
+	s.env.allInstances = func(context.ProviderCallContext) ([]instances.Instance, error) {
 		return allInstances, nil
 	}
 
@@ -73,7 +74,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *g
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstancesErrors(c *gc.C) {
 	resultErr := fmt.Errorf("oh noes")
-	s.PatchValue(&s.env.allInstances, func(context.ProviderCallContext) ([]instance.Instance, error) {
+	s.PatchValue(&s.env.allInstances, func(context.ProviderCallContext) ([]instances.Instance, error) {
 		return nil, resultErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)

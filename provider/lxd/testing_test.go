@@ -25,11 +25,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container/lxd"
 	containerlxd "github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -88,8 +89,8 @@ var (
 
 // We test these here since they are not exported.
 var (
-	_ environs.Environ  = (*environ)(nil)
-	_ instance.Instance = (*environInstance)(nil)
+	_ environs.Environ   = (*environ)(nil)
+	_ instances.Instance = (*environInstance)(nil)
 )
 
 type BaseSuiteUnpatched struct {

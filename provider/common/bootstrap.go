@@ -28,13 +28,14 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 )
@@ -319,7 +320,7 @@ var FinishBootstrap = func(
 	client ssh.Client,
 	env environs.Environ,
 	callCtx context.ProviderCallContext,
-	inst instance.Instance,
+	inst instances.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
 ) error {
@@ -503,11 +504,11 @@ type InstanceRefresher interface {
 
 	// Status returns the provider-specific status for the
 	// instance.
-	Status(ctx context.ProviderCallContext) instance.InstanceStatus
+	Status(ctx context.ProviderCallContext) instance.Status
 }
 
 type RefreshableInstance struct {
-	instance.Instance
+	instances.Instance
 	Env environs.Environ
 }
 

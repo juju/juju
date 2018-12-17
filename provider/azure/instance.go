@@ -15,9 +15,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
@@ -39,7 +39,7 @@ func (inst *azureInstance) Id() instance.Id {
 }
 
 // Status is specified in the Instance interface.
-func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instanceStatus := status.Empty
 	message := inst.provisioningState
 	switch inst.provisioningState {
@@ -64,7 +64,7 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Inst
 	default:
 		instanceStatus = status.Provisioning
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  instanceStatus,
 		Message: message,
 	}

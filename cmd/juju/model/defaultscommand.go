@@ -20,6 +20,7 @@ import (
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelmanager"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -121,13 +122,13 @@ type defaultsCommandAPI interface {
 
 // Info implements part of the cmd.Command interface.
 func (c *defaultsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Args:    "[[<cloud/>]<region> ]<model-key>[<=value>] ...]",
 		Doc:     modelDefaultsHelpDoc,
 		Name:    "model-defaults",
 		Purpose: modelDefaultsSummary,
 		Aliases: []string{"model-default"},
-	}
+	})
 }
 
 // SetFlags implements part of the cmd.Command interface.

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 )
 

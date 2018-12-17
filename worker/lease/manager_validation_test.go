@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -20,87 +21,81 @@ import (
 
 type ValidationSuite struct {
 	testing.IsolationSuite
+
+	config lease.ManagerConfig
 }
 
 var _ = gc.Suite(&ValidationSuite{})
 
-func (s *ValidationSuite) TestMissingStore(c *gc.C) {
-	manager, err := lease.NewManager(lease.ManagerConfig{
+func (s *ValidationSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.config = lease.ManagerConfig{
+		Store: struct{ corelease.Store }{},
 		Clock: struct{ clock.Clock }{},
 		Secretary: func(string) (lease.Secretary, error) {
 			return nil, nil
 		},
-		MaxSleep: time.Minute,
-		Logger:   loggo.GetLogger("lease_test"),
-	})
+		MaxSleep:             time.Minute,
+		Logger:               loggo.GetLogger("lease_test"),
+		PrometheusRegisterer: struct{ prometheus.Registerer }{},
+	}
+}
+
+func (s *ValidationSuite) TestConfigValid(c *gc.C) {
+	err := s.config.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ValidationSuite) TestMissingStore(c *gc.C) {
+	s.config.Store = nil
+	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "nil Store not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
 func (s *ValidationSuite) TestMissingClock(c *gc.C) {
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Store: struct{ corelease.Store }{},
-		Secretary: func(string) (lease.Secretary, error) {
-			return nil, nil
-		},
-		MaxSleep: time.Minute,
-		Logger:   loggo.GetLogger("lease_test"),
-	})
+	s.config.Clock = nil
+	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "nil Clock not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
 func (s *ValidationSuite) TestMissingLogger(c *gc.C) {
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Store: struct{ corelease.Store }{},
-		Secretary: func(string) (lease.Secretary, error) {
-			return nil, nil
-		},
-		Clock:    struct{ clock.Clock }{},
-		MaxSleep: time.Minute,
-	})
+	s.config.Logger = nil
+	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "nil Logger not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
 func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Store:  struct{ corelease.Store }{},
-		Clock:  struct{ clock.Clock }{},
-		Logger: loggo.GetLogger("lease_test"),
-	})
+	s.config.Secretary = nil
+	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "nil Secretary not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
+func (s *ValidationSuite) TestMissingPrometheusRegisterer(c *gc.C) {
+	s.config.PrometheusRegisterer = nil
+	err := s.config.Validate()
+	// Find to miss this out for now.
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Store: NewStore(nil, nil),
-		Secretary: func(string) (lease.Secretary, error) {
-			return nil, nil
-		},
-		Clock:  testclock.NewClock(time.Now()),
-		Logger: loggo.GetLogger("lease_test"),
-	})
+	s.config.MaxSleep = 0
+	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
 func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Store: NewStore(nil, nil),
-		Clock: testclock.NewClock(time.Now()),
-		Secretary: func(string) (lease.Secretary, error) {
-			return nil, nil
-		},
-		Logger:   loggo.GetLogger("lease_test"),
-		MaxSleep: -time.Nanosecond,
-	})
+	s.config.MaxSleep = -time.Nanosecond
+	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)

@@ -83,7 +83,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.cmd[1:])
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
 		c.Check(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -103,7 +103,7 @@ var badPortsTests = []struct {
 	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "blah/blah/blah"`},
 	{[]string{"123", "haha"}, `unrecognized args: \["haha"\]`},
 	{[]string{"1-0"}, `invalid port range 1-0/tcp; expected fromPort <= toPort`},
-	{[]string{"-42"}, `flag provided but not defined: -4`},
+	{[]string{"-42"}, `option provided but not defined: -4`},
 	{[]string{"99999/UDP"}, `port must be in the range \[1, 65535\]; got "99999"`},
 	{[]string{"9999/foo"}, `protocol must be "tcp", "udp", or "icmp"; got "foo"`},
 	{[]string{"80-90/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
@@ -117,7 +117,7 @@ func (s *PortsSuite) TestBadArgs(c *gc.C) {
 			hctx := s.GetHookContext(c, -1, "")
 			com, err := jujuc.NewCommand(hctx, cmdString(name))
 			c.Assert(err, jc.ErrorIsNil)
-			err = cmdtesting.InitCommand(com, t.args)
+			err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), t.args)
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
@@ -164,7 +164,7 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 		com, err := jujuc.NewCommand(hctx, cmdString(name))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.cmd[1:])
+		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
@@ -283,6 +284,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		requiredEvents++
 	}
 
+	var seenLXDProfileChange bool
+	lxdProfilew, err := w.unit.WatchLXDProfileUpgradeNotifications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(lxdProfilew); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage()
 	if err != nil {
@@ -428,6 +439,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
+
+		case _, ok := <-lxdProfilew.Changes():
+			logger.Debugf("got lxd profile change")
+			if !ok {
+				return errors.New("lxd profile watcher closed")
+			}
+			if err := w.lxdProfileStatusChanged(); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenLXDProfileChange)
 
 		case hashes, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t, hashes=%v", ok, hashes)
@@ -583,6 +604,31 @@ func (w *RemoteStateWatcher) updateStatusChanged() {
 	w.mu.Lock()
 	w.current.UpdateStatusVersion++
 	w.mu.Unlock()
+}
+
+func (w *RemoteStateWatcher) lxdProfileStatusChanged() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	status, err := w.lxdProfileStatus()
+	if errors.IsNotFound(err) {
+		logger.Debugf("no lxd profile in progress, assuming no action required")
+		w.current.UpgradeCharmProfileStatus = lxdprofile.NotKnownStatus
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	w.current.UpgradeCharmProfileStatus = status
+	return nil
+}
+
+func (w *RemoteStateWatcher) lxdProfileStatus() (string, error) {
+	status, err := w.unit.UpgradeCharmProfileStatus()
+	if err != nil {
+		return "", err
+	}
+	return status, nil
 }
 
 // commandsChanged is called when a command is enqueued.

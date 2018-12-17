@@ -7,11 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )
@@ -36,12 +37,12 @@ const cancelDoc = `
 Cancel actions matching given IDs or partial ID prefixes.`
 
 func (c *cancelCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "cancel-action",
 		Args:    "<<action ID | action ID prefix>...>",
 		Purpose: "Cancel pending actions.",
 		Doc:     cancelDoc,
-	}
+	})
 }
 
 func (c *cancelCommand) Init(args []string) error {

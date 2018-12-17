@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"

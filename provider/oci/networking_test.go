@@ -9,7 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
 
 	ociCore "github.com/oracle/oci-go-sdk/core"

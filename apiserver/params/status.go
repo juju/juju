@@ -8,8 +8,8 @@ package params
 import (
 	"time"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
 

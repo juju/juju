@@ -35,8 +35,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -175,8 +175,8 @@ func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Conte
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "WatchLXDProfileUpgradeNotifications", "GetLXDProfileUpgradeMessages", "SetCharm")
-	s.charmAPIClient.CheckCall(c, 5, "SetCharm", application.SetCharmConfig{
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -224,8 +224,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "WatchLXDProfileUpgradeNotifications", "GetLXDProfileUpgradeMessages", "SetCharm")
-	s.charmAPIClient.CheckCall(c, 5, "SetCharm", application.SetCharmConfig{
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharmProfile", "SetCharm")
+	s.charmAPIClient.CheckCall(c, 3, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -340,7 +340,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestSwitchAndPathFails(c *gc.C) {
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidRevision(c *gc.C) {
 	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak", "--revision=blah")
-	c.Assert(err, gc.ErrorMatches, `invalid value "blah" for flag --revision: strconv.(ParseInt|Atoi): parsing "blah": invalid syntax`)
+	c.Assert(err, gc.ErrorMatches, `invalid value "blah" for option --revision: strconv.(ParseInt|Atoi): parsing "blah": invalid syntax`)
 }
 
 type BaseUpgradeCharmStateSuite struct{}
@@ -693,6 +693,12 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
+
+		// Ensure we clean up the unit after the test
+		unit, err = s.State.Unit("wordpress/0")
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.RemoveUpgradeCharmProfileData()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -726,6 +732,11 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:~other/trusty/anotherriak-7"`)
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
+	unit, err = s.State.Unit("riak/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.RemoveUpgradeCharmProfileData()
+	c.Assert(err, jc.ErrorIsNil)
+
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-42", "riak")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-42")
 	c.Assert(err, jc.ErrorIsNil)
@@ -761,6 +772,52 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1", config: ch.Config().DefaultSettings()},
+	})
+}
+
+func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployedChannelByDefault(c *gc.C) {
+	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+
+	// publish charm to beta channel
+	id.Revision = 1
+	err := s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.BetaChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	// deploy from beta channel
+	err = runDeploy(c, "cs:~client-username/trusty/wordpress-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := s.State.Unit("wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	tags := []names.UnitTag{unit.UnitTag()}
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+
+	// publish revision 2 to stable channel
+	id.Revision = 2
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.BetaChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	// publish revision 3 to beta channel
+	id.Revision = 3
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.StableChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	// running upgrade charm without specifying a channel should use the
+	// beta channel by default, not the stable channel, since we originally deployed
+	// from beta
+	err = runUpgradeCharm(c, "wordpress")
+	c.Assert(err, gc.IsNil)
+
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-2", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -872,20 +929,6 @@ func (m *mockCharmAPIClient) Get(applicationName string) (*params.ApplicationGet
 func (m *mockCharmAPIClient) SetCharmProfile(appName string, charmID jujucharmstore.CharmID) error {
 	m.MethodCall(m, "SetCharmProfile", appName, charmID)
 	return m.NextErr()
-}
-
-func (m *mockCharmAPIClient) WatchLXDProfileUpgradeNotifications(appName string) (watcher.NotifyWatcher, string, error) {
-	m.MethodCall(m, "WatchLXDProfileUpgradeNotifications", appName)
-	ch := make(chan struct{})
-	go func() {
-		ch <- struct{}{}
-	}()
-	return &mockNotifyWatcher{ch: ch}, "", m.NextErr()
-}
-
-func (m *mockCharmAPIClient) GetLXDProfileUpgradeMessages(appName string, watchId string) ([]application.LXDProfileUpgradeMessage, error) {
-	m.MethodCall(m, "GetLXDProfileUpgradeMessages", appName, watchId)
-	return make([]application.LXDProfileUpgradeMessage, 0), m.NextErr()
 }
 
 type mockNotifyWatcher struct {

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/storage"
@@ -253,11 +253,11 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestAllInstances(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
 	insts, err := s.Env.AllInstances(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance})
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {

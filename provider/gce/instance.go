@@ -6,9 +6,10 @@ package gce
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -18,7 +19,7 @@ type environInstance struct {
 	env  *environ
 }
 
-var _ instance.Instance = (*environInstance)(nil)
+var _ instances.Instance = (*environInstance)(nil)
 
 func newInstance(base *google.Instance, env *environ) *environInstance {
 	return &environInstance{
@@ -27,13 +28,13 @@ func newInstance(base *google.Instance, env *environ) *environInstance {
 	}
 }
 
-// Id implements instance.Instance.
+// Id implements instances.Instance.
 func (inst *environInstance) Id() instance.Id {
 	return instance.Id(inst.base.ID)
 }
 
-// Status implements instance.Instance.
-func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+// Status implements instances.Instance.
+func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.base.Status()
 	jujuStatus := status.Provisioning
 	switch instStatus {
@@ -46,18 +47,18 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.In
 	default:
 		jujuStatus = status.Empty
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: instStatus,
 	}
 }
 
-// Addresses implements instance.Instance.
+// Addresses implements instances.Instance.
 func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	return inst.base.Addresses(), nil
 }
 
-func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
+func findInst(id instance.Id, instances []instances.Instance) instances.Instance {
 	for _, inst := range instances {
 		if id == inst.Id() {
 			return inst

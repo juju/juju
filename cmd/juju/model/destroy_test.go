@@ -161,7 +161,7 @@ func (s *DestroySuite) TestDestroyNoModelNameError(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "-n")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -n")
 }
 
 func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
@@ -283,11 +283,11 @@ The model has persistent storage remaining:
 	2 volumes and 1 filesystem
 
 To destroy the storage, run the destroy-model
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `)

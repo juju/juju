@@ -43,12 +43,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}, {
 		about:        "invalid format",
 		args:         s.Strings("--format", "foo"),
-		expectErr:    `invalid value "foo" for flag --format: unknown format "foo"`,
+		expectErr:    `invalid value "foo" for option --format: unknown format "foo"`,
 		expectFormat: "tabular",
 	}, {
 		about:        "invalid format (value is case-sensitive)",
 		args:         s.Strings("--format", "JSON"),
-		expectErr:    `invalid value "JSON" for flag --format: unknown format "JSON"`,
+		expectErr:    `invalid value "JSON" for option --format: unknown format "JSON"`,
 		expectFormat: "tabular",
 	}, {
 		about:        "json format",

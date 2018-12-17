@@ -16,6 +16,11 @@ import (
 // received a value on its config's Abort chan.
 var ErrLoopAborted = errors.New("resolver loop aborted")
 
+// ErrDoNotProceed is used to distinguish behaviour from
+// resolver.ErrNoOperation. i.e do not run any operations versus
+// this resolver has no operations to run.
+var ErrDoNotProceed = errors.New("do not proceed")
+
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
 	Resolver      Resolver

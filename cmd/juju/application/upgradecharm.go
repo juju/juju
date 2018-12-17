@@ -27,22 +27,15 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
-
-//go:generate mockgen -package mocks -destination mocks/lxdprofileupgradeapi_mock.go github.com/juju/juju/cmd/juju/application LXDProfileUpgradeAPI
-
-type LXDProfileUpgradeAPI interface {
-	WatchLXDProfileUpgradeNotifications(string) (watcher.NotifyWatcher, string, error)
-	GetLXDProfileUpgradeMessages(string, string) ([]application.LXDProfileUpgradeMessage, error)
-}
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
 func NewUpgradeCharmCommand() cmd.Command {
@@ -75,7 +68,6 @@ func NewUpgradeCharmCommand() cmd.Command {
 // charm related upgrades.
 type CharmAPIClient interface {
 	CharmUpgradeClient
-	LXDProfileUpgradeAPI
 }
 
 // CharmUpgradeClient defines a subset of the application facade, as required
@@ -151,9 +143,9 @@ type upgradeCharmCommand struct {
 }
 
 const upgradeCharmDoc = `
-When no flags are set, the application's charm will be upgraded to the latest
+When no options are set, the application's charm will be upgraded to the latest
 revision available in the repository from which it was originally deployed. An
-explicit revision can be chosen with the --revision flag.
+explicit revision can be chosen with the --revision option.
 
 A path will need to be supplied to allow an updated copy of the charm
 to be located.
@@ -164,13 +156,13 @@ is not supported and may lead to confusing behaviour. Each local charm gets
 uploaded with the revision specified in the charm, if possible, otherwise it
 gets a unique revision (highest in state + 1).
 
-When deploying from a path, the --path flag is used to specify the location from
+When deploying from a path, the --path option is used to specify the location from
 which to load the updated charm. Note that the directory containing the charm must
 match what was originally used to deploy the charm as a superficial check that the
 updated charm is compatible.
 
-Resources may be uploaded at upgrade time by specifying the --resource flag.
-Following the resource flag should be name=filepath pair.  This flag may be
+Resources may be uploaded at upgrade time by specifying the --resource option.
+Following the resource option should be name=filepath pair.  This option may be
 repeated more than once to upload more than one resource.
 
   juju upgrade-charm foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
@@ -178,23 +170,23 @@ repeated more than once to upload more than one resource.
 Where bar and baz are resources named in the metadata for the foo charm.
 
 Storage constraints may be added or updated at upgrade time by specifying
-the --storage flag, with the same format as specified in "juju deploy".
+the --storage option, with the same format as specified in "juju deploy".
 If new required storage is added by the new charm revision, then you must
 specify constraints or the defaults will be applied.
 
   juju upgrade-charm foo --storage cache=ssd,10G
 
 Charm settings may be added or updated at upgrade time by specifying the
---config flag, pointing to a YAML-encoded application config file.
+--config option, pointing to a YAML-encoded application config file.
 
   juju upgrade-charm foo --config config.yaml
 
 If the new version of a charm does not explicitly support the application's series, the
-upgrade is disallowed unless the --force-series flag is used. This option should be
+upgrade is disallowed unless the --force-series option is used. This option should be
 used with caution since using a charm on a machine running an unsupported series may
 cause unexpected behavior.
 
-The --switch flag allows you to replace the charm with an entirely different one.
+The --switch option allows you to replace the charm with an entirely different one.
 The new charm's URL and revision are inferred as they would be when running a
 deploy command.
 
@@ -218,22 +210,22 @@ is determined by the contents of the charm at the specified path.
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
 would specify revision number 5 of the wordpress charm.
 
-Use of the --force-units flag is not generally recommended; units upgraded while in an
+Use of the --force-units option is not generally recommended; units upgraded while in an
 error state will not have upgrade-charm hooks executed, and may cause unexpected
 behavior.
 
---force flag for LXD Profiles is not generally recommended when upgrading an 
+--force option for LXD Profiles is not generally recommended when upgrading an 
 application; overriding profiles on the container may cause unexpected 
 behavior. 
 `
 
 func (c *upgradeCharmCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-charm",
 		Args:    "<application>",
 		Purpose: "Upgrade an application's charm.",
 		Doc:     upgradeCharmDoc,
-	}
+	})
 }
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -337,13 +329,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
-	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
-
 	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if c.Channel == "" {
+		c.Channel = csclientparams.Channel(applicationInfo.Channel)
+	}
+	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
+	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
+
 	deployedSeries := applicationInfo.Series
 
 	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
@@ -372,10 +367,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.handleNotifications(ctx, charmUpgradeClient); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Finally, upgrade the application.
 	var configYAML []byte
 	if c.Config.Path != "" {
@@ -395,93 +386,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		StorageConstraints: c.Storage,
 	}
 	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
-}
-
-func (c *upgradeCharmCommand) handleNotifications(ctx *cmd.Context, lxdProfileUpgradeClient LXDProfileUpgradeAPI) error {
-	if c.plan.Work == nil {
-		c.plan = catacomb.Plan{
-			Site: &c.catacomb,
-			Work: c.displayNotifications(ctx, lxdProfileUpgradeClient),
-		}
-	}
-	err := catacomb.Invoke(c.plan)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = c.catacomb.Wait()
-	if err != nil {
-		if params.IsCodeStopped(err) {
-			logger.Debugf("the lxd profile upgrade watcher has been stopped")
-		} else {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-// displayNotifications handles the writing of lxd profile upgrade notifications
-// to standard out.
-func (c *upgradeCharmCommand) displayNotifications(ctx *cmd.Context, client LXDProfileUpgradeAPI) func() error {
-	// We return an anonymous function here to satisfy the catacomb plan's
-	// need for a work function and to close over the commands context.
-	messages := make(map[string]application.LXDProfileUpgradeMessage)
-	return func() error {
-		uw, wid, err := client.WatchLXDProfileUpgradeNotifications(c.ApplicationName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = c.catacomb.Add(uw)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for {
-			select {
-			case <-c.catacomb.Dying():
-				return c.catacomb.ErrDying()
-			case <-uw.Changes():
-				err = c.handleLXDProfileUpgradeChange(ctx, client, wid, messages)
-				if err != nil {
-					if errors.IsNotFound(err) {
-						c.catacomb.Kill(nil)
-						continue
-					}
-					return errors.Trace(err)
-				}
-			}
-		}
-	}
-}
-
-func (c *upgradeCharmCommand) handleLXDProfileUpgradeChange(ctx *cmd.Context, client LXDProfileUpgradeAPI, wid string, previous map[string]application.LXDProfileUpgradeMessage) error {
-	messages, err := client.GetLXDProfileUpgradeMessages(c.ApplicationName, wid)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(messages) == 0 {
-		return errors.NotFoundf("messages")
-	}
-	var msgErrors []string
-	for _, message := range messages {
-		if message.Error != "" {
-			msgErrors = append(msgErrors, message.Error)
-			continue
-		}
-		if message.Message == "" {
-			continue
-		}
-		if p, ok := previous[message.UnitName]; ok && p.Message == message.Message {
-			continue
-		}
-		ctx.Infof(fmt.Sprintf("LXD Profile upgrade %s for %q\n", message.Message, message.UnitName))
-		previous[message.UnitName] = message
-	}
-	if len(msgErrors) > 0 {
-		for _, v := range msgErrors {
-			cmd.WriteError(ctx.Stderr, errors.New(v))
-		}
-		return errors.New("lxd profile upgrade error")
-	}
-	return nil
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined

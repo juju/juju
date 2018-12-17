@@ -17,6 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -63,12 +64,12 @@ The statuses are available for the following types.
 `, supportedHistoryKindDescs())
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-status-log",
 		Args:    "<entity name>",
 		Purpose: "Output past statuses for the specified entity.",
 		Doc:     statusHistoryDoc,
-	}
+	})
 }
 
 func supportedHistoryKindTypes() string {

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 

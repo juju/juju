@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
@@ -172,7 +173,7 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	args := []string{"-m", "testmodel"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
-	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])
+	msg := fmt.Sprintf("option provided but not defined: %v", args[0])
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -306,9 +307,9 @@ type testCommand struct {
 }
 
 func (c *testCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name: "test-command",
-	}
+	})
 }
 
 func (c *testCommand) Run(ctx *cmd.Context) error {
@@ -330,9 +331,9 @@ type caasCommand struct {
 }
 
 func (c *caasCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name: "caas-command",
-	}
+	})
 }
 
 func (c *caasCommand) Run(ctx *cmd.Context) error {
@@ -353,9 +354,9 @@ type allowedCAASCommand struct {
 }
 
 func (c *allowedCAASCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name: "allowed-caas-command",
-	}
+	})
 }
 
 func (c *allowedCAASCommand) Run(ctx *cmd.Context) error {

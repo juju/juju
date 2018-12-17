@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -35,7 +36,7 @@ type GetCmd struct {
 
 // Info implements cmd.Command.
 func (c GetCmd) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    GetCmdName,
 		Args:    "<resource name>",
 		Purpose: "get the path to the locally cached resource file",
@@ -74,7 +75,7 @@ started up. So be sure to run "resource-get" for your resources in the
 Note that "resource-get" only provides an FS path to the resource file.
 It does not provide any information about the resource (e.g. revision).
 `,
-	}
+	})
 }
 
 // Init implements cmd.Command.

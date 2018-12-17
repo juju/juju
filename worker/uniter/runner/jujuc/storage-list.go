@@ -8,6 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // StorageListCommand implements the storage-list command.
@@ -33,12 +35,12 @@ via the "-s" flag to query the storage attributes.
 A storage name may be specified, in which case only storage
 instances for that named storage will be returned.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "storage-list",
 		Args:    "[<storage-name>]",
 		Purpose: "list storage attached to the unit",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *StorageListCommand) SetFlags(f *gnuflag.FlagSet) {

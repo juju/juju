@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/charmstore"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -35,7 +36,7 @@ func (c *CharmResourcesCommand) Info() *cmd.Info {
 	i := c.baseInfo()
 	i.Name = "charm-resources"
 	i.Aliases = []string{"list-charm-resources"}
-	return i
+	return jujucmd.Info(i)
 }
 
 // SetFlags implements cmd.Command.
@@ -78,11 +79,11 @@ func (b *baseCharmResourcesCommand) setResourceLister(resourceLister ResourceLis
 }
 
 func (c *baseCharmResourcesCommand) baseInfo() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Args:    "<charm>",
 		Purpose: "Display the resources for a charm in the charm store.",
 		Doc:     charmResourcesDoc,
-	}
+	})
 }
 
 func (c *baseCharmResourcesCommand) setBaseFlags(f *gnuflag.FlagSet) {

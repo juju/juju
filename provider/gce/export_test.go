@@ -4,11 +4,11 @@
 package gce
 
 import (
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -23,7 +23,7 @@ var (
 	WindowsImageBasePath                              = windowsImageBasePath
 )
 
-func ExposeInstBase(inst instance.Instance) *google.Instance {
+func ExposeInstBase(inst instances.Instance) *google.Instance {
 	return inst.(*environInstance).base
 }
 
@@ -71,6 +71,6 @@ func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst
 	return env.getHardwareCharacteristics(spec, inst)
 }
 
-func GetInstances(env *environ, ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func GetInstances(env *environ, ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return env.instances(ctx)
 }

@@ -12,6 +12,7 @@ import (
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -58,12 +59,12 @@ func NewModelCredentialCommand() cmd.Command {
 
 // Info implements Command.Info.
 func (c *modelCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-credential",
 		Args:    "<cloud name> <credential name>",
 		Purpose: "Relates a remote credential to a model.",
 		Doc:     modelCredentialDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.

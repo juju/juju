@@ -18,6 +18,10 @@ const (
 	// NotRequiredStatus defines when the lxd profile upgrade was not required
 	NotRequiredStatus = "Not Required"
 
+	// NotKnownStatus defines a state where the document for the lxd profile
+	// is removed, or never existed, but we don't know what the status should be.
+	NotKnownStatus = "Not known"
+
 	// ErrorStatus defines when the lxd profile is in an error state
 	ErrorStatus = "Error"
 )
@@ -38,7 +42,7 @@ func UpgradeStatusFinished(status string) bool {
 // UpgradeStatusTerminal defines if the status is in a terminal state. Success
 // or not required is also considered terminal.
 func UpgradeStatusTerminal(status string) bool {
-	if UpgradeStatusFinished(status) {
+	if UpgradeStatusFinished(status) || status == NotKnownStatus {
 		return true
 	}
 

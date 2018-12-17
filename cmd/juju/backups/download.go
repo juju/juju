@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
@@ -39,12 +40,12 @@ type downloadCommand struct {
 
 // Info implements Command.Info.
 func (c *downloadCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "download-backup",
 		Args:    "<ID>",
 		Purpose: "Get an archive file.",
 		Doc:     downloadDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

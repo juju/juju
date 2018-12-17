@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
@@ -67,12 +68,12 @@ func (c *showCloudCommand) Init(args []string) error {
 }
 
 func (c *showCloudCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "show-cloud",
 		Args:    "<cloud name>",
 		Purpose: "Shows detailed information on a cloud.",
 		Doc:     showCloudDoc,
-	}
+	})
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {

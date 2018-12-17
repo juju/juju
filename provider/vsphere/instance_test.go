@@ -8,9 +8,10 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -59,11 +60,11 @@ func (s *InstanceSuite) TestInstanceStatus(c *gc.C) {
 	}
 	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0", "inst-1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances[0].Status(s.callCtx), jc.DeepEquals, instance.InstanceStatus{
+	c.Assert(instances[0].Status(s.callCtx), jc.DeepEquals, instance.Status{
 		Status:  status.Running,
 		Message: "poweredOn",
 	})
-	c.Assert(instances[1].Status(s.callCtx), jc.DeepEquals, instance.InstanceStatus{
+	c.Assert(instances[1].Status(s.callCtx), jc.DeepEquals, instance.Status{
 		Status:  status.Empty,
 		Message: "poweredOff",
 	})
@@ -113,11 +114,11 @@ func (s *InstanceSuite) TestOpenPortNoExternalNetwork(c *gc.C) {
 	s.client.virtualMachines = []*mo.VirtualMachine{
 		buildVM("inst-0").vm(),
 	}
-	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0"})
+	envInstances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 1)
-	inst0 := instances[0]
-	firewaller, ok := inst0.(instance.InstanceFirewaller)
+	c.Assert(envInstances, gc.HasLen, 1)
+	inst0 := envInstances[0]
+	firewaller, ok := inst0.(instances.InstanceFirewaller)
 	c.Assert(ok, jc.IsTrue)
 	// machineID is ignored in per-instance firewallers
 	err = firewaller.OpenPorts(s.callCtx, "", []network.IngressRule{{

@@ -13,9 +13,9 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/instance"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/oci"
 	"github.com/juju/juju/storage"
 

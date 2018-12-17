@@ -27,10 +27,11 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -414,10 +415,10 @@ func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
 	return nil
 }
 
-func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instances.Instance, error) {
 	return nil, nil
 }
 
-func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return nil, nil
 }

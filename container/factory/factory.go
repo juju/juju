@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 )
 
 // NewContainerManager creates the appropriate container.Manager for the

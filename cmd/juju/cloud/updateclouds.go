@@ -20,6 +20,7 @@ import (
 	"golang.org/x/crypto/openpgp/clearsign"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/keys"
 )
 
@@ -56,11 +57,11 @@ func newUpdateCloudsCommand() cmd.Command {
 }
 
 func (c *updateCloudsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "update-clouds",
 		Purpose: "Updates public cloud information available to Juju.",
 		Doc:     updateCloudsDoc,
-	}
+	})
 }
 
 func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {

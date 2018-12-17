@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
@@ -107,12 +108,12 @@ RETVAL=$?
 `
 
 func (c *validateToolsMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "validate-agents",
 		Purpose: "validate agent metadata and ensure agent binary tarball(s) exist for Juju version(s)",
 		Doc:     validateToolsMetadataDoc,
 		Aliases: []string{"validate-tools"},
-	}
+	})
 }
 
 func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {

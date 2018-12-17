@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -43,12 +44,12 @@ func NewRemoveCredentialCommand() cmd.Command {
 }
 
 func (c *removeCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-credential",
 		Args:    "<cloud name> <credential name>",
 		Purpose: usageRemoveCredentialSummary,
 		Doc:     usageRemoveCredentialDetails,
-	}
+	})
 }
 
 func (c *removeCredentialCommand) Init(args []string) (err error) {

@@ -97,7 +97,7 @@ func (a *API) CharmInfo(args params.CharmURL) (params.CharmInfo, error) {
 
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
-	if profile := aCharm.LXDProfile(); !profile.Empty() {
+	if profile := aCharm.LXDProfile(); profile != nil && !profile.Empty() {
 		info.LXDProfile = convertCharmLXDProfile(profile)
 	}
 

@@ -64,7 +64,7 @@ func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
 
 func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 	_, err := s.runKillCommand(c, "-n")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+	c.Assert(err, gc.ErrorMatches, "option provided but not defined: -n")
 }
 
 func (s *KillSuite) TestKillDurationFlags(c *gc.C) {

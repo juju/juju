@@ -8,9 +8,10 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -19,7 +20,7 @@ type environInstance struct {
 	env       *environ
 }
 
-var _ instance.Instance = (*environInstance)(nil)
+var _ instances.Instance = (*environInstance)(nil)
 
 func newInstance(container *lxd.Container, env *environ) *environInstance {
 	return &environInstance{
@@ -28,13 +29,13 @@ func newInstance(container *lxd.Container, env *environ) *environInstance {
 	}
 }
 
-// Id implements instance.Instance.
+// Id implements instances.Instance.
 func (i *environInstance) Id() instance.Id {
 	return instance.Id(i.container.Name)
 }
 
-// Status implements instance.Instance.
-func (i *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+// Status implements instances.Instance.
+func (i *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	jujuStatus := status.Pending
 	code := i.container.StatusCode
 	switch code {
@@ -47,14 +48,14 @@ func (i *environInstance) Status(ctx context.ProviderCallContext) instance.Insta
 	default:
 		jujuStatus = status.Empty
 	}
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: code.String(),
 	}
 
 }
 
-// Addresses implements instance.Instance.
+// Addresses implements instances.Instance.
 func (i *environInstance) Addresses(_ context.ProviderCallContext) ([]network.Address, error) {
 	addrs, err := i.env.server.ContainerAddresses(i.container.Name)
 	return addrs, errors.Trace(err)

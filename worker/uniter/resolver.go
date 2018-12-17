@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
 // ResolverConfig defines configuration for the uniter resolver.
@@ -25,6 +24,7 @@ type ResolverConfig struct {
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
 	UpgradeSeries       resolver.Resolver
+	UpgradeCharmProfile resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
 	Relations           resolver.Resolver
@@ -59,7 +59,7 @@ func (s *uniterResolver) NextOp(
 	// has completed preparation and is waiting for upgrade completion.
 	op, err := s.config.UpgradeSeries.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
-		if errors.Cause(err) == upgradeseries.ErrDoNotProceed {
+		if errors.Cause(err) == resolver.ErrDoNotProceed {
 			return nil, resolver.ErrNoOperation
 		}
 		return op, err
@@ -69,6 +69,15 @@ func (s *uniterResolver) NextOp(
 		if localState.Conflicted {
 			return s.nextOpConflicted(localState, remoteState, opFactory)
 		}
+		op, err = s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
+		if errors.Cause(err) != resolver.ErrNoOperation {
+			if errors.Cause(err) == resolver.ErrDoNotProceed {
+				logger.Tracef("waiting for profile to be applied")
+				return nil, resolver.ErrNoOperation
+			}
+			return op, err
+		}
+		// continue upgrading the charm
 		logger.Infof("resuming charm upgrade")
 		return opFactory.NewUpgrade(localState.CharmURL)
 	}
@@ -279,6 +288,15 @@ func (s *uniterResolver) nextOp(
 	// inform the uniter workers to run the upgrade hook.
 	if charmModified(localState, remoteState) {
 		if s.config.ModelType == model.IAAS {
+			// Ensure that we have upgraded the charm profile before we action
+			// the upgrading of the charm.
+			op, err := s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
+			if errors.Cause(err) != resolver.ErrNoOperation {
+				if errors.Cause(err) == resolver.ErrDoNotProceed {
+					return nil, resolver.ErrNoOperation
+				}
+				return op, err
+			}
 			return opFactory.NewUpgrade(remoteState.CharmURL)
 		}
 		return opFactory.NewNoOpUpgrade(remoteState.CharmURL)

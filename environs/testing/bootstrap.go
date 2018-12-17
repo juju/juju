@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	instances "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -29,7 +29,7 @@ func DisableFinishBootstrap() func() {
 		ssh.Client,
 		environs.Environ,
 		context.ProviderCallContext,
-		instance.Instance,
+		instances.Instance,
 		*instancecfg.InstanceConfig,
 		environs.BootstrapDialOpts,
 	) error {

@@ -8,9 +8,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 )
 
@@ -71,7 +72,7 @@ type Machine interface {
 // CloudProvider defines methods needed from the cloud provider to perform the check.
 type CloudProvider interface {
 	// AllInstances returns all instances currently known to the cloud provider.
-	AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error)
+	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
 }
 
 type stateShim struct {

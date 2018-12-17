@@ -14,11 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )

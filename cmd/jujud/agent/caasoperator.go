@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -79,10 +80,10 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 
 // Info implements Command.
 func (op *CaasOperatorAgent) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "caasoperator",
 		Purpose: "run a juju CAAS Operator",
-	}
+	})
 }
 
 // SetFlags implements Command.

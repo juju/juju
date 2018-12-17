@@ -10,6 +10,7 @@ import (
 	"github.com/juju/os/series"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -77,11 +78,11 @@ func (c *addImageMetadataCommand) Init(args []string) (err error) {
 
 // Info implements Command.Info.
 func (c *addImageMetadataCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-image",
 		Purpose: "adds image metadata to model",
 		Doc:     addImageCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

@@ -11,9 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	containerlxd "github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -27,7 +28,7 @@ var _ = gc.Suite(&environInstSuite{})
 func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	var containers []containerlxd.Container
-	var expected []instance.Instance
+	var expected []instances.Instance
 	for _, id := range ids {
 		containers = append(containers, *s.NewContainer(c, string(id)))
 		expected = append(expected, s.NewInstance(c, string(id)))
@@ -66,7 +67,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
@@ -78,7 +79,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{expected, nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{expected, nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
 }
 
@@ -89,7 +90,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
+	c.Check(insts, jc.DeepEquals, []instances.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 

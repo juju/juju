@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"

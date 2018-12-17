@@ -18,10 +18,11 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
@@ -255,7 +256,7 @@ func (env *sessionEnviron) newRawInstance(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []instance.Instance, err error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []instances.Instance, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		instances, err = env.AllInstances(ctx)
 		return err
@@ -264,7 +265,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []i
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	modelFolderPath := path.Join(
 		controllerFolderName("*"),
 		env.modelFolderName(),
@@ -277,7 +278,7 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 
 	// Turn mo.VirtualMachine values into *environInstance values,
 	// whether or not we got an error.
-	results := make([]instance.Instance, len(vms))
+	results := make([]instances.Instance, len(vms))
 	for i, vm := range vms {
 		results[i] = newInstance(vm, env.environ)
 	}

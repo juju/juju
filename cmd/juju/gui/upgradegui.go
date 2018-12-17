@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/gui"
@@ -59,11 +60,11 @@ List available Juju GUI releases without upgrading:
 
 // Info implements the cmd.Command interface.
 func (c *upgradeGUICommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-gui",
 		Purpose: "Upgrade to a new Juju GUI version.",
 		Doc:     upgradeGUIDoc,
-	}
+	})
 }
 
 // SetFlags implements the cmd.Command interface.

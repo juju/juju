@@ -27,13 +27,14 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/instance"
 	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -336,7 +337,7 @@ type mockEnviron struct {
 	err                error
 }
 
-func (m *mockEnviron) AllInstances(context.ProviderCallContext) ([]instance.Instance, error) {
+func (m *mockEnviron) AllInstances(context.ProviderCallContext) ([]instances.Instance, error) {
 	m.allInstancesCalled = true
 	return nil, m.err
 }

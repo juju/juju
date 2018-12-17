@@ -646,7 +646,9 @@ func fetchAllApplicationsAndUnits(
 			continue
 		}
 		chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
-		lxdProfiles[chName] = ch.LXDProfile()
+		if profile := ch.LXDProfile(); profile != nil {
+			lxdProfiles[chName] = profile
+		}
 	}
 
 	for baseURL := range latestCharms {

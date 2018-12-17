@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // ConfigGetCommand implements the config-get command.
@@ -29,12 +31,12 @@ When no <key> is supplied, all keys with values or defaults are printed. If
 --all is set, all known keys are printed; those without defaults or values are
 reported as null. <key> and --all are mutually exclusive.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "config-get",
 		Args:    "[<key>]",
 		Purpose: "print application configuration",
 		Doc:     doc,
-	}
+	})
 }
 
 func (c *ConfigGetCommand) SetFlags(f *gnuflag.FlagSet) {

@@ -14,11 +14,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
@@ -311,9 +312,9 @@ func (env *environ) getHardwareCharacteristics(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	environInstances, err := env.allInstances()
-	instances := make([]instance.Instance, len(environInstances))
+	instances := make([]instances.Instance, len(environInstances))
 	for i, inst := range environInstances {
 		if inst == nil {
 			continue

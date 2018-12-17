@@ -27,6 +27,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
@@ -145,10 +146,10 @@ type UpgradeMongoCommand struct {
 
 // Info returns a decription of the command.
 func (*UpgradeMongoCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-mongo",
 		Purpose: "upgrade state server to mongo 3",
-	}
+	})
 }
 
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.

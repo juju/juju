@@ -14,6 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
@@ -92,12 +93,12 @@ func NewAddCredentialCommand() cmd.Command {
 }
 
 func (c *addCredentialCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-credential",
 		Args:    "<cloud name>",
 		Purpose: usageAddCredentialSummary,
 		Doc:     usageAddCredentialDetails,
-	}
+	})
 }
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {

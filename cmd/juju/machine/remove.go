@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -60,12 +61,12 @@ See also:
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-machine",
 		Args:    "<machine number> ...",
 		Purpose: "Removes one or more machines from a model.",
 		Doc:     destroyMachineDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.

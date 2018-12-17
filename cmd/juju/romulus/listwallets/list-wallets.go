@@ -16,6 +16,7 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
+	jujucmd "github.com/juju/juju/cmd"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -41,12 +42,12 @@ Examples:
 
 // Info implements cmd.Command.Info.
 func (c *listWalletsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "wallets",
 		Purpose: "List wallets.",
 		Doc:     listWalletsDoc,
 		Aliases: []string{"list-wallets"},
-	}
+	})
 }
 
 // SetFlags implements cmd.Command.SetFlags.

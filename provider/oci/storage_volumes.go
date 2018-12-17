@@ -12,9 +12,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/instance"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	allProvidersCommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"

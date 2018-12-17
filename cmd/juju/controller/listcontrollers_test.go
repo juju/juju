@@ -47,7 +47,7 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
 
 	s.expectedOutput = `
-Use --refresh flag with this command to see the latest information.
+Use --refresh option with this command to see the latest information.
 
 Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
 aws-test             admin/controller  -      -          aws/us-east-1            1         5   -  2.0.1      
@@ -252,13 +252,13 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedArg(c *gc.C) {
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedFlag(c *gc.C) {
 	s.createTestClientStore(c)
-	s.expectedErr = `flag provided but not defined: -m`
+	s.expectedErr = `option provided but not defined: -m`
 	s.assertListControllersFailed(c, "-m", "my.world")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C) {
 	s.createTestClientStore(c)
-	s.expectedErr = `flag provided but not defined: --model`
+	s.expectedErr = `option provided but not defined: --model`
 	s.assertListControllersFailed(c, "--model", "still.my.world")
 }
 

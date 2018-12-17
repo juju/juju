@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -34,12 +35,12 @@ Adds a new space with the given name and associates the given
 
 // Info is defined on the cmd.Command interface.
 func (c *AddCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-space",
 		Args:    "<name> [<CIDR1> <CIDR2> ...]",
 		Purpose: "Add a new network space.",
 		Doc:     strings.TrimSpace(addCommandDoc),
-	}
+	})
 }
 
 // Init is defined on the cmd.Command interface. It checks the

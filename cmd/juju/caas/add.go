@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -130,12 +131,12 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 
 // Info returns help information about the command.
 func (c *AddCAASCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "add-k8s",
 		Args:    "<k8s name>",
 		Purpose: usageAddCAASSummary,
 		Doc:     usageAddCAASDetails,
-	}
+	})
 }
 
 // SetFlags initializes the flags supported by the command.

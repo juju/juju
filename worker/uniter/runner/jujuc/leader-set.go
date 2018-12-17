@@ -7,6 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // leaderSetCommand implements the leader-set command.
@@ -28,12 +30,12 @@ leader-set immediate writes the supplied key/value pairs to the controller,
 which will then inform non-leader units of the change. It will fail if called
 without arguments, or if called by a unit that is not currently application leader.
 `
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "leader-set",
 		Args:    "<key>=<value> [...]",
 		Purpose: "write application leadership settings",
 		Doc:     doc,
-	}
+	})
 }
 
 // Init is part of the cmd.Command interface.

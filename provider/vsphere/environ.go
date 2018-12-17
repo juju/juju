@@ -12,10 +12,10 @@ import (
 	"github.com/juju/version"
 	"golang.org/x/net/context"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	callcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
 

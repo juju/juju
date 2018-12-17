@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
@@ -43,12 +44,12 @@ func NewSetDefaultRegionCommand() cmd.Command {
 }
 
 func (c *setDefaultRegionCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-default-region",
 		Args:    "<cloud name> <region>",
 		Purpose: usageSetDefaultRegionSummary,
 		Doc:     usageSetDefaultRegionDetails,
-	}
+	})
 }
 
 func (c *setDefaultRegionCommand) Init(args []string) (err error) {

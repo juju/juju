@@ -11,8 +11,8 @@ import (
 	"github.com/altoros/gosigma/mock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )

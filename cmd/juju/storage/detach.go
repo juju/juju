@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -62,12 +63,12 @@ func (c *detachStorageCommand) Init(args []string) error {
 
 // Info implements Command.Info.
 func (c *detachStorageCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "detach-storage",
 		Purpose: "Detaches storage from units.",
 		Doc:     detachStorageCommandDoc,
 		Args:    detachStorageCommandArgs,
-	}
+	})
 }
 
 // Run implements Command.Run.

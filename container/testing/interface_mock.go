@@ -5,14 +5,16 @@
 package testing
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
 	constraints "github.com/juju/juju/constraints"
 	container "github.com/juju/juju/container"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
-	instance "github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	reflect "reflect"
 )
 
 // MockTestLXDManager is a mock of TestLXDManager interface
@@ -39,9 +41,9 @@ func (m *MockTestLXDManager) EXPECT() *MockTestLXDManagerMockRecorder {
 }
 
 // CreateContainer mocks base method
-func (m *MockTestLXDManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 string, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (m *MockTestLXDManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 string, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(instance.Instance)
+	ret0, _ := ret[0].(instances.Instance)
 	ret1, _ := ret[1].(*instance.HardwareCharacteristics)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -90,9 +92,9 @@ func (mr *MockTestLXDManagerMockRecorder) LXDProfileNames(arg0 interface{}) *gom
 }
 
 // ListContainers mocks base method
-func (m *MockTestLXDManager) ListContainers() ([]instance.Instance, error) {
+func (m *MockTestLXDManager) ListContainers() ([]instances.Instance, error) {
 	ret := m.ctrl.Call(m, "ListContainers")
-	ret0, _ := ret[0].([]instance.Instance)
+	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

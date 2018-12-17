@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 // JujuLogCommandLogger provides a Logger interface for the juju-log command.
@@ -48,11 +50,11 @@ func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-log",
 		Args:    "<message>",
 		Purpose: "write a message to the juju log",
-	}
+	})
 }
 
 func (c *JujuLogCommand) SetFlags(f *gnuflag.FlagSet) {

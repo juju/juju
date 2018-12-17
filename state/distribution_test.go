@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -48,7 +48,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.distributor = mockInstanceDistributor{}
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return &s.distributor, nil
 	}
 
@@ -133,7 +133,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	// If the policy's InstanceDistributor method fails, that will be returned first.
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return nil, fmt.Errorf("incapable of InstanceDistributor")
 	}
 	_, err = unit.AssignToCleanMachine()
@@ -160,7 +160,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
 	s.setupScenario(c)
 	var distributorErr error
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return nil, distributorErr
 	}
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
@@ -173,7 +173,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

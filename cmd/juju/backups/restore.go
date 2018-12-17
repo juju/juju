@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/bootstrap"
@@ -77,12 +78,12 @@ an explanation.
 
 // Info returns the content for --help.
 func (c *restoreCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "restore-backup",
 		Purpose: "Restore from a backup archive to the existing controller.",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
-	}
+	})
 }
 
 // SetFlags handles known option flags.

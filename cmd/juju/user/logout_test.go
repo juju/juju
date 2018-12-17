@@ -46,7 +46,7 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 			errorString: `unrecognized args: \["foobar"\]`,
 		}, {
 			args:        []string{"--foobar"},
-			errorString: "flag provided but not defined: --foobar",
+			errorString: "option provided but not defined: --foobar",
 		},
 	} {
 		c.Logf("test %d", i)
@@ -142,7 +142,7 @@ afterwards. To change your password, run the command
 
 If you are sure you want to log out, and it is safe to
 clear the credentials from the client, then you can run
-this command again with the "--force" flag.
+this command again with the "--force" option.
 `)
 }
 

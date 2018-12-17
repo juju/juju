@@ -63,7 +63,7 @@ func (s *LoginCommandSuite) TestInitError(c *gc.C) {
 		stderr string
 	}{{
 		args:   []string{"--foobar"},
-		stderr: `ERROR flag provided but not defined: --foobar\n`,
+		stderr: `ERROR option provided but not defined: --foobar\n`,
 	}, {
 		args:   []string{"foobar", "extra"},
 		stderr: `ERROR unrecognized args: \["extra"\]\n`,

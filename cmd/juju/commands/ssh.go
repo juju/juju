@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/ssh"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujussh "github.com/juju/juju/network/ssh"
 )
@@ -93,12 +94,12 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *sshCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "ssh",
 		Args:    "<[user@]target> [openssh options] [command]",
 		Purpose: usageSSHSummary,
 		Doc:     usageSSHDetails,
-	}
+	})
 }
 
 func (c *sshCommand) Init(args []string) error {

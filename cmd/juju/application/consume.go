@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -52,12 +53,12 @@ type consumeCommand struct {
 
 // Info implements cmd.Command.
 func (c *consumeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "consume",
 		Args:    "<remote offer path> [<local application name>]",
 		Purpose: usageConsumeSummary,
 		Doc:     usageConsumeDetails,
-	}
+	})
 }
 
 // Init implements cmd.Command.

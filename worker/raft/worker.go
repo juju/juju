@@ -16,6 +16,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -128,6 +129,9 @@ type Config struct {
 	// SnapshotRetention is the non-negative number of snapshots
 	// to retain on disk. If zero, defaults to 2.
 	SnapshotRetention int
+
+	// PrometheusRegisterer is used to register the raft metrics.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the raft worker configuration.
@@ -288,6 +292,18 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
+	// Register the metrics.
+	if w.config.PrometheusRegisterer != nil {
+		collector, err := registerMetrics(w.config.PrometheusRegisterer)
+		if err != nil {
+			// It isn't a fatal error to fail to register the metrics, so
+			// log and continue
+			w.config.Logger.Warningf("registration of raft metrics failed: %v", err)
+		} else {
+			defer w.config.PrometheusRegisterer.Unregister(collector)
+		}
+	}
+
 	rawLogStore, err := NewLogStore(w.config.StorageDir)
 	if err != nil {
 		return errors.Trace(err)

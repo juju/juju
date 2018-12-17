@@ -16,12 +16,12 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
@@ -217,7 +217,7 @@ func (e *fakeEnviron) StopInstances(callCtx context.ProviderCallContext, ids ...
 	return nil
 }
 
-func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]instances.Instance, error) {
 	e.Push("AllInstances", callCtx)
 	return nil, nil
 }
@@ -241,9 +241,9 @@ func (e *fakeEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	e.Push("Instances", callCtx, ids)
-	return []instance.Instance{&fakeInstance{}}, nil
+	return []instances.Instance{&fakeInstance{}}, nil
 }
 
 func (e *fakeEnviron) ControllerInstances(callCtx context.ProviderCallContext, st string) ([]instance.Id, error) {
@@ -363,9 +363,9 @@ func (e *fakeInstance) Id() instance.Id {
 	return instance.Id("")
 }
 
-func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.InstanceStatus {
+func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.Status {
 	e.Push("Status", callCtx)
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  status.Provisioning,
 		Message: "a message",
 	}

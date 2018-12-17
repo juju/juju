@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/metricsdebug"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -42,12 +43,12 @@ func New() cmd.Command {
 
 // Info implements Command.Info.
 func (c *SetMeterStatusCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "set-meter-status",
 		Args:    "[application or unit] status",
 		Purpose: "Sets the meter status on an application or unit.",
 		Doc:     setMeterStatusDoc,
-	}
+	})
 }
 
 // Init reads and verifies the cli arguments for the SetMeterStatusCommand

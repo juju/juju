@@ -11,8 +11,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 )
 
@@ -25,7 +26,7 @@ var AddressesRefreshAttempt = utils.AttemptStrategy{
 
 // getAddresses queries and returns the Addresses for the given instances,
 // ignoring nil instances or ones without addresses.
-func getAddresses(ctx context.ProviderCallContext, instances []instance.Instance) []network.Address {
+func getAddresses(ctx context.ProviderCallContext, instances []instances.Instance) []network.Address {
 	var allAddrs []network.Address
 	for _, inst := range instances {
 		if inst == nil {

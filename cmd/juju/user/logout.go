@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -48,11 +49,11 @@ type logoutCommand struct {
 
 // Info implements Command.Info.
 func (c *logoutCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "logout",
 		Purpose: "Logs a Juju user out of a controller.",
 		Doc:     logoutDoc,
-	}
+	})
 }
 
 // Init implements Command.Init.
@@ -130,7 +131,7 @@ afterwards. To change your password, run the command
 
 If you are sure you want to log out, and it is safe to
 clear the credentials from the client, then you can run
-this command again with the "--force" flag.
+this command again with the "--force" option.
 `)
 	}
 

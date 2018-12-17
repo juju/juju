@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -35,7 +36,7 @@ func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	i.Aliases = []string{"list-resources"}
 	i.Doc = DeprecatedSince + i.Doc
 	i.Purpose = Deprecated + i.Purpose
-	return i
+	return jujucmd.Info(i)
 }
 
 // SetFlags implements cmd.Command.

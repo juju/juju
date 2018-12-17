@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker/apicaller"
 )
@@ -43,11 +44,11 @@ func NewCheckConnectionCommand(config AgentConf, connect ConnectFunc) cmd.Comman
 
 // Info is part of cmd.Command.
 func (c *checkConnectionCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "check-connection",
 		Args:    "<agent-name>",
 		Purpose: "check connection to the API server for the specified agent",
-	}
+	})
 }
 
 // Init is part of cmd.Command.

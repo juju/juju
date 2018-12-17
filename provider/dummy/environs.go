@@ -42,6 +42,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
@@ -58,13 +59,14 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/instances"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -188,7 +190,7 @@ type OpStartInstance struct {
 	MachineId         string
 	MachineNonce      string
 	PossibleTools     coretools.List
-	Instance          instance.Instance
+	Instance          instances.Instance
 	Constraints       constraints.Value
 	SubnetsToZones    map[network.Id][]string
 	NetworkInfo       []network.InterfaceInfo
@@ -956,12 +958,13 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 	)
 	dummyStore := newLeaseStore(clock.WallClock, target, state.LeaseTrapdoorFunc())
 	return lease.NewManager(lease.ManagerConfig{
-		Secretary:  lease.SecretaryFinder(controllerUUID),
-		Store:      dummyStore,
-		Logger:     loggo.GetLogger("juju.worker.lease.dummy"),
-		Clock:      clock.WallClock,
-		MaxSleep:   time.Minute,
-		EntityUUID: controllerUUID,
+		Secretary:            lease.SecretaryFinder(controllerUUID),
+		Store:                dummyStore,
+		Logger:               loggo.GetLogger("juju.worker.lease.dummy"),
+		Clock:                clock.WallClock,
+		MaxSleep:             time.Minute,
+		EntityUUID:           controllerUUID,
+		PrometheusRegisterer: noopRegisterer{},
 	})
 }
 
@@ -1255,7 +1258,7 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 	return nil
 }
 
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (insts []instance.Instance, err error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (insts []instances.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -1547,12 +1550,12 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.Su
 	return result, nil
 }
 
-func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
-	var insts []instance.Instance
+	var insts []instances.Instance
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -1653,7 +1656,7 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
@@ -1665,7 +1668,7 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Inst
 		}
 	}
 
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status:  jujuStatus,
 		Message: inst.status,
 	}
@@ -1674,7 +1677,7 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Inst
 
 // SetInstanceAddresses sets the addresses associated with the given
 // dummy instance.
-func SetInstanceAddresses(inst instance.Instance, addrs []network.Address) {
+func SetInstanceAddresses(inst instances.Instance, addrs []network.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
@@ -1684,7 +1687,7 @@ func SetInstanceAddresses(inst instance.Instance, addrs []network.Address) {
 
 // SetInstanceStatus sets the status associated with the given
 // dummy instance.
-func SetInstanceStatus(inst instance.Instance, status string) {
+func SetInstanceStatus(inst instances.Instance, status string) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.status = status
@@ -1693,7 +1696,7 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 
 // SetInstanceBroken marks the named methods of the instance as broken.
 // Any previously broken methods not in the set will no longer be broken.
-func SetInstanceBroken(inst instance.Instance, methods ...string) {
+func SetInstanceBroken(inst instances.Instance, methods ...string) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.broken = methods
@@ -1916,4 +1919,16 @@ func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
 		return status, nil
 	}
 	return presence.Alive, nil
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return false
 }

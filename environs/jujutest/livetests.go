@@ -22,19 +22,20 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -312,7 +313,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(t.ProviderCallContext, inst1.Id())
-	fwInst1, ok := inst1.(instance.InstanceFirewaller)
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
@@ -321,7 +322,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "2")
 	c.Assert(inst2, gc.NotNil)
-	fwInst2, ok := inst2.(instance.InstanceFirewaller)
+	fwInst2, ok := inst2.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -580,7 +581,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 		},
 	)
 
-	fwInst1, ok := inst1.(instance.InstanceFirewaller)
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	// Check errors when acting on instances.
 	err = fwInst1.OpenPorts(t.ProviderCallContext,

@@ -27,13 +27,14 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -1102,7 +1103,7 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
-func instanceConfiguredInterfaceNames(ctx context.ProviderCallContext, usingMAAS2 bool, inst instance.Instance, subnetsMap map[string]network.Id) ([]string, error) {
+func instanceConfiguredInterfaceNames(ctx context.ProviderCallContext, usingMAAS2 bool, inst instances.Instance, subnetsMap map[string]network.Id) ([]string, error) {
 	var (
 		interfaces []network.InterfaceInfo
 		err        error
@@ -1540,10 +1541,10 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 
 }
 
-// Instances returns the instance.Instance objects corresponding to the given
+// Instances returns the instances.Instance objects corresponding to the given
 // slice of instance.Id.  The error is ErrNoInstances if no instances
 // were found.
-func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		// This would be treated as "return all instances" below, so
 		// treat it as a special case.
@@ -1551,21 +1552,21 @@ func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 		// if no instances were found.
 		return nil, environs.ErrNoInstances
 	}
-	instances, err := env.acquiredInstances(ctx, ids)
+	acquired, err := env.acquiredInstances(ctx, ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(instances) == 0 {
+	if len(acquired) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	idMap := make(map[instance.Id]instance.Instance)
-	for _, instance := range instances {
+	idMap := make(map[instance.Id]instances.Instance)
+	for _, instance := range acquired {
 		idMap[instance.Id()] = instance
 	}
 
 	missing := false
-	result := make([]instance.Instance, len(ids))
+	result := make([]instances.Instance, len(ids))
 	for index, id := range ids {
 		val, ok := idMap[id]
 		if !ok {
@@ -1586,7 +1587,7 @@ func (env *maasEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 // The "ids" slice is a filter for specific instance IDs.
 // Due to how this works in the HTTP API, an empty "ids"
 // matches all instances (not none as you might expect).
-func (env *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (env *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if !env.usingMAAS2() {
 		filter := getSystemIdValues("id", ids)
 		filter.Add("agent_name", env.uuid)
@@ -1600,7 +1601,7 @@ func (env *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, ids [
 }
 
 // instances calls the MAAS API to list nodes matching the given filter.
-func (env *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.Values) ([]instance.Instance, error) {
+func (env *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.Values) ([]instances.Instance, error) {
 	nodeListing := env.getMAASClient().GetSubObject("nodes")
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
@@ -1612,7 +1613,7 @@ func (env *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.V
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, err
 	}
-	instances := make([]instance.Instance, len(listNodes))
+	instances := make([]instances.Instance, len(listNodes))
 	for index, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
 		if err != nil {
@@ -1627,13 +1628,13 @@ func (env *maasEnviron) instances1(ctx context.ProviderCallContext, filter url.V
 	return instances, nil
 }
 
-func (env *maasEnviron) instances2(ctx context.ProviderCallContext, args gomaasapi.MachinesArgs) ([]instance.Instance, error) {
+func (env *maasEnviron) instances2(ctx context.ProviderCallContext, args gomaasapi.MachinesArgs) ([]instances.Instance, error) {
 	machines, err := env.maasController.Machines(args)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
-	instances := make([]instance.Instance, len(machines))
+	instances := make([]instances.Instance, len(machines))
 	for index, machine := range machines {
 		instances[index] = &maas2Instance{machine: machine, environ: env}
 	}
@@ -1791,7 +1792,7 @@ func (env *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nodeId 
 	return subnets, checkNotFound(subnetIdSet)
 }
 
-func (env *maasEnviron) getInstance(ctx context.ProviderCallContext, instId instance.Id) (instance.Instance, error) {
+func (env *maasEnviron) getInstance(ctx context.ProviderCallContext, instId instance.Id) (instances.Instance, error) {
 	instances, err := env.acquiredInstances(ctx, []instance.Id{instId})
 	if err != nil {
 		// This path can never trigger on MAAS 2, but MAAS 2 doesn't
@@ -2054,8 +2055,8 @@ func checkNotFound(subnetIdSet map[string]bool) error {
 	return nil
 }
 
-// AllInstances returns all the instance.Instance in this provider.
-func (env *maasEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+// AllInstances returns all the instances.Instance in this provider.
+func (env *maasEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return env.acquiredInstances(ctx, nil)
 }
 
@@ -2083,7 +2084,7 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (env *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, error) {
+func (env *maasEnviron) nodeIdFromInstance(inst instances.Instance) (string, error) {
 	maasInst := inst.(*maas1Instance)
 	maasObj := maasInst.maasObject
 	nodeId, err := maasObj.GetField("system_id")

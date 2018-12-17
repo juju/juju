@@ -40,7 +40,7 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetInit(c *gc.C) {
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 		c.Assert(err, jc.ErrorIsNil)
-		cmdtesting.TestInit(c, com, t.args, t.err)
+		cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), t.args, t.err)
 	}
 }
 
@@ -49,7 +49,7 @@ func (s *ContainerspecSetSuite) TestHelp(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(com, ctx, []string{"--help"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
 		"Usage: pod-spec-set [options] --file <pod spec file>\n" +
@@ -75,7 +75,7 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetNoData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
-	code := cmd.Main(com, ctx, nil)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(bufferString(
 		ctx.Stderr), gc.Matches,
@@ -94,7 +94,7 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetStdIn(c *gc.C) {
 func (s *ContainerspecSetSuite) assertContainerSpecSet(c *gc.C, filename string) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, args, ctx := s.initCommand(c, hctx, containerSpecYaml, filename)
-	code := cmd.Main(com, ctx, args)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -117,5 +117,5 @@ func (s *ContainerspecSetSuite) initCommand(
 		err := ioutil.WriteFile(filename, []byte(yaml), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return com, args, ctx
+	return jujuc.NewJujucCommandWrappedForTest(com), args, ctx
 }

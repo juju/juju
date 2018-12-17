@@ -13,6 +13,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 	goyaml "gopkg.in/yaml.v2"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 const relationSetDoc = `
@@ -53,12 +55,12 @@ func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-set",
 		Args:    "key=value [key=value ...]",
 		Purpose: "set relation settings",
 		Doc:     relationSetDoc,
-	}
+	})
 }
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {

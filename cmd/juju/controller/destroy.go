@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -125,12 +126,12 @@ type destroyClientAPI interface {
 
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "destroy-controller",
 		Args:    "<controller name>",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.
@@ -331,7 +332,7 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 The controller has live hosted models. If you want
 to destroy all hosted models in the controller,
 run this command again with the --destroy-all-models
-flag.
+option.
 
 Models:
 %s`, controllerName, buf.String())
@@ -390,11 +391,11 @@ The controller has persistent storage remaining:
 	%s
 
 To destroy the storage, run the destroy-controller
-command again with the "--destroy-storage" flag.
+command again with the "--destroy-storage" option.
 
 To release the storage from Juju's management
 without destroying it, use the "--release-storage"
-flag instead. The storage can then be imported
+option instead. The storage can then be imported
 into another Juju model.
 
 `, controllerName, buf.String())

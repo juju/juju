@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -301,7 +301,7 @@ func (statePolicy) ConstraintsValidator(context.ProviderCallContext) (constraint
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (statePolicy) InstanceDistributor() (instance.Distributor, error) {
+func (statePolicy) InstanceDistributor() (context.Distributor, error) {
 	return nil, errors.NotImplementedf("InstanceDistributor")
 }
 

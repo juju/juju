@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -47,12 +48,12 @@ type removeKeysCommand struct {
 
 // Info implements Command.Info.
 func (c *removeKeysCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-ssh-key",
 		Args:    "<ssh key id> ...",
 		Purpose: usageRemoveSSHKeySummary,
 		Doc:     usageRemoveSSHKeyDetails,
-	}
+	})
 }
 
 // Init implements Command.Init.

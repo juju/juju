@@ -4,10 +4,10 @@
 package manual
 
 import (
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -19,10 +19,10 @@ func (manualBootstrapInstance) Id() instance.Id {
 	return BootstrapInstanceId
 }
 
-func (manualBootstrapInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
+func (manualBootstrapInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	// We assume that if we are deploying in manual provider the
 	// underlying machine is clearly running.
-	return instance.InstanceStatus{
+	return instance.Status{
 		Status: status.Running,
 	}
 }

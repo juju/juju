@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -60,12 +61,12 @@ See also:
     show-controller`
 
 func (c *switchCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "switch",
 		Args:    "[<controller>|<model>|<controller>:|:<model>|<controller>:<model>]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-	}
+	})
 }
 
 func (c *switchCommand) Init(args []string) error {

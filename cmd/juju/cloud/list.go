@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 
 	jujucloud "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/output"
 )
@@ -62,12 +63,12 @@ func NewListCloudsCommand() cmd.Command {
 }
 
 func (c *listCloudsCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "clouds",
 		Purpose: "Lists all clouds available to Juju.",
 		Doc:     listCloudsDoc,
 		Aliases: []string{"list-clouds"},
-	}
+	})
 }
 
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {

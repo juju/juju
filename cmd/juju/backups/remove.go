@@ -9,10 +9,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/utils/set"
 )
 
 const removeDoc = `
@@ -34,12 +35,12 @@ type removeCommand struct {
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-backup",
 		Args:    "[--keep-latest|<ID>]",
 		Purpose: "Remove the specified backup from remote storage.",
 		Doc:     removeDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.
@@ -53,7 +54,7 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *removeCommand) Init(args []string) error {
 	switch {
 	case len(args) == 0 && !c.KeepLatest:
-		return errors.New("missing ID or --keep-latest flag")
+		return errors.New("missing ID or --keep-latest option")
 	case len(args) != 0:
 		id, args := args[0], args[1:]
 		if err := cmd.CheckEmpty(args); err != nil {

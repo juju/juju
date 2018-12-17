@@ -5,9 +5,10 @@
 package common
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	cloud "github.com/juju/juju/cloud"
-	reflect "reflect"
 )
 
 // MockCredentialStore is a mock of CredentialStore interface

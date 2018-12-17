@@ -16,11 +16,11 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -405,10 +405,10 @@ func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) 
 }
 
 func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
-	if p.containerType != instance.LXD {
-		// TODO (hml) lxd-profile 17-oct-2018
-		// what is the correct way to handle this, only start for LXD containers
-	}
+	// Note: we don't care what type the container is when watching. The
+	// provisioner task will make this become a no-op.
+	// Also we'll always clean up any documents once the uniter has finished
+	// deploying/upgrading a charm.
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err

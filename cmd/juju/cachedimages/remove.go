@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -37,11 +38,11 @@ type removeCommand struct {
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-cached-images",
 		Purpose: "Remove cached OS images.",
 		Doc:     removeCommandDoc,
-	}
+	})
 }
 
 // SetFlags implements Command.SetFlags.
