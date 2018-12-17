@@ -214,7 +214,7 @@ def assess_caas_charm_deployment(client):
     k8s_model.deploy(
         charm="cs:~juju/gitlab-k8s-0",
         config='juju-external-hostname={}'.format(external_hostname),
-        resource="gitlab_image=gitlab/gitlab-ce:11.0.6-ce.0",
+        resource="gitlab_image=gitlab/gitlab-ee:11.5.4-ee.0",
     )
 
     k8s_model.deploy(
@@ -232,6 +232,9 @@ def assess_caas_charm_deployment(client):
 
     log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+
+    # destroy model to peacefully exit.
+    k8s_model.destroy_model()
 
 
 def parse_args(argv):
