@@ -264,7 +264,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 		},
 		func() (map[string]*jujucmdcloud.CloudDetails, error) {
 			return map[string]*jujucmdcloud.CloudDetails{
-				"gce": &jujucmdcloud.CloudDetails{
+				"gce": {
 					Source:           "public",
 					CloudType:        "gce",
 					CloudDescription: "Google Cloud Platform",
