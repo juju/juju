@@ -16,9 +16,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/caas"
@@ -42,17 +44,18 @@ type CloudMetadataStore interface {
 	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
 }
 
-// AddCloudAPI - Implemented by cloudapi.Client
+// AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
 	AddCloud(jujucloud.Cloud) error
 	AddCredential(tag string, credential jujucloud.Credential) error
 	Close() error
 }
 
-// ModelConfigAPI - Implemented by modelconfig.Client
-type ModelConfigAPI interface {
-	ModelGet() (map[string]interface{}, error)
-	Close() error
+// BrokerGetter returns caas broker instance.
+type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8sBrokerRegionLister, error)
+
+type k8sBrokerRegionLister interface {
+	ListHostCloudRegions() (set.Strings, error)
 }
 
 var usageAddCAASSummary = `
@@ -91,10 +94,12 @@ type AddCAASCommand struct {
 	// The format is <cloudType/region>
 	cloudRegion string
 
+	// brokerGetter returns caas broker instance.
+	brokerGetter BrokerGetter
+
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
 	addCloudAPIFunc       func() (AddCloudAPI, error)
-	modelConfigAPIFunc    func() (ModelConfigAPI, error)
 	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
 
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error)
@@ -117,13 +122,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		return cloudapi.NewClient(root), nil
 	}
 
-	cmd.modelConfigAPIFunc = func() (ModelConfigAPI, error) {
-		api, err := cmd.NewAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return modelconfig.NewClient(api), nil
-	}
+	cmd.brokerGetter = getK8sBroker(cmd.NewAPIRoot)
 	cmd.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
 	return modelcmd.WrapController(cmd)
 }
@@ -272,6 +271,33 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
+func getK8sBroker(rootAPIGetter func() (api.Connection, error)) BrokerGetter {
+	return func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8sBrokerRegionLister, error) {
+		conn, err := rootAPIGetter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelConfigClient := modelconfig.NewClient(conn)
+		defer modelConfigClient.Close()
+
+		// this current model is not really we want, but it's just for generating the config.
+		attrs, err := modelConfigClient.ModelGet()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg, err := config.New(config.NoDefaults, attrs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return caas.New(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+	}
+}
+
 func parseCloudRegion(cloudRegion string) (string, string, error) {
 	fields := strings.SplitN(cloudRegion, "/", 2)
 	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
@@ -310,28 +336,7 @@ func (c *AddCAASCommand) getClusterRegion(
 	cloud jujucloud.Cloud,
 	credential jujucloud.Credential,
 ) (string, error) {
-	modelConfigClient, err := c.modelConfigAPIFunc()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer modelConfigClient.Close()
-
-	// this current model is not really we want, but it's just for generating the config.
-	attrs, err := modelConfigClient.ModelGet()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	broker, err := caas.New(environs.OpenParams{Cloud: cloudSpec, Config: cfg})
+	broker, err := c.brokerGetter(cloud, credential)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -349,7 +354,7 @@ func (c *AddCAASCommand) getClusterRegion(
 			errChan <- err
 		}
 		if cloudRegions == nil || cloudRegions.Size() == 0 {
-			errChan <- errors.New("no cloud region information is set in the custer")
+			errChan <- errors.New("no cloud region information is set in the cluster")
 		} else {
 			// we currently assume it's always a single region cluster.
 			result <- cloudRegions.SortedValues()[0]

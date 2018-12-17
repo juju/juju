@@ -17,7 +17,7 @@ func NewAddCAASCommandForTest(
 	fileCredentialStore jujuclient.CredentialStore,
 	clientStore jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
-	modelConfigAPIFunc func() (ModelConfigAPI, error),
+	brokerGetter BrokerGetter,
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error),
 ) cmd.Command {
@@ -25,7 +25,7 @@ func NewAddCAASCommandForTest(
 		cloudMetadataStore:    cloudMetadataStore,
 		fileCredentialStore:   fileCredentialStore,
 		addCloudAPIFunc:       addCloudAPIFunc,
-		modelConfigAPIFunc:    modelConfigAPIFunc,
+		brokerGetter:          brokerGetter,
 		newClientConfigReader: newClientConfigReaderFunc,
 		getAllCloudDetails:    getAllCloudDetails,
 	}
@@ -47,3 +47,5 @@ func NewRemoveCAASCommandForTest(
 	cmd.SetClientStore(clientStore)
 	return modelcmd.WrapController(cmd)
 }
+
+type K8sBrokerRegionLister = k8sBrokerRegionLister

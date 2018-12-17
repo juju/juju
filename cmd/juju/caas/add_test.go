@@ -15,12 +15,14 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient"
@@ -28,12 +30,13 @@ import (
 
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
-	dir                 string
-	fakeCloudAPI        *fakeAddCloudAPI
-	fakeModelConfigAPI  *fakeModelConfigAPI
-	store               *fakeCloudMetadataStore
-	fileCredentialStore *fakeCredentialStore
-	fakeK8SConfigFunc   clientconfig.ClientConfigFunc
+	dir                       string
+	fakeCloudAPI              *fakeAddCloudAPI
+	fakeK8sBrokerRegionLister *fakeK8sBrokerRegionLister
+	store                     *fakeCloudMetadataStore
+	fileCredentialStore       *fakeCredentialStore
+	fakeK8SConfigFunc         clientconfig.ClientConfigFunc
+	currentClusterRegionSet   *set.Strings
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -108,17 +111,14 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credentia
 	return nil
 }
 
-type fakeModelConfigAPI struct {
-	caas.ModelConfigAPI
-	jujutesting.Stub
+type fakeK8sBrokerRegionLister struct {
+	*jujutesting.CallMocker
+	caas.K8sBrokerRegionLister
 }
 
-func (api *fakeModelConfigAPI) Close() error {
-	return nil
-}
-
-func (api *fakeModelConfigAPI) ModelGet() (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (api *fakeK8sBrokerRegionLister) ListHostCloudRegions() (set.Strings, error) {
+	results := api.MethodCall(api, "ListHostCloudRegions")
+	return *results[0].(*set.Strings), jujutesting.TypeAssertError(results[1])
 }
 
 func fakeNewK8sClientConfig(io.Reader) (*clientconfig.ClientConfig, error) {
@@ -172,6 +172,11 @@ func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud
 	fcs.AddCall("UpdateCredential", cloudName, details)
 	return nil
 }
+func (s *addCAASSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+
+	s.currentClusterRegionSet = &set.Strings{}
+}
 
 func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -186,9 +191,11 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
-	s.fakeModelConfigAPI = &fakeModelConfigAPI{}
 	var logger loggo.Logger
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
+
+	s.fakeK8sBrokerRegionLister = &fakeK8sBrokerRegionLister{CallMocker: jujutesting.NewCallMocker(logger)}
+	s.fakeK8sBrokerRegionLister.Call("ListHostCloudRegions").Returns(s.currentClusterRegionSet, nil)
 
 	initialCloudMap := map[string]cloud.Cloud{
 		"mrcloud1": {Name: "mrcloud1", Type: "kubernetes"},
@@ -199,6 +206,12 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 
 	s.store.Call("PublicCloudMetadata", []string(nil)).Returns(initialCloudMap, false, nil)
 	s.store.Call("WritePersonalCloudMetadata", initialCloudMap).Returns(nil)
+}
+
+func (s *addCAASSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+
+	*s.currentClusterRegionSet = set.NewStrings()
 }
 
 func (s *addCAASSuite) writeTempKubeConfig(c *gc.C) {
@@ -225,14 +238,15 @@ func NewMockClientStore() *jujuclient.MemStore {
 }
 
 func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool, shouldFakeNewK8sClientConfig bool) cmd.Command {
-	return caas.NewAddCAASCommandForTest(s.store,
+	return caas.NewAddCAASCommandForTest(
+		s.store,
 		&fakeCredentialStore{},
 		NewMockClientStore(),
 		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func() (caas.ModelConfigAPI, error) {
-			return s.fakeModelConfigAPI, nil
+		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.K8sBrokerRegionLister, error) {
+			return s.fakeK8sBrokerRegionLister, nil
 		},
 		func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			if !cloudTypeExists {
@@ -250,7 +264,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 		},
 		func() (map[string]*jujucmdcloud.CloudDetails, error) {
 			return map[string]*jujucmdcloud.CloudDetails{
-				"ec2": &jujucmdcloud.CloudDetails{
+				"gce": &jujucmdcloud.CloudDetails{
 					Source:           "public",
 					CloudType:        "gce",
 					CloudDescription: "Google Cloud Platform",
@@ -313,6 +327,150 @@ func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "non existing cluster name")
 	c.Assert(err, gc.ErrorMatches, `clusterName \"non existing cluster name\" not found`)
+}
+
+type regionTestCase struct {
+	title          string
+	regionStr      string
+	expectedErrStr string
+}
+
+func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
+	for _, ts := range []regionTestCase{
+		{
+			title:          "missing cloud",
+			regionStr:      "/region",
+			expectedErrStr: `validating cloud region "/region": parsing cloud region: expected <cloudType>/<region> not valid`,
+		},
+		{
+			title:          "missing region",
+			regionStr:      "cloud/",
+			expectedErrStr: `validating cloud region "cloud/": parsing cloud region: expected <cloudType>/<region> not valid`,
+		},
+		{
+			title:          "invalid formnat, it should be <cloudType>/<region>",
+			regionStr:      "cloudRegion",
+			expectedErrStr: `validating cloud region "cloudRegion": parsing cloud region: expected <cloudType>/<region> not valid`,
+		},
+		{
+			title:          "not a known juju cloud region",
+			regionStr:      "cloud/region",
+			expectedErrStr: `validating cloud region "cloud/region":  not valid`,
+		},
+		{
+			title:          "all good",
+			regionStr:      "gce/us-east1",
+			expectedErrStr: "",
+		},
+	} {
+		cmd := s.makeCommand(c, true, false, true)
+		_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2", "--region", ts.regionStr)
+		if ts.expectedErrStr == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, ts.expectedErrStr)
+		}
+	}
+}
+
+func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *gc.C) {
+	*s.currentClusterRegionSet = set.NewStrings("")
+
+	cmd := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	c.Assert(err, jc.ErrorIsNil)
+	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+		map[string]cloud.Cloud{
+			"mrcloud1": {
+				Name:             "mrcloud1",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes(nil),
+				Endpoint:         "",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+			},
+			"mrcloud2": {
+				Name:             "mrcloud2",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes(nil),
+				Endpoint:         "",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+			},
+			"myk8s": {
+				Name:             "myk8s",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes{""},
+				Endpoint:         "fakeendpoint2",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+				CACertificates:   []string{"fakecadata2"},
+			},
+		},
+	)
+}
+
+func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c *gc.C) {
+	cloudRegion := "gce/us-east1"
+	*s.currentClusterRegionSet = set.NewStrings(cloudRegion)
+
+	cmd := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	c.Assert(err, jc.ErrorIsNil)
+	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+		map[string]cloud.Cloud{
+			"mrcloud1": {
+				Name:             "mrcloud1",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes(nil),
+				Endpoint:         "",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+			},
+			"mrcloud2": {
+				Name:             "mrcloud2",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes(nil),
+				Endpoint:         "",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+			},
+			"myk8s": {
+				Name:             "myk8s",
+				HostCloud:        cloudRegion,
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes{""},
+				Endpoint:         "fakeendpoint2",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+				CACertificates:   []string{"fakecadata2"},
+			},
+		},
+	)
 }
 
 func mockStdinPipe(content string) (*os.File, error) {
