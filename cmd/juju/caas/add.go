@@ -69,7 +69,8 @@ can contain definitions for different k8s clusters, use --cluster-name to pick
 which one to use.
 
 Examples:
-    juju add-k8s myk8scloud
+	juju add-k8s myk8scloud
+	juju add-k8s myk8scloud --region <cloudType/region>
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
