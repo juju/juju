@@ -67,7 +67,7 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *gc.C) {
 		},
 		{
 			input:  lxdprofile.NotKnownStatus,
-			output: true,
+			output: false,
 		},
 		{
 			input:  lxdprofile.ErrorStatus,

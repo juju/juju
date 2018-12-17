@@ -25,10 +25,10 @@ func NewLXDProfileAPI(facade base.FacadeCaller, tag names.Tag) *LXDProfileAPI {
 	return &LXDProfileAPI{facade: facade, tag: tag}
 }
 
-// WatchLXDProfileUpgradeNotifications returns a NotifyWatcher for observing the state of
+// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing the state of
 // a LXD profile upgrade
-func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
+func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(applicationName string) (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
 	args := params.LXDProfileUpgrade{
 		Entities:        []params.Entity{{Tag: u.tag.String()}},
 		ApplicationName: applicationName,
@@ -44,33 +44,8 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(applicationName stri
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewNotifyWatcher(u.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(u.facade.RawAPICaller(), result)
 	return w, nil
-}
-
-// UpgradeCharmProfileUnitStatus returns the lxd profile status of a
-// unit from remote state.
-func (u *LXDProfileAPI) UpgradeCharmProfileUnitStatus() ([]string, error) {
-	var results params.UpgradeCharmProfileStatusResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-
-	err := u.facade.FacadeCall("UpgradeCharmProfileUnitStatus", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	statuses := make([]string, len(results.Results))
-	for i, res := range results.Results {
-		if res.Error != nil {
-			if params.IsCodeNotFound(res.Error) {
-				return nil, errors.NewNotFound(res.Error, "")
-			}
-			return nil, res.Error
-		}
-		statuses[i] = res.Status
-	}
-	return statuses, nil
 }
 
 // RemoveUpgradeCharmProfileData removes the lxd profile status instance data

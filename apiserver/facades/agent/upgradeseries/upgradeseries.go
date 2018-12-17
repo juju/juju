@@ -26,10 +26,15 @@ type API struct {
 	resources facade.Resources
 }
 
+// NewAPI creates a new instance of the API with the given context
 func NewAPI(ctx facade.Context) (*API, error) {
 	leadership, err := common.NewLeadershipPinningFacade(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		if errors.IsNotImplemented(errors.Cause(err)) {
+			leadership = disabledLeadershipPinningFacade{}
+		} else {
+			return nil, errors.Trace(err)
+		}
 	}
 	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
 }
@@ -275,4 +280,24 @@ func (a *API) authAndMachine(e params.Entity, canAccess common.AuthFunc) (common
 		return nil, common.ErrPerm
 	}
 	return a.GetMachine(tag)
+}
+
+// disabledLeadershipPinningFacade implements the LeadershipPinningAPI, but
+// provides a no-operation for pinning operations
+type disabledLeadershipPinningFacade struct{}
+
+// PinMachineApplications implements common.LeadershipPinningAPI
+func (disabledLeadershipPinningFacade) PinMachineApplications() (params.PinApplicationsResults, error) {
+	return params.PinApplicationsResults{}, errors.NotImplementedf(
+		"unable to get leadership pinner; pinning is not available with the legacy lease manager")
+}
+
+// UnpinMachineApplications implements common.LeadershipPinningAPI
+func (disabledLeadershipPinningFacade) UnpinMachineApplications() (params.PinApplicationsResults, error) {
+	return params.PinApplicationsResults{}, nil
+}
+
+// PinnedLeadership implements common.LeadershipPinningAPI
+func (disabledLeadershipPinningFacade) PinnedLeadership() (params.PinnedLeadershipResult, error) {
+	return params.PinnedLeadershipResult{}, nil
 }

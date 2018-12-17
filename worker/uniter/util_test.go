@@ -989,6 +989,8 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)
+	err = ctx.application.SetCharmProfile(sch.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
