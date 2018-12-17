@@ -122,7 +122,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		return cloudapi.NewClient(root), nil
 	}
 
-	cmd.brokerGetter = getK8sBroker(cmd.NewAPIRoot)
+	cmd.brokerGetter = newK8sBrokerGetter(cmd.NewAPIRoot)
 	cmd.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
 	return modelcmd.WrapController(cmd)
 }
@@ -271,17 +271,17 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func getK8sBroker(rootAPIGetter func() (api.Connection, error)) BrokerGetter {
+func newK8sBrokerGetter(rootAPIGetter func() (api.Connection, error)) BrokerGetter {
 	return func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8sBrokerRegionLister, error) {
 		conn, err := rootAPIGetter()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		modelConfigClient := modelconfig.NewClient(conn)
-		defer modelConfigClient.Close()
+		modelAPI := modelconfig.NewClient(conn)
+		defer modelAPI.Close()
 
 		// this current model is not really we want, but it's just for generating the config.
-		attrs, err := modelConfigClient.ModelGet()
+		attrs, err := modelAPI.ModelGet()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
