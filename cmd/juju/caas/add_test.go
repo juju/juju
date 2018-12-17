@@ -457,7 +457,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 			},
 			"myk8s": {
 				Name:             "myk8s",
-				HostCloud:        cloudRegion,
+				HostCloudRegion:  cloudRegion,
 				Type:             "kubernetes",
 				Description:      "",
 				AuthTypes:        cloud.AuthTypes{""},

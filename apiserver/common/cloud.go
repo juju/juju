@@ -24,7 +24,7 @@ func CloudToParams(cloud jujucloud.Cloud) params.Cloud {
 	}
 	return params.Cloud{
 		Type:             cloud.Type,
-		HostCloud:        cloud.HostCloud,
+		HostCloudRegion:  cloud.HostCloudRegion,
 		AuthTypes:        authTypes,
 		Endpoint:         cloud.Endpoint,
 		IdentityEndpoint: cloud.IdentityEndpoint,

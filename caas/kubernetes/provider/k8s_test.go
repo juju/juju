@@ -209,59 +209,6 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 	})
 }
 
-func newNode(labels map[string]string) core.Node {
-	n := core.Node{}
-	n.SetLabels(labels)
-	return n
-}
-
-var nodesTestCases = []struct {
-	expectedOut string
-	node        core.Node
-}{
-	{
-		expectedOut: "",
-		node:        newNode(map[string]string{}),
-	},
-	{
-		expectedOut: "",
-		node: newNode(map[string]string{
-			"cloud.google.com/gke-nodepool": "",
-		}),
-	},
-	{
-		expectedOut: "",
-		node: newNode(map[string]string{
-			"cloud.google.com/gke-os-distribution": "",
-		}),
-	},
-	{
-		expectedOut: "gce",
-		node: newNode(map[string]string{
-			"cloud.google.com/gke-nodepool":        "",
-			"cloud.google.com/gke-os-distribution": "",
-		}),
-	},
-	{
-		expectedOut: "azure",
-		node: newNode(map[string]string{
-			"kubernetes.azure.com/cluster": "",
-		}),
-	},
-	{
-		expectedOut: "ec2",
-		node: newNode(map[string]string{
-			"manufacturer": "amazon_ec2",
-		}),
-	},
-}
-
-func (s *K8sSuite) TestGetCloudProviderFromNodeMeta(c *gc.C) {
-	for _, v := range nodesTestCases {
-		c.Check(provider.GetCloudProviderFromNodeMeta(v.node), gc.Equals, v.expectedOut)
-	}
-}
-
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
 		"juju-operator": "gitlab",

@@ -121,8 +121,8 @@ type Cloud struct {
 	// environs.RegisterProvider.
 	Type string
 
-	// HostCloud represents the k8s host cloud. The format is <cloudName>/<region>.
-	HostCloud string
+	// HostCloudRegion represents the k8s host cloud. The format is <cloudName>/<region>.
+	HostCloudRegion string
 
 	// Description describes the type of cloud.
 	Description string

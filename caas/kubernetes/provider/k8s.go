@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
@@ -182,49 +180,7 @@ func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) er
 	return nil
 }
 
-func newLabelRequirements(rs ...requirement) k8slabels.Selector {
-	s := k8slabels.NewSelector()
-	for _, r := range rs {
-		l, err := k8slabels.NewRequirement(r.key, r.operator, r.strValues)
-		if err != nil {
-			panic(errors.Annotate(err, "fix this"))
-		}
-		s = s.Add(*l)
-	}
-	return s
-}
-
-type requirement struct {
-	key       string
-	operator  selection.Operator
-	strValues []string
-}
-
-var checkers = map[string]k8slabels.Selector{
-	"gce": newLabelRequirements(
-		requirement{"cloud.google.com/gke-nodepool", selection.Exists, nil},
-		requirement{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
-	),
-	"ec2": newLabelRequirements(
-		requirement{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
-	),
-	"azure": newLabelRequirements(
-		requirement{"kubernetes.azure.com/cluster", selection.Exists, nil},
-	),
-	// format - cloudType: requirements.
-	// TODO(ycliuhw): add support for cdk, etc.
-}
-
-func getCloudProviderFromNodeMeta(node core.Node) string {
-	for k, checker := range checkers {
-		if checker.Matches(k8slabels.Set(node.GetLabels())) {
-			return k
-		}
-	}
-	return ""
-}
-
-var regionLabelName = "failure-domain.beta.kubernetes.io/region"
+const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 // ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
 func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {

@@ -102,7 +102,7 @@ func cloudsFromConfig(config *clientcmdapi.Config) (map[string]CloudConfig, erro
 func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Credential, error) {
 	rv := map[string]cloud.Credential{}
 	for name, user := range config.AuthInfos {
-		logger.Debugf("name %q", name)
+		logger.Debugf("name %q, user %#v", name, user)
 
 		var hasCert bool
 		attrs := map[string]string{}

@@ -245,7 +245,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		if err = c.validateCloudRegion(cloudRegion); err != nil {
 			return errors.Trace(err)
 		}
-		newCloud.HostCloud = cloudRegion
+		newCloud.HostCloudRegion = cloudRegion
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
