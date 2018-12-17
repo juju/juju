@@ -111,9 +111,9 @@ func (mr *MockLXDProfileMachineMockRecorder) Units() *gomock.Call {
 }
 
 // WatchLXDProfileUpgradeNotifications mocks base method
-func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.NotifyWatcher, error) {
+func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications", arg0)
-	ret0, _ := ret[0].(state.NotifyWatcher)
+	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -169,17 +169,4 @@ func (m *MockLXDProfileUnit) Tag() names_v2.Tag {
 // Tag indicates an expected call of Tag
 func (mr *MockLXDProfileUnitMockRecorder) Tag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockLXDProfileUnit)(nil).Tag))
-}
-
-// UpgradeCharmProfileStatus mocks base method
-func (m *MockLXDProfileUnit) UpgradeCharmProfileStatus() (string, error) {
-	ret := m.ctrl.Call(m, "UpgradeCharmProfileStatus")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpgradeCharmProfileStatus indicates an expected call of UpgradeCharmProfileStatus
-func (mr *MockLXDProfileUnitMockRecorder) UpgradeCharmProfileStatus() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeCharmProfileStatus", reflect.TypeOf((*MockLXDProfileUnit)(nil).UpgradeCharmProfileStatus))
 }

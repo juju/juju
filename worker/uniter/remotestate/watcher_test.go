@@ -64,7 +64,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
-			upgradeLXDProfileUpgradeWatcher:  newMockNotifyWatcher(),
+			upgradeLXDProfileUpgradeWatcher:  newMockStringsWatcher(),
 		},
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -92,7 +92,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
 	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
-	s.st.unit.upgradeLXDProfileUpgradeWatcher = newMockNotifyWatcher()
+	s.st.unit.upgradeLXDProfileUpgradeWatcher = newMockStringsWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		State:               s.st,
 		ModelType:           s.modelType,
@@ -158,7 +158,9 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	if s.st.unit.upgradeSeriesWatcher != nil {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	}
-	s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- struct{}{}
+	if s.st.unit.upgradeLXDProfileUpgradeWatcher != nil {
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
+	}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	if s.st.unit.application.applicationWatcher != nil {
@@ -185,8 +187,8 @@ func (s *WatcherSuite) signalAll() {
 	if s.st.modelType == model.IAAS {
 		s.applicationWatcher.changes <- struct{}{}
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.NotRequiredStatus}
 	}
-	s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- struct{}{}
 }
 
 func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
@@ -231,7 +233,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion:     1,
 		Leader:                    true,
 		UpgradeSeriesStatus:       "",
-		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
+		UpgradeCharmProfileStatus: "",
 	})
 }
 
@@ -280,15 +282,14 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	if s.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		assertOneChange()
+		s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- []string{lxdprofile.SuccessStatus}
+		assertOneChange()
 
 		s.st.unit.application.forceUpgrade = true
 		s.applicationWatcher.changes <- struct{}{}
 		assertOneChange()
 		c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 	}
-
-	s.st.unit.upgradeLXDProfileUpgradeWatcher.changes <- struct{}{}
-	assertOneChange()
 
 	s.clock.Advance(5 * time.Minute)
 	assertOneChange()

@@ -117,6 +117,11 @@ func (a *mockApplication) AllUnits() ([]application.Unit, error) {
 	return units, nil
 }
 
+func (a *mockApplication) SetCharmProfile(charmURL string) error {
+	a.MethodCall(a, "SetCharmProfile", charmURL)
+	return a.NextErr()
+}
+
 func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 	a.MethodCall(a, "SetCharm", cfg)
 	return a.NextErr()

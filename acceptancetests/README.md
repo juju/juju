@@ -14,6 +14,13 @@ $ sudo apt-get install make
 $ make install-deps
 ```
 
+It may also be necessary to install simplestreams to run tests like assess_upgrade.py.
+```bash
+$ sudo apt update
+$ sudo apt install python3-simplestreams
+$ sudo apt install python-simplestreams
+```
+
 ### Required Environment Variables
 
   * **JUJU_HOME**: The directory the test will use to:
@@ -140,6 +147,11 @@ juju bootstrap lxd testing-feature-x
 
 Normally a test script will teardown any bootstrapped controllers, if you wish to investigate the environment after a run use ```--keep-env```.  
 Using the ```--keep-env``` option will skip any teardown of an environment at the end of a test.
+
+To view juju status output of the current model, if JUJU_DATA not set
+```bash
+JUJU_DATA=$JUJU_HOME/juju-homes/<controller_name> juju status
+```
 
 ### Use of environments.yaml<a name="envs"></a>
 

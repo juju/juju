@@ -7,7 +7,8 @@ to the new one.
   - Spins up a local streams server (requires to be run on lxd or on a machine
      with an externally routable interface.
   - Bootstraps using the 'stable' juju then upgrades to the 'devel' version.
-  - Deploys mediawiki and mysql to ensure workloads continue working.
+  - Deploys keystone and percona-cluster to ensure
+     workloads continue working.
 """
 
 from __future__ import print_function
@@ -48,8 +49,8 @@ from jujupy.wait_condition import (
     wait_until_model_upgrades,
 )
 from jujupy.workloads import (
-    deploy_mediawiki_with_db,
-    assert_mediawiki_is_responding
+    deploy_keystone_with_db,
+    assert_keystone_is_responding
     )
 
 
@@ -118,10 +119,10 @@ def assert_upgrade_is_successful(
         raise ValueError("extra_upgrade_args must be a tuple")
     assert_stable_model_is_correct(stable_client)
 
-    deploy_mediawiki_with_db(stable_client)
-    assert_mediawiki_is_responding(stable_client)
+    deploy_keystone_with_db(stable_client)
+    assert_keystone_is_responding(stable_client)
     upgrade_stable_to_devel_version(devel_client, extra_upgrade_args)
-    assert_mediawiki_is_responding(devel_client)
+    assert_keystone_is_responding(devel_client)
 
 
 def upgrade_stable_to_devel_version(client, extra_args):

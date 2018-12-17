@@ -71,10 +71,10 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
 	defer ctrl.Finish()
 
-	lxdProfileWatcher := &mockNotifyWatcher{
-		changes: make(chan struct{}, 1),
+	lxdProfileWatcher := &mockStringsWatcher{
+		changes: make(chan []string, 1),
 	}
-	lxdProfileWatcher.changes <- struct{}{}
+	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
 
 	mockMachine1 := mocks.NewMockLXDProfileMachine(ctrl)
 	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
@@ -93,10 +93,10 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsUnitTag(c *gc.C
 	}
 	watches, err := api.WatchLXDProfileUpgradeNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{NotifyWatcherId: "1", Error: nil},
+	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},
 		},
 	})
 }
@@ -107,10 +107,10 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 
 	mockMachine := mocks.NewMockLXDProfileMachine(ctrl)
 
-	lxdProfileWatcher := &mockNotifyWatcher{
-		changes: make(chan struct{}, 1),
+	lxdProfileWatcher := &mockStringsWatcher{
+		changes: make(chan []string, 1),
 	}
-	lxdProfileWatcher.changes <- struct{}{}
+	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine, nil)
 	mockMachine.EXPECT().WatchLXDProfileUpgradeNotifications("foo-bar").Return(lxdProfileWatcher, nil)
@@ -125,36 +125,10 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotificationsMachineTag(c *g
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{NotifyWatcherId: "1"},
-			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-		},
-	})
-}
-
-func (s *lxdProfileSuite) TestLXDProfileStatusUnitTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
-	defer ctrl.Finish()
-
-	mockUnit := mocks.NewMockLXDProfileUnit(ctrl)
-
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
-	mockUnit.EXPECT().UpgradeCharmProfileStatus().Return(lxdprofile.SuccessStatus, nil)
-
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: s.unitTag1.String()},
-			{Tag: names.NewUnitTag("mysql/2").String()},
-		},
-	}
-
-	results, err := api.UpgradeCharmProfileUnitStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeCharmProfileStatusResults{
-		Results: []params.UpgradeCharmProfileStatusResult{
-			{Status: lxdprofile.SuccessStatus},
-			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{""}},
+			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }

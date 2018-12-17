@@ -7,7 +7,6 @@ import argparse
 import logging
 import sys
 import subprocess
-import json
 
 from deploy_stack import (
     BootstrapManager,
@@ -56,9 +55,18 @@ def assess_destroy_model(client):
 def destroy_model(client, new_client):
     log.info('Destroying model "{}"'.format(TEST_MODEL))
     new_client.destroy_model()
-    new_model = get_current_model(client)
-    if new_model:
-        error = 'Juju failed to unset model after it was destroyed'
+    old_model = get_current_model(client)
+    if not old_model:
+        error = 'Juju unset model after it was destroyed'
+        raise JujuAssertionError(error)
+    try:
+        client.get_juju_output('status', include_e=False)
+    except subprocess.CalledProcessError as e:
+        if b'{} not found'.format(old_model) not in e.stderr:
+            error = 'unexpected error calling status\n{}'.format(e.stderr)
+            raise JujuAssertionError(error)
+    else:
+        error = 'model still valid after it was destroyed'
         raise JujuAssertionError(error)
 
 

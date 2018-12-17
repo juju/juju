@@ -229,6 +229,74 @@ func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesComplet
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenNotRequired(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenSuccess(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.SuccessStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.SuccessStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenErrorState(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.ErrorStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
+}
+
+func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenLocalStateIsNotErroredState(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion:      s.charmModifiedVersion,
+		CharmURL:                  s.charmURL,
+		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
+}
+
 func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {
 	s.resolverConfig.ShouldRetryHooks = false
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)

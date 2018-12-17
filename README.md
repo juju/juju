@@ -200,3 +200,4 @@ To enable strict mode, the following bugs need to be resolved, and the snap upda
  * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
  
+
