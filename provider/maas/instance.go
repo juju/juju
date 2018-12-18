@@ -40,18 +40,15 @@ func (mi *maas1Instance) String() string {
 	hostname, err := mi.hostname()
 	if err != nil {
 		// This is meant to be impossible, but be paranoid.
+		logger.Errorf("unable to detect MAAS instance hostname: %q", err)
 		hostname = fmt.Sprintf("<DNSName failed: %q>", err)
 	}
 	return fmt.Sprintf("%s:%s", hostname, mi.Id())
 }
 
 func (mi *maas1Instance) Id() instance.Id {
-	return maasObjectId(mi.maasObject)
-}
-
-func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
-	// Use the node's 'resource_uri' value.
-	return instance.Id(maasObject.URI().String())
+	// Note: URI excludes the hostname
+	return instance.Id(mi.maasObject.URI().String())
 }
 
 func normalizeStatus(statusMsg string) string {

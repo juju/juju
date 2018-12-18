@@ -259,7 +259,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 
 	machine, err := s.State.Machine(assignedMachineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// volume attachment will NOT react to volume changes
@@ -525,7 +525,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 	// attachment does not short-circuit.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine := unitMachine(c, s.State, u)
-		err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+		err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 		c.Assert(err, jc.ErrorIsNil)

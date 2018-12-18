@@ -17,5 +17,5 @@ type Status struct {
 	Message string
 }
 
-// UnknownId can be used to explicitly specify the instance Id does not matter.
+// UnknownId can be used to explicitly specify the instance Id when it does not matter.
 const UnknownId Id = ""

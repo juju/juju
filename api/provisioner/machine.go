@@ -84,7 +84,7 @@ type MachineProvisioner interface {
 	// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
 	// network config for this machine. Once set, the instance id cannot be changed.
 	SetInstanceInfo(
-		id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+		id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
 		networkConfig []params.NetworkConfig, volumes []params.Volume,
 		volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 	) error
@@ -360,7 +360,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 
 // SetInstanceInfo implements MachineProvisioner.SetInstanceInfo.
 func (m *Machine) SetInstanceInfo(
-	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
 	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
 ) error {
@@ -369,6 +369,7 @@ func (m *Machine) SetInstanceInfo(
 		Machines: []params.InstanceInfo{{
 			Tag:               m.tag.String(),
 			InstanceId:        id,
+			DisplayName:       displayName,
 			Nonce:             nonce,
 			Characteristics:   characteristics,
 			Volumes:           volumes,

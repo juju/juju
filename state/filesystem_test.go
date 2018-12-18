@@ -152,7 +152,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 
 	if _, ok := hostTag.(names.MachineTag); ok {
 		machine := unitMachine(c, s.st, u)
-		err := machine.SetProvisioned("inst-id", "fake_nonce", nil)
+		err := machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -219,7 +219,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 		// filesystem can be attached.
 		machine, err := s.st.Machine(machineTag.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+		err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -341,7 +341,7 @@ func (s *FilesystemIAASModelSuite) TestWatchFilesystemAttachment(c *gc.C) {
 
 	machine, err := s.st.Machine(assignedMachineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// filesystem attachment will NOT react to filesystem changes
@@ -373,7 +373,7 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 	if _, ok := hostTag.(names.MachineTag); ok {
 		machine, err := s.st.Machine(hostTag.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+		err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1135,7 +1135,7 @@ func (s *FilesystemIAASModelSuite) TestDestroyManualMachineDoesntRemoveNonDetach
 	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
 
 	// Make this a manual machine, so the cleanup.
-	err := machine.SetProvisioned("inst-id", "manual:machine", nil)
+	err := machine.SetProvisioned("inst-id", "", "manual:machine", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the machine and run cleanups, which should cause the
@@ -1159,7 +1159,7 @@ func (s *FilesystemIAASModelSuite) TestDestroyManualMachineDoesntDetachDetachabl
 	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped-block")
 
 	// Make this a manual machine, so the cleanup.
-	err := machine.SetProvisioned("inst-id", "manual:machine", nil)
+	err := machine.SetProvisioned("inst-id", "", "manual:machine", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the machine and run cleanups, which should cause the

@@ -1039,7 +1039,7 @@ class ModelClient:
         self.juju(self._show_status, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, controller=False, *args):
-        """Get the current status as a dict."""
+        """Get the current status as a jujupy.status.Status object."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
             try:

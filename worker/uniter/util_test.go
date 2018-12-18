@@ -66,7 +66,7 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := st.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
+	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(network.Address{
 		Type:  network.IPv4Address,

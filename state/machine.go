@@ -207,17 +207,18 @@ func (m *Machine) globalKey() string {
 
 // instanceData holds attributes relevant to a provisioned machine.
 type instanceData struct {
-	DocID      string      `bson:"_id"`
-	MachineId  string      `bson:"machineid"`
-	InstanceId instance.Id `bson:"instanceid"`
-	ModelUUID  string      `bson:"model-uuid"`
-	Arch       *string     `bson:"arch,omitempty"`
-	Mem        *uint64     `bson:"mem,omitempty"`
-	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
-	CpuCores   *uint64     `bson:"cpucores,omitempty"`
-	CpuPower   *uint64     `bson:"cpupower,omitempty"`
-	Tags       *[]string   `bson:"tags,omitempty"`
-	AvailZone  *string     `bson:"availzone,omitempty"`
+	DocID       string      `bson:"_id"`
+	MachineId   string      `bson:"machineid"`
+	InstanceId  instance.Id `bson:"instanceid"`
+	DisplayName string      `bson:"display-name"`
+	ModelUUID   string      `bson:"model-uuid"`
+	Arch        *string     `bson:"arch,omitempty"`
+	Mem         *uint64     `bson:"mem,omitempty"`
+	RootDisk    *uint64     `bson:"rootdisk,omitempty"`
+	CpuCores    *uint64     `bson:"cpucores,omitempty"`
+	CpuPower    *uint64     `bson:"cpupower,omitempty"`
+	Tags        *[]string   `bson:"tags,omitempty"`
+	AvailZone   *string     `bson:"availzone,omitempty"`
 
 	// KeepInstance is set to true if, on machine removal from Juju,
 	// the cloud instance should be retained.
@@ -1231,14 +1232,22 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this
 // machine, or a NotProvisionedError, if not set.
 func (m *Machine) InstanceId() (instance.Id, error) {
+	instId, _, err := m.InstanceNames()
+	return instId, err
+}
+
+// InstanceNames returns both the provider's instance id and a user-friendly
+// display name. The display name is intended used for human input and
+// is ignored internally.
+func (m *Machine) InstanceNames() (instance.Id, string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
 		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return instData.InstanceId, err
+	return instData.InstanceId, instData.DisplayName, nil
 }
 
 // InstanceStatus returns the provider specific instance status for this machine,
@@ -1409,16 +1418,21 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 	return spaces.Union(bindings), nil
 }
 
-// SetProvisioned sets the provider specific machine id, nonce and also metadata for
-// this machine. Once set, the instance id cannot be changed.
+// SetProvisioned stores the machine's provider-specific details in the
+// database. These details are used to infer that the machine has
+// been provisioned.
 //
 // When provisioning an instance, a nonce should be created and passed
 // when starting it, before adding the machine to the state. This means
 // that if the provisioner crashes (or its connection to the state is
 // lost) after starting the instance, we can be sure that only a single
 // instance will be able to act for that machine.
+//
+// Once set, the instance id cannot be changed. A non-empty instance id
+// will be detected as a provisioned machine.
 func (m *Machine) SetProvisioned(
 	id instance.Id,
+	displayName string,
 	nonce string,
 	characteristics *instance.HardwareCharacteristics,
 ) (err error) {
@@ -1442,17 +1456,18 @@ func (m *Machine) SetProvisioned(
 		characteristics = &instance.HardwareCharacteristics{}
 	}
 	instData := &instanceData{
-		DocID:      m.doc.DocID,
-		MachineId:  m.doc.Id,
-		InstanceId: id,
-		ModelUUID:  m.doc.ModelUUID,
-		Arch:       characteristics.Arch,
-		Mem:        characteristics.Mem,
-		RootDisk:   characteristics.RootDisk,
-		CpuCores:   characteristics.CpuCores,
-		CpuPower:   characteristics.CpuPower,
-		Tags:       characteristics.Tags,
-		AvailZone:  characteristics.AvailabilityZone,
+		DocID:       m.doc.DocID,
+		MachineId:   m.doc.Id,
+		InstanceId:  id,
+		DisplayName: displayName,
+		ModelUUID:   m.doc.ModelUUID,
+		Arch:        characteristics.Arch,
+		Mem:         characteristics.Mem,
+		RootDisk:    characteristics.RootDisk,
+		CpuCores:    characteristics.CpuCores,
+		CpuPower:    characteristics.CpuPower,
+		Tags:        characteristics.Tags,
+		AvailZone:   characteristics.AvailabilityZone,
 	}
 
 	ops := []txn.Op{
@@ -1486,7 +1501,7 @@ func (m *Machine) SetProvisioned(
 // instance id, nonce, hardware characteristics, add link-layer devices and set
 // their addresses as needed.  After, set charm profiles if needed.
 func (m *Machine) SetInstanceInfo(
-	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
 	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
@@ -1537,7 +1552,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 
-	if err := m.SetProvisioned(id, nonce, characteristics); err != nil {
+	if err := m.SetProvisioned(id, displayName, nonce, characteristics); err != nil {
 		return errors.Trace(err)
 	}
 	return m.SetCharmProfiles(charmProfiles)

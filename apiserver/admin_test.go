@@ -93,7 +93,7 @@ func (s *baseLoginSuite) addMachine(c *gc.C, job state.MachineJob) (*state.Machi
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine, password
 }

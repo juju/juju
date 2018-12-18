@@ -408,7 +408,7 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start an upgrade.
@@ -448,7 +448,7 @@ func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start an upgrade.
@@ -709,7 +709,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -765,7 +765,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Include a remote app that needs admin access to see.
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

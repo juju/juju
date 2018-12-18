@@ -457,6 +457,18 @@ func (e *Environ) getCloudInitConfig(series string, apiPort int) (cloudinit.Clou
 	return cloudcfg, nil
 }
 
+func shortenMachineId(machineId *string, nRunesShown int) string {
+	var short string
+	if machineId != nil {
+		short = *machineId
+	}
+	offset := len(short) - nRunesShown
+	if offset > 0 {
+		short = "..." + short[offset:]
+	}
+	return short
+}
+
 // StartInstance implements environs.InstanceBroker.
 func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
@@ -636,6 +648,7 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q", *machineId)
+	displayName := shortenMachineId(machineId, 6)
 
 	if desiredStatus == ociCore.InstanceLifecycleStateRunning {
 		if err := instance.waitForPublicIP(ctx); err != nil {
@@ -645,8 +658,9 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 	}
 
 	result := &environs.StartInstanceResult{
-		Instance: instance,
-		Hardware: instance.hardwareCharacteristics(),
+		DisplayName: displayName,
+		Instance:    instance,
+		Hardware:    instance.hardwareCharacteristics(),
 	}
 
 	return result, nil

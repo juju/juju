@@ -88,6 +88,9 @@ type MachineStatus struct {
 	// what is supplied by the provider.
 	InstanceId instance.Id `json:"instance-id"`
 
+	// DisplayName is a human-readable name for this machine.
+	DisplayName string `json:"display-name"`
+
 	// Series holds the name of the operating system release installed on
 	// this machine.
 	Series string `json:"series"`
