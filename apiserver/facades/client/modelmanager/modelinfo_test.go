@@ -82,6 +82,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		// default model will end up with the same model tag.
 		tag:            coretesting.ModelTag,
 		controllerUUID: s.st.controllerUUID,
+		isController:   true,
 		status: status.StatusInfo{
 			Status: status.Available,
 			Since:  &time.Time{},
@@ -106,6 +107,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		cfg:            coretesting.ModelConfig(c),
 		tag:            coretesting.ModelTag,
 		controllerUUID: s.st.controllerUUID,
+		isController:   false,
 		life:           state.Dying,
 		status: status.StatusInfo{
 			Status: status.Destroying,
@@ -169,6 +171,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		UUID:               s.st.model.cfg.UUID(),
 		Type:               string(s.st.model.Type()),
 		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		IsController:       false,
 		OwnerTag:           "user-bob",
 		ProviderType:       "someprovider",
 		CloudTag:           "cloud-some-cloud",
@@ -217,6 +220,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ModelUUID", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
+		{"IsController", nil},
 		{"AllMachines", nil},
 		{"LatestMigration", nil},
 	})
@@ -226,6 +230,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Type", nil},
 		{"UUID", nil},
 		{"ControllerUUID", nil},
+		{"UUID", nil},
 		{"Owner", nil},
 		{"Life", nil},
 		{"Cloud", nil},
@@ -708,6 +713,11 @@ func (st *mockState) ControllerUUID() string {
 	return st.controllerUUID
 }
 
+func (st *mockState) IsController() bool {
+	st.MethodCall(st, "IsController")
+	return st.controllerUUID == st.model.UUID()
+}
+
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{
@@ -946,6 +956,7 @@ type mockModel struct {
 	users               []*mockModelUser
 	migrationStatus     state.MigrationMode
 	controllerUUID      string
+	isController        bool
 	cfgDefaults         config.ModelDefaultAttributes
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }

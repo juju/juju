@@ -42,6 +42,7 @@ type ModelManagerBackend interface {
 	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.RegionSpec) (map[string]interface{}, error)
 	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
+	IsController() bool
 	ControllerConfig() (controller.Config, error)
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error
@@ -174,6 +175,10 @@ func (st modelManagerStateShim) Model() (Model, error) {
 // Name implements ModelManagerBackend.
 func (st modelManagerStateShim) Name() string {
 	return st.model.Name()
+}
+
+func (st modelManagerStateShim) IsController() bool {
+	return st.State.IsController()
 }
 
 var _ Model = (*modelShim)(nil)

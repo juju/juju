@@ -366,6 +366,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(deltas, gc.HasLen, 1)
 		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
 		c.Assert(modelInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
+		c.Assert(modelInfo.IsController, gc.Equals, s.State.IsController())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

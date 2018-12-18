@@ -141,6 +141,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Life:           multiwatcher.Life(e.Life.String()),
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
+		IsController:   st.IsController(),
 		Config:         cfg.AllAttrs(),
 		SLA: multiwatcher.ModelSLAInfo{
 			Level: e.SLA.Level.String(),

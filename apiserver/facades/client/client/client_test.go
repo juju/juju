@@ -119,9 +119,8 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 		Level: "advanced",
 		Owner: "who",
 	})
-	// The controller UUID is not returned by the ModelInfo endpoint on the
-	// Client facade.
-	c.Assert(info.ControllerUUID, gc.Equals, "")
+	c.Assert(info.ControllerUUID, gc.Equals, "controller-deadbeef-1bad-500d-9000-4b1d0d06f00d")
+	c.Assert(info.IsController, gc.Equals, model.IsControllerModel())
 }
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
