@@ -41,13 +41,14 @@ type ModelStatus struct {
 
 // Machine holds information about a machine in a juju model.
 type Machine struct {
-	Id         string
-	InstanceId string
-	HasVote    bool
-	WantsVote  bool
-	Status     string
-	Message    string
-	Hardware   *instance.HardwareCharacteristics
+	Id          string
+	InstanceId  string
+	DisplayName string
+	HasVote     bool
+	WantsVote   bool
+	Status      string
+	Message     string
+	Hardware    *instance.HardwareCharacteristics
 }
 
 // ModelInfo holds information about a model.

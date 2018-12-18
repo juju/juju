@@ -390,12 +390,13 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	if hw.AvailabilityZone != nil {
 		az = *hw.AvailabilityZone
 	}
-	w.Print(m.Id)
 
 	status, message := getStatusAndMessageFromMachineStatus(m)
 
+	w.Print(m.Id)
 	w.PrintStatus(status)
-	w.Println(m.DNSName, m.InstanceId, m.Series, az, message)
+	w.Println(m.DNSName, m.machineName(), m.Series, az, message)
+
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}

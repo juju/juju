@@ -153,6 +153,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		DNSName:            machine.DNSName,
 		IPAddresses:        machine.IPAddresses,
 		InstanceId:         machine.InstanceId,
+		DisplayName:        machine.DisplayName,
 		MachineStatus:      sf.getStatusInfoContents(machine.InstanceStatus),
 		ModificationStatus: sf.getStatusInfoContents(machine.ModificationStatus),
 		Series:             machine.Series,

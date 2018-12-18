@@ -873,6 +873,11 @@ func (m *MockMachine) InstanceId() (instance.Id, error) {
 	return instance.Id(m.id), m.idErr
 }
 
+func (m *MockMachine) InstanceNames() (instance.Id, string, error) {
+	instId, err := m.InstanceId()
+	return instId, "", err
+}
+
 func (m *MockMachine) EnsureDead() error {
 	return m.ensureDeadErr
 }

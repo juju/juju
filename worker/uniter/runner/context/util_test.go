@@ -144,7 +144,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit 
 	hwc := instance.HardwareCharacteristics{
 		AvailabilityZone: &zone,
 	}
-	err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
+	err = s.machine.SetProvisioned("i-exist", "", "fake_nonce", &hwc)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }

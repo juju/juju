@@ -267,15 +267,15 @@ func (mr *MockMachineProvisionerMockRecorder) SetCharmProfiles(arg0 interface{})
 }
 
 // SetInstanceInfo mocks base method
-func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.Id, arg1 string, arg2 *instance.HardwareCharacteristics, arg3 []params.NetworkConfig, arg4 []params.Volume, arg5 map[string]params.VolumeAttachmentInfo, arg6 []string) error {
-	ret := m.ctrl.Call(m, "SetInstanceInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+func (m *MockMachineProvisioner) SetInstanceInfo(arg0 instance.Id, arg1, arg2 string, arg3 *instance.HardwareCharacteristics, arg4 []params.NetworkConfig, arg5 []params.Volume, arg6 map[string]params.VolumeAttachmentInfo, arg7 []string) error {
+	ret := m.ctrl.Call(m, "SetInstanceInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetInstanceInfo indicates an expected call of SetInstanceInfo
-func (mr *MockMachineProvisionerMockRecorder) SetInstanceInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).SetInstanceInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+func (mr *MockMachineProvisionerMockRecorder) SetInstanceInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceInfo", reflect.TypeOf((*MockMachineProvisioner)(nil).SetInstanceInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
 // SetInstanceStatus mocks base method

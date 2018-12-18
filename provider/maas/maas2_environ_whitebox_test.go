@@ -71,14 +71,20 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) (*maasEnviron, *fakeController) {
+	machine := newFakeMachine("Bruce Sterling", arch.HostArch(), "")
+	return suite.injectControllerWithMachine(c, machine, spaces, expected)
+}
+
+func (suite *maas2EnvironSuite) injectControllerWithMachine(c *gc.C, machine *fakeMachine, spaces []gomaasapi.Space, expected gomaasapi.AllocateMachineArgs) (*maasEnviron, *fakeController) {
 	var env *maasEnviron
 	check := func(args gomaasapi.AllocateMachineArgs) {
 		expected.AgentName = env.Config().UUID()
 		c.Assert(args, gc.DeepEquals, expected)
 	}
+
 	controller := &fakeController{
 		allocateMachineArgsCheck: check,
-		allocateMachine:          newFakeMachine("Bruce Sterling", arch.HostArch(), ""),
+		allocateMachine:          machine,
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string][]gomaasapi.StorageDevice{},
 		},
@@ -342,6 +348,23 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+	c.Assert(result.DisplayName, gc.Equals, "")
+}
+
+func (suite *maas2EnvironSuite) TestStartInstanceReturnsHostnameAsDisplayName(c *gc.C) {
+	machine := &fakeMachine{
+		systemID:     "Bruce Sterling",
+		architecture: arch.HostArch(),
+		hostname:     "mirrorshades.author",
+		Stub:         &testing.Stub{},
+		statusName:   "",
+	}
+	env, _ := suite.injectControllerWithMachine(c, machine, nil, gomaasapi.AllocateMachineArgs{})
+	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
+	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "0", params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+	c.Assert(result.DisplayName, gc.Equals, machine.Hostname())
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceAppliesResourceTags(c *gc.C) {

@@ -1094,6 +1094,7 @@ func (env *maasEnviron) StartInstance(
 	}
 
 	return &environs.StartInstanceResult{
+		DisplayName:       hostname,
 		Instance:          inst,
 		Hardware:          hc,
 		NetworkInfo:       interfaces,

@@ -477,7 +477,7 @@ func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, mach
 func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id(id+"-inst"), "nonce", nil)
+	err = machine.SetProvisioned(instance.Id(id+"-inst"), "", "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

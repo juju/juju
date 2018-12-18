@@ -104,6 +104,10 @@ type StartInstanceParams struct {
 // StartInstanceResult holds the result of an
 // InstanceBroker.StartInstance method call.
 type StartInstanceResult struct {
+	// DisplayName is an optional human-readable string that's used
+	// for display purposes only.
+	DisplayName string
+
 	// Instance is an interface representing a cloud instance.
 	Instance instance.Instance
 

@@ -57,6 +57,7 @@ func (st *stateShim) Machine(id string) (Machine, error) {
 type Machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
+	InstanceNames() (instance.Id, string, error)
 	WantsVote() bool
 	HasVote() bool
 	Status() (status.StatusInfo, error)
@@ -122,10 +123,11 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 			Status:    status,
 			Message:   statusInfo.Message,
 		}
-		instId, err := m.InstanceId()
+		instId, displayName, err := m.InstanceNames()
 		switch {
 		case err == nil:
 			mInfo.InstanceId = string(instId)
+			mInfo.DisplayName = displayName
 		case errors.IsNotProvisioned(err):
 			// ok, but no instance ID to get.
 		default:

@@ -134,11 +134,12 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 	result.Machines = make([]base.Machine, len(modelInfo.Machines))
 	for i, m := range modelInfo.Machines {
 		machine := base.Machine{
-			Id:         m.Id,
-			InstanceId: m.InstanceId,
-			HasVote:    m.HasVote,
-			WantsVote:  m.WantsVote,
-			Status:     m.Status,
+			Id:          m.Id,
+			InstanceId:  m.InstanceId,
+			DisplayName: m.DisplayName,
+			HasVote:     m.HasVote,
+			WantsVote:   m.WantsVote,
+			Status:      m.Status,
 		}
 		if m.Hardware != nil {
 			machine.Hardware = &instance.HardwareCharacteristics{
