@@ -47,6 +47,5 @@ const OldPresence = "old-presence"
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"
 
-// LXDProfile will allow for lxd-profile.yaml files in a charm to be used
-// in container creation.
-const LXDProfile = "lxd-profile"
+// Generations will allow for model generation functionality to be used.
+const Generations = "generations"
