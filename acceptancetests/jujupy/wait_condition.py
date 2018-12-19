@@ -22,6 +22,7 @@ from jujupy.exceptions import (
     VersionsNotUpdated,
     AgentsNotStarted,
     StatusNotMet,
+    LXDProfileNotAvailable,
     )
 from jujupy.status import (
     Status,
@@ -427,3 +428,37 @@ class CommandTime:
         if self.end is None:
             return None
         return (self.end - self.start).total_seconds()
+
+class WaitForLXDProfileCondition(BaseCondition):
+
+    def __init__(self, machine, profile, *args, **kwargs):
+        """Constructor.
+
+        :param machine: machine id for machine to find the profile on.
+        :param profile: name of the LXD profile to find.
+        """
+        self.machine = machine
+        self.profile = profile
+        super(WaitForLXDProfileCondition, self).__init__(*args, **kwargs)
+
+    def iter_blocking_state(self, status):
+        """Wait until 'profile' listed in 'machine' lxd-profiles from status."""
+        machine_info = dict(status.iter_machines())
+        machine = container = self.machine
+        if 'lxd' in machine:
+            # container = machine
+            machine = machine.split('/')[0]
+        try:
+            if 'lxd' in self.machine:
+                machine_lxdprofiles = machine_info[machine]['containers'][container]["lxd-profiles"]
+            else:
+                machine_lxdprofiles = machine_info[machine]["lxd-profiles"]
+            cond_met = self.profile in machine_lxdprofiles
+        except:
+            cond_met = False
+        if not cond_met:
+            yield ('lxd-profile ({})'.format(self.profile),
+                   'not on machine-{}'.format(self.machine))
+
+    def do_raise(self, model_name, status):
+        raise LXDProfileNotAvailable(self.machine, self.profile)
