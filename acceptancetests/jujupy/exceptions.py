@@ -120,6 +120,16 @@ class VotingNotEnabled(StatusNotMet):
 
     _fmt = 'Timed out waiting for voting to be enabled in {env}.'
 
+class LXDProfileNotAvailable(Exception):
+
+    _fmt = 'Timed out waiting for LXDProfile {profile_name} on machine-{machine}.'
+
+    def __init__(self, machine, profile_name):
+        self.profile_name = profile_name
+        self.machine = machine
+
+    def __str__(self):
+        return self._fmt.format(env=self.profile_name)
 
 class StatusError(Exception):
     """Generic error for Status."""
