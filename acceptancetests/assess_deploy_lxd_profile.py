@@ -8,8 +8,6 @@ from __future__ import print_function
 import argparse
 import logging
 import os
-import pdb
-import subprocess
 import sys
 
 from deploy_stack import (
@@ -25,6 +23,7 @@ from utility import (
 )
 from jujupy.wait_condition import (
     AgentsIdle,
+    WaitForLXDProfileCondition,
 )
 
 __metaclass__ = type
@@ -94,8 +93,6 @@ def lxdprofile_machine_verify(client, charm_name, verify_principal, unit_num):
     :raises JujuAssertionError: if lxd profile is not appropriately found.
     """
     status = client.get_status()
-    machine_info = dict(status.iter_machines())
-    application_info = status.get_applications()
 
     unit_info = status.get_unit(charm_name+"/"+unit_num)
     try:
@@ -104,66 +101,22 @@ def lxdprofile_machine_verify(client, charm_name, verify_principal, unit_num):
         log.warning("lxdprofile_machine_verify called on subordinate {}/{}, invalid".format(charm_name, unit_num))
         return
 
+    application_info = status.get_applications()
     charm_rev = application_info[charm_name]['charm-rev']
     profile_name = "juju-{}-{}-{}".format(client.model_name,charm_name,charm_rev)
 
-    if 'lxd' in machine_num:
-        container_name = machine_num
-        machine_num = machine_num.split('/')[0]
-
-    # pdb.set_trace()
-
-    try:
-        if 'lxd' in container_name:
-            machine_lxdprofiles = machine_info[machine_num]['containers'][container_name]["lxd-profiles"]
-        else:
-            machine_lxdprofiles = machine_info[machine_num]["lxd-profiles"]
-    except subprocess.CalledProcessError as e:
-        log.warning('failed to find {} in machine profiles'.format(profile_name))
-
     if verify_principal:
-        if profile_name not in machine_lxdprofiles:
-            raise JujuAssertionError(
-                "LXD profiles in juju status for machine-{} do not contain {}, per juju".format(
-                    machine_num,profile_name))
+        client.wait_for(WaitForLXDProfileCondition(machine_num, profile_name))
 
-    # pdb.set_trace()
     # check subordinates, do their profile names match the charm rev?
     if 'subordinates' in unit_info:
         for key in unit_info['subordinates'].keys():
             sub_app_name = key.split('/')[0]
             sub_charm_rev = application_info[sub_app_name]['charm-rev']
             sub_profile_name = "juju-{}-{}-{}".format(client.model_name,sub_app_name,sub_charm_rev)
-            if sub_profile_name not in machine_lxdprofiles:
-               raise JujuAssertionError(
-                    "LXD profiles in juju status for machine-{} do not contain {}, per juju".format(
-                        machine_num,sub_profile_name))
-    else:
-        raise JujuAssertionError("No subordinate LXD profiles for machine-{} {}/{}\n{}",machine_num,charm_name,unit_num,machine_info)
+            client.wait_for(WaitForLXDProfileCondition(machine_num, sub_profile_name))
 
     log.info("juju machine {} is using {}: verification succeeded".format(machine_num,profile_name))
-
-def lxdprofile_container_verify(client, profilename):
-    """ Checks the status output is the same as profilename
-
-    :param client: Juju client
-    :param profilename: LXD Profile name to expect in the output
-    :return: None
-    :raises JujuAssertionError: if profilename is not appropriately shown.
-    """
-    status = client.get_status()
-    machine_info = dict(status.iter_machines())
-
-    machine_lxdprofile = machine_info["0"]["lxd-profiles"]
-    log.info(
-        "profile name {}, machine lxd profile {}".format(profilename, machine_lxdprofile))
-
-    if profilename not in machine_lxdprofile:
-        raise JujuAssertionError(
-            "LXD profile in juju status for machine-0 is not {}, per juju".format(
-                profilename))
-
-    log.info("juju status 0 {} succeeded".format(profilename))
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test juju lxd profile deploy.")
@@ -191,7 +144,6 @@ def main(argv=None):
         client.wait_for_started()
         client.wait_for_subordinate_units(charm_profile, charm_profile_subordinate)
         assess_juju_lxdprofile_machine_upgrade(client, charm_profile, True, "1", charm_profile_subordinate)
-
     return 0
 
 if __name__ == '__main__':
