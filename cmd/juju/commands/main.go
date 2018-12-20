@@ -377,6 +377,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewModelCredentialCommand())
 	if featureflag.Enabled(feature.Generations) {
 		r.Register(model.NewAddGenerationCommand())
+		r.Register(model.NewCancelGenerationCommand())
 	}
 
 	r.Register(newMigrateCommand())

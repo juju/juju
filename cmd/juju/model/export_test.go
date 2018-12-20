@@ -188,3 +188,11 @@ func NewAddGenerationCommandForTest(api AddGenerationCommandAPI, store jujuclien
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+func NewCancelGenerationCommandForTest(api CancelGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &cancelGenerationCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

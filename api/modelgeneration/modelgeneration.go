@@ -33,3 +33,13 @@ func (c *Client) AddGeneration() error {
 	}
 	return result.Error
 }
+
+// CancelGeneration adds a model generation to the config.
+func (c *Client) CancelGeneration() error {
+	var result params.ErrorResult
+	err := c.facade.FacadeCall("CancelGeneration", nil, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Error
+}
