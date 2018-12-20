@@ -44,16 +44,16 @@ func (st *State) MaybePruneTransactions() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	maxBatchSize := cfg.MaxPruneTxnBatchSize()
-	maxPasses := cfg.MaxPruneTxnPasses()
 	// Prune txns when txn count has increased by 10% since last prune.
 	return runner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor:          1.1,
-		MinNewTransactions:   1000,
-		MaxNewTransactions:   100000,
-		MaxTime:              time.Now().Add(-time.Hour),
-		MaxBatchTransactions: maxBatchSize,
-		MaxBatches:           maxPasses,
+		PruneFactor:                1.1,
+		MinNewTransactions:         1000,
+		MaxNewTransactions:         100000,
+		MaxTime:                    time.Now().Add(-time.Hour),
+		MaxBatchTransactions:       cfg.MaxPruneTxnBatchSize(),
+		MaxBatches:                 cfg.MaxPruneTxnPasses(),
+		SmallBatchTransactionCount: cfg.PruneTxnQueryCount(),
+		BatchTransactionSleepTime:  cfg.PruneTxnSleepTime(),
 	})
 }
 
