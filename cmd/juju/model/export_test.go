@@ -180,3 +180,11 @@ func NewModelCredentialCommandForTest(modelClient ModelCredentialAPI, cloudClien
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+func NewAddGenerationCommandForTest(api AddGenerationCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &addGenerationCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
