@@ -29,13 +29,13 @@ See also:
 `
 )
 
-// NewAddGenerationCommand wraps cancelGenerationCommand with sane model settings.
+// NewCancelGenerationCommand wraps cancelGenerationCommand with sane model settings.
 func NewCancelGenerationCommand() cmd.Command {
 	return modelcmd.Wrap(&cancelGenerationCommand{})
 }
 
 // cancelGenerationCommand is the simplified command for accessing and setting
-// attributes related to adding model generations.
+// attributes related to canceling model generations.
 type cancelGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
