@@ -16,6 +16,7 @@ import requests
 
 from deploy_stack import (
     BootstrapManager,
+    deploy_caas_stack,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -37,12 +38,30 @@ def deploy_bundle(client, charm_bundle):
     """Deploy the given charm bundle
 
     :param client: Jujupy ModelClient object
+    :param charm_bundle: Optional charm bundle string
     """
     model_name = "webscale"
-    current_model = client.add_model(model_name)
-    current_model.deploy(
-        charm=charm_bundle,
-    )
+
+    current_model = None
+    if not charm_bundle:
+        bundle = local_charm_path(
+            charm='bundles-kubernetes-core-lxd.yaml',
+            repository=os.environ['JUJU_REPOSITORY'],
+            juju_ver=client.version,
+        )
+        client = deploy_caas_stack(
+            bundle_path=bundle,
+            client=client,
+        )
+        if not client.is_cluster_healthy:
+            raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
+        current_model = client.add_model(model_name)
+    else:
+        current_model = client.add_model(model_name)
+        current_model.deploy(
+            charm=charm_bundle,
+        )
+
     current_model.juju(current_model._show_status, ('--format', 'tabular'))
     current_model.wait_for_workloads(timeout=3600)
     current_model.juju(current_model._show_status, ('--format', 'tabular'))
