@@ -42,28 +42,26 @@ def deploy_bundle(client, charm_bundle):
     """
     model_name = "webscale"
 
-    current_model = None
+    bundle = None
     if not charm_bundle:
         bundle = local_charm_path(
             charm='bundles-kubernetes-core-lxd.yaml',
             repository=os.environ['JUJU_REPOSITORY'],
             juju_ver=client.version,
         )
-        client = deploy_caas_stack(
-            bundle_path=bundle,
-            client=client,
-        )
-        if not client.is_cluster_healthy:
-            raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
-        current_model = client.add_model(model_name)
     else:
-        current_model = client.add_model(model_name)
-        current_model.deploy(
-            charm=charm_bundle,
-        )
+        bundle = charm_bundle
 
-    current_model.juju(current_model._show_status, ('--format', 'tabular'))
-    current_model.wait_for_workloads(timeout=3600)
+    caas_client = deploy_caas_stack(
+        path=bundle,
+        client=client,
+        charm=(not not charm_bundle),
+    )
+
+    if not caas_client.is_cluster_healthy:
+        raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
+
+    current_model = caas_client.add_model(model_name)
     current_model.juju(current_model._show_status, ('--format', 'tabular'))
 
     current_model.destroy_model()
