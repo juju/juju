@@ -43,3 +43,13 @@ func (c *Client) CancelGeneration() error {
 	}
 	return result.Error
 }
+
+// SwitchGeneration adds a model generation to the config.
+func (c *Client) SwitchGeneration(arg string) error {
+	var result params.ErrorResult
+	err := c.facade.FacadeCall("SwitchGeneration", nil, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Error
+}
