@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	coretesting "github.com/juju/juju/testing"
 )

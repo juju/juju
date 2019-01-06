@@ -11,7 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
-	constraints "github.com/juju/juju/constraints"
+	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"

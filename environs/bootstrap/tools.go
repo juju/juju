@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"

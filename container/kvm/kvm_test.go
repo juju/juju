@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"

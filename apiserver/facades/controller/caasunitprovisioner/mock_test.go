@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"

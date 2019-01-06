@@ -33,8 +33,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 )
 
 // ConfigFlag records k=v attributes from command arguments

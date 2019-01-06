@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"

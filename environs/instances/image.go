@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 )
 

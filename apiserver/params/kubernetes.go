@@ -4,7 +4,7 @@
 package params
 
 import (
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 )
 
 // KubernetesProvisioningInfo holds unit provisioning info.

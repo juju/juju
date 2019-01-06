@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/tools"
 )

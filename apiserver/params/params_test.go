@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"

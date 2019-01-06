@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/constraints"
 )
 
 // Get returns the charm configuration for an application.
