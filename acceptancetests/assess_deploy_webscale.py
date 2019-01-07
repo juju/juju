@@ -12,7 +12,7 @@ import logging
 import sys
 import os
 import subprocess
-
+import re
 import requests
 
 from deploy_stack import (
@@ -77,6 +77,18 @@ def extract_module_logs(client, module):
         '--no-tail', '--replay', '-l', 'TRACE',
         '--include-module', module,
     )
+    return deploy_logs
+
+def extract_txn_timings(logs, module):
+    """Extract the transaction timings (txn) from the deploy logs.
+
+    It's expected that the timings are in seconds to 3 decimal places ("0.042s")
+
+    :param logs: string containing all the logs from the module
+    :param module: string containing the destination module.
+    """
+    exp = re.compile(r"{} ran transaction in (\d+\.*\d+)s".format(module), re.IGNORECASE)
+    return exp.findall(logs)
 
 def parse_args(argv):
     """Parse all arguments."""
@@ -90,6 +102,11 @@ def parse_args(argv):
         help="Override logging configuration for a deploy",
         default="<root>=TRACE;unit=TRACE",
     )
+    parser.add_argument(
+        '--logging-module',
+        help="Override default module to extract",
+        default="juju.state.txn",
+    )
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
@@ -100,7 +117,9 @@ def main(argv=None):
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         deploy_bundle(client, charm_bundle=args.charm_bundle)
-        extract_module_logs(client, module='juju.state.txn')
+        raw_logs = extract_module_logs(client, module=args.logging_module)
+        timings = extract_txn_timings(raw_logs, module=args.logging_module)
+        log.info("The timings for deployment: {}".format(timings))
     return 0
 
 if __name__ == '__main__':
