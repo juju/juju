@@ -77,7 +77,7 @@ func (s *switchGenerationSuite) runCommand(c *gc.C, api model.SwitchGenerationCo
 func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *MockSwitchGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
 	mockSwitchGenerationCommandAPI := NewMockSwitchGenerationCommandAPI(mockController)
-	mockSwitchGenerationCommandAPI.EXPECT().Close().Times(1)
+	mockSwitchGenerationCommandAPI.EXPECT().Close()
 	return mockController, mockSwitchGenerationCommandAPI
 }
 
