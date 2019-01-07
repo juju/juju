@@ -137,7 +137,7 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
         client.wait_for_started(3600)
 
 
-def deploy_caas_stack(bundle_path, client, timeout=3600):
+def deploy_caas_stack(path, client, timeout=3600, charm=False):
     # workaround to ensure lxd profile
     model_name = client.model_name
     profile = LXD_PROFILE.format(model_name=model_name)
@@ -148,7 +148,11 @@ def deploy_caas_stack(bundle_path, client, timeout=3600):
         ).decode('UTF-8').strip()
         log.debug(o)
 
-    client.deploy_bundle(bundle_path, static_bundle=True)
+    # Deploy a charm or a bundle depending on the flag
+    if not charm:
+        client.deploy_bundle(path, static_bundle=True)
+    else:
+        client.deploy(charm=path)
     # Wait for the deployment to finish.
     client.wait_for_started(timeout=timeout)
     # wait for cluster to stabilize
@@ -156,7 +160,6 @@ def deploy_caas_stack(bundle_path, client, timeout=3600):
     # get current status with tabular format for better debugging
     client.juju(client._show_status, ('--format', 'tabular'))
     return CaasClient(client)
-
 
 def assess_juju_relations(client):
     token = get_random_string()
