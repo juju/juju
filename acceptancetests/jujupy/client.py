@@ -163,10 +163,12 @@ class JujuData:
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
+            self.logging_config = self._config.get('logging-config')
         else:
             self.kvm = False
             self.maas = False
             self.joyent = False
+            self.logging_config = None
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
@@ -199,6 +201,7 @@ class JujuData:
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
         result._cloud_name = self._cloud_name
+        result.logging_config = self.logging_config
         return result
 
     @classmethod
@@ -2237,6 +2240,9 @@ def make_safe_config(client):
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
     config['name'] = unqualified_model_name(client.env.environment)
+    # Pass the logging config into the yaml file
+    if client.env.logging_config is not None:
+        config['logging-config'] = client.env.logging_config
 
     return config
 

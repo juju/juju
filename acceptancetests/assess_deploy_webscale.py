@@ -2,6 +2,7 @@
 """ Test webscale deployment
 
     1. deploying kubenetes core and asserting it is `healthy`
+    2. inspect the logs to parse timings from trace logs
 """
 
 from __future__ import print_function
@@ -66,12 +67,28 @@ def deploy_bundle(client, charm_bundle):
 
     current_model.destroy_model()
 
+def extract_module_logs(client, module):
+    """Extract the logs from destination module.
+
+    :param module: string containing the information to extract from the destination module.
+    """
+    deploy_logs = client.get_juju_output(
+        'debug-log', '-m', 'controller',
+        '--no-tail', '--replay', '-l', 'TRACE',
+        '--include-module', module,
+    )
+
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Webscale charm deployment CI test")
     parser.add_argument(
         '--charm-bundle',
         help="Override the charm bundle to deploy",
+    )
+    parser.add_argument(
+        '--logging-config',
+        help="Override logging configuration for a deploy",
+        default="<root>=TRACE;unit=TRACE",
     )
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
@@ -83,6 +100,7 @@ def main(argv=None):
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         deploy_bundle(client, charm_bundle=args.charm_bundle)
+        extract_module_logs(client, module='juju.state.txn')
     return 0
 
 if __name__ == '__main__':
