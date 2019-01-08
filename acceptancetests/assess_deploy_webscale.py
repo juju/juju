@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """ Test webscale deployment
 
-    1. deploying kubenetes core and asserting it is `healthy`
+    1. deploying kubernetes core and asserting it is `healthy`
     2. inspect the logs to parse timings from trace logs
 """
 
