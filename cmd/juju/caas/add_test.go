@@ -17,7 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -423,6 +423,8 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c *gc.C) {
+	c.Skip("jaas does not support it yet. Enable later.")
+
 	cloudRegion := "gce/us-east1"
 	*s.currentClusterRegionSet = set.NewStrings(cloudRegion)
 

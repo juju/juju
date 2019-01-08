@@ -228,41 +228,42 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 
 	newCloud := jujucloud.Cloud{
-		Name:           c.caasName,
-		Type:           c.caasType,
-		Endpoint:       currentCloud.Endpoint,
-		AuthTypes:      []jujucloud.AuthType{credential.AuthType()},
-		CACertificates: []string{cloudCAData},
-	}
-
-	cloudRegion := c.cloudRegion
-	var regionErr error
-	if cloudRegion == "" {
-		cloudRegion, regionErr = c.getClusterRegion(ctx, newCloud, credential)
-		if regionErr != nil {
-			logger.Debugf("It's not possible to fetch cluster region in this case, error: %v\n\tplease use --region option to parse in if you want to", err)
-		}
-	}
-	if cloudRegion != "" {
-		// do validation if cloudRegion is presented or ignore because it's for jaas only but not juju.
-		if err = c.validateCloudRegion(cloudRegion); err != nil {
-			return errors.Trace(err)
-		}
-		newCloud.HostCloudRegion = cloudRegion
-	}
-
-	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
-		return errors.Trace(err)
+		Name:            c.caasName,
+		Type:            c.caasType,
+		Endpoint:        currentCloud.Endpoint,
+		AuthTypes:       []jujucloud.AuthType{credential.AuthType()},
+		CACertificates:  []string{cloudCAData},
+		HostCloudRegion: c.cloudRegion,
 	}
 
 	cloudClient, err := c.addCloudAPIFunc()
 	if err != nil {
-		// TODO(caas): once jaas can return a specific region required error, then we can log the previous regionErr here.
 		return errors.Trace(err)
 	}
 	defer cloudClient.Close()
 
-	if err := addCloudToController(cloudClient, newCloud); err != nil {
+	if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
+		if false {
+			// try to fetch cloud and region then retry.
+			// TODO(caas): once jaas controller support errors.IsRegionRequired(err), enable here.
+			cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
+			if err != nil {
+				return errors.Annotate(err, `
+Jaas requires cloud and region information. But it's
+not possible to fetch cluster region in this case, 
+	please use --region option to parse in if you want to
+`[1:])
+			}
+			newCloud.HostCloudRegion = cloudRegion
+			if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			return errors.Trace(err)
+		}
+	}
+
+	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -274,6 +275,18 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	return nil
+}
+
+func (c *AddCAASCommand) addCloudToControllerWithRegion(apiClient AddCloudAPI, newCloud jujucloud.Cloud) (err error) {
+	if newCloud.HostCloudRegion != "" {
+		if err = c.validateCloudRegion(newCloud.HostCloudRegion); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := addCloudToController(apiClient, newCloud); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
