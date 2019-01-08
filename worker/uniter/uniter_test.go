@@ -1052,7 +1052,12 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				ft.Dir{"state/relations/90210", 0755}.Create(c, ctx.path)
 			}},
 			startUniter{},
-			waitHooks{},
+			// We need some synchronisation point here to ensure that the uniter
+			// has entered the correct place in the resolving loop. Now that we are
+			// no longer always executing config-changed, we poke the config just so
+			// we can get the event to give us the synchronisation point.
+			changeConfig{"blog-title": "Goodness Gracious Me"},
+			waitHooks{"config-changed"},
 			custom{func(c *gc.C, ctx *context) {
 				ft.Removed{"state/relations/90210"}.Check(c, ctx.path)
 			}},
