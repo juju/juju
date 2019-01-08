@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -77,11 +78,15 @@ func (g *Generation) AssignedUnits() map[string][]string {
 // AssignApplication indicates that the application with the input name has had
 // changes in this generation.
 func (g *Generation) AssignApplication(appName string) error {
-	if _, ok := g.doc.AssignedUnits[appName]; ok {
-		return nil
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if _, ok := g.doc.AssignedUnits[appName]; ok {
+			return nil, jujutxn.ErrNoOperations
+		}
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
 		}
@@ -91,12 +96,7 @@ func (g *Generation) AssignApplication(appName string) error {
 		return assignGenerationAppTxnOps(g.doc.Id, appName), nil
 	}
 
-	err := g.st.db().Run(buildTxn)
-	if err != nil {
-		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot assign application to generation: %v", err)
-	}
-	return err
+	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
 func assignGenerationAppTxnOps(id, appName string) []txn.Op {
@@ -129,11 +129,15 @@ func (g *Generation) AssignUnit(unitName string) error {
 		return errors.Trace(err)
 	}
 
-	if set.NewStrings(g.doc.AssignedUnits[appName]...).Contains(unitName) {
-		return nil
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if set.NewStrings(g.doc.AssignedUnits[appName]...).Contains(unitName) {
+			return nil, jujutxn.ErrNoOperations
+		}
 		if !g.Active() {
 			return nil, errors.New("generation is not currently active")
 		}
@@ -143,12 +147,7 @@ func (g *Generation) AssignUnit(unitName string) error {
 		return assignGenerationUnitTxnOps(g.doc.Id, appName, unitName), nil
 	}
 
-	err = g.st.db().Run(buildTxn)
-	if err != nil {
-		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot assign unit to generation: %v", err)
-	}
-	return err
+	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
 func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
