@@ -5,6 +5,7 @@ package modelgeneration
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -52,4 +53,24 @@ func (c *Client) SwitchGeneration(arg string) error {
 		return errors.Trace(err)
 	}
 	return result.Error
+}
+
+// AdvanceGeneration advances a unit and/or applications to the 'next' generation.
+func (c *Client) AdvanceGeneration(entities []string) error {
+	var results params.ErrorResults
+	var args params.Entities
+	for _, entity := range entities {
+		if names.IsValidApplication(entity) {
+			args.Entities = append(args.Entities,
+				params.Entity{names.NewApplicationTag(entity).String()})
+		} else if names.IsValidUnit(entity) {
+			args.Entities = append(args.Entities,
+				params.Entity{names.NewUnitTag(entity).String()})
+		}
+	}
+	err := c.facade.FacadeCall("AdvanceGeneration", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }

@@ -25,8 +25,8 @@ Examples:
     juju add-generation
 
 See also:
+    advance-generation
     cancel-generation
-    set-generation
     switch-generation
 `
 )

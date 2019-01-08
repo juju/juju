@@ -25,9 +25,8 @@ Examples:
 
 See also:
     add-generation
+    advance-generation
     cancel-generation
-    set-generation
-
 `
 )
 
