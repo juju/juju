@@ -458,7 +458,9 @@ func (c *upgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 func (c *upgradeJujuCommand) initVersions(
 	client upgradeJujuAPI, cfg *config.Config, agentVersion version.Number, filterOnPrior bool,
 ) (*upgradeContext, bool, error) {
-	if c.Version == agentVersion {
+	// If build-agent is set then we're always going to increment the
+	// build number.
+	if c.Version == agentVersion && !c.BuildAgent {
 		return nil, false, errUpToDate
 	}
 	filterVersion := jujuversion.Current

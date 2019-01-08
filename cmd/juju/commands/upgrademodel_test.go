@@ -278,6 +278,13 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "2.7.3.1",
 	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
 }, {
+	about:          "upload dev version, currently on edge snap",
+	currentVersion: "2.5-rc2-quantal-amd64",
+	agentVersion:   "2.5-rc2",
+	args:           []string{"--build-agent"},
+	expectVersion:  "2.5-rc2.1",
+	expectUploaded: []string{"2.5-rc2.1-quantal-amd64", "2.5-rc2.1-%LTS%-amd64", "2.5-rc2.1-raring-amd64"},
+}, {
 	about:          "upload dev version, currently on release version",
 	currentVersion: "2.1.0-quantal-amd64",
 	agentVersion:   "2.0.0",
