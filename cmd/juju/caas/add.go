@@ -247,7 +247,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 			// try to fetch cloud and region then retry.
 			// TODO(caas): once jaas controller support errors.IsRegionRequired(err), enable here.
 			cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
-			if err != nil {
+			if err != nil || cloudRegion == "" {
 				return errors.Annotate(err, `
 Jaas requires cloud and region information. But it's
 not possible to fetch cluster region in this case, 
