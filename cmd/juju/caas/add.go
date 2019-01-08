@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -67,11 +67,13 @@ Creates a user-defined cloud and populate the selected controller with the k8s
 cloud details. Speficify non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin. The config file
 can contain definitions for different k8s clusters, use --cluster-name to pick
-which one to use.
+which one to use. When running add-k8s on jaas and the cloud/region cannot be 
+detected automatically, use --region <cloudType/region> to specify the host 
+cloud and region.
 
 Examples:
-	juju add-k8s myk8scloud
-	juju add-k8s myk8scloud --region <cloudType/region>
+    juju add-k8s myk8scloud
+    juju add-k8s myk8scloud --region <cloudType/region>
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
@@ -143,7 +145,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
-	f.StringVar(&c.cloudRegion, "region", "", "kubernetes cluster cloud region")
+	f.StringVar(&c.cloudRegion, "region", "", "kubernetes cluster cloud and region")
 }
 
 // Init populates the command with the args from the command line.
@@ -237,7 +239,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	if cloudRegion == "" {
 		cloudRegion, err = c.getClusterRegion(ctx, newCloud, credential)
 		if err != nil {
-			logger.Debugf("It's not possible to fetch cluster region in this case, error: %v\n\tplease use --region options to parse in if you want to.", err)
+			logger.Debugf("It's not possible to fetch cluster region in this case, error: %v\n\tplease use --region option to parse in if you want to", err)
 		}
 	}
 	if cloudRegion != "" {
@@ -318,7 +320,7 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (err error) {
 
 	clouds, err := c.getAllCloudDetails()
 	if err != nil {
-		return errors.Annotate(err, "listing juju cloud regions")
+		return errors.Annotate(err, "listing cloud regions")
 	}
 	for _, v := range clouds {
 		if v.CloudType == cloudType {
@@ -356,7 +358,7 @@ func (c *AddCAASCommand) getClusterRegion(
 			errChan <- err
 		}
 		if cloudRegions == nil || cloudRegions.Size() == 0 {
-			errChan <- errors.New("no cloud region information is set in the cluster")
+			result <- ""
 		} else {
 			// we currently assume it's always a single region cluster.
 			result <- cloudRegions.SortedValues()[0]
@@ -364,11 +366,11 @@ func (c *AddCAASCommand) getClusterRegion(
 	}()
 
 	timeout := 30 * time.Second
-	defer fmt.Println("")
+	defer fmt.Fprintln(ctx.Stdout, "")
 	for {
 		select {
 		case <-time.After(1 * time.Second):
-			fmt.Printf(".")
+			fmt.Fprintf(ctx.Stdout, ".")
 		case <-interrupted:
 			ctx.Infof("ctrl+c detected, aborting...")
 			return "", nil

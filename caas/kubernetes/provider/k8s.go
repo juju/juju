@@ -184,7 +184,8 @@ const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 // ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
 func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
-	// we only check 5 nodes which should be sufficient.
+	// we only check 5 worker nodes as of now just run in the one region and
+	// we are just looking for a running worker to sniff its region.
 	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing nodes")

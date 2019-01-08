@@ -61,3 +61,9 @@ func (s *K8sSuite) TestGetCloudProviderFromNodeMeta(c *gc.C) {
 		c.Check(provider.GetCloudProviderFromNodeMeta(v.node), gc.Equals, v.expectedOut)
 	}
 }
+
+func (s *K8sSuite) TestK8sCloudCheckersValidationPass(c *gc.C) {
+	// CompileK8sCloudCheckers will panic if there is invalid requirement definition so check it by calling it.
+	cloudCheckers := provider.CompileK8sCloudCheckers()
+	c.Assert(cloudCheckers, gc.NotNil)
+}
