@@ -236,9 +236,10 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	}
 
 	cloudRegion := c.cloudRegion
+	var regionErr error
 	if cloudRegion == "" {
-		cloudRegion, err = c.getClusterRegion(ctx, newCloud, credential)
-		if err != nil {
+		cloudRegion, regionErr = c.getClusterRegion(ctx, newCloud, credential)
+		if regionErr != nil {
 			logger.Debugf("It's not possible to fetch cluster region in this case, error: %v\n\tplease use --region option to parse in if you want to", err)
 		}
 	}
@@ -256,6 +257,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 
 	cloudClient, err := c.addCloudAPIFunc()
 	if err != nil {
+		// TODO(caas): once jaas can return a specific region required error, then we can log the previous regionErr here.
 		return errors.Trace(err)
 	}
 	defer cloudClient.Close()
