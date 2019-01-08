@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ Test webscale deployment
 
     1. deploying kubernetes core and asserting it is `healthy`
@@ -14,6 +14,8 @@ import os
 import subprocess
 import re
 import requests
+import functools
+import time
 
 from deploy_stack import (
     BootstrapManager,
@@ -87,8 +89,25 @@ def extract_txn_timings(logs, module):
     :param logs: string containing all the logs from the module
     :param module: string containing the destination module.
     """
-    exp = re.compile(r"{} ran transaction in (\d+\.*\d+)s".format(module), re.IGNORECASE)
-    return exp.findall(logs)
+    exp = re.compile(r'{} ran transaction in (?P<seconds>\d+\.\d+)s'.format(module), re.IGNORECASE)
+    timings = []
+    for timing in exp.finditer(logs):
+        timings.append(timing.group("seconds"))
+    return list(map(float, timings))
+
+def calculate_total_time(timings):
+    """Accumulate transaction timings (txn) from the timings.
+
+    :param timings: expects timings to be floats
+    """
+    return functools.reduce(lambda x, y: x + y, timings)
+
+def calculate_max_time(timings):
+    """Calculate maximum transaction timing from (txn).
+
+    :param timings: expects timings to be floats
+    """
+    return functools.reduce(lambda x, y: x if x > y else y, timings)
 
 def parse_args(argv):
     """Parse all arguments."""
@@ -113,13 +132,20 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+    begin = time.time()
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         deploy_bundle(client, charm_bundle=args.charm_bundle)
         raw_logs = extract_module_logs(client, module=args.logging_module)
         timings = extract_txn_timings(raw_logs, module=args.logging_module)
-        log.info("The timings for deployment: {}".format(timings))
+        # Calculate the timings to forward to the datastore
+        total_time = calculate_total_time(timings)
+        total_txns = len(timings)
+        max_time = calculate_max_time(timings)
+        since = (time.time() - begin)
+
+        log.info("The timings for deployment: total txn time: {}, total nums txn: {}, max txn time: {}, max time (seconds): {}".format(total_time, total_txns, max_time, since))
     return 0
 
 if __name__ == '__main__':
