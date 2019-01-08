@@ -55,8 +55,8 @@ func (c *Client) SwitchGeneration(arg string) error {
 	return result.Error
 }
 
-// SetGeneration sets a unit and/or applications to the 'next' generation.
-func (c *Client) SetGeneration(entities []string) error {
+// AdvanceGeneration advances a unit and/or applications to the 'next' generation.
+func (c *Client) AdvanceGeneration(entities []string) error {
 	var results params.ErrorResults
 	var args params.Entities
 	for _, entity := range entities {
@@ -68,7 +68,7 @@ func (c *Client) SetGeneration(entities []string) error {
 				params.Entity{names.NewUnitTag(entity).String()})
 		}
 	}
-	err := c.facade.FacadeCall("SetGeneration", args, &results)
+	err := c.facade.FacadeCall("AdvanceGeneration", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

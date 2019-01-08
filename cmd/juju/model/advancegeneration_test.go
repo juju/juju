@@ -22,14 +22,14 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type setGenerationSuite struct {
+type advanceGenerationSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&setGenerationSuite{})
+var _ = gc.Suite(&advanceGenerationSuite{})
 
-func (s *setGenerationSuite) SetUpTest(c *gc.C) {
+func (s *advanceGenerationSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Generations); err != nil {
 		panic(err)
@@ -49,59 +49,59 @@ func (s *setGenerationSuite) SetUpTest(c *gc.C) {
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
-func (s *setGenerationSuite) runInit(args ...string) error {
-	cmd := model.NewSetGenerationCommandForTest(nil, s.store)
+func (s *advanceGenerationSuite) runInit(args ...string) error {
+	cmd := model.NewAdvanceGenerationCommandForTest(nil, s.store)
 	return cmdtesting.InitCommand(cmd, args)
 }
 
-func (s *setGenerationSuite) TestInitApplication(c *gc.C) {
+func (s *advanceGenerationSuite) TestInitApplication(c *gc.C) {
 	err := s.runInit("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *setGenerationSuite) TestInitUnit(c *gc.C) {
+func (s *advanceGenerationSuite) TestInitUnit(c *gc.C) {
 	err := s.runInit("ubuntu/0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *setGenerationSuite) TestInitEmpty(c *gc.C) {
+func (s *advanceGenerationSuite) TestInitEmpty(c *gc.C) {
 	err := s.runInit()
 	c.Assert(err, gc.ErrorMatches, `unit and/or application names\(s\) must be specified`)
 }
 
-func (s *setGenerationSuite) TestInitInvalid(c *gc.C) {
+func (s *advanceGenerationSuite) TestInitInvalid(c *gc.C) {
 	err := s.runInit("test me")
 	c.Assert(err, gc.ErrorMatches, `invalid application or unit name "test me"`)
 }
 
-func (s *setGenerationSuite) runCommand(c *gc.C, api model.SetGenerationCommandAPI, args ...string) (*cmd.Context, error) {
-	cmd := model.NewSetGenerationCommandForTest(api, s.store)
+func (s *advanceGenerationSuite) runCommand(c *gc.C, api model.AdvanceGenerationCommandAPI, args ...string) (*cmd.Context, error) {
+	cmd := model.NewAdvanceGenerationCommandForTest(api, s.store)
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func setUpSetMocks(c *gc.C) (*gomock.Controller, *MockSetGenerationCommandAPI) {
+func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *MockAdvanceGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
-	mockSetGenerationCommandAPI := NewMockSetGenerationCommandAPI(mockController)
-	mockSetGenerationCommandAPI.EXPECT().Close().Times(1)
-	return mockController, mockSetGenerationCommandAPI
+	mockAdvanceGenerationCommandAPI := NewMockAdvanceGenerationCommandAPI(mockController)
+	mockAdvanceGenerationCommandAPI.EXPECT().Close().Times(1)
+	return mockController, mockAdvanceGenerationCommandAPI
 }
 
-func (s *setGenerationSuite) TestRunCommand(c *gc.C) {
-	mockController, mockSetGenerationCommandAPI := setUpSetMocks(c)
+func (s *advanceGenerationSuite) TestRunCommand(c *gc.C) {
+	mockController, mockAdvanceGenerationCommandAPI := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	mockSetGenerationCommandAPI.EXPECT().SetGeneration([]string{"ubuntu/0", "redis"}).Return(nil)
+	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration([]string{"ubuntu/0", "redis"}).Return(nil)
 
-	_, err := s.runCommand(c, mockSetGenerationCommandAPI, "ubuntu/0", "redis")
+	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0", "redis")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *setGenerationSuite) TestRunCommandFail(c *gc.C) {
-	mockController, mockSetGenerationCommandAPI := setUpSetMocks(c)
+func (s *advanceGenerationSuite) TestRunCommandFail(c *gc.C) {
+	mockController, mockAdvanceGenerationCommandAPI := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	mockSetGenerationCommandAPI.EXPECT().SetGeneration([]string{"ubuntu/0"}).Return(errors.Errorf("failme"))
+	mockAdvanceGenerationCommandAPI.EXPECT().AdvanceGeneration([]string{"ubuntu/0"}).Return(errors.Errorf("failme"))
 
-	_, err := s.runCommand(c, mockSetGenerationCommandAPI, "ubuntu/0")
+	_, err := s.runCommand(c, mockAdvanceGenerationCommandAPI, "ubuntu/0")
 	c.Assert(err, gc.ErrorMatches, "failme")
 }

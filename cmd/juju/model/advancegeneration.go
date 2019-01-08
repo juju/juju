@@ -15,63 +15,67 @@ import (
 )
 
 const (
-	setGenerationSummary = "Sets the generation for units and/or applications."
-	setGenerationDoc     = `
+	advanceGenerationSummary = "Advances units and/or applications to the next generation."
+	advanceGenerationDoc     = `
 Users need to be able to roll changes to applications in a safe guided 
 processes that controls the flow such that not all units of an HA application 
 are hit at once. This also allows some manual canary testing and provides 
 control over the flow of changes out to the model. 
 
 Examples:
-    juju set-generation redis
-    juju set-generation redis/0
-    juju set-generation redis/0 mysql
+    juju advance-generation redis
+    juju advance-generation redis/0
+    juju advance-generation redis/0 mysql
 
 See also:
     add-generation
     cancel-generation
     switch-generation
+
+Aliases:
+    advance
 `
 )
 
-// NewSetGenerationCommand wraps setGenerationCommand with sane model settings.
-func NewSetGenerationCommand() cmd.Command {
-	return modelcmd.Wrap(&setGenerationCommand{})
+// NewAdvanceGenerationCommand wraps advanceGenerationCommand with sane model settings.
+func NewAdvanceGenerationCommand() cmd.Command {
+	return modelcmd.Wrap(&advanceGenerationCommand{})
 }
 
-// setGenerationCommand is the simplified command for accessing and setting
+// advanceGenerationCommand is the simplified command for accessing and setting
 // attributes related to adding model generations.
-type setGenerationCommand struct {
+type advanceGenerationCommand struct {
 	modelcmd.ModelCommandBase
 
-	api      SetGenerationCommandAPI
+	api      AdvanceGenerationCommandAPI
 	entities []string
 }
 
-// SetGenerationCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package model_test -destination ./setgenerationmock_test.go github.com/juju/juju/cmd/juju/model SetGenerationCommandAPI
-type SetGenerationCommandAPI interface {
+// AdvanceGenerationCommandAPI defines an API interface to be used during testing.
+//go:generate mockgen -package model_test -destination ./advancegenerationmock_test.go github.com/juju/juju/cmd/juju/model AdvanceGenerationCommandAPI
+type AdvanceGenerationCommandAPI interface {
 	Close() error
-	SetGeneration([]string) error
+	AdvanceGeneration([]string) error
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *setGenerationCommand) Info() *cmd.Info {
+func (c *advanceGenerationCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "set-generation",
-		Purpose: setGenerationSummary,
-		Doc:     setGenerationDoc,
+		Name:    "advance-generation",
+		Aliases: []string{"advance"},
+		Purpose: advanceGenerationSummary,
+		Doc:     advanceGenerationDoc,
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *setGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *advanceGenerationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *setGenerationCommand) Init(args []string) error {
+func (c *advanceGenerationCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("unit and/or application names(s) must be specified")
 	}
@@ -84,9 +88,9 @@ func (c *setGenerationCommand) Init(args []string) error {
 	return nil
 }
 
-// getAPI returns the API. This allows passing in a test SetGenerationCommandAPI
+// getAPI returns the API. This allows passing in a test AdvanceGenerationCommandAPI
 // implementation.
-func (c *setGenerationCommand) getAPI() (SetGenerationCommandAPI, error) {
+func (c *advanceGenerationCommand) getAPI() (AdvanceGenerationCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -99,12 +103,12 @@ func (c *setGenerationCommand) getAPI() (SetGenerationCommandAPI, error) {
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *setGenerationCommand) Run(ctx *cmd.Context) error {
+func (c *advanceGenerationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	return client.SetGeneration(c.entities)
+	return client.AdvanceGeneration(c.entities)
 }
