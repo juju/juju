@@ -82,7 +82,7 @@ func (s *advanceGenerationSuite) runCommand(c *gc.C, api model.AdvanceGeneration
 func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *MockAdvanceGenerationCommandAPI) {
 	mockController := gomock.NewController(c)
 	mockAdvanceGenerationCommandAPI := NewMockAdvanceGenerationCommandAPI(mockController)
-	mockAdvanceGenerationCommandAPI.EXPECT().Close().Times(1)
+	mockAdvanceGenerationCommandAPI.EXPECT().Close()
 	return mockController, mockAdvanceGenerationCommandAPI
 }
 
