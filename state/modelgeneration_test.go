@@ -142,18 +142,9 @@ func (s *generationSuite) TestAssignApplicationNotActiveError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If the "next" generation is not active, a call to AssignApplication,
-	// such as would be made for a with a configuration change,
+	// such as would be made accompanying a configuration change,
 	// should not succeed.
 	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
-
-	// Call after switching, but without refreshing.
-	// Because the data in state violates a transaction op assertion,
-	// the error returned is for "state changing too quickly".
-	c.Assert(gen.AssignApplication("redis"), gc.NotNil)
-
-	// Now refresh and try again.
-	// Because the materialised conditions can be checked,
-	// we get the descriptive error.
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.AssignApplication("redis"), gc.ErrorMatches, "generation is not currently active")
 }
@@ -188,15 +179,6 @@ func (s *generationSuite) TestAssignUnitNotActiveError(c *gc.C) {
 	// If the "next" generation is not active,
 	// a call to AssignUnit should fail.
 	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
-
-	// Call after switching, but without refreshing.
-	// Because the data in state violates a transaction op assertion,
-	// the error returned is for "state changing too quickly".
-	c.Assert(gen.AssignUnit("redis/0"), gc.NotNil)
-
-	// Now refresh and try again.
-	// Because the materialised conditions can be checked,
-	// we get the descriptive error.
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "generation is not currently active")
 }
