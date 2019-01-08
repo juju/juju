@@ -37,3 +37,4 @@ python-novaclient>=6.0.2
 pyOpenSSL>=17.5.0
 boto3>=1.5.18
 pyaml>=17.12.1
+influxdb>=5.2.1
