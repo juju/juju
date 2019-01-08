@@ -171,6 +171,55 @@ func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
 	}
 }
 
+// Complete marks the generation as completed.
+func (g *Generation) Complete() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if !g.Active() {
+			return nil, errors.New("next generation is not currently active")
+		}
+		ok, err := g.CanAutoComplete()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !ok {
+			return nil, errors.New("next generation can not auto complete")
+		}
+		assignedUnits := g.AssignedUnits()
+		unitCnt := len(assignedUnits)
+		assertAndCriteria := []bson.D{
+			{{"active", true}},
+			{{"completed", 0}},
+			{{"assigned-units", bson.D{{"$size", unitCnt}}}},
+		}
+		// Ensure the criteria to determine auto complete don't change under us.
+		for app, units := range assignedUnits {
+			appField := fmt.Sprintf("assigned-units.%s", app)
+			assertAndCriteria = append(assertAndCriteria, bson.D{{appField, bson.D{{"$all", units}}}})
+		}
+		time, err := g.st.ControllerTimestamp()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := []txn.Op{
+			{
+				C:      generationsC,
+				Id:     g.doc.Id,
+				Assert: bson.D{{"$and", assertAndCriteria}},
+				Update: bson.D{
+					{"$set", bson.D{{"completed", time.Unix()}}},
+				},
+			},
+		}
+		return ops, nil
+	}
+	return errors.Trace(g.st.db().Run(buildTxn))
+}
+
 // CanAutoComplete returns true if every application that has had configuration
 // changes in this generation also has *all* of its units assigned to the
 // generation.
@@ -202,7 +251,7 @@ func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
 			continue
 		}
 
-		allAppUnits, err := appUnitNames(g.st, app)
+		allAppUnits, err := g.st.AppUnitNames(app)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -223,7 +272,7 @@ func (g *Generation) canComplete(allowEmpty bool) (bool, error) {
 	return true, nil
 }
 
-func appUnitNames(st *State, appId string) ([]string, error) {
+func (st *State) AppUnitNames(appId string) ([]string, error) {
 	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
