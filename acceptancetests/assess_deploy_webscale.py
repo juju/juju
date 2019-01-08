@@ -100,7 +100,7 @@ def parse_args(argv):
     parser.add_argument(
         '--logging-config',
         help="Override logging configuration for a deploy",
-        default="<root>=TRACE;unit=TRACE",
+        default="juju.state.txn=TRACE;<root>=INFO;unit=INFO",
     )
     parser.add_argument(
         '--logging-module',
