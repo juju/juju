@@ -351,7 +351,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 	profileBroker, ok := task.broker.(environs.LXDProfiler)
 	if !ok {
 		logger.Debugf("Attempting to update the profile of a machine that doesn't support profiles")
-		profileUpgradeNotRequired(machines)
+		profileUpgradeNotSupported(machines)
 		return nil
 	}
 	for i, mResult := range machines {
@@ -369,7 +369,9 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			}
 		} else if err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
-			m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err))
+			if err2 := m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err)); err2 != nil {
+				return errors.Annotatef(err2, "cannot set error status for instance charm profile data", m)
+			}
 			// If Error, SetInstanceStatus in the provisioner api will also call
 			// SetStatus.
 			if err2 := m.SetInstanceStatus(status.Error, "cannot upgrade machine's lxd profile: "+err.Error(), nil); err2 != nil {
@@ -384,16 +386,18 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
 				return errors.Annotatef(err2, "cannot set error status for machine %q agent", m)
 			}
-			m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus)
+			if err2 := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus); err2 != nil {
+				return errors.Annotatef(err2, "cannot set success status for instance charm profile data", m)
+			}
 		}
 	}
 	return nil
 }
 
-func profileUpgradeNotRequired(machines []apiprovisioner.MachineResult) {
+func profileUpgradeNotSupported(machines []apiprovisioner.MachineResult) {
 	for _, mResult := range machines {
-		if err := mResult.Machine.SetUpgradeCharmProfileComplete(lxdprofile.NotRequiredStatus); err != nil {
-			logger.Errorf("cannot set charm profile upgrade not required: %s", err.Error())
+		if err := mResult.Machine.SetUpgradeCharmProfileComplete(lxdprofile.NotSupportedStatus); err != nil {
+			logger.Errorf("cannot set not supported status for instance charm profile data: %s", err.Error())
 		}
 	}
 }
