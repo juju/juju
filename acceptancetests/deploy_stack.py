@@ -813,6 +813,8 @@ class BootstrapManager:
                                         soft_deadline=args.deadline)
             if args.to is not None:
                 client.env.bootstrap_to = args.to
+            if args.logging_config is not None:
+                client.env.logging_config = args.logging_config
         return cls.from_client(args, client)
 
     @classmethod
