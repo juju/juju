@@ -5,9 +5,11 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/state"
 )
 
 type generationSuite struct {
@@ -80,9 +82,144 @@ func (s *generationSuite) TestCanAutoCompleteAndCanCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(auto, jc.IsFalse)
 
-	// TODO (manadart 2018-12-07) Implement AddApplication and AddUnit.
-	// Check CanCancel and CanAutoComplete with:
-	// - 2 apps, all units from one and none from the other.
-	// - 2 apps, all units from one and some from the other.
-	// - 2 apps, all units from both.
+	mySqlCharm := s.AddTestingCharm(c, "mysql")
+	mySqlApp := s.AddTestingApplication(c, "mysql", mySqlCharm)
+	_, err = mySqlApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	riakCharm := s.AddTestingCharm(c, "riak")
+	riakApp := s.AddTestingApplication(c, "riak", riakCharm)
+	_, err = riakApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = riakApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// 2 apps; all units from one and none from the other.
+	// Can cancel, but not auto-complete.
+	c.Assert(gen.AssignUnit("mysql/0"), jc.ErrorIsNil)
+	c.Assert(gen.AssignApplication("riak"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+
+	comp, err = gen.CanCancel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(comp, jc.IsTrue)
+
+	auto, err = gen.CanAutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(auto, jc.IsFalse)
+
+	// 2 apps; all units from one and some from the other.
+	// Can not cancel or auto-complete.
+	c.Assert(gen.AssignUnit("riak/0"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+
+	comp, err = gen.CanCancel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(comp, jc.IsFalse)
+
+	auto, err = gen.CanAutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(auto, jc.IsFalse)
+
+	// 2 apps; all units from both.
+	// Can cancel and auto-complete.
+	c.Assert(gen.AssignUnit("riak/1"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+
+	comp, err = gen.CanCancel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(comp, jc.IsTrue)
+
+	auto, err = gen.CanAutoComplete()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(auto, jc.IsTrue)
+}
+
+func (s *generationSuite) TestAssignApplicationNotActiveError(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the "next" generation is not active, a call to AssignApplication,
+	// such as would be made for a with a configuration change,
+	// should not succeed.
+	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+
+	// Call after switching, but without refreshing.
+	// Because the data in state violates a transaction op assertion,
+	// the error returned is for "state changing too quickly".
+	c.Assert(gen.AssignApplication("redis"), gc.NotNil)
+
+	// Now refresh and try again.
+	// Because the materialised conditions can be checked,
+	// we get the descriptive error.
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.AssignApplication("redis"), gc.ErrorMatches, "generation is not currently active")
+}
+
+func (s *generationSuite) TestAssignApplicationGenerationCompletedError(c *gc.C) {
+	c.Skip("Test to be written once generation completion logic is implemented")
+}
+
+func (s *generationSuite) TestAssignApplicationSuccess(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignApplication("redis"), jc.ErrorIsNil)
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, map[string][]string{"redis": {}})
+
+	// Idempotent.
+	c.Assert(gen.AssignApplication("redis"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, map[string][]string{"redis": {}})
+}
+
+func (s *generationSuite) TestAssignUnitNotActiveError(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the "next" generation is not active,
+	// a call to AssignUnit should fail.
+	c.Assert(s.Model.SwitchGeneration(model.GenerationCurrent), jc.ErrorIsNil)
+
+	// Call after switching, but without refreshing.
+	// Because the data in state violates a transaction op assertion,
+	// the error returned is for "state changing too quickly".
+	c.Assert(gen.AssignUnit("redis/0"), gc.NotNil)
+
+	// Now refresh and try again.
+	// Because the materialised conditions can be checked,
+	// we get the descriptive error.
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, "generation is not currently active")
+}
+
+func (s *generationSuite) TestAssignUnitGenerationCompletedError(c *gc.C) {
+	c.Skip("Test to be written once generation completion logic is implemented")
+}
+
+func (s *generationSuite) TestAssignUnitSuccess(c *gc.C) {
+	c.Assert(s.Model.AddGeneration(), jc.ErrorIsNil)
+
+	gen, err := s.Model.NextGeneration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(gen.AssignUnit("redis/0"), jc.ErrorIsNil)
+
+	expected := map[string][]string{"redis": {"redis/0"}}
+
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
+
+	// Idempotent.
+	c.Assert(gen.AssignUnit("redis/0"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.DeepEquals, expected)
 }

@@ -4,10 +4,13 @@
 package state
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -74,13 +77,99 @@ func (g *Generation) AssignedUnits() map[string][]string {
 // AssignApplication indicates that the application with the input name has had
 // changes in this generation.
 func (g *Generation) AssignApplication(appName string) error {
-	return errors.NotImplementedf("AssignApplication")
+	if _, ok := g.doc.AssignedUnits[appName]; ok {
+		return nil
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if !g.Active() {
+			return nil, errors.New("generation is not currently active")
+		}
+		if g.doc.Completed > 0 {
+			return nil, errors.New("generation has been completed")
+		}
+		return assignGenerationAppTxnOps(g.doc.Id, appName), nil
+	}
+
+	err := g.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot assign application to generation: %v", err)
+	}
+	return err
+}
+
+func assignGenerationAppTxnOps(id, appName string) []txn.Op {
+	assignedField := "assigned-units"
+	appField := fmt.Sprintf("%s.%s", assignedField, appName)
+
+	return []txn.Op{
+		{
+			C:  generationsC,
+			Id: id,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"active", true}},
+				{{"completed", 0}},
+				{{assignedField, bson.D{{"$exists", true}}}},
+				{{appField, bson.D{{"$exists", false}}}},
+			}}},
+			Update: bson.D{
+				{"$set", bson.D{{appField, []string{}}}},
+			},
+		},
+	}
 }
 
 // AssignUnit indicates that the unit with the input name has had been added
-// to this generation and should realise config changes applied to it.
+// to this generation and should realise config changes applied to its
+// application made while the generation is active.
 func (g *Generation) AssignUnit(unitName string) error {
-	return errors.NotImplementedf("AssignApplication")
+	appName, err := names.UnitApplication(unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if set.NewStrings(g.doc.AssignedUnits[appName]...).Contains(unitName) {
+		return nil
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if !g.Active() {
+			return nil, errors.New("generation is not currently active")
+		}
+		if g.doc.Completed > 0 {
+			return nil, errors.New("generation has been completed")
+		}
+		return assignGenerationUnitTxnOps(g.doc.Id, appName, unitName), nil
+	}
+
+	err = g.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot assign unit to generation: %v", err)
+	}
+	return err
+}
+
+func assignGenerationUnitTxnOps(id, appName, unitName string) []txn.Op {
+	assignedField := "assigned-units"
+	appField := fmt.Sprintf("%s.%s", assignedField, appName)
+
+	return []txn.Op{
+		{
+			C:  generationsC,
+			Id: id,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"active", true}},
+				{{"completed", 0}},
+				{{assignedField, bson.D{{"$exists", true}}}},
+				{{appField, bson.D{{"$not", bson.D{{"$elemMatch", bson.D{{"$eq", unitName}}}}}}}},
+			}}},
+			Update: bson.D{
+				{"$push", bson.D{{appField, unitName}}},
+			},
+		},
+	}
 }
 
 // CanAutoComplete returns true if every application that has had configuration
@@ -145,11 +234,24 @@ func appUnitNames(st *State, appId string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	names := make([]string, len(docs))
+	unitNames := make([]string, len(docs))
 	for i, doc := range docs {
-		names[i] = doc.Name
+		unitNames[i] = doc.Name
 	}
-	return names, nil
+	return unitNames, nil
+}
+
+// Refresh refreshes the contents of the generation from the underlying state.
+func (g *Generation) Refresh() error {
+	col, closer := g.st.db().GetCollection(generationsC)
+	defer closer()
+
+	var doc generationDoc
+	if err := col.FindId(g.doc.Id).One(&doc); err != nil {
+		return errors.Trace(err)
+	}
+	g.doc = doc
+	return nil
 }
 
 // AddGeneration creates a new "next" generation for the model.
