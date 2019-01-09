@@ -250,13 +250,13 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 			errMsg := `
 Jaas requires cloud and region information. But it's
 not possible to fetch cluster region in this case, 
-	please use --region option to parse in if you want to
+	please use --region to specify the cloud/region manually
 `[1:]
 			if err != nil {
 				return errors.Annotate(err, errMsg)
 			}
 			if cloudRegion == "" {
-				return errors.NotValidf(errMsg)
+				return errors.NewNotValid(nil, errMsg)
 			}
 			newCloud.HostCloudRegion = cloudRegion
 			if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
@@ -303,7 +303,7 @@ func newK8sBrokerGetter(rootAPIGetter func() (api.Connection, error)) BrokerGett
 		modelAPI := modelconfig.NewClient(conn)
 		defer modelAPI.Close()
 
-		// this current model is not really we want, but it's just for generating the config.
+		// Use the controller model config for constructing the Juju k8s client.
 		attrs, err := modelAPI.ModelGet()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -324,7 +324,7 @@ func newK8sBrokerGetter(rootAPIGetter func() (api.Connection, error)) BrokerGett
 func parseCloudRegion(cloudRegion string) (string, string, error) {
 	fields := strings.SplitN(cloudRegion, "/", 2)
 	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
-		return "", "", errors.NotValidf("expected <cloudType>/<region>")
+		return "", "", errors.NotValidf("cloud region %s", cloudRegion)
 	}
 	return fields[0], fields[1], nil
 }
@@ -351,7 +351,7 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (err error) {
 			}
 		}
 	}
-	return errors.NotValidf("")
+	return errors.NotValidf("cloud region %s", cloudRegion)
 }
 
 func (c *AddCAASCommand) getClusterRegion(

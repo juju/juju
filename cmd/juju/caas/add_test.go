@@ -17,8 +17,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
@@ -172,11 +172,6 @@ func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud
 	fcs.AddCall("UpdateCredential", cloudName, details)
 	return nil
 }
-func (s *addCAASSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
-
-	s.currentClusterRegionSet = &set.Strings{}
-}
 
 func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -191,6 +186,8 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
+	s.currentClusterRegionSet = &set.Strings{}
+
 	var logger loggo.Logger
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
@@ -206,12 +203,6 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 
 	s.store.Call("PublicCloudMetadata", []string(nil)).Returns(initialCloudMap, false, nil)
 	s.store.Call("WritePersonalCloudMetadata", initialCloudMap).Returns(nil)
-}
-
-func (s *addCAASSuite) TearDownTest(c *gc.C) {
-	s.IsolationSuite.TearDownTest(c)
-
-	*s.currentClusterRegionSet = set.NewStrings()
 }
 
 func (s *addCAASSuite) writeTempKubeConfig(c *gc.C) {
@@ -340,22 +331,22 @@ func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
 		{
 			title:          "missing cloud",
 			regionStr:      "/region",
-			expectedErrStr: `validating cloud region "/region": parsing cloud region: expected <cloudType>/<region> not valid`,
+			expectedErrStr: `validating cloud region "/region": parsing cloud region: cloud region /region not valid`,
 		},
 		{
 			title:          "missing region",
 			regionStr:      "cloud/",
-			expectedErrStr: `validating cloud region "cloud/": parsing cloud region: expected <cloudType>/<region> not valid`,
+			expectedErrStr: `validating cloud region "cloud/": parsing cloud region: cloud region cloud/ not valid`,
 		},
 		{
 			title:          "invalid formnat, it should be <cloudType>/<region>",
 			regionStr:      "cloudRegion",
-			expectedErrStr: `validating cloud region "cloudRegion": parsing cloud region: expected <cloudType>/<region> not valid`,
+			expectedErrStr: `validating cloud region "cloudRegion": parsing cloud region: cloud region cloudRegion not valid`,
 		},
 		{
 			title:          "not a known juju cloud region",
 			regionStr:      "cloud/region",
-			expectedErrStr: `validating cloud region "cloud/region":  not valid`,
+			expectedErrStr: `validating cloud region "cloud/region": cloud region cloud/region not valid`,
 		},
 		{
 			title:          "all good",
@@ -374,8 +365,6 @@ func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *gc.C) {
-	*s.currentClusterRegionSet = set.NewStrings("")
-
 	cmd := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
