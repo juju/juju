@@ -117,16 +117,15 @@ def parse_args(argv):
         help="Override the charm bundle to deploy",
     )
     parser.add_argument(
-        '--logging-config',
-        help="Override logging configuration for a deploy",
-        default="juju.state.txn=TRACE;<root>=INFO;unit=INFO",
-    )
-    parser.add_argument(
         '--logging-module',
         help="Override default module to extract",
         default="juju.state.txn",
     )
     add_basic_testing_arguments(parser, existing=False)
+    # Override the default logging_config default value set by adding basic
+    # testing arguments. This way we can have a default value for all tests,
+    # then override it again just for this test.
+    parser.set_defaults(logging_config="juju.state.txn=TRACE;<root>=INFO;unit=INFO")
     return parser.parse_args(argv)
 
 def main(argv=None):

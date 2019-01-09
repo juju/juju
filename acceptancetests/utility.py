@@ -224,7 +224,6 @@ def add_arg_juju_bin(parser):
                         ' will use $PATH/juju',
                         default=None)
 
-
 def add_basic_testing_arguments(
         parser, using_jes=False, deadline=True, env=True, existing=True):
     """Returns the parser loaded with basic testing arguments.
@@ -297,6 +296,9 @@ def add_basic_testing_arguments(
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                         ' completes.')
+    parser.add_argument('--logging-config',
+                        help="Override logging configuration for a deployment.",
+                        default="<root>=INFO;unit=INFO")
     if existing:
         parser.add_argument(
             '--existing',
