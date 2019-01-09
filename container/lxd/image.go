@@ -177,7 +177,7 @@ func (s *Server) CopyRemoteImage(
 	// Block until we either complete successfully or time out.
 	select {
 	case <-abort:
-		return ServerFatalf("image download progress stalled; aborting operation")
+		return errors.New("image download progress stalled; aborting operation")
 	case err := <-complete:
 		if err != nil {
 			return errors.Trace(err)

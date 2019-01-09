@@ -77,7 +77,6 @@ func (s *imageSuite) TestCopyImageCallbackTimeoutError(c *gc.C) {
 	err = jujuSvr.CopyRemoteImage(
 		sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback, time.Microsecond)
 	c.Assert(err, gc.ErrorMatches, "image download progress stalled; aborting operation")
-	c.Assert(lxd.IsServerFatal(err), jc.IsTrue)
 }
 
 func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
