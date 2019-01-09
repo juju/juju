@@ -17,8 +17,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
@@ -45,26 +43,18 @@ var tmpFile = func() (*os.File, error) {
 // Reboot implements the ExecuteReboot command which will reboot a machine
 // once all containers have shut down, or a timeout is reached
 type Reboot struct {
-	acfg     agent.Config
-	apistate api.Connection
-	tag      names.MachineTag
-	st       reboot.State
+	acfg agent.Config
+	tag  names.MachineTag
 }
 
-func NewRebootWaiter(apistate api.Connection, acfg agent.Config) (*Reboot, error) {
-	rebootState, err := apistate.Reboot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func NewRebootWaiter(acfg agent.Config) (*Reboot, error) {
 	tag, ok := acfg.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got: %T --> %v", acfg.Tag(), acfg.Tag())
 	}
 	return &Reboot{
-		acfg:     acfg,
-		st:       rebootState,
-		tag:      tag,
-		apistate: apistate,
+		acfg: acfg,
+		tag:  tag,
 	}, nil
 }
 
@@ -90,8 +80,7 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 		return errors.Trace(err)
 	}
 
-	err := r.st.ClearReboot()
-	return errors.Trace(err)
+	return nil
 }
 
 func (r *Reboot) stopDeployedUnits() error {

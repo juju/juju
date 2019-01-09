@@ -78,17 +78,27 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 			return errors.Trace(err)
 		}
 		logger.Debugf("machine lock will not be released manually")
-		return jworker.ErrRebootMachine
+		err = jworker.ErrRebootMachine
 	case params.ShouldShutdown:
 		spec.Comment = "shutdown"
 		if _, err := r.machineLock.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
 		logger.Debugf("machine lock will not be released manually")
-		return jworker.ErrShutdownMachine
-	default:
-		return nil
+		err = jworker.ErrShutdownMachine
 	}
+
+	if err != nil {
+		// We clear the reboot flag here rather than when we are attempting to
+		// handle the reboot error in the machine agent code as it is possible
+		// that the machine agent is also a controller, and the apiserver has been
+		// shut down. It is better to clear the flag and not reboot on a weird
+		// error rather than get into a reboot loop because we can't shutdown.
+		if err := r.st.ClearReboot(); err != nil {
+			logger.Infof("unable to clear reboot flag: %v", err)
+		}
+	}
+	return err
 }
 
 func (r *Reboot) TearDown() error {

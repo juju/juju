@@ -87,6 +87,11 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wrk.Wait(), gc.Equals, worker.ErrRebootMachine)
+	// The flag is cleared.
+	rFlag, err := s.machine.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rFlag, jc.IsFalse)
+
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {

@@ -44,7 +44,7 @@ func (s *RebootSuite) shutdownCommandParams(c *gc.C) []string {
 }
 
 func (s *RebootSuite) TestRebootNoContainers(c *gc.C) {
-	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
+	w, err := reboot.NewRebootWaiter(s.acfg)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedRebootParams := s.rebootCommandParams(c)
 
@@ -55,7 +55,7 @@ func (s *RebootSuite) TestRebootNoContainers(c *gc.C) {
 }
 
 func (s *RebootSuite) TestShutdownNoContainers(c *gc.C) {
-	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
+	w, err := reboot.NewRebootWaiter(s.acfg)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedShutdownParams := s.shutdownCommandParams(c)
 

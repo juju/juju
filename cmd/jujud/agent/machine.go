@@ -70,7 +70,6 @@ import (
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apicaller"
 	workercommon "github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/deployer"
@@ -612,18 +611,8 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
-	// At this stage, all API connections would have been closed
-	// We need to reopen the API to clear the reboot flag after
-	// scheduling the reboot. It may be cleaner to do this in the reboot
-	// worker, before returning the ErrRebootMachine.
-	conn, err := apicaller.OnlyConnect(a, api.Open)
-	if err != nil {
-		logger.Infof("Reboot: Error connecting to state")
-		return errors.Trace(err)
-	}
-
 	// block until all units/containers are ready, and reboot/shutdown
-	finalize, err := reboot.NewRebootWaiter(conn, a.CurrentConfig())
+	finalize, err := reboot.NewRebootWaiter(a.CurrentConfig())
 	if err != nil {
 		return errors.Trace(err)
 	}
