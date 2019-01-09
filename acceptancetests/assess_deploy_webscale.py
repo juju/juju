@@ -117,11 +117,6 @@ def parse_args(argv):
         help="Override the charm bundle to deploy",
     )
     parser.add_argument(
-        '--logging-config',
-        help="Override logging configuration for a deploy",
-        default="juju.state.txn=TRACE;<root>=INFO;unit=INFO",
-    )
-    parser.add_argument(
         '--logging-module',
         help="Override default module to extract",
         default="juju.state.txn",
