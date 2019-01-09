@@ -2182,11 +2182,13 @@ class CaasClient:
             log.debug(o)
 
     def get_external_hostname(self):
-        status = self.client.get_status()
         # assume here always use single node cdk core or microk8s
+        return '{}.xip.io'.format(self.get_first_worker_ip())
+
+    def get_first_worker_ip(self):
+        status = self.client.get_status()
         unit = status.get_unit('kubernetes-worker/{}'.format(0))
-        ip = status.get_machine_dns_name(unit['machine'])
-        return '{}.xip.io'.format(ip)
+        return status.get_machine_dns_name(unit['machine'])
 
 
 def register_user_interactively(client, token, controller_name):
