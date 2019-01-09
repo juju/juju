@@ -95,13 +95,11 @@ func (c *cacheWorker) loop() error {
 	defer c.config.Cleanup()
 	pool := c.config.StatePool
 
-	allWatcherStarts := prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: "juju_worker_modelcache",
-			Name:      "watcher_starts",
-			Help:      "The number of times the all model watcher has been started.",
-		},
-	)
+	allWatcherStarts := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "juju_worker_modelcache",
+		Name:      "watcher_starts",
+		Help:      "The number of times the all model watcher has been started.",
+	})
 
 	collector := cache.NewMetricsCollector(c.controller)
 	c.config.PrometheusRegisterer.Register(collector)
@@ -116,7 +114,7 @@ func (c *cacheWorker) loop() error {
 	// which is what would happen if this worker errors out.
 	// We do need to consider cache invalidation for multiwatcher entities
 	// that may be in our cache but when we restart the watcher, they aren't there.
-	// Cache invalidtion is a hard problem, but here at least we should perhaps
+	// Cache invalidation is a hard problem, but here at least we should perhaps
 	// be able to do some form of mark and sweep. When we create a new watcher
 	// we should mark entities in the controller, and when we are done with the
 	// first call to Next(), which returns the state of the world, we can issue
@@ -165,7 +163,9 @@ func (c *cacheWorker) loop() error {
 		case deltas := <-watcherChanges:
 			// Process changes and send info down changes channel
 			for _, d := range deltas {
-				c.config.Logger.Tracef(pretty.Sprint(d))
+				if logger := c.config.Logger; logger.IsTraceEnabled() {
+					logger.Tracef(pretty.Sprint(d))
+				}
 				value := c.translate(d)
 				if value != nil {
 					select {

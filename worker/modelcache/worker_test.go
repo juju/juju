@@ -74,9 +74,16 @@ func (s *WorkerSuite) TestConfigMissingCleanup(c *gc.C) {
 
 func (s *WorkerSuite) getController(c *gc.C, w worker.Worker) *cache.Controller {
 	var controller *cache.Controller
-	err := modelcache.OutputFunc(w, &controller)
+	err := modelcache.ExtractCacheController(w, &controller)
 	c.Assert(err, jc.ErrorIsNil)
 	return controller
+}
+
+func (s *WorkerSuite) TestExtractCacheController(c *gc.C) {
+	var controller *cache.Controller
+	var empty worker.Worker
+	err := modelcache.ExtractCacheController(empty, &controller)
+	c.Assert(err.Error(), gc.Equals, "in should be a *modelcache.cacheWorker; got <nil>")
 }
 
 func (s *WorkerSuite) start(c *gc.C) worker.Worker {
