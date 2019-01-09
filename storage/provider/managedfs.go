@@ -4,8 +4,12 @@
 package provider
 
 import (
+	"bufio"
+	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"unicode"
 
 	"github.com/juju/errors"
@@ -225,6 +229,73 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 		return errors.Annotate(err, "mount failed")
 	}
 	logger.Infof("mounted filesystem on %q at %q", devicePath, mountPoint)
+
+	// Look for the mtab entry resulting from the mount and copy it to fstab.
+	// This ensures the mount is available available after a reboot.
+	etcDir := dirFuncs.etcDir()
+	mtabEntry, err := extractMtabEntry(etcDir, devicePath, mountPoint)
+	if err != nil {
+		return errors.Annotate(err, "parsing /etc/mtab")
+	}
+	if mtabEntry == "" {
+		return nil
+	}
+	return addFstabEntry(etcDir, devicePath, mountPoint, mtabEntry)
+}
+
+// extractMtabEntry returns any /etc/mtab entry for the specified
+// device path and mount point, or "" if none exists.
+func extractMtabEntry(etcDir string, devicePath, mountPoint string) (string, error) {
+	f, err := os.Open(filepath.Join(etcDir, "mtab"))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == devicePath && fields[1] == mountPoint {
+			return line, nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", errors.Trace(err)
+	}
+	return "", nil
+}
+
+// addFstabEntry creates an entry in /etc/fstab for the specified
+// device path and mount point so long as there's no existing entry already.
+func addFstabEntry(etcDir string, devicePath, mountPoint, entry string) error {
+	f, err := os.OpenFile(filepath.Join(etcDir, "fstab"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	if err != nil {
+		return errors.Annotate(err, "opening /etc/fstab")
+	}
+	defer f.Close()
+
+	// Ensure there's no entry there already
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == devicePath && fields[1] == mountPoint {
+			return nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// The entry will be written at the end of the fstab file.
+	if _, err = f.WriteString("\n" + entry + "\n"); err != nil {
+		return errors.Annotate(err, "writing /etc/fstab")
+	}
 	return nil
 }
 
@@ -237,11 +308,58 @@ func maybeUnmount(run runCommandFunc, dirFuncs dirFuncs, mountPoint string) erro
 		return nil
 	}
 	logger.Debugf("attempting to unmount filesystem at %q", mountPoint)
+	if err := removeFstabEntry(dirFuncs.etcDir(), mountPoint); err != nil {
+		return errors.Annotate(err, "updating /etc/fstab failed")
+	}
 	if _, err := run("umount", mountPoint); err != nil {
 		return errors.Annotate(err, "umount failed")
 	}
 	logger.Infof("unmounted filesystem at %q", mountPoint)
 	return nil
+}
+
+// removeFstabEntry removes any existing /etc/fstab entry for
+// the specified mount point.
+func removeFstabEntry(etcDir string, mountPoint string) error {
+	fstab := filepath.Join(etcDir, "fstab")
+	f, err := os.Open(fstab)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+
+	// Use a tempfile in /etc and rename when done.
+	newFsTab, err := ioutil.TempFile(etcDir, "juju-fstab-")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		newFsTab.Close()
+		os.Remove(newFsTab.Name())
+	}()
+	if err := os.Chmod(newFsTab.Name(), 0644); err != nil {
+		return errors.Trace(err)
+	}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 2 || fields[1] != mountPoint {
+			_, err := newFsTab.WriteString(line + "\n")
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return os.Rename(newFsTab.Name(), fstab)
 }
 
 func isMounted(dirFuncs dirFuncs, mountPoint string) (bool, string, error) {
