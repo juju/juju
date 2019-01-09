@@ -6,6 +6,7 @@ package lxd
 import (
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/status"
@@ -41,7 +42,7 @@ func (s *Server) FindImage(
 	callback environs.StatusCallbackFunc,
 ) (SourcedImage, error) {
 	if callback != nil {
-		callback(status.Provisioning, "acquiring LXD image", nil)
+		_ = callback(status.Provisioning, "acquiring LXD image", nil)
 	}
 
 	// First we check if we have the image locally.
@@ -103,7 +104,7 @@ func (s *Server) FindImage(
 
 	// If requested, copy the image to the local cache, adding the local alias.
 	if copyLocal {
-		if err := s.CopyRemoteImage(sourced, []string{localAlias}, callback); err != nil {
+		if err := s.CopyRemoteImage(sourced, []string{localAlias}, callback, 10*time.Minute); err != nil {
 			return sourced, errors.Trace(err)
 		}
 
@@ -118,7 +119,7 @@ func (s *Server) FindImage(
 // CopyRemoteImage accepts an image sourced from a remote server and copies it
 // to the local cache
 func (s *Server) CopyRemoteImage(
-	sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
+	sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc, timeout time.Duration,
 ) error {
 	logger.Debugf("Copying image from remote server")
 
@@ -133,15 +134,34 @@ func (s *Server) CopyRemoteImage(
 		return errors.Trace(err)
 	}
 
+	// Synchronisation channels to handle a hanging call to op.Wait().
+	// See LP:1796709.
+	progress, abort := make(chan struct{}), make(chan struct{})
+	complete := make(chan error)
+
 	// Report progress via callback if supplied.
+	// If there is no callback progress within the timeout duration,
+	// abort the download.
 	if callback != nil {
+		go func() {
+			for {
+				select {
+				case <-progress:
+				case <-time.After(timeout):
+					close(abort)
+					return
+				}
+			}
+		}()
+
 		progress := func(op api.Operation) {
+			progress <- struct{}{}
 			if op.Metadata == nil {
 				return
 			}
 			for _, key := range []string{"fs_progress", "download_progress"} {
 				if value, ok := op.Metadata[key]; ok {
-					callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
+					_ = callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
 					return
 				}
 			}
@@ -152,9 +172,18 @@ func (s *Server) CopyRemoteImage(
 		}
 	}
 
-	if err := op.Wait(); err != nil {
-		return errors.Trace(err)
+	go func() { complete <- op.Wait() }()
+
+	// Block until we either complete successfully or time out.
+	select {
+	case <-abort:
+		return ServerFatalf("image download progress stalled; aborting operation")
+	case err := <-complete:
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
+
 	opInfo, err := op.GetTarget()
 	if err != nil {
 		return errors.Trace(err)

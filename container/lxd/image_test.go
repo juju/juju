@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"errors"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
@@ -48,8 +49,35 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback, time.Second)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *imageSuite) TestCopyImageCallbackTimeoutError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	iSvr := s.NewMockServer(ctrl)
+
+	copyOp := lxdtesting.NewMockRemoteOperation(ctrl)
+	copyOp.EXPECT().Wait().Do(func() { time.Sleep(time.Millisecond) }).Return(nil).AnyTimes()
+	copyOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil)
+
+	image := lxdapi.Image{Filename: "this-is-our-image"}
+	aliases := []lxdapi.ImageAlias{{Name: "local/image/alias"}}
+	req := &lxdclient.ImageCopyArgs{Aliases: aliases}
+	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil)
+
+	jujuSvr, err := lxd.NewServer(iSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sourced := lxd.SourcedImage{
+		Image:     &image,
+		LXDServer: iSvr,
+	}
+	err = jujuSvr.CopyRemoteImage(
+		sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback, time.Microsecond)
+	c.Assert(err, gc.ErrorMatches, "image download progress stalled; aborting operation")
+	c.Assert(lxd.IsServerFatal(err), jc.IsTrue)
 }
 
 func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {

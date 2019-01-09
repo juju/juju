@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
@@ -217,18 +218,29 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		return nil, errors.Trace(err)
 	}
 
-	if err := op.Wait(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	opInfo, err := op.GetTarget()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if opInfo.StatusCode != api.Success {
-		return nil, fmt.Errorf("container creation failed: %s", opInfo.Err)
-	}
+	complete := make(chan error)
+	go func() { complete <- op.Wait() }()
 
-	logger.Debugf("created container %q, waiting for start...", spec.Name)
+	// Block until we either complete successfully or time out.
+	select {
+	case err := <-complete:
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		opInfo, err := op.GetTarget()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if opInfo.StatusCode != api.Success {
+			return nil, fmt.Errorf("container creation failed: %s", opInfo.Err)
+		}
+		logger.Debugf("created container %q, waiting for start...", spec.Name)
+	case <-time.After(5 * time.Minute):
+		// After waiting a while, just proceed and see if LXD was successful,
+		// even though it did not return from the call to op.Wait().
+		// See LP:1796709.
+		logger.Debugf("attempting to start container %q...", spec.Name)
+	}
 
 	if err := s.StartContainer(spec.Name); err != nil {
 		if remErr := s.RemoveContainer(spec.Name); remErr != nil {
@@ -258,7 +270,14 @@ func (s *Server) StartContainer(name string) error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(op.Wait())
+	complete := make(chan error)
+	go func() { complete <- op.Wait() }()
+	select {
+	case err := <-complete:
+		return errors.Trace(err)
+	case <-time.After(1 * time.Minute):
+		return nil
+	}
 }
 
 // Remove containers stops and deletes containers matching the input list of
