@@ -331,6 +331,22 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	return task.startMachines(pending)
 }
 
+// processProfileChanges adds, removes, or updates lxc profiles changes to
+// existing machines, if supported by the machine's broker.
+//
+// If this action is triggered by a charm upgrade, the instance charm profile
+// data doc is always created.  Allowing the uniter to determine if the
+// profile upgrade is in a terminal state before proceeding with charm
+// upgrade itself.
+//
+// If this action is triggered by a new 2nd unit added to an existing machine,
+// clean up of the instance charm profile data doc happens here in the case
+// of lxd profile support in the machine's broker.
+//
+// If the broker does not support lxd profiles, it is harder to determine if
+// the instance charm profile data doc should be cleaned up.  Therefore it
+// gets set to NotSupportedStatus, which then is deleted by the uniter at
+// it's installation.
 func (task *provisionerTask) processProfileChanges(ids []string) error {
 	logger.Tracef("processProfileChanges(%v)", ids)
 	if len(ids) == 0 {
@@ -370,7 +386,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 		} else if err != nil {
 			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
 			if err2 := m.SetUpgradeCharmProfileComplete(lxdprofile.AnnotateErrorStatus(err)); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for instance charm profile data", m)
+				return errors.Annotatef(err2, "cannot set error status for instance charm profile data for machine %q", m)
 			}
 			// If Error, SetInstanceStatus in the provisioner api will also call
 			// SetStatus.
@@ -387,7 +403,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 				return errors.Annotatef(err2, "cannot set error status for machine %q agent", m)
 			}
 			if err2 := m.SetUpgradeCharmProfileComplete(lxdprofile.SuccessStatus); err2 != nil {
-				return errors.Annotatef(err2, "cannot set success status for instance charm profile data", m)
+				return errors.Annotatef(err2, "cannot set success status for instance charm profile data for machine %q", m)
 			}
 		}
 	}
