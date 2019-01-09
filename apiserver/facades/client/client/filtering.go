@@ -47,7 +47,7 @@ func UnitChainPredicateFn(
 		for _, subName := range unit.SubordinateNames() {
 			// A master match supercedes any subordinate match.
 			if matches {
-				logger.Infof("%s is a subordinate to a match.", subName)
+				logger.Debugf("%s is a subordinate to a match.", subName)
 				considered[subName] = true
 				continue
 			}
