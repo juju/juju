@@ -24,6 +24,9 @@ const (
 
 	// ErrorStatus defines when the lxd profile is in an error state
 	ErrorStatus = "Error"
+
+	// NotSupportedStatus defines when a machine does not support lxd profiles.
+	NotSupportedStatus = "Not Supported"
 )
 
 // AnnotateErrorStatus annotates an existing error with the correct status
@@ -33,7 +36,7 @@ func AnnotateErrorStatus(err error) string {
 
 // UpgradeStatusFinished defines if the upgrade has completed
 func UpgradeStatusFinished(status string) bool {
-	if status == SuccessStatus || status == NotRequiredStatus {
+	if status == SuccessStatus || status == NotRequiredStatus || status == NotSupportedStatus {
 		return true
 	}
 	return false
