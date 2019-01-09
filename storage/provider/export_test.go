@@ -17,11 +17,13 @@ import (
 var Getpagesize = &getpagesize
 
 func LoopVolumeSource(
+	etcDir string,
 	storageDir string,
 	run func(string, ...string) (string, error),
 ) (storage.VolumeSource, *MockDirFuncs) {
 	dirFuncs := &MockDirFuncs{
 		osDirFuncs{run},
+		etcDir,
 		set.NewStrings(),
 	}
 	return &loopVolumeSource{dirFuncs, run, storageDir}, dirFuncs
@@ -34,12 +36,14 @@ func LoopProvider(
 }
 
 func NewMockManagedFilesystemSource(
+	etcDir string,
 	run func(string, ...string) (string, error),
 	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 ) (storage.FilesystemSource, *MockDirFuncs) {
 	dirFuncs := &MockDirFuncs{
 		osDirFuncs{run},
+		etcDir,
 		set.NewStrings(),
 	}
 	return &managedFilesystemSource{
@@ -53,7 +57,12 @@ var _ dirFuncs = (*MockDirFuncs)(nil)
 // MockDirFuncs stub out the real mkdir and lstat functions from stdlib.
 type MockDirFuncs struct {
 	osDirFuncs
-	Dirs set.Strings
+	fakeEtcDir string
+	Dirs       set.Strings
+}
+
+func (m *MockDirFuncs) etcDir() string {
+	return m.fakeEtcDir
 }
 
 func (m *MockDirFuncs) mkDirAll(path string, perm os.FileMode) error {
@@ -102,9 +111,10 @@ func (m *MockDirFuncs) fileCount(name string) (int, error) {
 	return 0, nil
 }
 
-func RootfsFilesystemSource(storageDir string, run func(string, ...string) (string, error)) (storage.FilesystemSource, *MockDirFuncs) {
+func RootfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error)) (storage.FilesystemSource, *MockDirFuncs) {
 	d := &MockDirFuncs{
 		osDirFuncs{run},
+		etcDir,
 		set.NewStrings(),
 	}
 	return &rootfsFilesystemSource{d, run, storageDir}, d
@@ -114,10 +124,11 @@ func RootfsProvider(run func(string, ...string) (string, error)) storage.Provide
 	return &rootfsProvider{run}
 }
 
-func TmpfsFilesystemSource(storageDir string, run func(string, ...string) (string, error)) storage.FilesystemSource {
+func TmpfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error)) storage.FilesystemSource {
 	return &tmpfsFilesystemSource{
 		&MockDirFuncs{
 			osDirFuncs{run},
+			etcDir,
 			set.NewStrings(),
 		},
 		run,

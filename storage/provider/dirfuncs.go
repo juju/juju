@@ -15,6 +15,7 @@ import (
 // dirFuncs is used to allow the real directory operations to
 // be stubbed out for testing.
 type dirFuncs interface {
+	etcDir() string
 	mkDirAll(path string, perm os.FileMode) error
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
@@ -39,6 +40,10 @@ type dirFuncs interface {
 // filesystem.
 type osDirFuncs struct {
 	run runCommandFunc
+}
+
+func (*osDirFuncs) etcDir() string {
+	return "/etc"
 }
 
 func (*osDirFuncs) mkDirAll(path string, perm os.FileMode) error {
