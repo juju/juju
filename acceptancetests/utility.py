@@ -297,7 +297,7 @@ def add_basic_testing_arguments(
                         help='Keep the Juju environment after the test'
                         ' completes.')
     parser.add_argument('--logging-config',
-                        help="Override logging configuration for a deploy",
+                        help="Override logging configuration for a deployment.",
                         default="<root>=INFO;unit=INFO")
     if existing:
         parser.add_argument(
