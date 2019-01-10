@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	jujucloud "github.com/juju/juju/cloud"
@@ -243,9 +244,8 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	defer cloudClient.Close()
 
 	if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
-		if false {
+		if params.IsCodeCloudRegionRequired(err) {
 			// try to fetch cloud and region then retry.
-			// TODO(caas): once jaas controller support errors.IsRegionRequired(err), enable here.
 			cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
 			errMsg := `
 Jaas requires cloud and region information. But it's

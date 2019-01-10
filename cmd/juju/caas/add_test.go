@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -35,8 +36,9 @@ type addCAASSuite struct {
 	fakeK8sBrokerRegionLister *fakeK8sBrokerRegionLister
 	store                     *fakeCloudMetadataStore
 	fileCredentialStore       *fakeCredentialStore
-	fakeK8SConfigFunc         clientconfig.ClientConfigFunc
+	fakeK8SConfigFunc         *clientconfig.ClientConfigFunc
 	currentClusterRegionSet   *set.Strings
+	isCloudRegionRequired     *bool
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -93,17 +95,22 @@ func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string
 }
 
 type fakeAddCloudAPI struct {
+	*jujutesting.CallMocker
 	caas.AddCloudAPI
-	jujutesting.Stub
-	authTypes   []cloud.AuthType
-	credentials []names.CloudCredentialTag
+	isCloudRegionRequired *bool
+	authTypes             []cloud.AuthType
+	credentials           []names.CloudCredentialTag
 }
 
 func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(cloud.Cloud) error {
+func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud) error {
+	api.MethodCall(api, "AddCloud", kloud)
+	if kloud.HostCloudRegion == "" && *api.isCloudRegionRequired {
+		return params.Error{Code: params.CodeCloudRegionRequired}
+	}
 	return nil
 }
 
@@ -176,7 +183,12 @@ func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud
 func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dir = c.MkDir()
+
+	var logger loggo.Logger
+	s.isCloudRegionRequired = &[]bool{false}[0]
 	s.fakeCloudAPI = &fakeAddCloudAPI{
+		CallMocker:            jujutesting.NewCallMocker(logger),
+		isCloudRegionRequired: s.isCloudRegionRequired,
 		authTypes: []cloud.AuthType{
 			cloud.EmptyAuthType,
 			cloud.AccessKeyAuthType,
@@ -188,7 +200,6 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	}
 	s.currentClusterRegionSet = &set.Strings{}
 
-	var logger loggo.Logger
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
 	s.fakeK8sBrokerRegionLister = &fakeK8sBrokerRegionLister{CallMocker: jujutesting.NewCallMocker(logger)}
@@ -412,14 +423,48 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c *gc.C) {
-	c.Skip("jaas does not support it yet. Enable later.")
-
+	*s.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 	*s.currentClusterRegionSet = set.NewStrings(cloudRegion)
 
 	cmd := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
+	// 1st try failed because region was missing.
+	s.fakeCloudAPI.CheckCall(c, 0, "AddCloud",
+		cloud.Cloud{
+			Name:             "myk8s",
+			HostCloudRegion:  "", // empty cloud region, but isCloudRegionRequired is true
+			Type:             "kubernetes",
+			Description:      "",
+			AuthTypes:        cloud.AuthTypes{""},
+			Endpoint:         "fakeendpoint2",
+			IdentityEndpoint: "",
+			StorageEndpoint:  "",
+			Regions:          []cloud.Region(nil),
+			Config:           map[string]interface{}(nil),
+			RegionConfig:     cloud.RegionConfig(nil),
+			CACertificates:   []string{"fakecadata2"},
+		},
+	)
+	s.fakeK8sBrokerRegionLister.CheckCall(c, 0, "ListHostCloudRegions")
+	// 2nd try with region fetched from ListHostCloudRegions.
+	s.fakeCloudAPI.CheckCall(c, 1, "AddCloud",
+		cloud.Cloud{
+			Name:             "myk8s",
+			HostCloudRegion:  cloudRegion,
+			Type:             "kubernetes",
+			Description:      "",
+			AuthTypes:        cloud.AuthTypes{""},
+			Endpoint:         "fakeendpoint2",
+			IdentityEndpoint: "",
+			StorageEndpoint:  "",
+			Regions:          []cloud.Region(nil),
+			Config:           map[string]interface{}(nil),
+			RegionConfig:     cloud.RegionConfig(nil),
+			CACertificates:   []string{"fakecadata2"},
+		},
+	)
 	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"mrcloud1": {
