@@ -1283,7 +1283,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 			return errors.Annotatef(err, "while merging settings for %q entering relation scope", name)
 		}
 		changes.Departed = remove(changes.Departed, name)
-		w.watcher.Watch(settingsC, docID, revno, w.updates)
+		w.watcher.WatchAtRevno(settingsC, docID, revno, w.updates)
 		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
@@ -1643,7 +1643,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 		changes = append(changes, unitName)
 		if doc.Life != Dead {
 			w.life[unitName] = doc.Life
-			w.watcher.Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
+			w.watcher.WatchAtRevno(unitsC, doc.Id, doc.TxnRevno, w.in)
 		}
 	}
 	return changes, nil
@@ -1700,7 +1700,7 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 		delete(w.life, name)
 		w.watcher.Unwatch(unitsC, unitDocID, w.in)
 	case !known && !gone:
-		w.watcher.Watch(unitsC, unitDocID, doc.TxnRevno, w.in)
+		w.watcher.WatchAtRevno(unitsC, unitDocID, doc.TxnRevno, w.in)
 		w.life[name] = doc.Life
 	case known && life != doc.Life:
 		w.life[name] = doc.Life
@@ -1721,7 +1721,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 		return err
 	}
 
-	w.watcher.Watch(coll, id, revno, w.in)
+	w.watcher.WatchAtRevno(coll, id, revno, w.in)
 	defer func() {
 		w.watcher.Unwatch(coll, id, w.in)
 		for name := range w.life {
@@ -2160,7 +2160,7 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 		if err != nil {
 			return err
 		}
-		w.watcher.Watch(coll.Name(), k.docId, txnRevno, in)
+		w.watcher.WatchAtRevno(coll.Name(), k.docId, txnRevno, in)
 		defer w.watcher.Unwatch(coll.Name(), k.docId, in)
 	}
 	out := w.out
@@ -2272,7 +2272,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		return pending, nil
 	}
 	if !known {
-		w.watcher.Watch(unitsC, doc.DocID, doc.TxnRevno, w.in)
+		w.watcher.WatchAtRevno(unitsC, doc.DocID, doc.TxnRevno, w.in)
 		pending = append(pending, unitName)
 	} else if life != doc.Life && !hasString(pending, unitName) {
 		pending = append(pending, unitName)
@@ -2303,7 +2303,7 @@ func (w *machineUnitsWatcher) loop() error {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	w.watcher.WatchAtRevno(machinesC, w.machine.doc.DocID, revno, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	changes, err := w.updateMachine([]string(nil))
 	if err != nil {
@@ -2383,7 +2383,7 @@ func (w *machineAddressesWatcher) loop() error {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	w.watcher.WatchAtRevno(machinesC, w.machine.doc.DocID, revno, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
@@ -3141,7 +3141,7 @@ func (w *blockDevicesWatcher) loop() error {
 		return errors.Trace(err)
 	}
 	changes := make(chan watcher.Change)
-	w.watcher.Watch(blockDevicesC, docID, revno, changes)
+	w.watcher.WatchAtRevno(blockDevicesC, docID, revno, changes)
 	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
 	blockDevices, err := getBlockDevices(w.db, w.machineId)
 	if err != nil {
@@ -3211,7 +3211,7 @@ func (w *migrationActiveWatcher) loop() error {
 	}
 
 	in := make(chan watcher.Change)
-	w.watcher.Watch(w.collName, w.id, revno, in)
+	w.watcher.WatchAtRevno(w.collName, w.id, revno, in)
 	defer w.watcher.Unwatch(w.collName, w.id, in)
 
 	out := w.sink
@@ -3681,7 +3681,7 @@ func (w *containerAddressesWatcher) loop() error {
 		return err
 	}
 	containerCh := make(chan watcher.Change)
-	w.watcher.Watch(cloudContainersC, id, revno, containerCh)
+	w.watcher.WatchAtRevno(cloudContainersC, id, revno, containerCh)
 	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
 
 	var currentAddress *address
@@ -3869,7 +3869,7 @@ func (w *hashWatcher) loop() error {
 		return errors.Trace(err)
 	}
 	changesCh := make(chan watcher.Change)
-	w.watcher.Watch(w.collection, w.id, revno, changesCh)
+	w.watcher.WatchAtRevno(w.collection, w.id, revno, changesCh)
 	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
 
 	lastHash, err := w.hash()

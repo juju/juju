@@ -221,15 +221,6 @@ func (w *HubWatcher) sendReq(req interface{}) {
 	}
 }
 
-// Watch starts watching the given collection and document id.
-// An event will be sent onto ch whenever a matching document's txn-revno
-// field is observed to change after a transaction is applied. The revno
-// parameter holds the currently known revision number for the document.
-// Non-existent documents are represented by a -1 revno.
-func (w *HubWatcher) Watch(collection string, id interface{}, revno int64, ch chan<- Change) {
-	w.WatchAtRevno(collection, id, revno, ch)
-}
-
 // WatchAtRevno starts watching the given collection and document id.
 // An event will be sent onto ch whenever a matching document's txn-revno
 // field is observed to change after a transaction is applied. The revno
