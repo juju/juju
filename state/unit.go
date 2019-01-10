@@ -692,14 +692,41 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
+		// Clean up any instanceCharmProfileData docs for this machine before
+		// it is destroyed.
+		_, err := getInstanceCharmProfileData(m.st, m.doc.DocID)
+		if err == nil {
+			logger.Tracef("Remove instance charm profile data for machine %s", m.Id())
+			ops = append(ops, txn.Op{
+				C:      instanceCharmProfileDataC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+		} else if !errors.IsNotFound(err) {
+			logger.Errorf("Error getting instance charm profile data for machine %s, %s", m.Id(), err.Error())
+		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
-		logger.Tracef("Remove charm profile from machine %s for %s", m.Id(), a.Name())
-		ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		// Remove any charm profile applied to the machine for this unit,
+		// if this is a unit removal from a machine which will not be
+		// destroyed.
+		machineProfiles, err := m.CharmProfiles()
+		if err != nil {
+			return nil, err
+		}
+		profile, err := lxdprofile.MatchProfileNameByAppName(machineProfiles, u.ApplicationName())
+		if err != nil {
+			return nil, err
+		}
+		if profile != "" {
+			logger.Tracef("Setup to remove charm profile %q, removing unit from machine %s", profile, m.Id())
+			ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
+		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can

@@ -319,6 +319,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// Create a machine.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
 	pr := newPeerRelation(c, s.State)
@@ -401,6 +403,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -447,10 +452,14 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create active units (in relation scope, with subordinates).
