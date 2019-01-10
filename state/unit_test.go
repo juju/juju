@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -624,10 +625,15 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
 	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
 
+	// Set a profile name on the machine, destroyHostOps will only
+	// set up to remove a profile from the machine it if it exists.
+	profileName := lxdprofile.Name("default", applicationWithProfile.Name(), charmWithProfile.Revision())
+	host.SetCharmProfiles([]string{profileName})
 	c.Assert(colocated.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
@@ -639,6 +645,71 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
 	c.Assert(chCharmURL, gc.Equals, "")
 
 	c.Assert(host.Destroy(), gc.NotNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
+	charmWithOut := s.AddTestingCharm(c, "mysql")
+	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	colocated, err := applicationWithOutProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
+	c.Assert(colocated.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+
+	// "", nil is equivalent to IsNotFound, which is what we
+	// expect here
+	chAppName, err := host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, "")
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, "")
+
+	c.Assert(host.Destroy(), gc.NotNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
+	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
+	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
+
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(host), gc.IsNil)
+
+	// create a instanceCharmProfileData which hasn't been completed
+	// to check it's been deleted.
+	err = host.SetUpgradeCharmProfile(applicationWithProfile.Name(), charmWithProfile.URL().String())
+	c.Assert(err, jc.ErrorIsNil)
+	chAppName, err := host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, applicationWithProfile.Name())
+
+	c.Assert(unit.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Dying)
+
+	// "", nil is equivalent to IsNotFound, which is what we
+	// expect here
+	chAppName, err = host.UpgradeCharmProfileApplication()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chAppName, gc.Equals, "")
+	chCharmURL, err := host.UpgradeCharmProfileCharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(chCharmURL, gc.Equals, "")
 }
 
 func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
