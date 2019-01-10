@@ -67,9 +67,46 @@ func (s *DeploySuite) TestPrepareAlreadyDone_ResolvedUpgrade(c *gc.C) {
 	)
 }
 
+func (s *DeploySuite) TestPrepareRemoveUpgradeCharmProfileData_Install(c *gc.C) {
+	callbacks := &DeployCallbacks{
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
+	op, err := (operation.Factory).NewInstall(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Prepare(operation.State{
+		Kind:     operation.Install,
+		Step:     operation.Done,
+		CharmURL: curl("cs:quantal/hive-23"),
+	})
+	c.Check(newState, gc.IsNil)
+	c.Check(errors.Cause(err), gc.Equals, operation.ErrSkipExecute)
+}
+
+func (s *DeploySuite) TestPrepareRemoveUpgradeCharmProfileDataError_Install(c *gc.C) {
+	callbacks := &DeployCallbacks{
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{err: errors.New("pew")},
+	}
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer:  deployer,
+		Callbacks: callbacks,
+	})
+	op, err := (operation.Factory).NewInstall(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "pew")
+}
+
 func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
-		MockGetArchiveInfo: &MockGetArchiveInfo{err: errors.New("pew")},
+		MockGetArchiveInfo:                &MockGetArchiveInfo{err: errors.New("pew")},
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{}, // for Install
 	}
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
@@ -106,7 +143,8 @@ func (s *DeploySuite) TestPrepareArchiveInfoError_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testPrepareStageError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
-		MockGetArchiveInfo: &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockGetArchiveInfo:                &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{}, // for Install
 	}
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
@@ -147,8 +185,9 @@ func (s *DeploySuite) TestPrepareStageError_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testPrepareSetCharmError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
-		MockGetArchiveInfo:  &MockGetArchiveInfo{},
-		MockSetCurrentCharm: &MockSetCurrentCharm{err: errors.New("blargh")},
+		MockGetArchiveInfo:                &MockGetArchiveInfo{},
+		MockSetCurrentCharm:               &MockSetCurrentCharm{err: errors.New("blargh")},
+		MockRemoveUpgradeCharmProfileData: &MockRemoveUpgradeCharmProfileData{}, // for Install
 	}
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
