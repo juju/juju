@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	cloudapi "github.com/juju/juju/api/cloud"
