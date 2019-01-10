@@ -233,6 +233,16 @@ func (w *HubWatcher) Watch(collection string, id interface{}, revno int64, ch ch
 	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
 }
 
+// WatchNoRevno starts watching the given collection and document id.
+// An event will be sent onto ch whenever a matching document's txn-revno
+// field is observed to change after a transaction is applied.
+func (w *HubWatcher) WatchNoRevno(collection string, id interface{}, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot watch a document with nil id")
+	}
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -1, nil}})
+}
+
 // WatchCollection starts watching the given collection.
 // An event will be sent onto ch whenever the txn-revno field is observed
 // to change after a transaction is applied for any document in the collection.

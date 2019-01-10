@@ -31,6 +31,7 @@ type BaseWatcher interface {
 	Err() error
 
 	Watch(collection string, id interface{}, revno int64, ch chan<- Change)
+	WatchNoRevno(collection string, id interface{}, ch chan<- Change)
 	WatchCollection(collection string, ch chan<- Change)
 	WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool)
 	Unwatch(collection string, id interface{}, ch chan<- Change)
@@ -223,6 +224,16 @@ func (w *Watcher) Watch(collection string, id interface{}, revno int64, ch chan<
 		panic("watcher: cannot watch a document with nil id")
 	}
 	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
+}
+
+// WatchNoRevno starts watching the given collection and document id.
+// An event will be sent onto ch whenever a matching document's txn-revno
+// field is observed to change after a transaction is applied.
+func (w *Watcher) WatchNoRevno(collection string, id interface{}, ch chan<- Change) {
+	if id == nil {
+		panic("watcher: cannot watch a document with nil id")
+	}
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -1, nil}})
 }
 
 // WatchCollection starts watching the given collection.
