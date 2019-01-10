@@ -724,8 +724,6 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 			return nil, err
 		}
 		if profile != "" {
-			// TODO (hml) 09-jan-2019
-			// how do we know when to clean this doc up?
 			logger.Tracef("Setup to remove charm profile %q, removing unit from machine %s", profile, m.Id())
 			ops = append(ops, m.SetUpgradeCharmProfileOp(a.Name(), "", lxdprofile.EmptyStatus))
 		}
