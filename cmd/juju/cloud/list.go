@@ -101,26 +101,26 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 }
 
 type cloudList struct {
-	public   map[string]*cloudDetails
-	builtin  map[string]*cloudDetails
-	personal map[string]*cloudDetails
+	public   map[string]*CloudDetails
+	builtin  map[string]*CloudDetails
+	personal map[string]*CloudDetails
 }
 
 func newCloudList() *cloudList {
 	return &cloudList{
-		make(map[string]*cloudDetails),
-		make(map[string]*cloudDetails),
-		make(map[string]*cloudDetails),
+		make(map[string]*CloudDetails),
+		make(map[string]*CloudDetails),
+		make(map[string]*CloudDetails),
 	}
 }
 
-func (c *cloudList) all() map[string]*cloudDetails {
+func (c *cloudList) all() map[string]*CloudDetails {
 	if len(c.personal) == 0 && len(c.builtin) == 0 && len(c.personal) == 0 {
 		return nil
 	}
 
-	result := make(map[string]*cloudDetails)
-	addAll := func(someClouds map[string]*cloudDetails) {
+	result := make(map[string]*CloudDetails)
+	addAll := func(someClouds map[string]*CloudDetails) {
 		for name, cloud := range someClouds {
 			result[name] = cloud
 		}
@@ -182,7 +182,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	w.Println("Cloud", "Regions", "Default", "Type", "Description")
 	w.SetColumnAlignRight(1)
 
-	cloudNamesSorted := func(someClouds map[string]*cloudDetails) []string {
+	cloudNamesSorted := func(someClouds map[string]*CloudDetails) []string {
 		// For tabular we'll sort alphabetically, user clouds last.
 		var names []string
 		for name := range someClouds {
@@ -192,7 +192,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 		return names
 	}
 
-	printClouds := func(someClouds map[string]*cloudDetails, color *ansiterm.Context) {
+	printClouds := func(someClouds map[string]*CloudDetails, color *ansiterm.Context) {
 		cloudNames := cloudNamesSorted(someClouds)
 
 		for _, name := range cloudNames {

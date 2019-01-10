@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -90,7 +91,7 @@ type kubernetesClient struct {
 // run "go generate" from the package directory.
 //go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
 //go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
-//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface
+//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 
@@ -177,6 +178,33 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
+}
+
+const regionLabelName = "failure-domain.beta.kubernetes.io/region"
+
+// ListHostCloudRegions lists all the cloud regions that this cluster has worker nodes/instances running in.
+func (k *kubernetesClient) ListHostCloudRegions() (set.Strings, error) {
+	// we only check 5 worker nodes as of now just run in the one region and
+	// we are just looking for a running worker to sniff its region.
+	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
+	if err != nil {
+		return nil, errors.Annotate(err, "listing nodes")
+	}
+	result := set.NewStrings()
+	for _, n := range nodes.Items {
+		var cloudRegion, v string
+		var ok bool
+		if v = getCloudProviderFromNodeMeta(n); v == "" {
+			continue
+		}
+		cloudRegion += v
+		if v, ok = n.Labels[regionLabelName]; !ok || v == "" {
+			continue
+		}
+		cloudRegion += "/" + v
+		result.Add(cloudRegion)
+	}
+	return result, nil
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.

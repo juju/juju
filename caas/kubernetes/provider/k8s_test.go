@@ -10,6 +10,7 @@ import (
 	testclock "github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -234,6 +235,110 @@ func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
+}
+
+type hostRegionTestcase struct {
+	expectedOut set.Strings
+	nodes       *core.NodeList
+}
+
+var hostRegionsTestCases = []hostRegionTestcase{
+	{
+		expectedOut: set.NewStrings(),
+		nodes:       newNodeList(map[string]string{}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"cloud.google.com/gke-nodepool": "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"cloud.google.com/gke-os-distribution": "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"cloud.google.com/gke-nodepool":        "",
+			"cloud.google.com/gke-os-distribution": "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"kubernetes.azure.com/cluster": "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"manufacturer": "amazon_ec2",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
+			"cloud.google.com/gke-nodepool":            "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings(),
+		nodes: newNodeList(map[string]string{
+			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
+			"cloud.google.com/gke-os-distribution":     "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings("gce/a-fancy-region"),
+		nodes: newNodeList(map[string]string{
+			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
+			"cloud.google.com/gke-nodepool":            "",
+			"cloud.google.com/gke-os-distribution":     "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings("azure/a-fancy-region"),
+		nodes: newNodeList(map[string]string{
+			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
+			"kubernetes.azure.com/cluster":             "",
+		}),
+	},
+	{
+		expectedOut: set.NewStrings("ec2/a-fancy-region"),
+		nodes: newNodeList(map[string]string{
+			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",
+			"manufacturer": "amazon_ec2",
+		}),
+	},
+}
+
+func newNodeList(labels map[string]string) *core.NodeList {
+	return &core.NodeList{Items: []core.Node{newNode(labels)}}
+}
+
+func (s *K8sBrokerSuite) TestListHostCloudRegions(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	for _, v := range hostRegionsTestCases {
+		gomock.InOrder(
+			s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+				Return(v.nodes, nil),
+		)
+		regions, err := s.broker.ListHostCloudRegions()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(regions, jc.DeepEquals, v.expectedOut)
+	}
 }
 
 func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {

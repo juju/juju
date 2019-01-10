@@ -6,6 +6,7 @@ package params
 // Cloud holds information about a cloud.
 type Cloud struct {
 	Type             string        `json:"type"`
+	HostCloudRegion  string        `json:"host-cloud-region,omitempty"`
 	AuthTypes        []string      `json:"auth-types,omitempty"`
 	Endpoint         string        `json:"endpoint,omitempty"`
 	IdentityEndpoint string        `json:"identity-endpoint,omitempty"`

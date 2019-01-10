@@ -32,6 +32,16 @@ func (a AuthTypes) Len() int           { return len(a) }
 func (a AuthTypes) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a AuthTypes) Less(i, j int) bool { return a[i] < a[j] }
 
+// Contains checks if AuthType t is in a AuthTypes.
+func (a AuthTypes) Contains(t AuthType) bool {
+	for _, v := range a {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
 const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
 	AccessKeyAuthType AuthType = "access-key"
@@ -110,6 +120,9 @@ type Cloud struct {
 	// This is one of the provider names registered with
 	// environs.RegisterProvider.
 	Type string
+
+	// HostCloudRegion represents the k8s host cloud. The format is <cloudName>/<region>.
+	HostCloudRegion string
 
 	// Description describes the type of cloud.
 	Description string

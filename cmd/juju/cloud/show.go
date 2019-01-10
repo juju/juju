@@ -77,7 +77,7 @@ func (c *showCloudCommand) Info() *cmd.Info {
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
-	details, err := getCloudDetails()
+	details, err := GetAllCloudDetails()
 	if err != nil {
 		return err
 	}
@@ -98,14 +98,16 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-type regionDetails struct {
+// RegionDetails holds region details.
+type RegionDetails struct {
 	Name             string `yaml:"-" json:"-"`
 	Endpoint         string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	IdentityEndpoint string `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
 }
 
-type cloudDetails struct {
+// CloudDetails holds cloud details.
+type CloudDetails struct {
 	Source           string   `yaml:"defined,omitempty" json:"defined,omitempty"`
 	CloudType        string   `yaml:"type" json:"type"`
 	CloudDescription string   `yaml:"description" json:"description"`
@@ -116,14 +118,14 @@ type cloudDetails struct {
 	// Regions is for when we want to print regions in order for yaml output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
-	RegionsMap    map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
+	RegionsMap    map[string]RegionDetails `yaml:"-" json:"regions,omitempty"`
 	Config        map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
 	RegionConfig  jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
 }
 
-func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
-	result := &cloudDetails{
+func makeCloudDetails(cloud jujucloud.Cloud) *CloudDetails {
+	result := &CloudDetails{
 		Source:           "public",
 		CloudType:        cloud.Type,
 		Endpoint:         cloud.Endpoint,
@@ -138,9 +140,9 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	for i, at := range cloud.AuthTypes {
 		result.AuthTypes[i] = string(at)
 	}
-	result.RegionsMap = make(map[string]regionDetails)
+	result.RegionsMap = make(map[string]RegionDetails)
 	for _, region := range cloud.Regions {
-		r := regionDetails{Name: region.Name}
+		r := RegionDetails{Name: region.Name}
 		if region.Endpoint != result.Endpoint {
 			r.Endpoint = region.Endpoint
 		}
@@ -184,7 +186,8 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 	return specifics
 }
 
-func getCloudDetails() (map[string]*cloudDetails, error) {
+// GetAllCloudDetails returns a list of all cloud details.
+func GetAllCloudDetails() (map[string]*CloudDetails, error) {
 	result, err := listCloudDetails()
 	if err != nil {
 		return nil, errors.Trace(err)

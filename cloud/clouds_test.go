@@ -40,6 +40,13 @@ func (s *cloudSuite) TestParseClouds(c *gc.C) {
 	c.Assert(cloudNames, jc.SameContents, publicCloudNames)
 }
 
+func (s *cloudSuite) TestAuthTypesContains(c *gc.C) {
+	ats := cloud.AuthTypes{"a1", "a2"}
+	c.Assert(ats.Contains(cloud.AuthType("unknown")), jc.IsFalse)
+	c.Assert(ats.Contains(cloud.AuthType("a1")), jc.IsTrue)
+	c.Assert(ats.Contains(cloud.AuthType("a2")), jc.IsTrue)
+}
+
 func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 	clouds := parsePublicClouds(c)
 	rackspace := clouds["rackspace"]

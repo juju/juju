@@ -38,6 +38,9 @@ var commonFacadeNames = set.NewStrings(
 	// NotifyWatcher may be used for watching controller API info,
 	// in conjunction with the CrossController facade.
 	"NotifyWatcher",
+
+	// ModelConfig may be used for letting controller commands access provider, for example, juju add-k8s.
+	"ModelConfig",
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {

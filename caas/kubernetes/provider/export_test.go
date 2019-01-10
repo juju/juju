@@ -12,13 +12,14 @@ import (
 )
 
 var (
-	MakeUnitSpec           = makeUnitSpec
-	ParseK8sPodSpec        = parseK8sPodSpec
-	OperatorPod            = operatorPod
-	ExtractRegistryURL     = extractRegistryURL
-	CreateDockerConfigJSON = createDockerConfigJSON
-	NewStorageConfig       = newStorageConfig
-	NewKubernetesWatcher   = newKubernetesWatcher
+	MakeUnitSpec            = makeUnitSpec
+	ParseK8sPodSpec         = parseK8sPodSpec
+	OperatorPod             = operatorPod
+	ExtractRegistryURL      = extractRegistryURL
+	CreateDockerConfigJSON  = createDockerConfigJSON
+	NewStorageConfig        = newStorageConfig
+	NewKubernetesWatcher    = newKubernetesWatcher
+	CompileK8sCloudCheckers = compileK8sCloudCheckers
 )
 
 type KubernetesWatcher = kubernetesWatcher
@@ -49,4 +50,8 @@ func StorageProvisioner(cfg *storageConfig) string {
 
 func StorageParameters(cfg *storageConfig) map[string]string {
 	return cfg.parameters
+}
+
+func GetCloudProviderFromNodeMeta(node core.Node) string {
+	return getCloudProviderFromNodeMeta(node)
 }

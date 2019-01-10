@@ -85,9 +85,9 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 	}
 	var regions interface{}
 	if c.out.Name() == "json" {
-		details := make(map[string]regionDetails)
+		details := make(map[string]RegionDetails)
 		for _, r := range cloud.Regions {
-			details[r.Name] = regionDetails{
+			details[r.Name] = RegionDetails{
 				Endpoint:         r.Endpoint,
 				IdentityEndpoint: r.IdentityEndpoint,
 				StorageEndpoint:  r.StorageEndpoint,
@@ -97,7 +97,7 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 	} else {
 		details := make(yaml.MapSlice, len(cloud.Regions))
 		for i, r := range cloud.Regions {
-			details[i] = yaml.MapItem{r.Name, regionDetails{
+			details[i] = yaml.MapItem{r.Name, RegionDetails{
 				Name:             r.Name,
 				Endpoint:         r.Endpoint,
 				IdentityEndpoint: r.IdentityEndpoint,

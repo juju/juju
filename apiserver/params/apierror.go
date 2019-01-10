@@ -98,6 +98,7 @@ const (
 	CodeRedirect                  = "redirection required"
 	CodeRetry                     = "retry"
 	CodeIncompatibleSeries        = "incompatible series"
+	CodeCloudRegionRequired       = "cloud region required"
 )
 
 // ErrCode returns the error code associated with
@@ -262,4 +263,8 @@ func IsCodeIncompatibleSeries(err error) bool {
 
 func IsCodeForbidden(err error) bool {
 	return ErrCode(err) == CodeForbidden
+}
+
+func IsCodeCloudRegionRequired(err error) bool {
+	return ErrCode(err) == CodeCloudRegionRequired
 }
