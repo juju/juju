@@ -97,7 +97,7 @@ func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
 	s.w.WatchNoRevno("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
-	change := watcher.Change{"test", "a", 5}
+	change := watcher.Change{"test", "a", false, 5}
 	s.publish(c, change)
 
 	assertChange(c, s.ch, change)
@@ -105,7 +105,7 @@ func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
-	change := watcher.Change{"test", "a", 5}
+	change := watcher.Change{"test", "a", false, 5}
 	s.publish(c, change)
 
 	s.w.WatchNoRevno("test", "a", s.ch)
@@ -116,15 +116,15 @@ func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
 func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *gc.C) {
 	s.w.WatchNoRevno("test", "a", s.ch)
 
-	s.publish(c, watcher.Change{"test", "b", 5})
+	s.publish(c, watcher.Change{"test", "b", false, 5})
 
 	assertNoChange(c, s.ch)
 }
 
 func (s *HubWatcherSuite) TestWatchOrder(c *gc.C) {
-	first := watcher.Change{"test", "a", 3}
-	second := watcher.Change{"test", "b", 4}
-	third := watcher.Change{"test", "c", 5}
+	first := watcher.Change{"test", "a", false, 3}
+	second := watcher.Change{"test", "b", false, 4}
+	third := watcher.Change{"test", "c", false, 5}
 
 	for _, id := range []string{"a", "b", "c", "d"} {
 		s.w.WatchNoRevno("test", id, s.ch)
@@ -146,9 +146,9 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 	s.w.WatchNoRevno("test2", 2, ch2)
 	s.w.WatchNoRevno("test3", 3, ch3)
 
-	first := watcher.Change{"test1", 1, 3}
-	second := watcher.Change{"test2", 2, 4}
-	third := watcher.Change{"test3", 3, 5}
+	first := watcher.Change{"test1", 1, false, 3}
+	second := watcher.Change{"test2", 2, false, 4}
+	third := watcher.Change{"test3", 3, false, 5}
 	s.publish(c, first, second, third)
 
 	s.w.Unwatch("test2", 2, ch2)
@@ -160,7 +160,7 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchKnownRemove(c *gc.C) {
-	change := watcher.Change{"test", "a", -1}
+	change := watcher.Change{"test", "a", true, -1}
 	s.publish(c, change)
 
 	s.w.WatchAtRevno("test", "a", 2, s.ch)
@@ -169,7 +169,7 @@ func (s *HubWatcherSuite) TestWatchKnownRemove(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
-	change := watcher.Change{"test", "a", -1}
+	change := watcher.Change{"test", "a", true, -1}
 	s.publish(c, change)
 
 	s.w.WatchNoRevno("test", "a", s.ch)
@@ -180,7 +180,7 @@ func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
 func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	const N = 10
 	for i := 0; i < N; i++ {
-		s.publish(c, watcher.Change{"test", i, int64(i + 3)})
+		s.publish(c, watcher.Change{"test", i, false, int64(i + 3)})
 	}
 	for i := 0; i < N; i++ {
 		s.w.WatchNoRevno("test", i, s.ch)
@@ -213,10 +213,10 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 	s.w.WatchCollection("testB", chB)
 
 	changes := []watcher.Change{
-		{"testA", 1, 3},
-		{"testA", 2, 2},
-		{"testB", 1, 5},
-		{"testB", 2, 6},
+		{"testA", 1, false, 3},
+		{"testA", 2, false, 2},
+		{"testB", 1, false, 5},
+		{"testB", 2, false, 6},
 	}
 	s.publish(c, changes...)
 
@@ -250,7 +250,7 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 	s.w.UnwatchCollection("testB", chB)
 	s.w.Unwatch("testB", 1, chB1)
 
-	next := watcher.Change{"testA", 1, 4}
+	next := watcher.Change{"testA", 1, false, 4}
 	s.publish(c, next)
 
 	seen = map[chan<- watcher.Change][]watcher.Change{}
@@ -277,25 +277,25 @@ func (s *HubWatcherSuite) TestUnwatchCollectionWithFilter(c *gc.C) {
 		return id != 2
 	}
 
-	change := watcher.Change{"testA", 1, 3}
+	change := watcher.Change{"testA", 1, false, 3}
 	s.w.WatchCollectionWithFilter("testA", s.ch, filter)
 	s.publish(c, change)
 	assertChange(c, s.ch, change)
-	s.publish(c, watcher.Change{"testA", 2, 2})
+	s.publish(c, watcher.Change{"testA", 2, false, 2})
 	assertNoChange(c, s.ch)
 
-	change = watcher.Change{"testA", 3, 3}
+	change = watcher.Change{"testA", 3, false, 3}
 	s.publish(c, change)
 	assertChange(c, s.ch, change)
 }
 
 func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
-	added := watcher.Change{"test", "a", 2}
+	added := watcher.Change{"test", "a", false, 2}
 	s.publish(c, added)
 
 	s.w.WatchNoRevno("test", "a", s.ch)
 
-	removed := watcher.Change{"test", "a", -1}
+	removed := watcher.Change{"test", "a", true, -1}
 	s.publish(c, removed)
 
 	assertChange(c, s.ch, added)
@@ -303,8 +303,8 @@ func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
-	first := watcher.Change{"test", "a", 2}
-	second := watcher.Change{"test", "a", 3}
+	first := watcher.Change{"test", "a", false, 2}
+	second := watcher.Change{"test", "a", false, 3}
 
 	s.w.WatchNoRevno("test", "a", s.ch)
 

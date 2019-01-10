@@ -79,6 +79,9 @@ type Change struct {
 	C  string
 	Id interface{}
 
+	// IsDeleted will be True if the document has been removed, rather than added
+	IsDeleted bool
+
 	// Revno is the latest known value for the document's txn-revno
 	// field, or -1 if the document was deleted.
 	Revno int64
@@ -119,9 +122,10 @@ type watchInfo struct {
 }
 
 type event struct {
-	ch    chan<- Change
-	key   watchKey
-	revno int64
+	ch        chan<- Change
+	key       watchKey
+	isDeleted bool
+	revno     int64
 }
 
 // Period is the delay between each sync.
@@ -312,13 +316,19 @@ func (w *Watcher) flush() {
 	for i := len(w.syncEvents) - 1; i >= 0; i-- {
 		e := &w.syncEvents[i]
 		for e.ch != nil {
+			change := Change{
+				C:         e.key.c,
+				Id:        e.key.id,
+				IsDeleted: e.isDeleted,
+				Revno:     e.revno,
+			}
 			select {
 			case <-w.tomb.Dying():
 				return
 			case req := <-w.request:
 				w.handle(req)
 				continue
-			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
+			case e.ch <- change:
 			}
 			break
 		}
@@ -328,13 +338,19 @@ func (w *Watcher) flush() {
 	for i := 0; i < len(w.requestEvents); i++ {
 		e := &w.requestEvents[i]
 		for e.ch != nil {
+			change := Change{
+				C:         e.key.c,
+				Id:        e.key.id,
+				IsDeleted: e.isDeleted,
+				Revno:     e.revno,
+			}
 			select {
 			case <-w.tomb.Dying():
 				return
 			case req := <-w.request:
 				w.handle(req)
 				continue
-			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
+			case e.ch <- change:
 			}
 			break
 		}
@@ -358,7 +374,13 @@ func (w *Watcher) handle(req interface{}) {
 		}
 		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
 			r.info.revno = revno
-			w.requestEvents = append(w.requestEvents, event{r.info.ch, r.key, revno})
+			evt := event{
+				ch:        r.info.ch,
+				key:       r.key,
+				isDeleted: revno == -1,
+				revno:     revno,
+			}
+			w.requestEvents = append(w.requestEvents, evt)
 		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
 	case reqUnwatch:
@@ -478,14 +500,26 @@ func (w *Watcher) sync() error {
 					if info.filter != nil && !info.filter(d[i]) {
 						continue
 					}
-					w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+					evt := event{
+						ch:        info.ch,
+						key:       key,
+						isDeleted: revno == -1,
+						revno:     revno,
+					}
+					w.syncEvents = append(w.syncEvents, evt)
 				}
 				// Queue notifications for per-document watches.
 				infos := w.watches[key]
 				for i, info := range infos {
 					if revno > info.revno || revno < 0 && info.revno >= 0 {
 						infos[i].revno = revno
-						w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+						evt := event{
+							ch:        info.ch,
+							key:       key,
+							isDeleted: revno == -1,
+							revno:     revno,
+						}
+						w.syncEvents = append(w.syncEvents, evt)
 					}
 				}
 			}

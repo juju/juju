@@ -171,7 +171,7 @@ func (s *TxnWatcherSuite) TestInsert(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno},
+		{"test", "a", false, revno},
 	})
 }
 
@@ -185,7 +185,7 @@ func (s *TxnWatcherSuite) TestUpdate(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno},
+		{"test", "a", false, revno},
 	})
 }
 
@@ -199,7 +199,7 @@ func (s *TxnWatcherSuite) TestRemove(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno},
+		{"test", "a", true, revno},
 	})
 }
 
@@ -214,9 +214,9 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno1},
-		{"test", "b", revno2},
-		{"test", "c", revno3},
+		{"test", "a", false, revno1},
+		{"test", "b", false, revno2},
+		{"test", "c", false, revno3},
 	})
 }
 
@@ -229,9 +229,9 @@ func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revnos[0]},
-		{"test", "b", revnos[1]},
-		{"test", "c", revnos[2]},
+		{"test", "a", false, revnos[0]},
+		{"test", "b", false, revnos[1]},
+		{"test", "c", false, revnos[2]},
 	})
 }
 
@@ -276,8 +276,8 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno1},
-		{"test", "a", revno2},
+		{"test", "a", false, revno1},
+		{"test", "a", true, revno2},
 	})
 }
 
@@ -293,8 +293,8 @@ func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
 	hub.waitForExpected(c)
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno1},
-		{"test", "a", revno3},
+		{"test", "a", false, revno1},
+		{"test", "a", false, revno3},
 	})
 }
 

@@ -400,6 +400,12 @@ func (w *HubWatcher) flush() bool {
 		// as the slice may be reallocated.
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
 			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
+			change := Change{
+				C:         e.key.c,
+				Id:        e.key.id,
+				IsDeleted: e.isDeleted,
+				Revno:     e.revno,
+			}
 			select {
 			case <-w.tomb.Dying():
 				return watchersNotified
@@ -409,8 +415,8 @@ func (w *HubWatcher) flush() bool {
 			case change := <-w.changes:
 				w.queueChange(change)
 				continue
-			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
+			case e.ch <- change:
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, change)
 				watchersNotified = true
 			}
 			break
@@ -436,6 +442,12 @@ func (w *HubWatcher) flush() bool {
 		// We need to reget the address value each time through the loop
 		// as the slice may be reallocated.
 		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
+			change := Change{
+				C:         e.key.c,
+				Id:        e.key.id,
+				IsDeleted: e.isDeleted,
+				Revno:     e.revno,
+			}
 			select {
 			case <-w.tomb.Dying():
 				return watchersNotified
@@ -445,8 +457,8 @@ func (w *HubWatcher) flush() bool {
 			case change := <-w.changes:
 				w.queueChange(change)
 				continue
-			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
-				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, Change{e.key.c, e.key.id, e.revno})
+			case e.ch <- change:
+				w.logger.Tracef("e.ch=%v has been notified %v", e.ch, change)
 				watchersNotified = true
 			}
 			break
@@ -470,7 +482,13 @@ func (w *HubWatcher) handle(req interface{}) {
 		}
 		if revno, ok := w.current[r.key]; ok && (revno > r.info.revno || revno == -1 && r.info.revno >= 0) {
 			r.info.revno = revno
-			w.requestEvents = append(w.requestEvents, event{r.info.ch, r.key, revno})
+			evt := event{
+				ch:        r.info.ch,
+				key:       r.key,
+				isDeleted: revno == -1,
+				revno:     revno,
+			}
+			w.requestEvents = append(w.requestEvents, evt)
 		}
 		w.watches[r.key] = append(w.watches[r.key], r.info)
 	case reqUnwatch:
@@ -573,7 +591,13 @@ func (w *HubWatcher) queueChange(change Change) {
 		if info.filter != nil && !info.filter(change.Id) {
 			continue
 		}
-		w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+		evt := event{
+			ch:        info.ch,
+			key:       key,
+			isDeleted: revno == -1,
+			revno:     revno,
+		}
+		w.syncEvents = append(w.syncEvents, evt)
 		w.syncEventCollectionCount++
 		w.logger.Tracef("adding collection watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
 	}
@@ -583,7 +607,13 @@ func (w *HubWatcher) queueChange(change Change) {
 	for i, info := range infos {
 		if revno > info.revno || revno < 0 && info.revno >= 0 {
 			infos[i].revno = revno
-			w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+			evt := event{
+				ch:        info.ch,
+				key:       key,
+				isDeleted: revno == -1,
+				revno:     revno,
+			}
+			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
 			w.logger.Tracef("adding document watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}

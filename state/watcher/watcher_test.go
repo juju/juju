@@ -222,7 +222,7 @@ func (s *FastPeriodSuite) TestWatchBeforeKnown(c *gc.C) {
 	revno := s.insert(c, "test", "a")
 
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno})
 	assertNoChange(c, s.ch)
 
 	assertOrder(c, -1, revno)
@@ -234,7 +234,7 @@ func (s *FastPeriodSuite) TestWatchAfterKnown(c *gc.C) {
 	s.w.StartSync()
 
 	s.w.WatchNoRevno("test", "a", s.ch)
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno})
 	assertNoChange(c, s.ch)
 
 	assertOrder(c, -1, revno)
@@ -260,9 +260,9 @@ func (s *FastPeriodSuite) TestWatchOrder(c *gc.C) {
 	revno3 := s.insert(c, "test", "c")
 
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
-	assertChange(c, s.ch, watcher.Change{"test", "b", revno2})
-	assertChange(c, s.ch, watcher.Change{"test", "c", revno3})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno1})
+	assertChange(c, s.ch, watcher.Change{"test", "b", false, revno2})
+	assertChange(c, s.ch, watcher.Change{"test", "c", false, revno3})
 	assertNoChange(c, s.ch)
 }
 
@@ -273,9 +273,9 @@ func (s *FastPeriodSuite) TestTransactionWithMultiple(c *gc.C) {
 	}
 	revnos := s.insertAll(c, "test", "a", "b", "c")
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revnos[0]})
-	assertChange(c, s.ch, watcher.Change{"test", "b", revnos[1]})
-	assertChange(c, s.ch, watcher.Change{"test", "c", revnos[2]})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revnos[0]})
+	assertChange(c, s.ch, watcher.Change{"test", "b", false, revnos[1]})
+	assertChange(c, s.ch, watcher.Change{"test", "c", false, revnos[2]})
 	assertNoChange(c, s.ch)
 }
 
@@ -291,9 +291,9 @@ func (s *FastPeriodSuite) TestWatchMultipleChannels(c *gc.C) {
 	revno3 := s.insert(c, "test3", 3)
 	s.w.StartSync()
 	s.w.Unwatch("test2", 2, ch2)
-	assertChange(c, ch1, watcher.Change{"test1", 1, revno1})
+	assertChange(c, ch1, watcher.Change{"test1", 1, false, revno1})
 	_ = revno2
-	assertChange(c, ch3, watcher.Change{"test3", 3, revno3})
+	assertChange(c, ch3, watcher.Change{"test3", 3, false, revno3})
 	assertNoChange(c, ch1)
 	assertNoChange(c, ch2)
 	assertNoChange(c, ch3)
@@ -316,12 +316,12 @@ func (s *FastPeriodSuite) TestUpdate(c *gc.C) {
 
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno1})
 	assertNoChange(c, s.ch)
 
 	revno2 := s.update(c, "test", "a")
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno2})
 
 	assertOrder(c, -1, revno1, revno2)
 }
@@ -332,17 +332,17 @@ func (s *FastPeriodSuite) TestRemove(c *gc.C) {
 
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno1})
 	assertNoChange(c, s.ch)
 
 	revno2 := s.remove(c, "test", "a")
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", -1})
+	assertChange(c, s.ch, watcher.Change{"test", "a", true, -1})
 	assertNoChange(c, s.ch)
 
 	revno3 := s.insert(c, "test", "a")
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno3})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno3})
 	assertNoChange(c, s.ch)
 
 	assertOrder(c, revno2, revno1)
@@ -355,7 +355,7 @@ func (s *FastPeriodSuite) TestWatchKnownRemove(c *gc.C) {
 	s.w.StartSync()
 
 	s.w.WatchAtRevno("test", "a", revno1, s.ch)
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
+	assertChange(c, s.ch, watcher.Change{"test", "a", true, revno2})
 
 	assertOrder(c, revno2, revno1)
 }
@@ -366,7 +366,7 @@ func (s *FastPeriodSuite) TestWatchAlreadyRemoved(c *gc.C) {
 	s.w.StartSync()
 
 	s.w.WatchNoRevno("test", "a", s.ch)
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
+	assertChange(c, s.ch, watcher.Change{"test", "a", true, revno2})
 
 	assertOrder(c, revno2, revno1)
 }
@@ -457,7 +457,7 @@ func (s *FastPeriodSuite) TestStartSync(c *gc.C) {
 		c.Fatalf("StartSync failed to return")
 	}
 
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno})
 }
 
 func (s *FastPeriodSuite) TestWatchCollection(c *gc.C) {
@@ -498,10 +498,10 @@ Loop1:
 		n++
 	}
 
-	c.Check(seen[chA1], gc.DeepEquals, []watcher.Change{{"testA", 1, revno1}})
-	c.Check(seen[chB1], gc.DeepEquals, []watcher.Change{{"testB", 1, revno3}})
-	c.Check(seen[chA], gc.DeepEquals, []watcher.Change{{"testA", 1, revno1}, {"testA", 2, revno2}})
-	c.Check(seen[chB], gc.DeepEquals, []watcher.Change{{"testB", 1, revno3}, {"testB", 2, revno4}})
+	c.Check(seen[chA1], gc.DeepEquals, []watcher.Change{{"testA", 1, false, revno1}})
+	c.Check(seen[chB1], gc.DeepEquals, []watcher.Change{{"testB", 1, false, revno3}})
+	c.Check(seen[chA], gc.DeepEquals, []watcher.Change{{"testA", 1, false, revno1}, {"testA", 2, false, revno2}})
+	c.Check(seen[chB], gc.DeepEquals, []watcher.Change{{"testB", 1, false, revno3}, {"testB", 2, false, revno4}})
 	if c.Failed() {
 		return
 	}
@@ -532,9 +532,9 @@ Loop2:
 		}
 		n++
 	}
-	c.Check(seen[chA1], gc.DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Check(seen[chA1], gc.DeepEquals, []watcher.Change{{"testA", 1, false, revno1}})
 	c.Check(seen[chB1], gc.IsNil)
-	c.Check(seen[chA], gc.DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Check(seen[chA], gc.DeepEquals, []watcher.Change{{"testA", 1, false, revno1}})
 	c.Check(seen[chB], gc.IsNil)
 
 	// Check that no extra events arrive.
@@ -569,12 +569,12 @@ func (s *FastPeriodSuite) TestUnwatchCollectionWithFilter(c *gc.C) {
 	chA := make(chan watcher.Change)
 	s.w.WatchCollectionWithFilter("testA", chA, filter)
 	revnoA := s.insert(c, "testA", 1)
-	assertChange(c, chA, watcher.Change{"testA", 1, revnoA})
+	assertChange(c, chA, watcher.Change{"testA", 1, false, revnoA})
 	s.insert(c, "testA", 2)
 	assertNoChange(c, chA)
 	s.insert(c, "testA", 3)
 	s.w.StartSync()
-	assertChange(c, chA, watcher.Change{"testA", 3, revnoA})
+	assertChange(c, chA, watcher.Change{"testA", 3, false, revnoA})
 }
 
 func (s *FastPeriodSuite) TestUnwatchCollectionWithOutstandingRequest(c *gc.C) {
@@ -595,9 +595,9 @@ func (s *FastPeriodSuite) TestUnwatchCollectionWithOutstandingRequest(c *gc.C) {
 	// When we receive the first change on chA, we know that
 	// the watcher is trying to send changes on all the
 	// watcher channels (2 changes on chA and 1 change on chB).
-	assertChange(c, chA, watcher.Change{"testA", 1, revnoA})
+	assertChange(c, chA, watcher.Change{"testA", 1, false, revnoA})
 	s.w.UnwatchCollection("testA", chA)
-	assertChange(c, chB, watcher.Change{"testB", 1, revnoB})
+	assertChange(c, chB, watcher.Change{"testB", 1, false, revnoB})
 }
 
 func (s *FastPeriodSuite) TestNonMutatingTxn(c *gc.C) {
@@ -641,9 +641,9 @@ func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 	revno2 := s.remove(c, "test", "a")
 
 	s.w.WatchNoRevno("test", "a", s.ch)
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno1})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno1})
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
+	assertChange(c, s.ch, watcher.Change{"test", "a", true, revno2})
 
 	assertOrder(c, revno2, revno1)
 }
@@ -661,7 +661,7 @@ func (s *SlowPeriodSuite) TestDoubleUpdate(c *gc.C) {
 	assertNoChange(c, s.ch)
 
 	s.w.StartSync()
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno3})
+	assertChange(c, s.ch, watcher.Change{"test", "a", false, revno3})
 	assertNoChange(c, s.ch)
 
 	assertOrder(c, -1, revno1, revno2, revno3)
@@ -678,7 +678,7 @@ func (s *SlowPeriodSuite) TestWatchPeriod(c *gc.C) {
 	select {
 	case got := <-s.ch:
 		gotPeriod := time.Since(t0)
-		c.Assert(got, gc.Equals, watcher.Change{"test", "a", revno2})
+		c.Assert(got, gc.Equals, watcher.Change{"test", "a", false, revno2})
 		if gotPeriod < watcher.Period-leeway {
 			c.Fatalf("watcher not waiting long enough; got %v want %v", gotPeriod, watcher.Period)
 		}
