@@ -244,25 +244,24 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	defer cloudClient.Close()
 
 	if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
-		if params.IsCodeCloudRegionRequired(err) {
-			// try to fetch cloud and region then retry.
-			cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
-			errMsg := `
+		if !params.IsCodeCloudRegionRequired(err) {
+			return errors.Trace(err)
+		}
+		// try to fetch cloud and region then retry.
+		cloudRegion, err := c.getClusterRegion(ctx, newCloud, credential)
+		errMsg := `
 Jaas requires cloud and region information. But it's
 not possible to fetch cluster region in this case, 
-	please use --region to specify the cloud/region manually
+please use --region to specify the cloud/region manually.
 `[1:]
-			if err != nil {
-				return errors.Annotate(err, errMsg)
-			}
-			if cloudRegion == "" {
-				return errors.NewNotValid(nil, errMsg)
-			}
-			newCloud.HostCloudRegion = cloudRegion
-			if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
-				return errors.Trace(err)
-			}
-		} else {
+		if err != nil {
+			return errors.Annotate(err, errMsg)
+		}
+		if cloudRegion == "" {
+			return errors.NewNotValid(nil, errMsg)
+		}
+		newCloud.HostCloudRegion = cloudRegion
+		if err := c.addCloudToControllerWithRegion(cloudClient, newCloud); err != nil {
 			return errors.Trace(err)
 		}
 	}

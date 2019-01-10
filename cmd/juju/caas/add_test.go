@@ -38,7 +38,6 @@ type addCAASSuite struct {
 	fileCredentialStore       *fakeCredentialStore
 	fakeK8SConfigFunc         *clientconfig.ClientConfigFunc
 	currentClusterRegionSet   *set.Strings
-	isCloudRegionRequired     *bool
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -97,7 +96,7 @@ func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string
 type fakeAddCloudAPI struct {
 	*jujutesting.CallMocker
 	caas.AddCloudAPI
-	isCloudRegionRequired *bool
+	isCloudRegionRequired bool
 	authTypes             []cloud.AuthType
 	credentials           []names.CloudCredentialTag
 }
@@ -108,7 +107,7 @@ func (api *fakeAddCloudAPI) Close() error {
 
 func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud) error {
 	api.MethodCall(api, "AddCloud", kloud)
-	if kloud.HostCloudRegion == "" && *api.isCloudRegionRequired {
+	if kloud.HostCloudRegion == "" && api.isCloudRegionRequired {
 		return params.Error{Code: params.CodeCloudRegionRequired}
 	}
 	return nil
@@ -185,10 +184,8 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 
 	var logger loggo.Logger
-	s.isCloudRegionRequired = &[]bool{false}[0]
 	s.fakeCloudAPI = &fakeAddCloudAPI{
-		CallMocker:            jujutesting.NewCallMocker(logger),
-		isCloudRegionRequired: s.isCloudRegionRequired,
+		CallMocker: jujutesting.NewCallMocker(logger),
 		authTypes: []cloud.AuthType{
 			cloud.EmptyAuthType,
 			cloud.AccessKeyAuthType,
@@ -423,7 +420,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c *gc.C) {
-	*s.isCloudRegionRequired = true
+	s.fakeCloudAPI.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 	*s.currentClusterRegionSet = set.NewStrings(cloudRegion)
 
