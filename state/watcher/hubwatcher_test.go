@@ -163,7 +163,7 @@ func (s *HubWatcherSuite) TestWatchKnownRemove(c *gc.C) {
 	change := watcher.Change{"test", "a", -1}
 	s.publish(c, change)
 
-	s.w.Watch("test", "a", 2, s.ch)
+	s.w.WatchAtRevno("test", "a", 2, s.ch)
 	assertChange(c, s.ch, change)
 	assertNoChange(c, s.ch)
 }

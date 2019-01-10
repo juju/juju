@@ -354,7 +354,7 @@ func (s *FastPeriodSuite) TestWatchKnownRemove(c *gc.C) {
 	revno2 := s.remove(c, "test", "a")
 	s.w.StartSync()
 
-	s.w.Watch("test", "a", revno1, s.ch)
+	s.w.WatchAtRevno("test", "a", revno1, s.ch)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
 
 	assertOrder(c, revno2, revno1)
@@ -608,7 +608,7 @@ func (s *FastPeriodSuite) TestNonMutatingTxn(c *gc.C) {
 
 	s.w.StartSync()
 
-	s.w.Watch("test", 1, revno1, chA1)
+	s.w.WatchAtRevno("test", 1, revno1, chA1)
 	s.w.WatchCollection("test", chA)
 
 	revno2 := s.insert(c, "test", "a")
@@ -657,7 +657,7 @@ func (s *SlowPeriodSuite) TestDoubleUpdate(c *gc.C) {
 	revno2 := s.update(c, "test", "a")
 	revno3 := s.update(c, "test", "a")
 
-	s.w.Watch("test", "a", revno2, s.ch)
+	s.w.WatchAtRevno("test", "a", revno2, s.ch)
 	assertNoChange(c, s.ch)
 
 	s.w.StartSync()
@@ -671,7 +671,7 @@ func (s *SlowPeriodSuite) TestWatchPeriod(c *gc.C) {
 	revno1 := s.insert(c, "test", "a")
 	s.w.StartSync()
 	t0 := time.Now()
-	s.w.Watch("test", "a", revno1, s.ch)
+	s.w.WatchAtRevno("test", "a", revno1, s.ch)
 	revno2 := s.update(c, "test", "a")
 
 	leeway := watcher.Period / 4
