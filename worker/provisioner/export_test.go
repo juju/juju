@@ -70,3 +70,11 @@ func SetupToStartMachine(p ProvisionerTask, machine apiprovisioner.MachineProvis
 func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(common.NetworkConfigSource) ([]params.NetworkConfig, error)) {
 	cs.getNetConfig = getNetConf
 }
+
+func ProcessProfileChanges(p ProvisionerTask, ids []string) error {
+	return p.(*provisionerTask).processProfileChanges(ids)
+}
+
+func ProcessOneMachineProfileChanges(m apiprovisioner.MachineProvisioner, profileBroker environs.LXDProfiler) (bool, error) {
+	return processOneMachineProfileChange(m, profileBroker)
+}

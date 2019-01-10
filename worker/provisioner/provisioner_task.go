@@ -375,7 +375,7 @@ func (task *provisionerTask) processProfileChanges(ids []string) error {
 			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
 		}
 		m := mResult.Machine
-		removeDoc, err := task.processOneMachineProfileChange(m, profileBroker)
+		removeDoc, err := processOneMachineProfileChange(m, profileBroker)
 		if removeDoc {
 			if err != nil {
 				logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
@@ -418,7 +418,7 @@ func profileUpgradeNotSupported(machines []apiprovisioner.MachineResult) {
 	}
 }
 
-func (task *provisionerTask) processOneMachineProfileChange(
+func processOneMachineProfileChange(
 	m apiprovisioner.MachineProvisioner,
 	profileBroker environs.LXDProfiler,
 ) (bool, error) {
