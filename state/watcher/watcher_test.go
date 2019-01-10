@@ -701,6 +701,7 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 	s.w.WatchNoRevno("test", "a", s.ch)
 	select {
 	case got := <-s.ch:
+		c.Assert(got.IsDeleted, jc.IsFalse)
 		c.Assert(got.Revno, gc.Equals, revno)
 	case <-time.After(watcher.Period / 2):
 		c.Fatalf("watch after StartSync is still using old info")

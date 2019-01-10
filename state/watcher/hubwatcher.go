@@ -594,7 +594,7 @@ func (w *HubWatcher) queueChange(change Change) {
 		evt := event{
 			ch:        info.ch,
 			key:       key,
-			isDeleted: revno == -1,
+			isDeleted: change.IsDeleted,
 			revno:     revno,
 		}
 		w.syncEvents = append(w.syncEvents, evt)
@@ -610,7 +610,7 @@ func (w *HubWatcher) queueChange(change Change) {
 			evt := event{
 				ch:        info.ch,
 				key:       key,
-				isDeleted: revno == -1,
+				isDeleted: change.IsDeleted,
 				revno:     revno,
 			}
 			w.syncEvents = append(w.syncEvents, evt)
