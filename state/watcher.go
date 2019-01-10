@@ -1714,14 +1714,7 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
-	collection, closer := w.db.GetCollection(coll)
-	revno, err := getTxnRevno(collection, id)
-	closer()
-	if err != nil {
-		return err
-	}
-
-	w.watcher.WatchAtRevno(coll, id, revno, w.in)
+	w.watcher.WatchNoRevno(coll, id, w.in)
 	defer func() {
 		w.watcher.Unwatch(coll, id, w.in)
 		for name := range w.life {
@@ -2154,14 +2147,8 @@ func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
 	for _, k := range docKeys {
-		coll, closer := w.db.GetCollection(k.coll)
-		txnRevno, err := getTxnRevno(coll, k.docId)
-		closer()
-		if err != nil {
-			return err
-		}
-		w.watcher.WatchAtRevno(coll.Name(), k.docId, txnRevno, in)
-		defer w.watcher.Unwatch(coll.Name(), k.docId, in)
+		w.watcher.WatchNoRevno(k.coll, k.docId, in)
+		defer w.watcher.Unwatch(k.coll, k.docId, in)
 	}
 	out := w.out
 	for {
@@ -2296,14 +2283,8 @@ func (w *machineUnitsWatcher) loop() error {
 		}
 	}()
 
-	machines, closer := w.db.GetCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
-	closer()
-	if err != nil {
-		return err
-	}
 	machineCh := make(chan watcher.Change)
-	w.watcher.WatchAtRevno(machinesC, w.machine.doc.DocID, revno, machineCh)
+	w.watcher.WatchNoRevno(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	changes, err := w.updateMachine([]string(nil))
 	if err != nil {
@@ -2376,14 +2357,8 @@ func (w *machineAddressesWatcher) Changes() <-chan struct{} {
 }
 
 func (w *machineAddressesWatcher) loop() error {
-	machines, closer := w.db.GetCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
-	closer()
-	if err != nil {
-		return err
-	}
 	machineCh := make(chan watcher.Change)
-	w.watcher.WatchAtRevno(machinesC, w.machine.doc.DocID, revno, machineCh)
+	w.watcher.WatchNoRevno(machinesC, w.machine.doc.DocID, machineCh)
 	defer w.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
@@ -3134,14 +3109,8 @@ func (w *blockDevicesWatcher) Changes() <-chan struct{} {
 
 func (w *blockDevicesWatcher) loop() error {
 	docID := w.backend.docID(w.machineId)
-	coll, closer := w.db.GetCollection(blockDevicesC)
-	revno, err := getTxnRevno(coll, docID)
-	closer()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	changes := make(chan watcher.Change)
-	w.watcher.WatchAtRevno(blockDevicesC, docID, revno, changes)
+	w.watcher.WatchNoRevno(blockDevicesC, docID, changes)
 	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
 	blockDevices, err := getBlockDevices(w.db, w.machineId)
 	if err != nil {
@@ -3203,15 +3172,8 @@ func (w *migrationActiveWatcher) Changes() <-chan struct{} {
 }
 
 func (w *migrationActiveWatcher) loop() error {
-	collection, closer := w.db.GetCollection(w.collName)
-	revno, err := getTxnRevno(collection, w.id)
-	closer()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	in := make(chan watcher.Change)
-	w.watcher.WatchAtRevno(w.collName, w.id, revno, in)
+	w.watcher.WatchNoRevno(w.collName, w.id, in)
 	defer w.watcher.Unwatch(w.collName, w.id, in)
 
 	out := w.sink
@@ -3862,14 +3824,8 @@ func (w *hashWatcher) start() {
 }
 
 func (w *hashWatcher) loop() error {
-	coll, closer := w.db.GetCollection(w.collection)
-	revno, err := getTxnRevno(coll, w.id)
-	closer()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	changesCh := make(chan watcher.Change)
-	w.watcher.WatchAtRevno(w.collection, w.id, revno, changesCh)
+	w.watcher.WatchNoRevno(w.collection, w.id, changesCh)
 	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
 
 	lastHash, err := w.hash()
