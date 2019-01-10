@@ -168,6 +168,15 @@ func (s *HubWatcherSuite) TestWatchKnownRemove(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
+func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
+	change := watcher.Change{"test", "a", -1}
+	s.publish(c, change)
+
+	s.w.WatchNoRevno("test", "a", s.ch)
+	assertChange(c, s.ch, change)
+	assertNoChange(c, s.ch)
+}
+
 func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	const N = 10
 	for i := 0; i < N; i++ {

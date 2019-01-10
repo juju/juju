@@ -360,6 +360,17 @@ func (s *FastPeriodSuite) TestWatchKnownRemove(c *gc.C) {
 	assertOrder(c, revno2, revno1)
 }
 
+func (s *FastPeriodSuite) TestWatchAlreadyRemoved(c *gc.C) {
+	revno1 := s.insert(c, "test", "a")
+	revno2 := s.remove(c, "test", "a")
+	s.w.StartSync()
+
+	s.w.WatchNoRevno("test", "a", s.ch)
+	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
+
+	assertOrder(c, revno2, revno1)
+}
+
 func (s *FastPeriodSuite) TestScale(c *gc.C) {
 	const N = 500
 	const T = 10

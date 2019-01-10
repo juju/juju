@@ -233,7 +233,7 @@ func (w *Watcher) WatchNoRevno(collection string, id interface{}, ch chan<- Chan
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -1, nil}})
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -2, nil}})
 }
 
 // WatchCollection starts watching the given collection.

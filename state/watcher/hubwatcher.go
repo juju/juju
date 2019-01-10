@@ -240,7 +240,10 @@ func (w *HubWatcher) WatchNoRevno(collection string, id interface{}, ch chan<- C
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -1, nil}})
+	// We use a value of -2 to indicate that we don't know the state of the document.
+	// -1 would indicate that we think the document is deleted (and won't trigger
+	// a change event if the document really is deleted).
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, -2, nil}})
 }
 
 // WatchCollection starts watching the given collection.
