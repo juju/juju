@@ -95,9 +95,9 @@ type AddCAASCommand struct {
 	// clusterName is the name of the cluster (k8s) or credential to import
 	clusterName string
 
-	// cloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
+	// hostCloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
 	// The format is <cloudType/region>
-	cloudRegion string
+	hostCloudRegion string
 
 	// brokerGetter returns caas broker instance.
 	brokerGetter BrokerGetter
@@ -146,7 +146,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
-	f.StringVar(&c.cloudRegion, "region", "", "kubernetes cluster cloud and region")
+	f.StringVar(&c.hostCloudRegion, "region", "", "kubernetes cluster cloud and region")
 }
 
 // Init populates the command with the args from the command line.
@@ -234,7 +234,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 		Endpoint:        currentCloud.Endpoint,
 		AuthTypes:       []jujucloud.AuthType{credential.AuthType()},
 		CACertificates:  []string{cloudCAData},
-		HostCloudRegion: c.cloudRegion,
+		HostCloudRegion: c.hostCloudRegion,
 	}
 
 	cloudClient, err := c.addCloudAPIFunc()
