@@ -703,8 +703,8 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 				Assert: txn.DocExists,
 				Remove: true,
 			})
-		} else if errors.IsNotFound(err) {
-			logger.Tracef("Error getting instance charm profile data for machine %s, %s", m.Id(), err.Error())
+		} else if !errors.IsNotFound(err) {
+			logger.Errorf("Error getting instance charm profile data for machine %s, %s", m.Id(), err.Error())
 		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
