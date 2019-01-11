@@ -470,7 +470,7 @@ func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
 
 	exp := map[string]string{
 		lxd.AutoStartKey: "true",
-		"limits.memory":  "2046MB",
+		"limits.memory":  "2046MiB",
 		"limits.cpu":     "4",
 	}
 	c.Check(spec.Config, gc.DeepEquals, exp)
