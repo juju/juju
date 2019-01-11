@@ -144,7 +144,7 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 // management space name. This is the space that constrains the set of
 // addresses that agents should use for controller communication.
 func (s *ConnSuite) SetJujuManagementSpace(c *gc.C, space string) {
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings", false)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerSettings.Set(controller.JujuManagementSpace, space)
 	_, err = controllerSettings.Write()

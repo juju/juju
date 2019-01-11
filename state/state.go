@@ -780,7 +780,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
+		settings, err := readSettings(st.db(), settingsC, modelGlobalKey, false)
 		if err != nil {
 			return nil, errors.Annotatef(err, "model %q", st.modelTag.Id())
 		}

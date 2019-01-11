@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -400,15 +401,15 @@ func insertGenerationTxnOps(id string) []txn.Op {
 
 // ActiveGeneration returns the active generation for the model.
 func (m *Model) ActiveGeneration() (model.GenerationVersion, error) {
-	v, err := m.st.ActiveGeneration()
+	v, err := m.st.activeGeneration()
 	return v, errors.Trace(err)
 }
 
-// ActiveGeneration returns the active generation for the current model.
+// activeGeneration returns the active generation for the current model.
 // If there is no "next" generation pending completion, or if the generation is
 // not active, then the generation to use for config is "current".
 // Otherwise, the model's "next" generation is active.
-func (st *State) ActiveGeneration() (model.GenerationVersion, error) {
+func (st *State) activeGeneration() (model.GenerationVersion, error) {
 	gen, err := st.NextGeneration()
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -510,4 +511,11 @@ func newGeneration(st *State, doc *generationDoc) *Generation {
 		st:  st,
 		doc: *doc,
 	}
+}
+
+func nextGenConfigKey(key string) string {
+	if !strings.HasSuffix(key, "#next") {
+		key += "#next"
+	}
+	return key
 }

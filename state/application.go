@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
@@ -709,7 +710,17 @@ func (a *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldKey, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
+
+	gen, err := a.st.activeGeneration()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nextGenActive := gen == model.GenerationNext
+
+	oldKey, err := readSettings(a.st.db(), settingsC, a.charmConfigKey(), nextGenActive)
+	if errors.IsNotFound(err) && nextGenActive {
+		oldKey, err = readSettings(a.st.db(), settingsC, a.charmConfigKey(), false)
+	}
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldKey.Map())
@@ -723,10 +734,14 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 
+	newSettingsKey := applicationCharmConfigKey(a.doc.Name, ch.URL())
+	if nextGenActive {
+		newSettingsKey = nextGenConfigKey(newSettingsKey)
+	}
+
 	// Create or replace application settings.
 	var settingsOp txn.Op
-	newSettingsKey := applicationCharmConfigKey(a.doc.Name, ch.URL())
-	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
+	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey, false); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
@@ -2017,17 +2032,26 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 }
 
 func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Settings, error) {
-	settings, err := readSettings(st.db(), settingsC, key)
+	gen, err := st.activeGeneration()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nextGenActive := gen == model.GenerationNext
+
+	settings, err := readSettings(st.db(), settingsC, key, nextGenActive)
+	if errors.IsNotFound(err) && nextGenActive {
+		settings, err = readSettings(st.db(), settingsC, key, false)
+	}
 	if err != nil {
 		return nil, err
 	}
 	result := settings.Map()
 
-	chrm, err := st.Charm(curl)
+	ch, err := st.Charm(curl)
 	if err != nil {
 		return nil, err
 	}
-	result = chrm.Config().DefaultSettings()
+	result = ch.Config().DefaultSettings()
 	for name, value := range settings.Map() {
 		result[name] = value
 	}
@@ -2049,22 +2073,39 @@ func (a *Application) CharmConfig() (charm.Settings, error) {
 // UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
 func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
-	charm, _, err := a.Charm()
+	ch, _, err := a.Charm()
 	if err != nil {
 		return err
 	}
-	changes, err = charm.Config().ValidateSettings(changes)
+	changes, err = ch.Config().ValidateSettings(changes)
 	if err != nil {
 		return err
 	}
+
+	gen, err := a.st.activeGeneration()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	nextGenActive := gen == model.GenerationNext
+
 	// TODO(fwereade) state.Settings is itself really problematic in just
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
+	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey(), nextGenActive)
+
+	// If there next generation config does not exist, use the current
+	// generation config to create a new document for the next generation.
+	if errors.IsNotFound(err) && nextGenActive {
+		node, err = readSettings(a.st.db(), settingsC, a.charmConfigKey(), false)
+		if err == nil {
+			node, err = createSettings(a.st.db(), settingsC, nextGenConfigKey(node.key), node.Map())
+		}
+	}
 	if err != nil {
 		return errors.Annotatef(err, "charm config for application %q", a.doc.Name)
 	}
+
 	for name, value := range changes {
 		if value == nil {
 			node.Delete(name)
@@ -2078,13 +2119,27 @@ func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 
 // ApplicationConfig returns the configuration for the application itself.
 func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) {
-	config, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
-	if errors.IsNotFound(err) || len(config.Keys()) == 0 {
+	gen, err := a.st.activeGeneration()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nextGenActive := gen == model.GenerationNext
+
+	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey(), nextGenActive)
+
+	// If there is nothing found and we are looking for next generation config,
+	// There might have been no change made yet under the next generation.
+	// Get the current generation config instead.
+	if errors.IsNotFound(err) && nextGenActive {
+		cfg, err = readSettings(a.st.db(), settingsC, a.applicationConfigKey(), false)
+	}
+	if errors.IsNotFound(err) || len(cfg.Keys()) == 0 {
 		return application.ConfigAttributes(nil), nil
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
+		return nil, errors.Annotatef(err, "application config for %q", a.doc.Name)
 	}
-	return application.ConfigAttributes(config.Map()), nil
+
+	return application.ConfigAttributes(cfg.Map()), nil
 }
 
 // UpdateApplicationConfig changes an application's config settings.
@@ -2095,11 +2150,28 @@ func (a *Application) UpdateApplicationConfig(
 	schema environschema.Fields,
 	defaults schema.Defaults,
 ) error {
-	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
+	gen, err := a.st.activeGeneration()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	nextGenActive := gen == model.GenerationNext
+
+	// If we are updating application config for the next generation,
+	// and no such config exists, attempt to create the document based on the
+	// current generation config.
+	db := a.st.db()
+	node, err := readSettings(db, settingsC, a.applicationConfigKey(), nextGenActive)
+	if errors.IsNotFound(err) && nextGenActive {
+		node, err = readSettings(db, settingsC, a.applicationConfigKey(), false)
+		if err != nil {
+			node, err = createSettings(db, settingsC, nextGenConfigKey(node.key), node.Map())
+		}
+	}
+
 	if errors.IsNotFound(err) {
-		return errors.Errorf("cannot update application config since no config exists for application %v", a.doc.Name)
+		return errors.Errorf("cannot update application config since no config exists for %q", a.doc.Name)
 	} else if err != nil {
-		return errors.Annotatef(err, "application config for application %q", a.doc.Name)
+		return errors.Annotatef(err, "application config for %q", a.doc.Name)
 	}
 	resetKeys := set.NewStrings(reset...)
 	for name, value := range changes {

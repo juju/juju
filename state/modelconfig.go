@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/controller"
@@ -21,11 +22,18 @@ var disallowedModelConfigAttrs = [...]string{
 
 // ModelConfig returns the complete config for the model
 func (m *Model) ModelConfig() (*config.Config, error) {
-	return getModelConfig(m.st.db(), m.UUID())
+	gen, err := m.ActiveGeneration()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return getModelConfig(m.st.db(), m.UUID(), gen == model.GenerationNext)
 }
 
-func getModelConfig(db Database, uuid string) (*config.Config, error) {
-	modelSettings, err := readSettings(db, settingsC, modelGlobalKey)
+func getModelConfig(db Database, uuid string, useNextGenKey bool) (*config.Config, error) {
+	modelSettings, err := readSettings(db, settingsC, modelGlobalKey, useNextGenKey)
+	if errors.IsNotFound(err) && useNextGenKey {
+		modelSettings, err = readSettings(db, settingsC, modelGlobalKey, false)
+	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "model %q", uuid)
 	}
@@ -77,7 +85,7 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 
 // modelConfigValues returns the values and source for the supplied model config
 // when combined with controller and Juju defaults.
-func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
+func (m *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
 	resultValues := make(attrValues)
 	for k, v := range modelCfg {
 		resultValues[k] = v
@@ -85,11 +93,11 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 
 	// Read all of the current inherited config values so
 	// we can dynamically reflect the origin of the model config.
-	rspec, err := model.st.regionSpec()
+	rspec, err := m.st.regionSpec()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configSources := modelConfigSources(model.st, rspec)
+	configSources := modelConfigSources(m.st, rspec)
 	sourceNames := make([]string, 0, len(configSources))
 	sourceAttrs := make([]attrValues, 0, len(configSources))
 	for _, src := range configSources {
@@ -137,7 +145,9 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec) error {
+func (m *Model) UpdateModelConfigDefaultValues(
+	attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec,
+) error {
 	var key string
 
 	if regionSpec != nil {
@@ -145,15 +155,20 @@ func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{},
 	} else {
 		key = controllerInheritedSettingsGlobalKey
 	}
-	settings, err := readSettings(model.st.db(), globalSettingsC, key)
+
+	gen, err := m.ActiveGeneration()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settings, err := readSettings(m.st.db(), globalSettingsC, key, gen == model.GenerationNext)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "model %q", model.UUID())
+			return errors.Annotatef(err, "model %q", m.UUID())
 		}
 		// We haven't created settings for this region yet.
-		_, err := createSettings(model.st.db(), globalSettingsC, key, attrs)
+		_, err := createSettings(m.st.db(), globalSettingsC, key, attrs)
 		if err != nil {
-			return errors.Annotatef(err, "model %q", model.UUID())
+			return errors.Annotatef(err, "model %q", m.UUID())
 		}
 		return nil
 	}
@@ -313,7 +328,11 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 	// been a concurrent update, the change may not be what
 	// the user asked for.
 
-	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
+	gen, err := m.ActiveGeneration()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey, gen == model.GenerationNext)
 	if err != nil {
 		return errors.Annotatef(err, "model %q", m.UUID())
 	}
@@ -398,7 +417,7 @@ func (st *State) defaultInheritedConfig() (attrValues, error) {
 // controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
 func (st *State) controllerInheritedConfig() (attrValues, error) {
-	settings, err := readSettings(st.db(), globalSettingsC, controllerInheritedSettingsGlobalKey)
+	settings, err := readSettings(st.db(), globalSettingsC, controllerInheritedSettingsGlobalKey, false)
 	if err != nil {
 		return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
 	}
@@ -422,10 +441,8 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 		}
 	}
 	return func() (attrValues, error) {
-		settings, err := readSettings(st.db(),
-			globalSettingsC,
-			regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region),
-		)
+		settings, err := readSettings(
+			st.db(), globalSettingsC, regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region), false)
 		if err != nil {
 			return nil, errors.Annotatef(err, "region %q on %q cloud", regionSpec.Region, regionSpec.Cloud)
 		}

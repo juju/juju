@@ -311,12 +311,17 @@ func readSettingsDocInto(db Database, collection, key string, out interface{}) e
 }
 
 // ReadSettings returns the settings for the given key.
-func (st *State) ReadSettings(collection, key string) (*Settings, error) {
-	return readSettings(st.db(), collection, key)
+func (st *State) ReadSettings(collection, key string, useNextGenKey bool) (*Settings, error) {
+	return readSettings(st.db(), collection, key, useNextGenKey)
 }
 
 // readSettings returns the Settings for key.
-func readSettings(db Database, collection, key string) (*Settings, error) {
+// If useNextGenKey is true, the input key is decorated in order to retrieve
+// the config for the next generation.
+func readSettings(db Database, collection, key string, useNextGenKey bool) (*Settings, error) {
+	if useNextGenKey {
+		key = nextGenConfigKey(key)
+	}
 	s := newSettings(db, collection, key)
 	if err := s.Read(); err != nil {
 		return nil, err
@@ -391,11 +396,15 @@ func listSettings(backend modelBackend, collection, keyPrefix string) (map[strin
 }
 
 // replaceSettingsOp returns a txn.Op that deletes the document's contents and
-// replaces it with the supplied values, and a function that should be called on
-// txn failure to determine whether this operation failed (due to a concurrent
+// replaces it with the supplied values, and a function that should be called
+// on txn failure to determine whether this operation failed (due to a concurrent
 // settings change).
-func replaceSettingsOp(db Database, collection, key string, values map[string]interface{}) (txn.Op, func() (bool, error), error) {
-	s, err := readSettings(db, collection, key)
+// It is assumed that the input key already to conforms to the correct one for
+// the active model generation.
+func replaceSettingsOp(
+	db Database, collection, key string, values map[string]interface{},
+) (txn.Op, func() (bool, error), error) {
+	s, err := readSettings(db, collection, key, false)
 	if err != nil {
 		return txn.Op{}, nil, err
 	}
@@ -409,7 +418,7 @@ func replaceSettingsOp(db Database, collection, key string, values map[string]in
 	op := s.assertUnchangedOp()
 	op.Update = setUnsetUpdateSettings(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
-		latest, err := readSettings(db, collection, key)
+		latest, err := readSettings(db, collection, key, false)
 		if err != nil {
 			return false, err
 		}
@@ -472,7 +481,7 @@ func (s *StateSettings) CreateSettings(key string, settings map[string]interface
 
 // ReadSettings exposes readSettings on state for use outside the state package.
 func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error) {
-	if settings, err := readSettings(s.backend.db(), s.collection, key); err != nil {
+	if settings, err := readSettings(s.backend.db(), s.collection, key, false); err != nil {
 		return nil, err
 	} else {
 		return settings.Map(), nil

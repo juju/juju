@@ -23,7 +23,7 @@ var _ = gc.Suite(&ControllerSuite{})
 func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 	// Test setup has created model using a fully populated environs.Config.
 	// This test ensure that the controller specific attributes have been separated out.
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings", false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	optional := set.NewStrings(

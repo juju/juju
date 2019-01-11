@@ -452,7 +452,7 @@ func watchRelationScope(
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	s, err := readSettings(ru.st.db(), settingsC, ru.key())
+	s, err := readSettings(ru.st.db(), settingsC, ru.key(), false)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q", ru.unitName)
 	}
@@ -475,7 +475,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	node, err := readSettings(ru.st.db(), settingsC, key)
+	node, err := readSettings(ru.st.db(), settingsC, key, false)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q", uname)
 	}

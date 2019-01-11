@@ -219,7 +219,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey)
+	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey, false)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedTags := map[string]string{"a": "b", "c": "d"}
 	tagsStr := config.CoerceForStorage(modelSettings.Map())["resource-tags"].(string)
@@ -278,7 +278,8 @@ func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
 	}
 	s.ConnSuite.SetUpTest(c)
 
-	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	localControllerSettings, err := s.State.ReadSettings(
+		state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey, false)
 	c.Assert(err, jc.ErrorIsNil)
 	localControllerSettings.Set("apt-mirror", "http://mirror")
 	_, err = localControllerSettings.Write()
@@ -304,7 +305,8 @@ func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 
 	// Change the local controller settings and ensure the model setting stays the same.
-	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	localControllerSettings, err := s.State.ReadSettings(
+		state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey, false)
 	c.Assert(err, jc.ErrorIsNil)
 	localControllerSettings.Set("apt-mirror", "http://anothermirror")
 	_, err = localControllerSettings.Write()
@@ -341,7 +343,8 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
 
 	// Change the local controller settings and ensure the model setting stays the same.
-	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	localCloudSettings, err := s.State.ReadSettings(
+		state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey, false)
 	c.Assert(err, jc.ErrorIsNil)
 	localCloudSettings.Set("apt-mirror", "http://anothermirror")
 	_, err = localCloudSettings.Write()

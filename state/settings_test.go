@@ -30,7 +30,7 @@ func (s *SettingsSuite) createSettings(key string, values map[string]interface{}
 }
 
 func (s *SettingsSuite) readSettings() (*Settings, error) {
-	return readSettings(s.state.db(), s.collection, s.key)
+	return readSettings(s.state.db(), s.collection, s.key, false)
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *gc.C) {
@@ -100,7 +100,8 @@ func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
 	nodeOne.Update(optionsOld)
-	nodeOne.Write()
+	_, err = nodeOne.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	nodeTwo.Update(optionsOld)
 	changes, err := nodeTwo.Write()

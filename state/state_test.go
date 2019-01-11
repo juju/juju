@@ -1518,7 +1518,8 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
-	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	inconfig, err := application.NewConfig(
+		application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress, err := s.State.AddApplication(

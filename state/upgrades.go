@@ -1460,7 +1460,7 @@ func MoveMongoSpaceToHASpaceConfig(pool *StatePool) error {
 
 	mongoSpace := doc.MongoSpaceName
 	if doc.MongoSpaceState == "valid" && mongoSpace != "" {
-		settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+		settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey, false)
 		if err != nil {
 			return errors.Annotate(err, "cannot get controller config")
 		}
