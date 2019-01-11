@@ -47,8 +47,14 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cores=4",
-		itype:  "a1.xlarge",
+		itype:  "t3.xlarge",
 		image:  "ami-00000133",
+	}, {
+		series: "bionic",
+		arches: []string{"arm64"},
+		cons:   "cores=4",
+		itype:  "a1.xlarge",
+		image:  "ami-00002133",
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},

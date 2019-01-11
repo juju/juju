@@ -77,7 +77,7 @@ func (s *InstanceTypesSuite) TestRegionInstanceTypesAvailability(c *gc.C) {
 			"m5a.12xlarge", "m5a.24xlarge", "m5a.2xlarge", "m5a.4xlarge", "m5a.large", "m5a.xlarge",
 			"p2.16xlarge", "p2.8xlarge", "p2.xlarge",
 			"p3.16xlarge", "p3.2xlarge", "p3.8xlarge",
-			"r5a.12xlarge", "r5a.24xlarge", "r5a.2xlarge", "r5a.4xlarge", "r5a.large", "r5a.xlarge",
+			"p3dn.24xlarge", "r5a.12xlarge", "r5a.24xlarge", "r5a.2xlarge", "r5a.4xlarge", "r5a.large", "r5a.xlarge",
 			"x1.16xlarge", "x1.32xlarge",
 			"x1e.16xlarge", "x1e.2xlarge", "x1e.32xlarge", "x1e.4xlarge", "x1e.8xlarge", "x1e.xlarge",
 		},
