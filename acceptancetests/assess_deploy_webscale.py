@@ -32,6 +32,10 @@ from jujucharm import (
     local_charm_path,
 )
 from jujupy.utility import until_timeout
+from reporting import (
+    reportingClient,
+    makeMetrics,
+)
 
 __metaclass__ = type
 
@@ -121,6 +125,11 @@ def parse_args(argv):
         help="Override default module to extract",
         default="juju.state.txn",
     )
+    parser.add_argument(
+        '--git-sha',
+        help="Help the reporting metrics by supplying a git SHA",
+        default="",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -139,13 +148,23 @@ def main(argv=None):
         raw_logs = extract_module_logs(client, module=args.logging_module)
         timings = extract_txn_timings(raw_logs, module=args.logging_module)
         # Calculate the timings to forward to the datastore
-        total_time = calculate_total_time(timings)
-        total_txns = len(timings)
-        max_time = calculate_max_time(timings)
-        since = (time.time() - begin)
+        metrics = makeMetrics(
+            calculate_total_time(timings),
+            len(timings),
+            calculate_max_time(timings),
+            (time.time() - begin),
+        )
 
-        log.info("The timings for deployment: total txn time: {}, total nums txn: {}, max txn time: {}, max time (seconds): {}".format(total_time, total_txns, max_time, since))
+        log.info("Metrics for deployment: {}".format(metrics))
+
+        rclient = reportingClient()
+        rclient.report(metrics, tags={
+            "git-sha": args.git_sha,
+            "charm-bundle": args.charm_bundle,
+        })
+        log.info("Metrics successfully sent to report storage")
     return 0
 
 if __name__ == '__main__':
     sys.exit(main())
+
