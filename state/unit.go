@@ -2080,6 +2080,13 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
+	return u.assignToNewMachine("")
+}
+
+// assignToNewMachine assigns the unit to a new machine with the
+// optional placement directive, with constraints determined according
+// to the application and model constraints at the time of unit creation.
+func (u *Unit) assignToNewMachine(placement string) error {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -2109,6 +2116,8 @@ func (u *Unit) AssignToNewMachine() (err error) {
 			Series:                u.doc.Series,
 			Constraints:           *cons,
 			Jobs:                  []MachineJob{JobHostUnits},
+			Placement:             placement,
+			Dirty:                 placement != "",
 			Volumes:               storageParams.volumes,
 			VolumeAttachments:     storageParams.volumeAttachments,
 			Filesystems:           storageParams.filesystems,
