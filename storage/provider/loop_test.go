@@ -85,6 +85,7 @@ func (s *loopSuite) TestScope(c *gc.C) {
 func (s *loopSuite) loopVolumeSource(c *gc.C) (storage.VolumeSource, *provider.MockDirFuncs) {
 	s.commands = &mockRunCommand{c: c}
 	return provider.LoopVolumeSource(
+		c.MkDir(),
 		s.storageDir,
 		s.commands.run,
 	)

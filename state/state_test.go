@@ -1831,34 +1831,6 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestAssignUnitWithPlacementAddCharmProfile(c *gc.C) {
-	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	name := "lxd-profile"
-	charm := state.AddTestingCharmForSeries(c, s.State, "xenial", name)
-	application := s.AddTestingApplication(c, name, charm)
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.AssignUnitWithPlacement(unit,
-		&instance.Placement{
-			instance.MachineScope, machine.Id(),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	chAppName, err := machine.UpgradeCharmProfileApplication()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chAppName, gc.Equals, name)
-	chCharmURL, err := machine.UpgradeCharmProfileCharmURL()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chCharmURL, gc.Equals, charm.URL().String())
-}
-
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
 	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

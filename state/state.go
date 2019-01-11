@@ -1647,7 +1647,15 @@ func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placeme
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
-	m, err := st.addMachineWithPlacement(unit, placement)
+	data, err := st.parsePlacement(placement)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if data.placementType() == directivePlacement {
+		return unit.assignToNewMachine(data.directive)
+	}
+
+	m, err := st.addMachineWithPlacement(unit, data)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1702,15 +1710,10 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 
 // addMachineWithPlacement finds a machine that matches the given
 // placement directive for the given unit.
-func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement) (*Machine, error) {
+func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, err
-	}
-
-	data, err := st.parsePlacement(placement)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	// Create any new machine marked as dirty so that
@@ -1760,15 +1763,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		}
 		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
-		// If a placement directive is to be used, do that here.
-		template := MachineTemplate{
-			Series:      unit.Series(),
-			Jobs:        []MachineJob{JobHostUnits},
-			Dirty:       true,
-			Constraints: *unitCons,
-			Placement:   data.directive,
-		}
-		return st.AddOneMachine(template)
+		return nil, errors.NotSupportedf("programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
 	default:
 		// Otherwise use an existing machine.
 		if err = st.maybeApplyCharmProfileToMachine(unit, machine); err != nil {

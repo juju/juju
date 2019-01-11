@@ -23,6 +23,7 @@ type tmpfsSuite struct {
 	testing.BaseSuite
 	storageDir string
 	commands   *mockRunCommand
+	fakeEtcDir string
 
 	callCtx context.ProviderCallContext
 }
@@ -33,6 +34,7 @@ func (s *tmpfsSuite) SetUpTest(c *gc.C) {
 	}
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
+	s.fakeEtcDir = c.MkDir()
 	s.callCtx = context.NewCloudCallContext()
 }
 
@@ -86,6 +88,7 @@ func (s *tmpfsSuite) TestScope(c *gc.C) {
 func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.TmpfsFilesystemSource(
+		s.fakeEtcDir,
 		s.storageDir,
 		s.commands.run,
 	)
@@ -276,10 +279,10 @@ func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *gc.C) {
 
 func (s *tmpfsSuite) TestDetachFilesystems(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, true)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, "")
 }
 
 func (s *tmpfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, false)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, false, s.fakeEtcDir, "")
 }
