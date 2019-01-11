@@ -285,9 +285,8 @@ func (s *lxdFilesystemSource) createFilesystem(
 	}
 
 	filesystem := storage.Filesystem{
-		arg.Tag,
-		names.VolumeTag{},
-		storage.FilesystemInfo{
+		Tag: arg.Tag,
+		FilesystemInfo: storage.FilesystemInfo{
 			FilesystemId: filesystemId,
 			Size:         arg.Size,
 		},
