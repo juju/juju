@@ -277,7 +277,7 @@ func (s *lxdFilesystemSource) createFilesystem(
 		// by LXD. Ideally LXD would be able to tell us the total size of
 		// the filesystem on which the directory was created, though.
 	default:
-		config["size"] = fmt.Sprintf("%dMB", arg.Size)
+		config["size"] = fmt.Sprintf("%dMiB", arg.Size)
 	}
 
 	if err := s.env.server.CreateVolume(cfg.lxdPool, volumeName, config); err != nil {
