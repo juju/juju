@@ -3,6 +3,7 @@
 
     1. deploying kubernetes core and asserting it is `healthy`
     2. inspect the logs to parse timings from trace logs
+    3. send timings to the reporting client
 """
 
 from __future__ import print_function
@@ -130,6 +131,11 @@ def parse_args(argv):
         help="Help the reporting metrics by supplying a git SHA",
         default="",
     )
+    parser.add_argument(
+        '--reporting-uri',
+        help="Reporting uri for sending the metrics to.",
+        default="http://root:root@localhost:8086",
+    )
     add_basic_testing_arguments(parser, existing=False)
     # Override the default logging_config default value set by adding basic
     # testing arguments. This way we can have a default value for all tests,
@@ -157,7 +163,7 @@ def main(argv=None):
 
         log.info("Metrics for deployment: {}".format(metrics))
 
-        rclient = reportingClient()
+        rclient = reportingClient(args.reporting_uri)
         rclient.report(metrics, tags={
             "git-sha": args.git_sha,
             "charm-bundle": args.charm_bundle,
