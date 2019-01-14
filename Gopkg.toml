@@ -127,7 +127,7 @@
 
 [[constraint]]
   name = "github.com/lxc/lxd"
-  revision = "d0d66b4842f459c6c3e039a9e2f25eff02174ab1"
+  revision = "41a8bcbff8f12cb7861588bf881d6e3502581b43"
 
 [[constraint]]
   name = "github.com/oracle/oci-go-sdk"
