@@ -313,6 +313,10 @@
   name = "github.com/juju/loggo"
   revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
 
+[[override]]
+  name = "github.com/juju/lru"
+  revision = "305dec07bf2f69353bb05fa849e2a0834e220f94"
+
 [[constraint]]
   name = "github.com/juju/persistent-cookiejar"
   revision = "d67418f14c93a698e37b52468958d5d4dcf8a7dd"
@@ -339,7 +343,7 @@
 
 [[constraint]]
   name = "github.com/juju/txn"
-  revision = "f08211fa34f20cae79efd3dde0f54c77238292c3"
+  revision = "79cdf4663070226316f3bc6c66de7babbb3fb899"
 
 [[override]]
   name = "github.com/juju/usso"

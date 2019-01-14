@@ -577,6 +577,13 @@
   revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
 
 [[projects]]
+  digest = "1:8d1ee4a52b3d31b061d381552b5b31aa73f5c8cf96d8ce2322e0715ac47c87f0"
+  name = "github.com/juju/lru"
+  packages = ["."]
+  pruneopts = ""
+  revision = "305dec07bf2f69353bb05fa849e2a0834e220f94"
+
+[[projects]]
   branch = "master"
   digest = "1:865ef977d949d745f5c01bce1a2eb8580ecbb46054feae767f7112321f020eb9"
   name = "github.com/juju/mempool"
@@ -719,14 +726,14 @@
   revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
 
 [[projects]]
-  digest = "1:273673a748dc477c8e31ad23457f2d60a9629291b6a3e92eee6533d52689a110"
+  digest = "1:4857e53a05abe24af8487f892dc316449de7f350c462081560d4e223a6616f3d"
   name = "github.com/juju/txn"
   packages = [
     ".",
     "testing",
   ]
   pruneopts = ""
-  revision = "f08211fa34f20cae79efd3dde0f54c77238292c3"
+  revision = "79cdf4663070226316f3bc6c66de7babbb3fb899"
 
 [[projects]]
   digest = "1:cf637806c17846b1660d388cfbee501ed64734526fe2e6176f16f9cd950e7c62"
